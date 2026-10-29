@@ -83,6 +83,7 @@ interface Strings {
         readonly staffHasFutureWork: string;
         readonly broadcastAddressMissing: string;
         readonly broadcastContactMissing: string;
+        readonly noMobileNumber: string;
         readonly slugInvalid: string;
         readonly slugReserved: string;
         readonly slugTaken: string;
@@ -1797,6 +1798,7 @@ interface Strings {
             readonly call: string;
             readonly text: string;
             readonly textsStopped: (when: string) => string;
+            readonly textsStoppedByClient: (when: string) => string;
             readonly inProgress: string;
             readonly depositDue: (amount: string) => string;
             readonly depositPaid: (amount: string) => string;
@@ -2189,6 +2191,9 @@ interface Strings {
         ];
         readonly textsOffTitle: (name: string) => string;
         readonly textsOffBody: string;
+        readonly textsOffBodyByClient: string;
+        readonly sharedNumber: (names: string) => string;
+        readonly manyTexts: (segments: number) => string;
         readonly textsOffShort: string;
         readonly details: string;
         readonly openRecord: string;
@@ -2210,6 +2215,7 @@ interface Strings {
         readonly cancel: string;
         readonly selectClient: string;
         readonly writeMessage: string;
+        readonly tooLong: (max: number, count: number) => string;
         readonly sendError: string;
         readonly notDelivered: string;
     };
@@ -2244,6 +2250,7 @@ interface Strings {
             readonly opted_out: string;
             readonly no_consent: string;
             readonly no_contact: string;
+            readonly shared_number: string;
         } & Labels;
         readonly leftOutHelp: string;
         readonly previewLabel: string;

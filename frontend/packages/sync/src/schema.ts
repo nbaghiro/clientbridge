@@ -73,6 +73,7 @@ const consents = new Table(
         source: column.text,
         recorded_by: column.text,
         expires_at: column.text,
+        phone: column.text,
         business_id: column.text,
         created_at: column.text,
         updated_at: column.text,
@@ -83,6 +84,7 @@ const consents = new Table(
             consents_client: ["client_id", "created_at"],
             consents_client_id: ["client_id"],
             consents_recorded_by: ["recorded_by"],
+            consents_reply_phone: ["phone"],
         },
     },
 );

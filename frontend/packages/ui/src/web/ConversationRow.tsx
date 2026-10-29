@@ -1,4 +1,5 @@
 import type { ConversationRowProps } from "@clientbridge/app-core/public";
+import { useEffect, useRef } from "react";
 
 import { Avatar } from "./Avatar";
 import { Badge } from "./Badge";
@@ -16,8 +17,14 @@ export function ConversationRow({
     className,
 }: WebProps<ConversationRowProps>) {
     const bold = unread > 0;
+    const row = useRef<HTMLButtonElement>(null);
+    // a conversation opened from elsewhere may sit far down the list
+    useEffect(() => {
+        if (selected) row.current?.scrollIntoView({ block: "nearest" });
+    }, [selected]);
     return (
         <button
+            ref={row}
             type="button"
             onClick={onPress}
             aria-current={selected ? true : undefined}

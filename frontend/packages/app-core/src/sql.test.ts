@@ -2312,6 +2312,40 @@ describe("app-core SQL against the replica schema", () => {
         expect(run("DEVICE_PREF_SQL", ["search.recent"])).toEqual([{ value: '["ann"]' }]);
     });
 
+    it("names the other active clients of the business on a client's number", () => {
+        scoped("clients", [
+            { id: "cl_sh_b", name: "bea", phone: "+16045550001", status: "active" },
+            { id: "cl_sh_a", name: "Al", phone: "+16045550001", status: "active" },
+            { id: "cl_sh_off", name: "Old", phone: "+16045550001", status: "inactive" },
+            {
+                id: "cl_sh_gone",
+                name: "Gone",
+                phone: "+16045550001",
+                status: "active",
+                deleted_at: TS,
+            },
+            { id: "cl_sh_none", name: "Nobody", phone: null, status: "active" },
+            { id: "cl_sh_blank", name: "Blank", phone: "", status: "active" },
+            { id: "cl_sh_blank2", name: "Blank too", phone: "", status: "active" },
+        ]);
+        insert("clients", [
+            {
+                id: "cl_sh_far",
+                business_id: "bz_other",
+                name: "Far",
+                phone: "+16045550001",
+                status: "active",
+                created_at: TS,
+            },
+        ]);
+        expect(run("SHARED_NUMBER_SQL", ["cl_ann"])).toEqual([{ name: "Al" }, { name: "bea" }]);
+        expect(run("SHARED_NUMBER_SQL", ["cl_sh_a"])).toEqual([{ name: "Ann" }, { name: "bea" }]);
+        expect(run("SHARED_NUMBER_SQL", ["cl_sh_none"])).toEqual([]);
+        expect(run("SHARED_NUMBER_SQL", ["cl_sh_blank"])).toEqual([]);
+        expect(run("SHARED_NUMBER_SQL", ["cl_ben"])).toEqual([]);
+        db.run("DELETE FROM clients WHERE id LIKE 'cl_sh_%'");
+    });
+
     it("reads consent, the broadcast audience and broadcast results", () => {
         scoped("consents", [
             {
@@ -2335,42 +2369,61 @@ describe("app-core SQL against the replica schema", () => {
                 "status",
             ),
         ).toEqual([{ status: "withdrawn" }]);
+        const reply = (id: string, client: string, status: string, at: string) => ({
+            id,
+            client_id: client,
+            status,
+            source: "reply",
+            phone: "+16045550001",
+            created_at: at,
+        });
         scoped("consents", [
-            {
-                id: "cns_s1",
-                client_id: "cl_ben",
-                status: "withdrawn",
-                source: "reply",
-                created_at: "2026-06-20T08:00:00Z",
-            },
+            reply("cns_s1", "cl_ann", "withdrawn", "2026-06-20T08:00:00Z"),
             {
                 id: "cns_s2",
-                client_id: "cl_ben",
+                client_id: "cl_ann",
                 status: "granted",
                 source: "in_person",
                 created_at: "2026-06-21T08:00:00Z",
             },
         ]);
         expect(run("TEXTS_STOPPED_SQL")).toEqual([
-            { client_id: "cl_ben", created_at: "2026-06-20T08:00:00Z" },
+            { client_id: "cl_ann", created_at: "2026-06-20T08:00:00Z", own: 0 },
+            { client_id: "cl_ann", created_at: "2026-06-20T08:00:00Z", own: 1 },
         ]);
-        expect(run("CLIENT_TEXT_REPLY_SQL", ["cl_ben"])).toEqual([
-            { status: "withdrawn", created_at: "2026-06-20T08:00:00Z" },
+        expect(run("CLIENT_TEXTS_STOPPED_SQL", ["cl_ann"])).toEqual([
+            { created_at: "2026-06-20T08:00:00Z", own: 1 },
+        ]);
+        scoped("consents", [reply("cns_s3", "cl_ann", "granted", "2026-06-22T08:00:00Z")]);
+        expect(run("TEXTS_STOPPED_SQL")).toEqual([]);
+        expect(run("CLIENT_TEXTS_STOPPED_SQL", ["cl_ann"])).toEqual([]);
+        scoped("clients", [{ id: "cl_ann_spouse", name: "Sam", phone: "+16045550001" }]);
+        scoped("consents", [reply("cns_s4", "cl_ann", "withdrawn", "2026-06-23T08:00:00Z")]);
+        expect(run("CLIENT_TEXTS_STOPPED_SQL", ["cl_ann_spouse"])).toEqual([
+            { created_at: "2026-06-23T08:00:00Z", own: 0 },
+        ]);
+        expect(run("CLIENT_TEXTS_STOPPED_SQL", ["cl_ben"])).toEqual([]);
+        db.run("UPDATE clients SET phone = '+16045550009' WHERE id = 'cl_ann'");
+        expect(run("TEXTS_STOPPED_SQL")).toEqual([
+            { client_id: "cl_ann_spouse", created_at: "2026-06-23T08:00:00Z", own: 0 },
+            { client_id: "cl_ann", created_at: "2026-06-23T08:00:00Z", own: 1 },
+        ]);
+        scoped("consents", [reply("cns_s5", "cl_ann_spouse", "granted", "2026-06-24T08:00:00Z")]);
+        expect(run("TEXTS_STOPPED_SQL")).toEqual([
+            { client_id: "cl_ann", created_at: "2026-06-23T08:00:00Z", own: 1 },
         ]);
         scoped("consents", [
             {
-                id: "cns_s3",
-                client_id: "cl_ben",
-                status: "granted",
-                source: "reply",
-                created_at: "2026-06-22T08:00:00Z",
+                ...reply("cns_s6", "cl_ann", "granted", "2026-06-25T08:00:00Z"),
+                phone: "+16045550009",
             },
         ]);
         expect(run("TEXTS_STOPPED_SQL")).toEqual([]);
-        expect(run("CLIENT_TEXT_REPLY_SQL", ["cl_ben"])).toEqual([
-            { status: "granted", created_at: "2026-06-22T08:00:00Z" },
-        ]);
-        db.run("DELETE FROM consents WHERE id IN ('cns_s1', 'cns_s2', 'cns_s3')");
+        db.run("UPDATE clients SET phone = '+16045550001' WHERE id = 'cl_ann'");
+        db.run(
+            "DELETE FROM consents WHERE id IN ('cns_s1', 'cns_s2', 'cns_s3', 'cns_s4', 'cns_s5', 'cns_s6')",
+        );
+        db.run("DELETE FROM clients WHERE id = 'cl_ann_spouse'");
         expect(run("AUDIENCE_CLIENTS_SQL").map((r) => r.id)).toEqual(["cl_ann", "cl_ben"]);
         scoped("broadcasts", [
             {

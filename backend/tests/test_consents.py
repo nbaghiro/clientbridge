@@ -11,7 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.models.clients import Client, Consent
-from clientbridge.services.consents import record_consent
+from clientbridge.schemas.messaging import BroadcastAudience
+from clientbridge.services.consents import record_consent, set_marketing_consent, stopped_clients
 from clientbridge.services.messaging import broadcast_recipients
 from tests.conftest import Factory, FakeSmsSender
 from tests.google_business import configure_google_review_profile
@@ -111,7 +112,7 @@ async def test_implied_consent_lapses(db: AsyncSession) -> None:
         recorded_by=None,
         expires_at=clock.now() - timedelta(days=1),
     )
-    recipients, _ = await broadcast_recipients(db, BIZ, {"all": True})
+    recipients, _ = await broadcast_recipients(db, BIZ, BroadcastAudience(all=True))
     assert cid not in {client.id for client, _ in recipients}
 
 
@@ -171,7 +172,7 @@ async def test_an_older_staff_grant_cannot_outrank_a_stop(
     cid = await _client(db)
     await _text_in(as_owner, "STOP", "SM_sticky_2")
     await record_consent(db, BIZ, cid, status="granted", source="in_person", recorded_by=None)
-    recipients, _ = await broadcast_recipients(db, BIZ, {"all": True})
+    recipients, _ = await broadcast_recipients(db, BIZ, BroadcastAudience(all=True))
     assert cid not in {client.id for client, _ in recipients}
     blocked = await as_owner.post("/v1/messages", json={"client_id": cid, "body": "Back?"})
     assert blocked.status_code == 409
@@ -179,3 +180,19 @@ async def test_an_older_staff_grant_cannot_outrank_a_stop(
 
 
 pytestmark = pytest.mark.usefixtures("google_review_provider")
+
+
+async def test_a_client_who_replied_stop_from_an_old_number_stays_off_every_send(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await _client(db)
+    await record_consent(db, BIZ, cid, status="granted", source="form", recorded_by=None)
+    await _text_in(as_owner, "STOP", "SM_old_number")
+    await db.execute(update(Client).where(Client.id == cid).values(phone="+16045550878"))
+    assert cid in await stopped_clients(db, BIZ, [cid])
+    await set_marketing_consent(db, BIZ, cid, agreed=True, recorded_by=None)
+    assert (await _consents(db, cid))[-1] == ("withdrawn", "reply")
+    recipients, _ = await broadcast_recipients(db, BIZ, BroadcastAudience(all=True))
+    assert cid not in {client.id for client, _ in recipients}
+    res = await as_owner.post("/v1/messages", json={"client_id": cid, "body": "Hi"})
+    assert res.status_code == 409

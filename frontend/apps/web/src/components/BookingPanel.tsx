@@ -902,6 +902,7 @@ function MessageDialog({
                     autoFocus
                 />
                 {m.error !== null ? <Notice tone="danger">{m.error}</Notice> : null}
+                {m.segmentNote !== null ? <Notice tone="info">{m.segmentNote}</Notice> : null}
                 <div className="flex justify-end gap-2">
                     <Button variant="outline" onPress={onClose}>
                         {s.messageCancel}

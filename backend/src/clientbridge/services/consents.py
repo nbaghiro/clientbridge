@@ -1,6 +1,6 @@
 import csv
 import io
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +9,7 @@ from clientbridge.core import clock
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.ids import new_id
 from clientbridge.core.locale import locale_for, message
+from clientbridge.core.phones import e164, same_phone
 from clientbridge.core.scoping import scoped
 from clientbridge.models.business import Business, User
 from clientbridge.models.clients import Client, Consent, ConsentSource, ConsentStatus
@@ -24,6 +25,7 @@ async def record_consent(
     source: ConsentSource,
     recorded_by: str | None,
     expires_at: datetime | None = None,
+    phone: str | None = None,
 ) -> Consent:
     row = Consent(
         id=new_id("consent"),
@@ -33,6 +35,7 @@ async def record_consent(
         source=source,
         recorded_by=recorded_by,
         expires_at=expires_at,
+        phone=phone,
     )
     db.add(row)
     await db.flush()
@@ -73,7 +76,7 @@ async def set_marketing_consent(
 ) -> None:
     """Record an in-person yes or no, only where it changes the current state."""
     if agreed and await texts_stopped(db, business_id, client_id):
-        return  # only the client's own START reply lifts a STOP
+        return  # only a START from the client's number lifts a STOP
     current = (await latest_consents(db, business_id, [client_id])).get(client_id)
     if allows_marketing(current) == agreed:
         return
@@ -87,41 +90,117 @@ async def set_marketing_consent(
     )
 
 
-async def stopped_clients(
-    db: AsyncSession, business_id: str, client_ids: Sequence[str]
+async def _stopped_numbers(
+    db: AsyncSession, business_id: str, numbers: Collection[str]
 ) -> set[str]:
-    """Clients whose newest text reply was STOP: only their START reply lifts it."""
     rows = (
         await db.execute(
             scoped(Consent, business_id)
-            .with_only_columns(Consent.client_id, Consent.status)
+            .with_only_columns(Consent.phone, Consent.status)
+            .where(Consent.phone.in_(numbers), Consent.source == "reply")
+            .order_by(Consent.phone, Consent.created_at.desc(), Consent.id.desc())
+        )
+    ).all()
+    newest: dict[str, str] = {}
+    for number, status in rows:
+        if number is not None:
+            newest.setdefault(number, status)
+    return {number for number, status in newest.items() if status == "withdrawn"}
+
+
+async def _own_stops(
+    db: AsyncSession, business_id: str, client_ids: Collection[str]
+) -> dict[str, str | None]:
+    """Clients whose own newest STOP or START reply is a STOP, with the number it came from."""
+    rows = (
+        await db.execute(
+            scoped(Consent, business_id)
+            .with_only_columns(Consent.client_id, Consent.status, Consent.phone)
             .where(Consent.client_id.in_(client_ids), Consent.source == "reply")
             .order_by(Consent.client_id, Consent.created_at.desc(), Consent.id.desc())
         )
     ).all()
-    newest: dict[str, str] = {}
-    for client_id, status in rows:
-        newest.setdefault(client_id, status)
-    return {client_id for client_id, status in newest.items() if status == "withdrawn"}
+    newest: dict[str, tuple[str, str | None]] = {}
+    for client_id, status, number in rows:
+        newest.setdefault(client_id, (status, number))
+    return {
+        client_id: number for client_id, (status, number) in newest.items() if status == "withdrawn"
+    }
+
+
+async def stopped_clients(
+    db: AsyncSession, business_id: str, client_ids: Sequence[str]
+) -> set[str]:
+    """Clients whose number, or who themselves, last replied STOP rather than START."""
+    phones = (
+        await db.execute(
+            scoped(Client, business_id)
+            .with_only_columns(Client.id, Client.phone)
+            .where(Client.id.in_(client_ids))
+        )
+    ).all()
+    numbers = {client_id: e164(phone) for client_id, phone in phones if phone}
+    wanted = {number for number in numbers.values() if number}
+    stopped = await _stopped_numbers(db, business_id, wanted) if wanted else set[str]()
+    by_number = {client_id for client_id, number in numbers.items() if number in stopped}
+    return by_number | set(await _own_stops(db, business_id, client_ids))
+
+
+async def number_stopped(db: AsyncSession, business_id: str, number: str) -> bool:
+    """A STOP from the number blocks every text to it until it replies START."""
+    return number in await _stopped_numbers(db, business_id, [number])
+
+
+async def text_stopped(
+    db: AsyncSession, business_id: str, number: str, client_ids: Collection[str]
+) -> bool:
+    """A text to the number for these clients waits on the number's STOP and on each of theirs."""
+    if await number_stopped(db, business_id, number):
+        return True
+    return bool(client_ids) and bool(await _own_stops(db, business_id, client_ids))
 
 
 async def texts_stopped(db: AsyncSession, business_id: str, client_id: str) -> bool:
-    """A STOP reply blocks every text to the client until they reply START."""
+    """A STOP from the client's number or from the client blocks texts to them until START."""
     return client_id in await stopped_clients(db, business_id, [client_id])
 
 
-async def record_text_reply(db: AsyncSession, client: Client, *, stop: bool) -> bool:
-    """A STOP reply blocks texts until START; True when it changed the client's state."""
-    if stop == await texts_stopped(db, client.business_id, client.id):
-        return False
-    await record_consent(
-        db,
-        client.business_id,
-        client.id,
-        status="withdrawn" if stop else "granted",
-        source="reply",
-        recorded_by=None,
+async def _sharers_stopped_from(db: AsyncSession, client: Client, number: str) -> list[str]:
+    """Other clients on the number whose own last reply was a STOP sent from it."""
+    others = (
+        (
+            await db.execute(
+                scoped(Client, client.business_id, soft_delete=True)
+                .with_only_columns(Client.id)
+                .where(same_phone(Client.phone, number), Client.id != client.id)
+            )
+        )
+        .scalars()
+        .all()
     )
+    own = await _own_stops(db, client.business_id, others) if others else {}
+    return [client_id for client_id, sent_from in own.items() if sent_from == number]
+
+
+async def record_text_reply(db: AsyncSession, client: Client, number: str, *, stop: bool) -> bool:
+    """A STOP or START from the number, sent by the client; True when it changed either side."""
+    status: ConsentStatus = "withdrawn" if stop else "granted"
+    number_was = await number_stopped(db, client.business_id, number)
+    own_was = client.id in await _own_stops(db, client.business_id, [client.id])
+    # a START also lifts a STOP its other clients sent from this number, as one phone sent both
+    sharers = [] if stop else await _sharers_stopped_from(db, client, number)
+    if number_was == stop and own_was == stop and not sharers:
+        return False
+    for client_id in [client.id, *sharers]:
+        await record_consent(
+            db,
+            client.business_id,
+            client_id,
+            status=status,
+            source="reply",
+            recorded_by=None,
+            phone=number,
+        )
     return True
 
 

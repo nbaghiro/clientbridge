@@ -18,7 +18,7 @@ streams:
       - SELECT created_by, name, phone, user_id, tags, status, custom_fields, archived_at, id, business_id, created_at, updated_at, deleted_at FROM clients WHERE business_id IN member AND deleted_at IS NULL
       - SELECT client_id, name, attributes, id, business_id, created_at, updated_at, deleted_at FROM subjects WHERE business_id IN member AND deleted_at IS NULL
       - SELECT created_by, parent_type, parent_id, body, pinned, id, business_id, created_at, updated_at FROM notes WHERE business_id IN member
-      - SELECT client_id, status, source, recorded_by, expires_at, id, business_id, created_at, updated_at FROM consents WHERE business_id IN member
+      - SELECT client_id, status, source, recorded_by, expires_at, phone, id, business_id, created_at, updated_at FROM consents WHERE business_id IN member
       - SELECT staff_id, basis, weekday, date, start_time, end_time, available, note, starts_at, ends_at, reason, id, business_id, created_at, updated_at FROM hours WHERE business_id IN member AND staff_id IS NULL
       - SELECT created_by, kind, name, description, variant_parent_id, variant_label, price_cents, currency, duration_min, capacity, category, color, online_bookable, sell_online, buffer_before_min, buffer_after_min, deposit_type, deposit_value, interval, frequency, session_count, validity_days, covers_item_id, visits_per_period, member_discount_bps, gift_amounts, tax_class, sku, cost_cents, track_stock, stock_on_hand, low_stock_at, active, addon, addon_for, staff_ids, resource_ids, id, business_id, created_at, updated_at FROM items WHERE business_id IN member
       - SELECT name, active, id, business_id, created_at, updated_at FROM resources WHERE business_id IN member

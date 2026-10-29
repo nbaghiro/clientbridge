@@ -331,7 +331,14 @@ function Thread({
                             <span className="font-semibold">
                                 {s.textsOffTitle(thread.title.split(" ")[0] ?? "")}
                             </span>{" "}
-                            {s.textsOffBody}
+                            {thread.textsOffBody}
+                        </Notice>
+                    </div>
+                ) : null}
+                {conversation.sharedWith !== null ? (
+                    <div className="mx-5 mt-4">
+                        <Notice tone="info" banner>
+                            {conversation.sharedWith}
                         </Notice>
                     </div>
                 ) : null}
@@ -407,6 +414,9 @@ function Composer({ composer }: { composer: ThreadComposer }) {
                 disabled={composer.smsBlocked}
             />
             {composer.error !== null ? <Notice tone="danger">{composer.error}</Notice> : null}
+            {composer.segmentNote !== null ? (
+                <Notice tone="info">{composer.segmentNote}</Notice>
+            ) : null}
             <div className="flex flex-wrap items-center gap-3">
                 {composer.body.length > 0 ? (
                     <span className="text-xs text-muted">
@@ -461,6 +471,7 @@ function NewThread({
                     disabled={msg.smsBlocked}
                 />
                 {msg.error !== null ? <Notice tone="danger">{msg.error}</Notice> : null}
+                {msg.segmentNote !== null ? <Notice tone="info">{msg.segmentNote}</Notice> : null}
                 <div className="flex flex-wrap items-center gap-3">
                     {msg.body.length > 0 ? (
                         <span className="text-xs text-muted">
@@ -520,6 +531,7 @@ function NewMessageDialog({
                     </p>
                 ) : null}
                 {msg.error !== null ? <Notice tone="danger">{msg.error}</Notice> : null}
+                {msg.segmentNote !== null ? <Notice tone="info">{msg.segmentNote}</Notice> : null}
                 <div className="flex justify-end gap-2 pt-1">
                     <Button variant="quiet" onPress={onClose}>
                         {s.cancel}

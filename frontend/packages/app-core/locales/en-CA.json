@@ -228,6 +228,9 @@
     "api.broadcastContactMissing": {
         "message": "Add a business email, phone number or website in Business settings before sending a broadcast."
     },
+    "api.noMobileNumber": {
+        "message": "This client has no mobile number. Add one to their profile to text them."
+    },
     "api.slugInvalid": {
         "message": "Use 3 to 40 lowercase letters, numbers or dashes, starting and ending with a letter or number."
     },
@@ -4355,7 +4358,8 @@
         "args": ["name", "when"]
     },
     "classes.messageClassHint": {
-        "message": "{n, plural, one {Goes to the # client booked by text.} other {Goes to the # clients booked by text.}}",
+        "message": "{n, plural, =0 {None of the clients booked can get texts.} one {Goes to the # client booked who can get texts.} other {Goes to the # clients booked who can get texts.}}",
+        "description": "Counts the booked clients with a mobile number whose number has not replied STOP",
         "args": ["n"]
     },
     "classes.messageClassLabel": {
@@ -5459,7 +5463,12 @@
         "message": "Text"
     },
     "clients.record.textsStopped": {
-        "message": "Texts stopped by the client on {when}. Texts stay off until they reply START.",
+        "message": "Their number replied STOP on {when}. Texts stay off until it replies START.",
+        "args": ["when"]
+    },
+    "clients.record.textsStoppedByClient": {
+        "message": "They replied STOP on {when}. Texts stay off until they reply START.",
+        "description": "The client's own STOP, which holds on any number they move to",
         "args": ["when"]
     },
     "clients.record.inProgress": {
@@ -6550,7 +6559,7 @@
         "message": "Write your message"
     },
     "messaging.smsBlockedNew": {
-        "message": "This client replied STOP, so texts are off."
+        "message": "This client's number replied STOP, so texts are off."
     },
     "messaging.sendMessage": {
         "message": "Send message"
@@ -6648,11 +6657,25 @@
         "message": "We're running about 15 minutes behind today. Sorry for the wait."
     },
     "messaging.textsOffTitle": {
-        "message": "{name} replied STOP.",
+        "message": "Texts to {name} are off.",
         "args": ["name"]
     },
     "messaging.textsOffBody": {
-        "message": "Texts to this number are off until they reply START."
+        "message": "Their number replied STOP. Texts stay off until it replies START."
+    },
+    "messaging.textsOffBodyByClient": {
+        "message": "They replied STOP. Texts stay off until they reply START.",
+        "description": "The client's own STOP, which holds on any number they move to"
+    },
+    "messaging.sharedNumber": {
+        "message": "This number is shared with {names}.",
+        "description": "Above a conversation whose number other active clients also have; names is a list such as \"Sam and Lee\"",
+        "args": ["names"]
+    },
+    "messaging.manyTexts": {
+        "message": "{segments, plural, one {This will send as # text.} other {This will send as # texts, each billed separately.}}",
+        "description": "Shown under a composer once a message runs past three billed SMS segments",
+        "args": ["segments"]
     },
     "messaging.textsOffShort": {
         "message": "Texts off (STOP)"
@@ -6711,6 +6734,11 @@
     },
     "messaging.writeMessage": {
         "message": "Write a message"
+    },
+    "messaging.tooLong": {
+        "message": "Keep a text to {max, plural, one {# character} other {# characters}}. This one has {count, number}.",
+        "description": "Shown when staff try to send a text longer than the limit",
+        "args": ["max", "count"]
     },
     "messaging.sendError": {
         "message": "Couldn't send your message. Please try again."
@@ -6815,8 +6843,12 @@
     "broadcasts.reasons.no_contact": {
         "message": "No contact on file"
     },
+    "broadcasts.reasons.shared_number": {
+        "message": "Shares a number",
+        "description": "Another client on the same mobile number gets the one copy sent to it; their name follows"
+    },
     "broadcasts.leftOutHelp": {
-        "message": "Clients who opted out or never agreed are skipped, and checked again at send time."
+        "message": "Clients who opted out or never agreed are skipped, and checked again at send time. A number shared by several clients gets one copy."
     },
     "broadcasts.previewLabel": {
         "message": "Preview"

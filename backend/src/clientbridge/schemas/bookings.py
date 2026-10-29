@@ -18,6 +18,7 @@ from clientbridge.models.scheduling import (
     RecurrenceStatus,
     Weekday,
 )
+from clientbridge.schemas.messaging import TextBody
 
 
 class BookingCreate(Mirror):
@@ -300,7 +301,7 @@ class RosterEntry(Mirror):
 
 
 class ClassMessage(BaseModel):
-    body: str = Field(min_length=1, max_length=1000)
+    body: TextBody
 
 
 class ClassMessageOut(BaseModel):

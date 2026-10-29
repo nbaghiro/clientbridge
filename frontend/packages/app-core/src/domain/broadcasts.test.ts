@@ -1,6 +1,73 @@
-import { describe, expect, it } from "vitest";
+// @vitest-environment happy-dom
+import { renderHook } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
-import { consentFor, consentOf, smsSegments } from "./broadcasts";
+import type { ApiLike } from "../api";
+import {
+    AUDIENCE_CLIENTS_SQL,
+    LATEST_CONSENTS_SQL,
+    consentFor,
+    consentOf,
+    smsSegments,
+    useBroadcastDraft,
+} from "./broadcasts";
+
+const granted = (client_id: string) => ({
+    client_id,
+    status: "granted",
+    source: "form",
+    created_at: "2026-01-01T00:00:00Z",
+    expires_at: null,
+});
+
+const replica: Record<string, unknown[]> = {
+    [AUDIENCE_CLIENTS_SQL]: [
+        { id: "cl_b", name: "Bea", phone: "+16045550001", tags: null },
+        { id: "cl_a", name: "Al", phone: "+16045550001", tags: null },
+        { id: "cl_c", name: "Cy", phone: "+16045550002", tags: null },
+    ],
+    [LATEST_CONSENTS_SQL]: ["cl_a", "cl_b", "cl_c"].map(granted),
+};
+
+vi.mock("../hooks", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("../hooks")>()),
+    useBusinessQuery: (sql: string) => ({ data: replica[sql] ?? [], isLoading: false }),
+}));
+
+vi.mock("../datetime", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("../datetime")>()),
+    useBusinessZone: () => "America/Toronto",
+}));
+
+vi.mock("./business", () => ({ useBusinessName: () => "Birchbark" }));
+
+vi.mock("./sync", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("./sync")>()),
+    useReplicaLoad: () => ({ state: "ready" }),
+}));
+
+describe("broadcast audience", () => {
+    it("sends a shared number one copy, to the client first by id, as the server does", () => {
+        const api = {
+            get: vi.fn(),
+            getText: vi.fn(),
+            post: vi.fn(),
+            patch: vi.fn(),
+            delete: vi.fn(),
+        };
+        const { result } = renderHook(() => useBroadcastDraft(api as ApiLike));
+        const { recipients, excluded } = result.current.audience;
+        expect(recipients.map((r) => r.id)).toEqual(["cl_a", "cl_c"]);
+        expect(excluded).toEqual([
+            {
+                id: "cl_b",
+                name: "Bea",
+                reason: "shared_number",
+                detail: "Al",
+            },
+        ]);
+    });
+});
 
 describe("smsSegments", () => {
     it("bills GSM-7 text per 160 septets, then 153 per part", () => {

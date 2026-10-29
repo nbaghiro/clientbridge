@@ -18,7 +18,7 @@ from clientbridge.core.db import is_duplicate
 from clientbridge.core.emails import reserved_email
 from clientbridge.core.errors import AppError, Undelivered, Unprocessable
 from clientbridge.core.ids import new_id
-from clientbridge.core.phones import e164, reserved_phone, same_phone
+from clientbridge.core.phones import e164, reserved_phone
 from clientbridge.core.scoping import scoped, scoped_update
 from clientbridge.integrations.expo import Push, PushSender
 from clientbridge.integrations.jobs import Jobs
@@ -30,8 +30,7 @@ from clientbridge.integrations.resend import (
     get_test_email_sender,
 )
 from clientbridge.integrations.twilio import ConsoleSmsSender, Sms, SmsSender, SmtpSmsSender
-from clientbridge.models.clients import Client
-from clientbridge.models.messaging import Delivery, DeliveryState, Message, MessageStatus
+from clientbridge.models.messaging import Delivery, DeliveryState, Message, MessageStatus, Thread
 from clientbridge.models.platform import Webhook, WebhookStatus
 from clientbridge.schemas.deliveries import (
     DELIVERY_PAYLOAD,
@@ -42,7 +41,7 @@ from clientbridge.schemas.deliveries import (
     PushDelivery,
     SmsDelivery,
 )
-from clientbridge.services.consents import stopped_clients
+from clientbridge.services.consents import text_stopped
 
 _log = logging.getLogger(__name__)
 _LEASE = timedelta(minutes=5)
@@ -234,37 +233,40 @@ _MESSAGE_STATUS: dict[DeliveryState, MessageStatus] = {
 async def _follow(db: AsyncSession, row: Delivery, payload: DeliveryPayload) -> None:
     """The inbox message a delivery carries takes its outcome, never undoing a later one."""
     status = _MESSAGE_STATUS.get(row.state)
-    if (
-        not isinstance(payload, SmsDelivery)
-        or payload.message_id is None
-        or row.business_id is None
-    ):
+    if not isinstance(payload, SmsDelivery) or not payload.message_ids or row.business_id is None:
         return
     if status is None:  # still queued for a retry
         return
     earlier: tuple[MessageStatus, ...] = ("queued",) if status == "sent" else ("queued", "sent")
     await db.execute(
         scoped_update(Message, row.business_id)
-        .where(Message.id == payload.message_id, Message.status.in_(earlier))
+        .where(Message.id.in_(payload.message_ids), Message.status.in_(earlier))
         .values(status=status, provider_ref=func.coalesce(Message.provider_ref, row.provider_ref))
     )
 
 
 async def _texts_stopped(db: AsyncSession, business_id: str, payload: DeliveryPayload) -> bool:
-    """A STOP from the number, received after the text was queued, still keeps it from going."""
+    """A STOP received after the text was queued, from its number or its clients, still holds it."""
     if not isinstance(payload, SmsDelivery):
         return False
     number = e164(payload.message.to)
     if number is None:
         return False
-    holders = list(
-        await db.scalars(
-            scoped(Client, business_id, soft_delete=True)
-            .with_only_columns(Client.id)
-            .where(same_phone(Client.phone, number))
+    clients = (
+        (
+            await db.execute(
+                scoped(Thread, business_id)
+                .with_only_columns(Thread.client_id)
+                .join(Message, Message.thread_id == Thread.id)
+                .where(Message.id.in_(payload.message_ids))
+            )
         )
+        .scalars()
+        .all()
+        if payload.message_ids
+        else []
     )
-    return bool(holders) and bool(await stopped_clients(db, business_id, holders))
+    return await text_stopped(db, business_id, number, clients)
 
 
 def _local_sink(

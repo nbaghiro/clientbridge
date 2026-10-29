@@ -43,6 +43,7 @@
         "source",
         "recorded_by",
         "expires_at",
+        "phone",
         "id",
         "business_id",
         "created_at",

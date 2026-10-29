@@ -18,6 +18,7 @@ from clientbridge.core import clock
 from clientbridge.core.config import Settings, get_settings
 from clientbridge.core.db import engine
 from clientbridge.core.ids import new_id
+from clientbridge.core.phones import e164
 from clientbridge.integrations.resend import resend_signature
 from clientbridge.integrations.twilio import twilio_signature
 from clientbridge.models.billing import Invoice, Order
@@ -37,6 +38,7 @@ from clientbridge.services import ledger
 from clientbridge.services.billing import invoice_out
 from clientbridge.services.bookings import booking_out
 from clientbridge.services.business import local_today
+from clientbridge.services.consents import record_text_reply
 from clientbridge.services.earnings import load_earning
 from clientbridge.services.lines import fetch_lines
 from clientbridge.services.messaging import open_thread, unread_count
@@ -102,6 +104,14 @@ async def texted(
         )
     )
     await db.flush()
+
+
+async def replied_stop(db: AsyncSession, client_id: str) -> None:
+    """The client's number replied STOP, recorded the way an inbound text records it."""
+    client = await db.get(Client, client_id)
+    number = e164(client.phone or "") if client is not None else None
+    assert client is not None and number is not None
+    await record_text_reply(db, client, number, stop=True)
 
 
 async def local_hour(db: AsyncSession, hour: int, business_id: str = BIZ) -> datetime:

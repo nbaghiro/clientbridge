@@ -948,6 +948,7 @@ function VisitNoteBlock({ clientId, bookingId }: { clientId: string; bookingId: 
             />
             <p className="text-xs text-muted">{d.visitNotePhotos(note.sharedPhotos)}</p>
             {note.error !== null ? <Notice tone="danger">{note.error}</Notice> : null}
+            {note.segmentNote !== null ? <Notice tone="info">{note.segmentNote}</Notice> : null}
             {note.sent ? <Notice tone="success">{d.visitNoteSent}</Notice> : null}
             <Button
                 variant="outline"

@@ -283,8 +283,8 @@ owner/admin/staff/contractor, payout config `payee`/`rate_type` with the rate in
 **clients (4)** — `clients` _(soft-del)_ (`tags[]`, `status`, `custom_fields`, `stripe_customer_id`), `subjects` _(soft-del)_ (no kind of their own: the business's `subject` says what they are, and
 `attributes` JSONB holds that kind's details, validated per kind in `schemas/subjects.py` with unknown keys kept), `notes` (polymorphic
 `parent_type`/`parent_id` over client/subject/booking, `created_by`), `consents` (one row per change to a
-client's marketing consent, with its `source`; the newest row holds, and an SMS STOP from the
-client can only be lifted by the client's own START).
+client's marketing consent, with its `source`; the newest row holds, and a STOP or START reply
+also records the `phone` it came from, where the newest one decides texts for every client on that number).
 
 **catalog (5)** — `items` (**one table drives the whole catalog** via `kind` service/class/product/package/
 subscription/gift — duration, capacity, deposit, recurrence, session_count, `stripe_price_id`, and
@@ -866,8 +866,10 @@ recently texted that phone (`messaging.route_inbound_sms`, through `scoped()`); 
 is recorded as unmatched rather than guessed, and STOP or START applies only to the business it was routed
 to. Each business texts from its own number, assigned in the admin console (CB-49). The SMS webhook checks `X-Twilio-Signature`, and
 production refuses to boot without `TWILIO_AUTH_TOKEN`. Phones are stored as E.164 (`core/phones.py` and
-app-core `normalizePhone` share one rule). Only the client's own START lifts an SMS STOP, and STOP is the
-only way a client opts out themselves; staff can also record a client's yes or no to offers. A broadcast is
+app-core `normalizePhone` share one rule). A STOP holds for the number it came from until that number
+replies START, for every client on it, so moving or merging a client doesn't carry it elsewhere. When
+clients share a phone, a reply lands with the active one texted most recently (broadcasts aside), and a
+broadcast or class message sends the number one copy. STOP is the only way a client opts out themselves; staff can also record a client's yes or no to offers. A broadcast is
 refused until the business has a legal address and a public contact method.
 Broadcasts are sent by the job one recipient at a time, claimed with `SKIP LOCKED` and saved before and after
 each send, so delivery is at most once, and they wait during quiet hours (21:00 to 09:00 local). An inbound

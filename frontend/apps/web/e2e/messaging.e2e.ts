@@ -367,27 +367,45 @@ test("MSG-E2E-11 inbound texts route only to the number's business and unsigned 
             body: "STOP",
         });
         expect(ambiguous.response.status()).toBe(200);
-        expect(await clientOutreach(...ids)).toEqual(empty);
-        const unmatched = (sid: string | null, to: string, optOut: boolean, from: string) => ({
+        // a shared number's reply lands with one of its clients, and its STOP covers all of them
+        const [sender, sharer] = first.id < second.id ? [first, second] : [second, first];
+        const stopped = await clientOutreach(first.id, second.id);
+        expect(stopped.threads.map((t) => t.client_id)).toEqual([sender.id]);
+        expect(stopped.messages.map((m) => [m.client_id, m.direction, m.body])).toEqual([
+            [sender.id, "in", "STOP"],
+        ]);
+        expect(stopped.consents.map((c) => [c.client_id, c.source, c.status])).toEqual([
+            [sender.id, "reply", "withdrawn"],
+        ]);
+        expect(await clientOutreach(ours.id, theirs.id)).toEqual(empty);
+        const inbound = (sid: string | null, to: string, optOut: boolean, from: string) => ({
             id: `twilio_${sid ?? ""}`,
             provider: "twilio",
             event: "sms.inbound",
             status: "processed",
             payload: { from, to, matched: false, business_id: null, opt_out: optOut },
         });
+        const matched = inbound(ambiguous.sid, BIRCHBARK_SMS, true, twin);
         expect(
             await webhookRows(`twilio_${unknown.sid ?? ""}`, `twilio_${ambiguous.sid ?? ""}`),
         ).toEqual(
             [
-                unmatched(unknown.sid, "+12365550191", false, shared),
-                unmatched(ambiguous.sid, BIRCHBARK_SMS, true, twin),
+                inbound(unknown.sid, "+12365550191", false, shared),
+                {
+                    ...matched,
+                    payload: {
+                        ...matched.payload,
+                        matched: true,
+                        business_id: demoId("bz_birchbark"),
+                    },
+                },
             ].sort((a, b) => a.id.localeCompare(b.id)),
         );
 
         const sid = `SM${randomUUID().replaceAll("-", "")}`;
         const toUs = { from: shared, to: BIRCHBARK_SMS, body: "Running five minutes late", sid };
         expect((await postInboundSms(page.request, toUs)).response.status()).toBe(200);
-        const routed = await clientOutreach(...ids);
+        const routed = await clientOutreach(ours.id, theirs.id);
         expect(routed.threads.map((t) => [t.business_id, t.client_id])).toEqual([
             [demoId("bz_birchbark"), ours.id],
         ]);
@@ -396,7 +414,7 @@ test("MSG-E2E-11 inbound texts route only to the number's business and unsigned 
         ).toEqual([[demoId("bz_birchbark"), ours.id, "in", toUs.body]]);
         const replay = await postInboundSms(page.request, { ...toUs, body: "STOP" });
         expect(replay.response.status()).toBe(200);
-        expect(await clientOutreach(...ids)).toEqual(routed);
+        expect(await clientOutreach(ours.id, theirs.id)).toEqual(routed);
 
         const toThem = await postInboundSms(page.request, {
             from: shared,
@@ -404,7 +422,7 @@ test("MSG-E2E-11 inbound texts route only to the number's business and unsigned 
             body: "Can Biscuit's walk move to noon?",
         });
         expect(toThem.response.status()).toBe(200);
-        const both = await clientOutreach(...ids);
+        const both = await clientOutreach(ours.id, theirs.id);
         expect(both.threads.map((t) => [t.business_id, t.client_id]).sort()).toEqual(
             [
                 [demoId("bz_birchbark"), ours.id],
@@ -431,13 +449,23 @@ test("MSG-E2E-11 inbound texts route only to the number's business and unsigned 
             theirLog.getByText("Can Biscuit's walk move to noon?", { exact: true }),
         ).toHaveCount(1);
         await expect(theirLog.getByText(toUs.body, { exact: true })).toHaveCount(0);
-        for (const twinClient of [first, second]) {
-            await expect(await openConversation(page, twinClient, "all")).toHaveCount(0);
+        await expect(await openConversation(page, sender, "all")).toHaveCount(1);
+        await expect(await openConversation(page, sharer, "all")).toHaveCount(0);
+        const checkIn = (client: Contact) =>
+            page.request.post(`${apiBase()}/v1/messages`, {
+                data: { client_id: client.id, body: "Checking in" },
+                headers: headers(page),
+            });
+        for (const twinClient of [sender, sharer]) {
+            expect((await checkIn(twinClient)).status()).toBe(409);
         }
-        const send = await page.request.post(`${apiBase()}/v1/messages`, {
-            data: { client_id: first.id, body: "Checking in" },
-            headers: headers(page),
+        const restart = await postInboundSms(page.request, {
+            from: twin,
+            to: BIRCHBARK_SMS,
+            body: "START",
         });
+        expect(restart.response.status()).toBe(200);
+        const send = await checkIn(sharer);
         expect(send.status(), await send.text()).toBe(200);
     } finally {
         await cedarOwner.context.close();

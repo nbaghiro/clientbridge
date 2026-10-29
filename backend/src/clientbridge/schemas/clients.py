@@ -1,13 +1,15 @@
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from clientbridge.core.mirrors import Mirror
 from clientbridge.core.phones import Phone
 from clientbridge.models.clients import Client, ClientStatus, Subject
 
 MergeSide = Literal["kept", "other"]
+# short enough for a broadcast audience to name it
+Tag = Annotated[str, StringConstraints(max_length=100)]
 
 
 class ClientBase(Mirror):
@@ -30,6 +32,7 @@ class ClientCreate(ClientBase):
     model_config = ConfigDict(extra="forbid")
 
     phone: Phone = None
+    tags: list[Tag] = Field(default_factory=list)
     marketing_consent: bool = Field(
         default=False, description="Record that the client agreed to news and offers"
     )
@@ -42,7 +45,7 @@ class ClientUpdate(Mirror):
 
     name: str | None = Field(default=None, min_length=1)
     phone: Phone = None
-    tags: list[str] | None = None
+    tags: list[Tag] | None = None
     custom_fields: dict[str, object] | None = None
     marketing_consent: bool | None = None
 
@@ -63,7 +66,7 @@ class ClientIds(BaseModel):
 
 
 class ClientTags(ClientIds):
-    set: dict[str, bool] = Field(
+    set: dict[Tag, bool] = Field(
         min_length=1, description="Each tag to add (true) or remove (false) on every client"
     )
 

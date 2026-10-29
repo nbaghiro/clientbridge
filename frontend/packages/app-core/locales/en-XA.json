@@ -203,6 +203,9 @@
     "api.broadcastContactMissing": {
         "message": "[Åðð å ƀûšîñéšš éɱåîļ, þĥöñé ñûɱƀéŕ öŕ ŵéƀšîţé îñ Ɓûšîñéšš šéţţîñĝš ƀéƒöŕé šéñðîñĝ å ƀŕöåðçåšţ. one two three four five six seven]"
     },
+    "api.noMobileNumber": {
+        "message": "[Ţĥîš çļîéñţ ĥåš ñö ɱöƀîļé ñûɱƀéŕ. Åðð öñé ţö ţĥéîŕ þŕöƒîļé ţö ţéẋţ ţĥéɱ. one two three four five]"
+    },
     "api.slugInvalid": {
         "message": "[Ûšé 3 ţö 40 ļöŵéŕçåšé ļéţţéŕš, ñûɱƀéŕš öŕ ðåšĥéš, šţåŕţîñĝ åñð éñðîñĝ ŵîţĥ å ļéţţéŕ öŕ ñûɱƀéŕ. one two three four five six]"
     },
@@ -4002,7 +4005,7 @@
         "message": "[Ṁéššåĝé éṽéŕýöñé îñ {name}, {when} one two]"
     },
     "classes.messageClassHint": {
-        "message": "[{n,plural,one{Ĝöéš ţö ţĥé # çļîéñţ ƀööķéð ƀý ţéẋţ.} other{Ĝöéš ţö ţĥé # çļîéñţš ƀööķéð ƀý ţéẋţ.}} one two three four five]"
+        "message": "[{n,plural,one{Ĝöéš ţö ţĥé # çļîéñţ ƀööķéð ŵĥö çåñ ĝéţ ţéẋţš.} other{Ĝöéš ţö ţĥé # çļîéñţš ƀööķéð ŵĥö çåñ ĝéţ ţéẋţš.} =0{Ñöñé öƒ ţĥé çļîéñţš ƀööķéð çåñ ĝéţ ţéẋţš.}} one two three four five six seven eight]"
     },
     "classes.messageClassLabel": {
         "message": "[Ṁéššåĝé one]"
@@ -5043,7 +5046,10 @@
         "message": "[Ţéẋţ one]"
     },
     "clients.record.textsStopped": {
-        "message": "[Ţéẋţš šţöþþéð ƀý ţĥé çļîéñţ öñ {when}. Ţéẋţš šţåý öƒƒ ûñţîļ ţĥéý ŕéþļý ŠŢÅŔŢ. one two three four five]"
+        "message": "[Ţĥéîŕ ñûɱƀéŕ ŕéþļîéð ŠŢÖÞ öñ {when}. Ţéẋţš šţåý öƒƒ ûñţîļ îţ ŕéþļîéš ŠŢÅŔŢ. one two three four five]"
+    },
+    "clients.record.textsStoppedByClient": {
+        "message": "[Ţĥéý ŕéþļîéð ŠŢÖÞ öñ {when}. Ţéẋţš šţåý öƒƒ ûñţîļ ţĥéý ŕéþļý ŠŢÅŔŢ. one two three four]"
     },
     "clients.record.inProgress": {
         "message": "[Îñ þŕöĝŕéšš one two]"
@@ -6021,7 +6027,7 @@
         "message": "[Ŵŕîţé ýöûŕ ɱéššåĝé one two]"
     },
     "messaging.smsBlockedNew": {
-        "message": "[Ţĥîš çļîéñţ ŕéþļîéð ŠŢÖÞ, šö ţéẋţš åŕé öƒƒ. one two three]"
+        "message": "[Ţĥîš çļîéñţ'š ñûɱƀéŕ ŕéþļîéð ŠŢÖÞ, šö ţéẋţš åŕé öƒƒ. one two three four]"
     },
     "messaging.sendMessage": {
         "message": "[Šéñð ɱéššåĝé one two]"
@@ -6114,10 +6120,19 @@
         "message": "[Ŵé'ŕé ŕûññîñĝ åƀöûţ 15 ɱîñûţéš ƀéĥîñð ţöðåý. Šöŕŕý ƒöŕ ţĥé ŵåîţ. one two three four]"
     },
     "messaging.textsOffTitle": {
-        "message": "[{name} ŕéþļîéð ŠŢÖÞ. one two]"
+        "message": "[Ţéẋţš ţö {name} åŕé öƒƒ. one two]"
     },
     "messaging.textsOffBody": {
-        "message": "[Ţéẋţš ţö ţĥîš ñûɱƀéŕ åŕé öƒƒ ûñţîļ ţĥéý ŕéþļý ŠŢÅŔŢ. one two three four]"
+        "message": "[Ţĥéîŕ ñûɱƀéŕ ŕéþļîéð ŠŢÖÞ. Ţéẋţš šţåý öƒƒ ûñţîļ îţ ŕéþļîéš ŠŢÅŔŢ. one two three four five]"
+    },
+    "messaging.textsOffBodyByClient": {
+        "message": "[Ţĥéý ŕéþļîéð ŠŢÖÞ. Ţéẋţš šţåý öƒƒ ûñţîļ ţĥéý ŕéþļý ŠŢÅŔŢ. one two three four]"
+    },
+    "messaging.sharedNumber": {
+        "message": "[Ţĥîš ñûɱƀéŕ îš šĥåŕéð ŵîţĥ {names}. one two three]"
+    },
+    "messaging.manyTexts": {
+        "message": "[{segments,plural,one{Ţĥîš ŵîļļ šéñð åš # ţéẋţ.} other{Ţĥîš ŵîļļ šéñð åš # ţéẋţš, éåçĥ ƀîļļéð šéþåŕåţéļý.}} one two three four five]"
     },
     "messaging.textsOffShort": {
         "message": "[Ţéẋţš öƒƒ (ŠŢÖÞ) one two]"
@@ -6175,6 +6190,9 @@
     },
     "messaging.writeMessage": {
         "message": "[Ŵŕîţé å ɱéššåĝé one two]"
+    },
+    "messaging.tooLong": {
+        "message": "[Ķééþ å ţéẋţ ţö {max,plural,one{# çĥåŕåçţéŕ} other{# çĥåŕåçţéŕš}}. Ţĥîš öñé ĥåš {count, number}. one two three four]"
     },
     "messaging.sendError": {
         "message": "[Çöûļðñ'ţ šéñð ýöûŕ ɱéššåĝé. Þļéåšé ţŕý åĝåîñ. one two three]"
@@ -6269,8 +6287,11 @@
     "broadcasts.reasons.no_contact": {
         "message": "[Ñö çöñţåçţ öñ ƒîļé one two]"
     },
+    "broadcasts.reasons.shared_number": {
+        "message": "[Šĥåŕéš å ñûɱƀéŕ one two]"
+    },
     "broadcasts.leftOutHelp": {
-        "message": "[Çļîéñţš ŵĥö öþţéð öûţ öŕ ñéṽéŕ åĝŕééð åŕé šķîþþéð, åñð çĥéçķéð åĝåîñ åţ šéñð ţîɱé. one two three four five six]"
+        "message": "[Çļîéñţš ŵĥö öþţéð öûţ öŕ ñéṽéŕ åĝŕééð åŕé šķîþþéð, åñð çĥéçķéð åĝåîñ åţ šéñð ţîɱé. Å ñûɱƀéŕ šĥåŕéð ƀý šéṽéŕåļ çļîéñţš ĝéţš öñé çöþý. one two three four five six seven eight]"
     },
     "broadcasts.previewLabel": {
         "message": "[Þŕéṽîéŵ one]"

@@ -103,7 +103,26 @@ async def test_second_message_reuses_thread(
 async def test_missing_contact_is_422(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     cid = await _client_with_contact(db, phone=None)
     res = await as_owner.post("/v1/messages", json={"client_id": cid, "body": "Hi"})
+    assert res.status_code == 422 and res.json()["error"] == "no_mobile_number"
+
+
+@pytest.mark.parametrize("body", ["", "  \n ", "x" * 1001])
+async def test_an_empty_or_oversized_message_is_422(
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender, body: str
+) -> None:
+    cid = await _client_with_contact(db, phone="+15145551234")
+    res = await as_owner.post("/v1/messages", json={"client_id": cid, "body": body})
     assert res.status_code == 422
+    assert sms.sent == [] and await _thread_for(db, cid) is None
+
+
+async def test_a_message_is_sent_trimmed(
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
+) -> None:
+    cid = await _client_with_contact(db, phone="+15145551234")
+    res = await as_owner.post("/v1/messages", json={"client_id": cid, "body": "  Hi there \n"})
+    assert res.status_code == 200, res.text
+    assert res.json()["body"] == "Hi there" and sms.sent[0].body == "Hi there"
 
 
 async def test_unknown_client_is_404(as_owner: httpx.AsyncClient) -> None:
@@ -181,7 +200,7 @@ async def test_a_delivery_never_changes_another_business_message(
     sent = await MessageService(db, OWNER).send_message(MessageSend(client_id=cid, body="Hi"))
     db.info.clear()
     foreign = SmsDelivery(
-        message=Sms(to="+15145551234", body="x", from_number="+12365550190"), message_id=sent.id
+        message=Sms(to="+15145551234", body="x", from_number="+12365550190"), message_ids=[sent.id]
     )
     identity = await enqueue(db, foreign, key="message:foreign", business_id=other.id)
     await db.commit()
@@ -368,6 +387,31 @@ async def test_broadcast_audience_tag_filter(
     await run_due_broadcasts(db, sms, FakeEmailSender(), FakePushSender(), now)
     assert res.json()["recipient_count"] == 1
     assert len(sms.sent) == 1 and sms.sent[0].to == "+15145559001"  # only the tagged client
+    stored = await db.get(Broadcast, res.json()["id"])
+    assert stored is not None and stored.audience == {"tags": ["vip"]}
+
+
+@pytest.mark.parametrize(
+    "audience",
+    [
+        {"tags": "vip"},
+        {"tags": [1]},
+        {"all": "yes"},
+        {"everyone": True},
+        {"all": True, "tags": ["vip"]},
+        {"tags": [""]},
+        {"tags": ["x" * 101]},
+    ],
+)
+async def test_a_malformed_broadcast_audience_is_422(
+    as_owner: httpx.AsyncClient, db: AsyncSession, audience: dict[str, object]
+) -> None:
+    res = await as_owner.post(
+        "/v1/broadcasts", json={"name": "VIP sale", "body": "Hi", "audience": audience}
+    )
+    assert res.status_code == 422
+    stored = await db.execute(select(Broadcast.id).where(Broadcast.name == "VIP sale"))
+    assert stored.first() is None
 
 
 async def test_schedule_broadcast_does_not_send_now(

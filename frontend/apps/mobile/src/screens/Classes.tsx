@@ -154,9 +154,7 @@ export function ClassesScreen() {
                         <SheetHeader
                             title={s.messageClassTitle(roster.session.name, roster.session.when)}
                         />
-                        <Text style={styles.muted}>
-                            {s.messageClassHint(roster.session.booked)}
-                        </Text>
+                        <Text style={styles.muted}>{s.messageClassHint(roster.textable)}</Text>
                         <TextField
                             label={s.messageClassLabel}
                             multiline
@@ -167,6 +165,9 @@ export function ClassesScreen() {
                         />
                         {board.messageError !== null ? (
                             <Notice tone="danger">{board.messageError}</Notice>
+                        ) : null}
+                        {board.messageNote(body) !== null ? (
+                            <Notice tone="info">{board.messageNote(body)}</Notice>
                         ) : null}
                         <Button
                             full

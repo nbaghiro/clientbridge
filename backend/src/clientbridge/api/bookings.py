@@ -357,8 +357,9 @@ async def message_class(
     sms: SmsDep,
     push: PushDep,
     jobs: JobsDep,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> ClassMessageOut:
-    result = await ClassService(db, principal, gateway).message(slot_id, body)
+    result = await ClassService(db, principal, gateway).message(slot_id, body, idempotency_key)
     await send_queued(db, email, sms, push, jobs)
     return result
 

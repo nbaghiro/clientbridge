@@ -34,13 +34,23 @@ test("history older than the device window is read from the API", async ({ page 
 
     await navigate(page, "/inbox");
     const main = page.getByRole("main");
-    await main.getByRole("navigation").getByRole("button").first().click({ timeout: 60_000 });
+    await main
+        .getByRole("navigation")
+        .getByRole("button")
+        .filter({ has: page.getByText("Amélie Tremblay", { exact: true }) })
+        .click({ timeout: 60_000 });
+    // the demo welcomed Amélie before the months this device syncs
+    const welcome = main.getByText("Welcome to Birchbark! Text us here any time about Bella.", {
+        exact: true,
+    });
+    await expect(welcome).toHaveCount(0);
     const earlier = main.getByRole("button", { name: m.thread.showEarlier, exact: true });
     const messages = page.waitForResponse((r) => /\/v1\/threads\/[^/]+\/messages/.test(r.url()));
     await earlier.click();
     const page1 = await messages;
     expect(page1.status()).toBe(200);
     const body = (await page1.json()) as { more: boolean };
+    await expect(welcome).toBeVisible();
     if (!body.more) await expect(earlier).toBeHidden();
     await expect(main.getByText(m.thread.earlierFailed)).toHaveCount(0);
     expect(errors).toEqual([]);

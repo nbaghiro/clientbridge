@@ -932,6 +932,7 @@ function MessageSheet({
                     disabled={m.smsBlocked}
                 />
                 {m.error !== null ? <Notice tone="danger">{m.error}</Notice> : null}
+                {m.segmentNote !== null ? <Notice tone="info">{m.segmentNote}</Notice> : null}
                 <Button full busy={m.busy} disabled={m.smsBlocked} onPress={m.submit} icon="send">
                     {s.messageSend}
                 </Button>
