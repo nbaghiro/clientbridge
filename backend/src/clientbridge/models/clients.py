@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -81,6 +81,12 @@ class Consent(PKMixin, BusinessScoped, TimestampMixin, Base):
         Index("ix_consents_client", "business_id", "client_id", "created_at"),
         Index("ix_consents_recorded_by", "recorded_by"),
         Index("ix_consents_client_id", "client_id"),
+        Index(
+            "ix_consents_reply_phone",
+            "business_id",
+            "phone",
+            postgresql_where=text("source = 'reply'"),
+        ),
     )
 
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)

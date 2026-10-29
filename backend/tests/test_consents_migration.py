@@ -1,4 +1,4 @@
-"""cb0037 records the number each STOP or START reply came from, read from its client's phone."""
+"""cb0038 records the number each STOP or START reply came from, read from its client's phone."""
 
 import os
 import secrets
@@ -68,7 +68,15 @@ async def _has_phone(engine: AsyncEngine) -> bool:
         return found == 1
 
 
-async def test_cb0037_backfills_reply_numbers_and_its_downgrade_drops_them() -> None:
+async def _has_reply_index(engine: AsyncEngine) -> bool:
+    async with engine.connect() as conn:
+        found = await conn.scalar(
+            text("SELECT count(*) FROM pg_indexes WHERE indexname = 'ix_consents_reply_phone'")
+        )
+        return found == 1
+
+
+async def test_cb0038_backfills_reply_numbers_and_its_downgrade_drops_them() -> None:
     settings = get_settings()
     database = f"clientbridge_migration_{secrets.token_hex(4)}"
     url = on(settings.migration_database_url, database)
@@ -81,10 +89,10 @@ async def test_cb0037_backfills_reply_numbers_and_its_downgrade_drops_them() -> 
     engine = create_async_engine(url)
     try:
         _run(env, "scripts.db_access", "roles")
-        _run(env, "alembic", "upgrade", "cb0036")
+        _run(env, "alembic", "upgrade", "cb0037")
         await _seed(engine)
 
-        _run(env, "alembic", "upgrade", "cb0037")
+        _run(env, "alembic", "upgrade", "cb0038")
         assert await _phones(engine) == {
             "cs_cl_e164": "+14165550101",
             "cs_cl_typed": "+14165550102",
@@ -93,9 +101,11 @@ async def test_cb0037_backfills_reply_numbers_and_its_downgrade_drops_them() -> 
             "cs_cl_none": None,
             "cs_cl_staff": None,
         }
+        assert await _has_reply_index(engine)
 
-        _run(env, "alembic", "downgrade", "cb0036")
+        _run(env, "alembic", "downgrade", "cb0037")
         assert not await _has_phone(engine)
+        assert not await _has_reply_index(engine)
     finally:
         await engine.dispose()
         await admin(f"DROP DATABASE IF EXISTS {quote(database)} WITH (FORCE)")

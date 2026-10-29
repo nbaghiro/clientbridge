@@ -5,8 +5,8 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "cb0037"
-down_revision: str | None = "cb0036"
+revision: str = "cb0038"
+down_revision: str | None = "cb0037"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -31,7 +31,15 @@ WHERE numbers.id = consents.client_id AND consents.source = 'reply'
 def upgrade() -> None:
     op.add_column("consents", sa.Column("phone", sa.String(length=16), nullable=True))
     op.execute(_BACKFILL)
+    op.create_index(
+        "ix_consents_reply_phone",
+        "consents",
+        ["business_id", "phone"],
+        unique=False,
+        postgresql_where=sa.text("source = 'reply'"),
+    )
 
 
 def downgrade() -> None:
+    op.drop_index("ix_consents_reply_phone", table_name="consents")
     op.drop_column("consents", "phone")

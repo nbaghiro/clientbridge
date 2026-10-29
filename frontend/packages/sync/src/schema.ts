@@ -84,6 +84,7 @@ const consents = new Table(
             consents_client: ["client_id", "created_at"],
             consents_client_id: ["client_id"],
             consents_recorded_by: ["recorded_by"],
+            consents_reply_phone: ["phone"],
         },
     },
 );
