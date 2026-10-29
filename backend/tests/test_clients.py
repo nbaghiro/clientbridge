@@ -209,6 +209,17 @@ async def test_tag_many_needs_a_change_422(as_owner: httpx.AsyncClient) -> None:
     assert res.status_code == 422
 
 
+async def test_a_tag_too_long_for_a_broadcast_to_name_is_422(as_owner: httpx.AsyncClient) -> None:
+    tag = "x" * 101
+    attempts = (
+        as_owner.post("/v1/clients", json={"name": "Long Tag", "tags": [tag]}),
+        as_owner.patch("/v1/clients/cl_grace", json={"tags": [tag]}),
+        as_owner.post("/v1/clients/tags", json={"client_ids": ["cl_grace"], "set": {tag: True}}),
+    )
+    for attempt in attempts:
+        assert (await attempt).status_code == 422
+
+
 async def test_bulk_endpoints_scope_by_business(
     as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
 ) -> None:

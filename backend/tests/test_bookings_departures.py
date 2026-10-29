@@ -13,8 +13,8 @@ from clientbridge.models.messaging import Delivery
 from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.schemas.deliveries import DELIVERY_PAYLOAD, SmsDelivery
-from clientbridge.services.consents import record_text_reply
 from tests.conftest import BIZ, Factory
+from tests.helpers import replied_stop
 
 
 async def _client(db: AsyncSession, business_id: str = BIZ, phone: str | None = None) -> Client:
@@ -145,7 +145,7 @@ async def test_a_client_who_replied_stop_or_has_no_phone_gets_no_text(
     assert booking is not None
     client = await db.get(Client, booking.client_id)
     assert client is not None
-    await record_text_reply(db, client, stop=True)
+    await replied_stop(db, client.id)
     silent = await _booking(
         db, "st_owner", phone=None, starts_at=datetime(2027, 8, 4, 17, tzinfo=UTC)
     )

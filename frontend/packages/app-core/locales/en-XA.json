@@ -6275,8 +6275,11 @@
     "broadcasts.reasons.no_contact": {
         "message": "[Ñö çöñţåçţ öñ ƒîļé one two]"
     },
+    "broadcasts.reasons.shared_number": {
+        "message": "[Šĥåŕéš å ñûɱƀéŕ one two]"
+    },
     "broadcasts.leftOutHelp": {
-        "message": "[Çļîéñţš ŵĥö öþţéð öûţ öŕ ñéṽéŕ åĝŕééð åŕé šķîþþéð, åñð çĥéçķéð åĝåîñ åţ šéñð ţîɱé. one two three four five six]"
+        "message": "[Çļîéñţš ŵĥö öþţéð öûţ öŕ ñéṽéŕ åĝŕééð åŕé šķîþþéð, åñð çĥéçķéð åĝåîñ åţ šéñð ţîɱé. Å ñûɱƀéŕ šĥåŕéð ƀý šéṽéŕåļ çļîéñţš ĝéţš öñé çöþý. one two three four five six seven eight]"
     },
     "broadcasts.previewLabel": {
         "message": "[Þŕéṽîéŵ one]"

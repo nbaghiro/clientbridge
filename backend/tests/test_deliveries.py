@@ -18,7 +18,6 @@ from clientbridge.integrations.twilio import ConsoleSmsSender, Sms
 from clientbridge.models.business import Business
 from clientbridge.models.messaging import Delivery, Message, Thread
 from clientbridge.schemas.deliveries import DeliveryPayload, EmailDelivery, SmsDelivery
-from clientbridge.services.consents import record_text_reply
 from clientbridge.services.deliveries import (
     DELIVERIES_JOB,
     delivery_key,
@@ -28,6 +27,7 @@ from clientbridge.services.deliveries import (
     send_queued,
 )
 from tests.conftest import BIZ, Factory, FakeEmailSender, FakeJobs, FakePushSender, FakeSmsSender
+from tests.helpers import replied_stop
 
 
 def mail(body: str = "Receipt") -> EmailDelivery:
@@ -440,7 +440,7 @@ async def test_a_text_queued_before_a_stop_is_skipped_for_consent(
         db, text("+12505551234"), key="notice:elsewhere", business_id=other.id
     )
     await db.commit()
-    await record_text_reply(db, client, stop=True)
+    await replied_stop(db, client.id)
     await db.commit()
     await run_deliveries(db, email, sms, push)
     rows = {
@@ -465,7 +465,7 @@ async def test_a_stop_still_holds_back_a_simulated_text(
     await db.flush()
     queued = await enqueue(db, text("+12505550142"), key="notice:demo", business_id=business.id)
     await db.commit()
-    await record_text_reply(db, client, stop=True)
+    await replied_stop(db, client.id)
     await db.commit()
     assert not await dispatch(db, queued, email, sms, push)
     row = await db.get(Delivery, queued)

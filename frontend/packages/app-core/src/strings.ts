@@ -2246,6 +2246,7 @@ interface Strings {
             readonly opted_out: string;
             readonly no_consent: string;
             readonly no_contact: string;
+            readonly shared_number: string;
         } & Labels;
         readonly leftOutHelp: string;
         readonly previewLabel: string;

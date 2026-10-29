@@ -106,6 +106,9 @@ function Messages() {
     const [sentTo, setSentTo] = useState<string | null>(null);
     const params = useRoute<RouteProp<TabParamList, "Inbox">>().params;
     const handled = useRef<number | undefined>(undefined);
+    const rows = useRef<FlatList<InboxThread>>(null);
+    // a conversation opened from elsewhere may sit far down the list
+    const reveal = useRef<string | null>(null);
     useEffect(() => {
         const request = params?.request;
         if (
@@ -132,11 +135,20 @@ function Messages() {
             threadId: params.threadId,
             clientId: params.open,
         });
+        reveal.current = target.threadId;
         setOpenId(target.threadId);
         setComposing(target.clientId);
     }, [params, inbox.load.hasData, inbox.threads, nav]);
     const open = inbox.threads.find((t) => t.id === openId) ?? null;
     const tablet = useTabletLayout();
+    useEffect(() => {
+        const id = reveal.current;
+        if (!tablet || id === null) return;
+        const index = inbox.filtered.findIndex((t) => t.id === id);
+        if (index < 0) return;
+        reveal.current = null;
+        rows.current?.scrollToIndex({ index, viewPosition: 0.5 });
+    }, [tablet, openId, inbox.filtered]);
 
     if (open !== null && !tablet)
         return (
@@ -180,10 +192,14 @@ function Messages() {
             />
             <Loaded flush load={inbox.load} loading={s.loading} failed={s.loadError} rows={6}>
                 <FlatList
+                    ref={rows}
                     style={styles.flex}
                     contentContainerStyle={styles.listContent}
                     data={inbox.filtered}
                     keyExtractor={(thread) => thread.id}
+                    onScrollToIndexFailed={({ index, averageItemLength }) => {
+                        rows.current?.scrollToOffset({ offset: index * averageItemLength });
+                    }}
                     ListHeaderComponent={
                         sentTo === null ? null : (
                             <View style={styles.pad}>
@@ -206,6 +222,7 @@ function Messages() {
                             preview={t.last_body ?? ""}
                             at={t.ago}
                             unread={t.unread_count}
+                            selected={tablet && t.id === openId}
                             tag={
                                 t.textsOff
                                     ? { label: s.textsOffShort, intent: "danger" }
@@ -242,7 +259,10 @@ function Messages() {
                         setComposing(null);
                         const thread = inbox.threads.find((t) => t.client_id === sent.clientId);
                         if (thread === undefined) setSentTo(sent.name);
-                        else setOpenId(thread.id);
+                        else {
+                            reveal.current = thread.id;
+                            setOpenId(thread.id);
+                        }
                     }}
                 />
             ) : null}

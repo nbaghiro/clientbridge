@@ -6824,8 +6824,12 @@
     "broadcasts.reasons.no_contact": {
         "message": "No contact on file"
     },
+    "broadcasts.reasons.shared_number": {
+        "message": "Shares a number",
+        "description": "Another client on the same mobile number gets the one copy sent to it; their name follows"
+    },
     "broadcasts.leftOutHelp": {
-        "message": "Clients who opted out or never agreed are skipped, and checked again at send time."
+        "message": "Clients who opted out or never agreed are skipped, and checked again at send time. A number shared by several clients gets one copy."
     },
     "broadcasts.previewLabel": {
         "message": "Preview"

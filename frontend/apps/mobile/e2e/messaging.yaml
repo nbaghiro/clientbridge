@@ -11,6 +11,9 @@ name: Owner inbox surfaces
       element: "Show earlier messages"
       direction: UP
 - tapOn: "Show earlier messages"
+- scrollUntilVisible:
+      element: "Welcome to Birchbark! Text us here any time about Bella."
+      direction: UP
 - assertNotVisible: "We couldn't load earlier messages.*"
 - assertNotVisible: "Earlier messages need a connection.*"
 - takeScreenshot: earlier-messages

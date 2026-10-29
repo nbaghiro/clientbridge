@@ -12,11 +12,10 @@ from clientbridge.models.clients import Client
 from clientbridge.models.messaging import Delivery
 from clientbridge.models.reviews import ReviewRequest
 from clientbridge.models.scheduling import Booking, Slot
-from clientbridge.services.consents import record_consent, record_text_reply
 from clientbridge.services.deliveries import run_deliveries
 from tests.conftest import Factory, FakeEmailSender, FakePushSender, FakeSmsSender
 from tests.google_business import configure_google_review_profile, review_texts
-from tests.helpers import client_id, new_client, queued_subjects
+from tests.helpers import client_id, new_client, queued_subjects, replied_stop
 
 BIZ = "bz_birchbark"
 ST_OWNER = "st_owner"
@@ -117,7 +116,7 @@ async def test_invitation_skips_text_after_stop(
     await _configure(db)
     cid = await new_client(db)
     await db.execute(update(Client).where(Client.id == cid).values(phone="+16045550188"))
-    await record_consent(db, BIZ, cid, status="withdrawn", source="reply", recorded_by=None)
+    await replied_stop(db, cid)
     sent = await as_owner.post("/v1/reviews/request", json={"client_id": cid})
     assert sent.status_code == 201, sent.text
     assert email.sent == []
@@ -137,7 +136,7 @@ async def test_a_queued_invitation_text_is_dropped_after_a_stop(
     assert sent.status_code == 201, sent.text
     client = await db.get(Client, cid)
     assert client is not None
-    await record_text_reply(db, client, stop=True)
+    await replied_stop(db, client.id)
     await db.commit()
     await run_deliveries(db, email, sms, push)
     rows = list(

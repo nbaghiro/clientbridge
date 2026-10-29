@@ -13,6 +13,7 @@ from clientbridge.models.messaging import (
     Thread,
     ThreadStatus,
 )
+from clientbridge.schemas.clients import Tag
 
 TextBody = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1000)]
 
@@ -57,7 +58,7 @@ class BroadcastAudience(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
     all: bool = False
-    tags: list[Annotated[str, StringConstraints(min_length=1, max_length=100)]] = Field(
+    tags: list[Annotated[Tag, StringConstraints(min_length=1)]] = Field(
         default_factory=list[str],
         max_length=100,
         description="The clients carrying any of these tags; none means every client",

@@ -2744,7 +2744,7 @@ class ClassService:
     async def message(
         self, slot_id: str, data: ClassMessage, idempotency_key: str | None = None
     ) -> ClassMessageOut:
-        """One text to everyone booked who has a mobile number and hasn't replied STOP."""
+        """One text per booked number not stopped; sent counts every client it reaches."""
         slot = await self._session(slot_id)
         assert_can_act_as(self.principal, slot.staff_id)
         business = await self.db.get(Business, self.biz)
@@ -2757,6 +2757,7 @@ class ClassService:
                     .join(Booking, Booking.client_id == Client.id)
                     .where(Booking.slot_id == slot.id, Booking.status == "confirmed")
                     .distinct()
+                    .order_by(Client.id)
                 )
             )
             .scalars()
@@ -2766,10 +2767,16 @@ class ClassService:
         async def run(cmd: Command) -> ClassMessageOut:
             stopped = await stopped_clients(self.db, self.biz, [client.id for client in clients])
             sent = 0
+            texted: set[str] = set()
             for client in clients:
                 to = client_number(client)
                 if not to or client.id in stopped:
                     continue
+                sent += 1
+                # one text reaches everyone booked on a shared number
+                if to in texted:
+                    continue
+                texted.add(to)
                 thread = await open_thread(self.db, self.biz, client.id)
                 note = Message(
                     id=new_id("message"),
@@ -2783,7 +2790,6 @@ class ClassService:
                 self.db.add(note)
                 await self.db.flush()
                 await queue_message(self.db, to, data.body, message=note, business=business)
-                sent += 1
             await self.db.flush()
             cmd.record("class.message", entity_type="slot", entity_id=slot.id)
             return ClassMessageOut(sent=sent)

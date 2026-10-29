@@ -399,6 +399,8 @@ async def test_broadcast_audience_tag_filter(
         {"all": "yes"},
         {"everyone": True},
         {"all": True, "tags": ["vip"]},
+        {"tags": [""]},
+        {"tags": ["x" * 101]},
     ],
 )
 async def test_a_malformed_broadcast_audience_is_422(

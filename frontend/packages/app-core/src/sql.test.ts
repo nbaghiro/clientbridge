@@ -2335,66 +2335,46 @@ describe("app-core SQL against the replica schema", () => {
                 "status",
             ),
         ).toEqual([{ status: "withdrawn" }]);
+        const reply = (id: string, client: string, status: string, at: string) => ({
+            id,
+            client_id: client,
+            status,
+            source: "reply",
+            phone: "+16045550001",
+            created_at: at,
+        });
         scoped("consents", [
-            {
-                id: "cns_s1",
-                client_id: "cl_ben",
-                status: "withdrawn",
-                source: "reply",
-                created_at: "2026-06-20T08:00:00Z",
-            },
+            reply("cns_s1", "cl_ann", "withdrawn", "2026-06-20T08:00:00Z"),
             {
                 id: "cns_s2",
-                client_id: "cl_ben",
+                client_id: "cl_ann",
                 status: "granted",
                 source: "in_person",
                 created_at: "2026-06-21T08:00:00Z",
             },
         ]);
         expect(run("TEXTS_STOPPED_SQL")).toEqual([
-            { client_id: "cl_ben", created_at: "2026-06-20T08:00:00Z" },
+            { client_id: "cl_ann", created_at: "2026-06-20T08:00:00Z" },
         ]);
-        expect(run("CLIENT_TEXTS_STOPPED_SQL", ["cl_ben"])).toEqual([
+        expect(run("CLIENT_TEXTS_STOPPED_SQL", ["cl_ann"])).toEqual([
             { created_at: "2026-06-20T08:00:00Z" },
         ]);
-        scoped("consents", [
-            {
-                id: "cns_s3",
-                client_id: "cl_ben",
-                status: "granted",
-                source: "reply",
-                created_at: "2026-06-22T08:00:00Z",
-            },
-        ]);
+        scoped("consents", [reply("cns_s3", "cl_ann", "granted", "2026-06-22T08:00:00Z")]);
         expect(run("TEXTS_STOPPED_SQL")).toEqual([]);
-        expect(run("CLIENT_TEXTS_STOPPED_SQL", ["cl_ben"])).toEqual([]);
+        expect(run("CLIENT_TEXTS_STOPPED_SQL", ["cl_ann"])).toEqual([]);
         scoped("clients", [{ id: "cl_ann_spouse", name: "Sam", phone: "+16045550001" }]);
-        scoped("consents", [
-            {
-                id: "cns_s4",
-                client_id: "cl_ann",
-                status: "withdrawn",
-                source: "reply",
-                created_at: "2026-06-23T08:00:00Z",
-            },
-        ]);
+        scoped("consents", [reply("cns_s4", "cl_ann", "withdrawn", "2026-06-23T08:00:00Z")]);
         expect(run("CLIENT_TEXTS_STOPPED_SQL", ["cl_ann_spouse"])).toEqual([
             { created_at: "2026-06-23T08:00:00Z" },
         ]);
         expect(run("CLIENT_TEXTS_STOPPED_SQL", ["cl_ben"])).toEqual([]);
-        scoped("consents", [
-            {
-                id: "cns_s5",
-                client_id: "cl_ann_spouse",
-                status: "withdrawn",
-                source: "reply",
-                created_at: "2026-06-24T08:00:00Z",
-            },
-        ]);
+        db.run("UPDATE clients SET phone = '+16045550009' WHERE id = 'cl_ann'");
         expect(run("TEXTS_STOPPED_SQL")).toEqual([
-            { client_id: "cl_ann", created_at: "2026-06-24T08:00:00Z" },
-            { client_id: "cl_ann_spouse", created_at: "2026-06-24T08:00:00Z" },
+            { client_id: "cl_ann_spouse", created_at: "2026-06-23T08:00:00Z" },
         ]);
+        db.run("UPDATE clients SET phone = '+16045550001' WHERE id = 'cl_ann'");
+        scoped("consents", [reply("cns_s5", "cl_ann_spouse", "granted", "2026-06-24T08:00:00Z")]);
+        expect(run("TEXTS_STOPPED_SQL")).toEqual([]);
         db.run(
             "DELETE FROM consents WHERE id IN ('cns_s1', 'cns_s2', 'cns_s3', 'cns_s4', 'cns_s5')",
         );

@@ -29,18 +29,16 @@ WHERE NOT EXISTS (
       AND (n.created_at > k.created_at OR (n.created_at = k.created_at AND n.id > k.id))
 )`;
 
-// Clients whose E.164 number sent a STOP that no START has lifted, with its newest STOP.
+// Clients on a number whose newest STOP or START reply was STOP, with when it came.
 export const TEXTS_STOPPED_SQL = `
-SELECT h.id AS client_id, MAX(k.created_at) AS created_at
+SELECT h.id AS client_id, k.created_at
 FROM consents k
-JOIN clients c ON c.id = k.client_id
-JOIN clients h ON h.id = c.id OR (c.phone != '' AND h.phone = c.phone)
+JOIN clients h ON h.phone = k.phone
 WHERE k.source = 'reply' AND k.status = 'withdrawn' AND NOT EXISTS (
     SELECT 1 FROM consents n
-    WHERE n.client_id = k.client_id AND n.source = 'reply'
+    WHERE n.phone = k.phone AND n.source = 'reply'
       AND (n.created_at > k.created_at OR (n.created_at = k.created_at AND n.id > k.id))
-)
-GROUP BY h.id`;
+)`;
 
 export const AUDIENCE_CLIENTS_SQL = `
 SELECT id, name, phone, tags FROM clients
@@ -198,7 +196,7 @@ export function smsSegments(body: string): { chars: number; segments: number } {
 interface AudienceExclusion {
     id: string;
     name: string;
-    reason: "opted_out" | "no_consent" | "no_contact";
+    reason: "opted_out" | "no_consent" | "no_contact" | "shared_number";
     detail: string;
 }
 
@@ -221,6 +219,7 @@ function buildAudience(
     const matched = tagged.filter((c) => tags.length === 0 || c.list.some((t) => tags.includes(t)));
     const recipients: BroadcastAudience["recipients"] = [];
     const excluded: AudienceExclusion[] = [];
+    const reachable: { id: string; name: string; phone: string }[] = [];
     for (const c of matched) {
         const consent = consentFor(consents, c.id);
         if (c.phone === null || c.phone === "")
@@ -237,7 +236,18 @@ function buildAudience(
             });
         else if (!canBroadcast(consent))
             excluded.push({ id: c.id, name: c.name, reason: "no_consent", detail: "" });
-        else recipients.push({ id: c.id, name: c.name });
+        else reachable.push({ id: c.id, name: c.name, phone: c.phone });
+    }
+    // as the server does, one copy per number, to the client first by id
+    const first = new Map<string, { id: string; name: string }>();
+    for (const c of reachable) {
+        const kept = first.get(c.phone);
+        if (kept === undefined || c.id < kept.id) first.set(c.phone, c);
+    }
+    for (const c of reachable) {
+        const kept = first.get(c.phone);
+        if (kept === undefined || kept.id === c.id) recipients.push({ id: c.id, name: c.name });
+        else excluded.push({ id: c.id, name: c.name, reason: "shared_number", detail: kept.name });
     }
     return {
         allTags: [...counts.entries()]

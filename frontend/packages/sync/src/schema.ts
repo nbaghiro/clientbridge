@@ -73,6 +73,7 @@ const consents = new Table(
         source: column.text,
         recorded_by: column.text,
         expires_at: column.text,
+        phone: column.text,
         business_id: column.text,
         created_at: column.text,
         updated_at: column.text,

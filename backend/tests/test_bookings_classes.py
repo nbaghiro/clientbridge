@@ -2,15 +2,15 @@ from datetime import UTC, datetime
 
 import httpx
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
 from clientbridge.models.catalog import Item
+from clientbridge.models.clients import Client
 from clientbridge.models.messaging import Message, Thread
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services.bookings import booked_count, run_reminders
-from clientbridge.services.consents import record_consent
 from clientbridge.services.notifications import Notifier
 from tests.conftest import (
     BIZ,
@@ -19,7 +19,7 @@ from tests.conftest import (
     FakePushSender,
     FakeSmsSender,
 )
-from tests.helpers import begin, queued_subjects
+from tests.helpers import begin, queued_subjects, replied_stop
 
 CLIENTS = ["cl_amelie", "cl_marcus", "cl_yuki", "cl_liam"]
 
@@ -142,7 +142,7 @@ async def test_message_skips_and_does_not_count_a_client_who_replied_stop(
     sid = await _class(db, capacity=2)
     await _add(as_owner, sid, CLIENTS[0])
     await _add(as_owner, sid, CLIENTS[1])
-    await record_consent(db, BIZ, CLIENTS[1], status="withdrawn", source="reply", recorded_by=None)
+    await replied_stop(db, CLIENTS[1])
     res = await as_owner.post(f"/v1/classes/{sid}/message", json={"body": "Bring a toy"})
     assert res.status_code == 200, res.text
     assert res.json()["sent"] == 1
@@ -152,6 +152,24 @@ async def test_message_skips_and_does_not_count_a_client_who_replied_stop(
         .where(Message.body == "Bring a toy")
     )
     assert rows.scalars().all() == [CLIENTS[0]]
+
+
+async def test_message_texts_a_shared_number_once_and_counts_everyone_on_it(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    sid = await _class(db, capacity=2)
+    await db.execute(update(Client).where(Client.id == CLIENTS[1]).values(phone="+12505550180"))
+    await _add(as_owner, sid, CLIENTS[0])
+    await _add(as_owner, sid, CLIENTS[1])
+    res = await as_owner.post(f"/v1/classes/{sid}/message", json={"body": "Bring a toy"})
+    assert res.status_code == 200, res.text
+    assert res.json()["sent"] == 2
+    rows = await db.execute(
+        select(Thread.client_id)
+        .join(Message, Message.thread_id == Thread.id)
+        .where(Message.body == "Bring a toy")
+    )
+    assert rows.scalars().all() == [min(CLIENTS[0], CLIENTS[1])]
 
 
 async def test_a_repeated_class_message_texts_each_client_once(

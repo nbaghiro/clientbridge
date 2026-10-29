@@ -88,3 +88,5 @@ class Consent(PKMixin, BusinessScoped, TimestampMixin, Base):
     source: Mapped[ConsentSource] = mapped_column(String, nullable=False)
     recorded_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # a STOP or START reply's E.164 number, which it holds for every client on it
+    phone: Mapped[str | None] = mapped_column(String(16))

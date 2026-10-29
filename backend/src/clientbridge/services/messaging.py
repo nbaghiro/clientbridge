@@ -13,7 +13,7 @@ from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.locale import locale_for
-from clientbridge.core.phones import e164
+from clientbridge.core.phones import e164, same_phone
 from clientbridge.core.scoping import scoped
 from clientbridge.core.zones import zone
 from clientbridge.integrations.expo import PushSender
@@ -44,7 +44,6 @@ from clientbridge.services.business import (
 from clientbridge.services.consents import (
     allows_marketing,
     latest_consents,
-    phone_holders,
     record_text_reply,
     stopped_clients,
     texts_stopped,
@@ -122,8 +121,17 @@ async def broadcast_recipients(
     if not audience.all and audience.tags:
         query = query.where(Client.tags.overlap(audience.tags))
     clients = (await db.execute(query.order_by(Client.id))).scalars().all()
-    out = await _reachable(db, business_id, clients)
+    out = _one_per_number(await _reachable(db, business_id, clients))
     return out[:_BROADCAST_CAP], len(clients) - len(out[:_BROADCAST_CAP])
+
+
+def _one_per_number(recipients: list[tuple[Client, str]]) -> list[tuple[Client, str]]:
+    """Clients sharing a number get one copy, sent to the one first by id."""
+    first: dict[str, str] = {}
+    for client, to in recipients:
+        if to not in first or client.id < first[to]:
+            first[to] = client.id
+    return [(client, to) for client, to in recipients if first[to] == client.id]
 
 
 async def _reachable(
@@ -282,11 +290,11 @@ async def _send_broadcast(
     return True
 
 
-async def route_inbound_sms(db: AsyncSession, number: str, destination: str) -> list[Client]:
-    """The business's clients on the number, the one a reply most likely answers first."""
+async def route_inbound_sms(db: AsyncSession, number: str, destination: str) -> Client | None:
+    """Of the business's clients on the number, the one a reply most likely answers."""
     business_id = await db.scalar(select(Business.id).where(Business.sms_number == destination))
     if business_id is None:
-        return []
+        return None
     latest = (
         scoped(Message, business_id)
         .with_only_columns(func.max(Message.created_at))
@@ -295,12 +303,11 @@ async def route_inbound_sms(db: AsyncSession, number: str, destination: str) -> 
         .correlate(Client)
         .scalar_subquery()
     )
-    return list(
-        await db.scalars(
-            phone_holders(business_id, number).order_by(
-                (Client.status == "active").desc(), latest.desc().nulls_last(), Client.id
-            )
-        )
+    return await db.scalar(
+        scoped(Client, business_id, soft_delete=True)
+        .where(same_phone(Client.phone, number))
+        .order_by((Client.status == "active").desc(), latest.desc().nulls_last(), Client.id)
+        .limit(1)
     )
 
 
@@ -314,16 +321,11 @@ async def process_inbound_sms(
         return
     number = e164(from_phone)
     destination = e164(to_phone)
-    holders = await route_inbound_sms(db, number, destination) if number and destination else []
-    client = holders[0] if holders else None
+    client = await route_inbound_sms(db, number, destination) if number and destination else None
     keyword = body.strip().upper()
-    if client is not None:
-        if keyword in STOP_WORDS:
-            await record_text_reply(db, client, stop=True)
-        elif keyword in START_WORDS:
-            # the carrier restarts the number, so it lifts a STOP whichever sharer sent it
-            for holder in holders:
-                await record_text_reply(db, holder, stop=False)
+    if client is not None and number is not None:
+        if keyword in STOP_WORDS or keyword in START_WORDS:
+            await record_text_reply(db, client, number, stop=keyword in STOP_WORDS)
         thread = await open_thread(db, client.business_id, client.id)
         message = Message(
             id=new_id("message"),

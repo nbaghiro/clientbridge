@@ -148,6 +148,34 @@ async def test_a_stop_stays_with_the_number_when_a_sharer_moves_to_their_own(
     assert await texts_stopped(db, BIZ, first) and not await texts_stopped(db, BIZ, second)
 
 
+async def test_a_stop_stays_with_the_number_when_its_sender_moves_to_another(
+    api: httpx.AsyncClient, as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    sender = await _client_with_phone(db)
+    sharer = await _client_with_phone(db)
+    await texted(db, sender)
+    ok(await text_in(api, {"From": PHONE, "Body": "STOP", "MessageSid": "SM_sender_moves"}))
+    await db.execute(update(Client).where(Client.id == sender).values(phone="+15145552222"))
+    assert await texts_stopped(db, BIZ, sharer) and not await texts_stopped(db, BIZ, sender)
+    res = await as_owner.post("/v1/messages", json={"client_id": sharer, "body": "Still there?"})
+    assert res.status_code == 409
+    ok(await text_in(api, {"From": PHONE, "Body": "START", "MessageSid": "SM_sharer_starts"}))
+    assert not await texts_stopped(db, BIZ, sharer)
+
+
+async def test_a_stop_stays_with_the_number_when_its_sender_is_merged_away(
+    api: httpx.AsyncClient, as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    sender = await _client_with_phone(db)
+    kept = await _client_with_phone(db, phone="+15145552222")
+    await texted(db, sender)
+    ok(await text_in(api, {"From": PHONE, "Body": "STOP", "MessageSid": "SM_merged_away"}))
+    merged = await as_owner.post(f"/v1/clients/{kept}/merge", json={"from_client_id": sender})
+    assert merged.status_code == 200, merged.text
+    assert not await texts_stopped(db, BIZ, kept)
+    assert await texts_stopped(db, BIZ, await _client_with_phone(db))
+
+
 async def test_a_client_added_after_a_stop_on_their_number_is_stopped_too(
     api: httpx.AsyncClient, as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:

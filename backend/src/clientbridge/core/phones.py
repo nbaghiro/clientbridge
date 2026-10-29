@@ -47,12 +47,8 @@ def _required_phone(value: str) -> str:
 RequiredPhone = Annotated[str, AfterValidator(_required_phone)]
 
 
-def same_phone(column: InstrumentedAttribute[str | None], *numbers: str) -> ColumnElement[bool]:
-    """Matches E.164 numbers against a stored phone, whether stored as E.164 or as typed."""
+def same_phone(column: InstrumentedAttribute[str | None], number: str) -> ColumnElement[bool]:
+    """Matches an E.164 number against a stored phone, whether stored as E.164 or as typed."""
     digits = func.regexp_replace(column, "[^0-9]", "", "g")
-    local = [
-        form
-        for number in numbers
-        for form in ([number[1:], number[2:]] if number.startswith("+1") else [number[1:]])
-    ]
+    local = [number[1:], number[2:]] if number.startswith("+1") else [number[1:]]
     return digits.in_(local)

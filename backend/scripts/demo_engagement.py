@@ -193,6 +193,18 @@ def _conversations(ctx: DemoContext) -> None:
                 "Happy to help plan your next visit. Let us know which service you need.",
                 when,
             )
+    # older than any device's synced history, so the inbox reads it back from the API
+    welcomed = ctx.now - timedelta(days=400)
+    thread = _thread(ctx, "cl_amelie", welcomed)
+    _message(ctx, thread, "Welcome to Birchbark! Text us here any time about Bella.", welcomed)
+    _message(
+        ctx,
+        thread,
+        "Thank you, we're excited for her first groom!",
+        welcomed + timedelta(minutes=9),
+        direction="in",
+        status="read",
+    )
     thread = _thread(ctx, "cl_olivia", ctx.now - timedelta(hours=2))
     _message(
         ctx,
