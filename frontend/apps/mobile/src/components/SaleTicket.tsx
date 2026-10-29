@@ -492,6 +492,7 @@ function VisitNoteBlock({ clientId, bookingId }: { clientId: string; bookingId: 
             />
             <Text style={styles.note}>{d.visitNotePhotos(note.sharedPhotos)}</Text>
             {note.error !== null ? <Notice tone="danger">{note.error}</Notice> : null}
+            {note.segmentNote !== null ? <Notice tone="info">{note.segmentNote}</Notice> : null}
             {note.sent ? <Notice tone="success">{d.visitNoteSent}</Notice> : null}
             <Button
                 variant="outline"

@@ -18,7 +18,7 @@ import {
     useBusinessZone,
     utcSql,
 } from "../datetime";
-import { formatParts, formatPhone } from "../format";
+import { formatList, formatParts, formatPhone } from "../format";
 import { isConnectionFailure, type Load, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { Intent, SelectOption } from "../ui";
@@ -36,6 +36,15 @@ import { useReplicaLoad } from "./sync";
 const m = strings.messaging;
 // TextBody in the backend's schemas/messaging.py, which counts code points after trimming
 const TEXT_MAX_LENGTH = 1000;
+
+// past this many billed segments a composer says how many texts a message will send as
+const SEGMENT_WARNING = 3;
+
+/** How many texts a long message will go out as, or null while it fits in a few. */
+export function segmentNote(body: string): string | null {
+    const { segments } = smsSegments(body.trim());
+    return segments > SEGMENT_WARNING ? m.manyTexts(segments) : null;
+}
 
 /** Why a text is too long to send, or null when the server will take it. */
 export function textLengthError(body: string): string | null {
@@ -89,6 +98,19 @@ SELECT m.id, m.direction, m.body, m.status, m.created_at, ${staffNameSql("st")} 
 FROM messages m LEFT JOIN staff st ON st.user_id = m.sent_by
 WHERE m.thread_id = ? ORDER BY m.created_at`;
 
+export const SHARED_NUMBER_SQL = `
+SELECT o.name FROM clients c
+JOIN clients o ON o.phone = c.phone AND o.id != c.id
+WHERE c.id = ? AND c.phone IS NOT NULL AND c.phone != ''
+  AND o.business_id = c.business_id AND o.status = 'active' AND o.deleted_at IS NULL
+ORDER BY o.name COLLATE NOCASE, o.id`;
+
+/** "This number is shared with …" naming the client's active sharers, or null for none. */
+function useSharedNumber(clientId: string): string | null {
+    const names = useQuery<{ name: string }>(SHARED_NUMBER_SQL, [clientId]).data;
+    return names.length === 0 ? null : m.sharedNumber(formatList(names.map((r) => r.name)));
+}
+
 // The client beside a thread: contact, subjects, what they owe and their next visit after `?`.
 export const INBOX_CLIENT_SQL = `
 SELECT c.id, c.name, c.phone,
@@ -121,8 +143,10 @@ export interface InboxThread extends InboxRow {
     title: string;
     ago: string;
     subjects: string[];
-    // The client's number replied STOP: texts are blocked until it replies START.
+    // The client or their number replied STOP: texts are blocked until the matching START.
     textsOff: boolean;
+    // Why texts are off: the number's STOP, or the client's own.
+    textsOffBody: string;
 }
 
 export function resolveInboxTarget(
@@ -188,8 +212,11 @@ export function useInbox(): InboxView {
             ago: t.last_message_at === null ? "" : formatRelativeTime(t.last_message_at, zone, now),
             subjects: t.subject_names === null ? [] : t.subject_names.split(", "),
             textsOff: textsStopped(consents.map, t.client_id),
+            textsOffBody: consents.stoppedByClient.has(t.client_id)
+                ? m.textsOffBodyByClient
+                : m.textsOffBody,
         }));
-    }, [rows.data, consents.map, zone]);
+    }, [rows.data, consents.map, consents.stoppedByClient, zone]);
     const filtered = useMemo(() => {
         const term = q.trim().toLowerCase();
         return threads.filter(
@@ -242,6 +269,8 @@ interface ClientContextRow {
 
 export interface Conversation {
     days: { label: string; items: ThreadItem[] }[];
+    // Other active clients on the same number, any of whom may have sent a reply.
+    sharedWith: string | null;
     client: ClientContextRow | null;
     consent: MarketingConsent;
     nextVisit: string | null;
@@ -335,6 +364,7 @@ export function useConversation(api: ApiLike, thread: InboxThread): Conversation
     const client =
         useQuery<ClientContextRow>(INBOX_CLIENT_SQL, [iso, iso, thread.client_id]).data[0] ?? null;
     const consents = useConsents();
+    const sharedWith = useSharedNumber(thread.client_id);
     const days = useMemo(() => {
         const out: Conversation["days"] = [];
         for (const r of rows) {
@@ -360,6 +390,7 @@ export function useConversation(api: ApiLike, thread: InboxThread): Conversation
     }, [rows, zone]);
     return {
         days,
+        sharedWith,
         client,
         consent: consentFor(consents.map, thread.client_id),
         nextVisit:
@@ -445,6 +476,8 @@ export interface ThreadComposer {
     error: string | null;
     submit: () => void;
     segments: { chars: number; segments: number };
+    // How many texts a long message will go out as; it still sends.
+    segmentNote: string | null;
     smsBlocked: boolean;
     canSend: boolean;
 }
@@ -479,6 +512,7 @@ export function useThreadComposer(api: ApiLike, thread: InboxThread): ThreadComp
             );
         },
         segments: smsSegments(body),
+        segmentNote: segmentNote(body),
         smsBlocked,
         canSend,
     };
@@ -492,6 +526,7 @@ interface NewMessage {
     setBody: (v: string) => void;
     smsBlocked: boolean;
     segments: { chars: number; segments: number };
+    segmentNote: string | null;
     busy: boolean;
     error: string | null;
     submit: () => void;
@@ -525,6 +560,7 @@ export function useNewMessage(
         setBody,
         smsBlocked,
         segments: smsSegments(body),
+        segmentNote: segmentNote(body),
         busy,
         error,
         submit: () => {
@@ -562,6 +598,7 @@ WHERE parent_type = 'booking' AND parent_id = ? AND uploaded_at IS NOT NULL
 
 interface VisitNote {
     body: string;
+    segmentNote: string | null;
     sharedPhotos: number;
     setBody: (v: string) => void;
     busy: boolean;
@@ -584,6 +621,7 @@ export function useVisitNote(
     const attempt = useRef<Attempt | null>(null);
     return {
         body,
+        segmentNote: segmentNote(body),
         sharedPhotos,
         setBody: (v) => {
             setError(null);

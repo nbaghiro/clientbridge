@@ -7,6 +7,8 @@ import {
     INBOX_SQL,
     type InboxThread,
     resolveInboxTarget,
+    SHARED_NUMBER_SQL,
+    segmentNote,
     textLengthError,
     useConversation,
     useInbox,
@@ -27,9 +29,13 @@ const inboxRows = [
     subject_names: null,
 }));
 
+let sharers: { name: string }[] = [];
+
 vi.mock("../hooks", async (importOriginal) => ({
     ...(await importOriginal<typeof import("../hooks")>()),
-    useBusinessQuery: (sql: string) => ({ data: sql === INBOX_SQL ? inboxRows : [] }),
+    useBusinessQuery: (sql: string) => ({
+        data: sql === INBOX_SQL ? inboxRows : sql === SHARED_NUMBER_SQL ? sharers : [],
+    }),
 }));
 
 vi.mock("../datetime", async (importOriginal) => ({
@@ -98,6 +104,7 @@ const thread: InboxThread = {
     ago: "",
     subjects: [],
     textsOff: false,
+    textsOffBody: strings.messaging.textsOffBody,
 };
 
 describe("earlier messages", () => {
@@ -240,4 +247,48 @@ it("refuses a text longer than the server takes, without sending it", () => {
 it("counts an emoji as one character, as the server does", () => {
     expect(textLengthError(`  ${"🙂".repeat(1000)}  `)).toBeNull();
     expect(textLengthError("🙂".repeat(1001))).toBe(strings.messaging.tooLong(1000, 1001));
+});
+
+describe("long texts", () => {
+    it("say how many texts a message sends as only past three", () => {
+        expect(segmentNote("a".repeat(459))).toBeNull();
+        expect(segmentNote(`  ${"a".repeat(459)}  `)).toBeNull();
+        expect(segmentNote("a".repeat(460))).toBe(strings.messaging.manyTexts(4));
+        expect(segmentNote("ê".repeat(202))).toBe(strings.messaging.manyTexts(4));
+    });
+
+    it("still send from the composer while the note shows", async () => {
+        const post = vi.fn().mockResolvedValue({ status: "sent" });
+        const api = { post } as unknown as ApiLike;
+        const { result } = renderHook(() => useThreadComposer(api, thread));
+        act(() => {
+            result.current.setBody("a".repeat(600));
+        });
+        expect(result.current.segmentNote).toBe(strings.messaging.manyTexts(4));
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(post).toHaveBeenCalledTimes(1);
+        });
+    });
+});
+
+describe("a shared number", () => {
+    afterEach(() => {
+        sharers = [];
+    });
+
+    it("names no one when the client's number is theirs alone", () => {
+        const api = { get: vi.fn() } as unknown as ApiLike;
+        const { result } = renderHook(() => useConversation(api, thread));
+        expect(result.current.sharedWith).toBeNull();
+    });
+
+    it("names everyone else on the number as one list", () => {
+        sharers = [{ name: "Lee" }, { name: "Sam" }];
+        const api = { get: vi.fn() } as unknown as ApiLike;
+        const { result } = renderHook(() => useConversation(api, thread));
+        expect(result.current.sharedWith).toBe(strings.messaging.sharedNumber("Lee and Sam"));
+    });
 });

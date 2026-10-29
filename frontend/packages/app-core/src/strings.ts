@@ -1798,6 +1798,7 @@ interface Strings {
             readonly call: string;
             readonly text: string;
             readonly textsStopped: (when: string) => string;
+            readonly textsStoppedByClient: (when: string) => string;
             readonly inProgress: string;
             readonly depositDue: (amount: string) => string;
             readonly depositPaid: (amount: string) => string;
@@ -2190,6 +2191,9 @@ interface Strings {
         ];
         readonly textsOffTitle: (name: string) => string;
         readonly textsOffBody: string;
+        readonly textsOffBodyByClient: string;
+        readonly sharedNumber: (names: string) => string;
+        readonly manyTexts: (segments: number) => string;
         readonly textsOffShort: string;
         readonly details: string;
         readonly openRecord: string;

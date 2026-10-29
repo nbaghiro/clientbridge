@@ -370,17 +370,19 @@ function toNote(r: NoteDbRow, viewerStaffId: string | null): ClientNote {
     };
 }
 
-// A STOP from the client's number holds until a START from it, whatever staff record.
+// A STOP holds until the matching START, whatever staff record; the client's own STOP shows first.
 export const CLIENT_TEXTS_STOPPED_SQL = `
-SELECT created_at FROM (${TEXTS_STOPPED_SQL}) WHERE client_id = ?`;
+SELECT created_at, own FROM (${TEXTS_STOPPED_SQL}) WHERE client_id = ?
+ORDER BY own DESC, created_at DESC LIMIT 1`;
 
-/** "Texts stopped" with the day their number replied STOP, or null while texts are allowed. */
+/** "Texts stopped" with the day the client or their number replied STOP, or null. */
 function useTextsStopped(clientId: string): string | null {
     const zone = useBusinessZone();
-    const stop = useQuery<{ created_at: string }>(CLIENT_TEXTS_STOPPED_SQL, [clientId]).data[0];
-    return stop === undefined
-        ? null
-        : s.record.textsStopped(formatDate(parseTimestamp(stop.created_at), zone));
+    const stop = useQuery<{ created_at: string; own: number }>(CLIENT_TEXTS_STOPPED_SQL, [clientId])
+        .data[0];
+    if (stop === undefined) return null;
+    const when = formatDate(parseTimestamp(stop.created_at), zone);
+    return stop.own === 1 ? s.record.textsStoppedByClient(when) : s.record.textsStopped(when);
 }
 
 export const CLIENT_METHODS_SQL = `

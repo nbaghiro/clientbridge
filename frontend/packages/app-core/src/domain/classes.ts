@@ -18,7 +18,7 @@ import { strings } from "../strings";
 import type { Intent } from "../ui";
 import { slotOverlapSql } from "./bookings";
 import { textsStopped, useConsents } from "./broadcasts";
-import { textLengthError } from "./messaging";
+import { segmentNote, textLengthError } from "./messaging";
 import { afterReview } from "./previews";
 import { useNow } from "../hooks";
 import { resourceName, useResources } from "./resources";
@@ -280,6 +280,8 @@ interface ClassBoard {
     roster: ClassRoster | null;
     load: Load;
     messageClass: (body: string, onSent: (sent: number) => void) => void;
+    // How many texts a long class message will go out as; it still sends.
+    messageNote: (body: string) => string | null;
     messaging: boolean;
     messageError: string | null;
 }
@@ -427,6 +429,7 @@ export function useClassBoard(api: ApiLike): ClassBoard {
                 },
             );
         },
+        messageNote: segmentNote,
         messaging: sender.busy,
         messageError: sender.error,
         roster: session

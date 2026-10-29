@@ -305,8 +305,15 @@ function ThreadView({ thread, onBack }: { thread: InboxThread; onBack?: () => vo
                     <Notice tone="danger" banner>
                         {strings.common.twoSentences(
                             s.textsOffTitle(firstName(thread.title)),
-                            s.textsOffBody,
+                            thread.textsOffBody,
                         )}
+                    </Notice>
+                </View>
+            ) : null}
+            {conversation.sharedWith !== null ? (
+                <View style={styles.pad}>
+                    <Notice tone="info" banner>
+                        {conversation.sharedWith}
                     </Notice>
                 </View>
             ) : null}
@@ -371,6 +378,9 @@ function ThreadView({ thread, onBack }: { thread: InboxThread; onBack?: () => vo
                     disabled={composer.smsBlocked}
                 />
                 {composer.error !== null ? <Notice tone="danger">{composer.error}</Notice> : null}
+                {composer.segmentNote !== null ? (
+                    <Notice tone="info">{composer.segmentNote}</Notice>
+                ) : null}
                 <View style={styles.headRow}>
                     <Button
                         style={{ alignSelf: "center" }}
@@ -424,6 +434,7 @@ function NewMessageSheet({
                     disabled={msg.smsBlocked}
                 />
                 {msg.error !== null ? <Notice tone="danger">{msg.error}</Notice> : null}
+                {msg.segmentNote !== null ? <Notice tone="info">{msg.segmentNote}</Notice> : null}
                 <View style={styles.headRow}>
                     <View style={styles.flex}>
                         <Button full variant="outline" onPress={onClose}>

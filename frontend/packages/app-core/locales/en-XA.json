@@ -5048,6 +5048,9 @@
     "clients.record.textsStopped": {
         "message": "[Ţĥéîŕ ñûɱƀéŕ ŕéþļîéð ŠŢÖÞ öñ {when}. Ţéẋţš šţåý öƒƒ ûñţîļ îţ ŕéþļîéš ŠŢÅŔŢ. one two three four five]"
     },
+    "clients.record.textsStoppedByClient": {
+        "message": "[Ţĥéý ŕéþļîéð ŠŢÖÞ öñ {when}. Ţéẋţš šţåý öƒƒ ûñţîļ ţĥéý ŕéþļý ŠŢÅŔŢ. one two three four]"
+    },
     "clients.record.inProgress": {
         "message": "[Îñ þŕöĝŕéšš one two]"
     },
@@ -6121,6 +6124,15 @@
     },
     "messaging.textsOffBody": {
         "message": "[Ţĥéîŕ ñûɱƀéŕ ŕéþļîéð ŠŢÖÞ. Ţéẋţš šţåý öƒƒ ûñţîļ îţ ŕéþļîéš ŠŢÅŔŢ. one two three four five]"
+    },
+    "messaging.textsOffBodyByClient": {
+        "message": "[Ţĥéý ŕéþļîéð ŠŢÖÞ. Ţéẋţš šţåý öƒƒ ûñţîļ ţĥéý ŕéþļý ŠŢÅŔŢ. one two three four]"
+    },
+    "messaging.sharedNumber": {
+        "message": "[Ţĥîš ñûɱƀéŕ îš šĥåŕéð ŵîţĥ {names}. one two three]"
+    },
+    "messaging.manyTexts": {
+        "message": "[{segments,plural,one{Ţĥîš ŵîļļ šéñð åš # ţéẋţ.} other{Ţĥîš ŵîļļ šéñð åš # ţéẋţš, éåçĥ ƀîļļéð šéþåŕåţéļý.}} one two three four five]"
     },
     "messaging.textsOffShort": {
         "message": "[Ţéẋţš öƒƒ (ŠŢÖÞ) one two]"

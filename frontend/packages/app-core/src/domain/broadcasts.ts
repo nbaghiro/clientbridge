@@ -29,14 +29,22 @@ WHERE NOT EXISTS (
       AND (n.created_at > k.created_at OR (n.created_at = k.created_at AND n.id > k.id))
 )`;
 
-// Clients on a number whose newest STOP or START reply was STOP, with when it came.
+// Clients whose number's, or whose own, newest STOP or START reply was STOP; own = 1 for theirs.
 export const TEXTS_STOPPED_SQL = `
-SELECT h.id AS client_id, k.created_at
+SELECT h.id AS client_id, k.created_at, 0 AS own
 FROM consents k
 JOIN clients h ON h.phone = k.phone
 WHERE k.source = 'reply' AND k.status = 'withdrawn' AND NOT EXISTS (
     SELECT 1 FROM consents n
     WHERE n.phone = k.phone AND n.source = 'reply'
+      AND (n.created_at > k.created_at OR (n.created_at = k.created_at AND n.id > k.id))
+)
+UNION ALL
+SELECT k.client_id, k.created_at, 1 AS own
+FROM consents k
+WHERE k.source = 'reply' AND k.status = 'withdrawn' AND NOT EXISTS (
+    SELECT 1 FROM consents n
+    WHERE n.client_id = k.client_id AND n.source = 'reply'
       AND (n.created_at > k.created_at OR (n.created_at = k.created_at AND n.id > k.id))
 )`;
 
@@ -116,17 +124,29 @@ const canBroadcast = (c: MarketingConsent): boolean =>
 
 type ConsentMap = Map<string, MarketingConsent>;
 
-/** Every client's current SMS consent. */
-export function useConsents(): { map: ConsentMap; isLoading: boolean } {
+interface StopRow {
+    client_id: string;
+    created_at: string;
+    own: number;
+}
+
+/** Every client's current SMS consent, and who replied STOP themselves rather than by number. */
+export function useConsents(): {
+    map: ConsentMap;
+    stoppedByClient: ReadonlySet<string>;
+    isLoading: boolean;
+} {
     const rows = useQuery<ConsentRow>(LATEST_CONSENTS_SQL);
-    const stopped = useQuery<{ client_id: string; created_at: string }>(TEXTS_STOPPED_SQL);
-    const map = useMemo(() => {
+    const stopped = useQuery<StopRow>(TEXTS_STOPPED_SQL);
+    const { map, stoppedByClient } = useMemo(() => {
         const now = new Date();
         const out: ConsentMap = new Map();
+        const own = new Set<string>();
         for (const row of rows.data) {
             out.set(row.client_id, consentOf(row, now));
         }
         for (const stop of stopped.data) {
+            if (stop.own === 1) own.add(stop.client_id);
             out.set(stop.client_id, {
                 state: "opted_out",
                 source: "reply",
@@ -134,16 +154,16 @@ export function useConsents(): { map: ConsentMap; isLoading: boolean } {
                 expiresAt: null,
             });
         }
-        return out;
+        return { map: out, stoppedByClient: own };
     }, [rows.data, stopped.data]);
-    return { map, isLoading: rows.isLoading || stopped.isLoading };
+    return { map, stoppedByClient, isLoading: rows.isLoading || stopped.isLoading };
 }
 
 export function consentFor(map: ConsentMap, clientId: string): MarketingConsent {
     return map.get(clientId) ?? consentOf(undefined);
 }
 
-/** Whether a STOP reply from the client's number has turned texts off. */
+/** Whether a STOP reply from the client's number, or from the client, has turned texts off. */
 export function textsStopped(map: ConsentMap, clientId: string): boolean {
     const consent = consentFor(map, clientId);
     return consent.state === "opted_out" && consent.source === "reply";

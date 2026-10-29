@@ -166,6 +166,9 @@ export function ClassesScreen() {
                         {board.messageError !== null ? (
                             <Notice tone="danger">{board.messageError}</Notice>
                         ) : null}
+                        {board.messageNote(body) !== null ? (
+                            <Notice tone="info">{board.messageNote(body)}</Notice>
+                        ) : null}
                         <Button
                             full
                             busy={board.messaging}

@@ -200,6 +200,7 @@ export function Classes() {
                         hint={s.messageClassHint(roster.textable)}
                         busy={board.messaging}
                         error={board.messageError}
+                        note={board.messageNote}
                         onSend={(body) => {
                             board.messageClass(body, (n) => {
                                 setSent(s.messageSent(n));
@@ -291,6 +292,7 @@ function MessageClass({
     hint,
     busy,
     error,
+    note,
     onSend,
     onCancel,
 }: {
@@ -298,10 +300,12 @@ function MessageClass({
     hint: string;
     busy: boolean;
     error: string | null;
+    note: (body: string) => string | null;
     onSend: (body: string) => void;
     onCancel: () => void;
 }) {
     const [body, setBody] = useState("");
+    const longText = note(body);
     return (
         <div className="space-y-4">
             <div>
@@ -318,6 +322,7 @@ function MessageClass({
                 autoFocus
             />
             {error !== null ? <Notice tone="danger">{error}</Notice> : null}
+            {longText !== null ? <Notice tone="info">{longText}</Notice> : null}
             <div className="flex justify-end gap-2">
                 <Button variant="outline" onPress={onCancel}>
                     {s.messageClassCancel}
