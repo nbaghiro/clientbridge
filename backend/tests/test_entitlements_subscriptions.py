@@ -413,6 +413,22 @@ async def _seed_sub(db: AsyncSession, *, ref: str, status: str = "active") -> Su
     return sub
 
 
+async def test_a_first_payment_never_approved_ends_the_membership_and_tells_the_client(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway, sms: FakeSmsSender
+) -> None:
+    await enable_payments(db)
+    sub = await _seed_sub(db, ref="sub_expired", status="past_due")
+    phone = await db.scalar(select(Client.phone).where(Client.id == sub.client_id))
+    current: dict[str, object] = {"id": "sub_expired", "status": "incomplete_expired"}
+    gateway.objects[("acct_test", "subscription", "sub_expired")] = current
+    for event_id in ("evt_expired", "evt_expired_again"):
+        event = _sub_event(event_id, "customer.subscription.updated", current)
+        assert (await api.post("/webhooks/stripe", content=event, headers=GOOD)).status_code == 200
+    row = await db.scalar(select(Subscription).where(Subscription.id == sub.id))
+    assert row is not None and row.status == "canceled"
+    assert len([m for m in sms.sent if m.to == phone]) == 1
+
+
 async def test_subscription_updated_flips_status(
     api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:

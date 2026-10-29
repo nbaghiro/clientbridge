@@ -206,6 +206,11 @@ An intent that nobody will finish is cancelled rather than left confirmable, so 
   Stripe asks the bank again instead of replaying the decline. A request that got no answer keeps its
   key. Staff see the server's reason: a declined card, a card that needs the client to approve, or a
   payment still in progress.
+- A renewal that needs the client to approve the payment arrives as `invoice.payment_failed` (Stripe sends
+  it with the PaymentIntent at `requires_action`), so the client gets the past-due notice; no separate
+  `invoice.payment_action_required` subscription is needed. A first payment never approved expires the
+  subscription through `customer.subscription.updated` (`incomplete_expired`), which now sends the same
+  cancel notice as a deletion.
 - Creating a membership locks the client and requires an idempotency key, so two quick creates can't
   both start billing. A saved card or bank account a membership still bills can't be removed
   (`payment_method_in_use`); one only canceled memberships used is removed after their link is

@@ -2398,7 +2398,8 @@ async def _dispatch(
         if event.data.get("status") == "lost":
             await _end_disputed_membership(db, gateway, event.data, event.account)
     elif event.type == "customer.subscription.updated":
-        await _update_subscription(db, gateway, event.data, event.account)
+        ended = await _expire_subscription(db, gateway, event.data, event.account)
+        return WebhookOutcome("subscription_canceled", ended) if ended is not None else None
     elif event.type == "customer.subscription.deleted":
         canceled = await _cancel_subscription(db, gateway, event.data, event.account)
         return WebhookOutcome("subscription_canceled", canceled) if canceled is not None else None
@@ -3222,6 +3223,21 @@ async def _update_subscription(
         sub.current_period_end = end
     await db.flush()
     return sub
+
+
+async def _expire_subscription(
+    db: AsyncSession, gateway: PaymentGateway, data: dict[str, object], account: str | None
+) -> str | None:
+    """An update that ends a membership, such as a first payment never approved, is a cancel."""
+    sub_id = data.get("id")
+    was = (
+        await db.scalar(select(Subscription.status).where(Subscription.provider_ref == sub_id))
+        if isinstance(sub_id, str)
+        else None
+    )
+    sub = await _update_subscription(db, gateway, data, account)
+    ended = sub is not None and was not in (None, "canceled") and sub.status == "canceled"
+    return sub.id if sub is not None and ended else None
 
 
 async def _cancel_subscription(
