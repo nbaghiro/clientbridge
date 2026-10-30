@@ -4,6 +4,8 @@ The launch QA plan: a pass across every product surface, as 11 areas and 62 tick
 
 Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridgeca/initiative/launch-qa-2ad161486768) in the `clientbridgeca` workspace, team Engineering (key `CB`). Each area is a project, each ticket an issue whose description is the ticket's text below, and each dependency a `blocks` relation. The [Launch board](https://linear.app/clientbridgeca/view/e48dd1630428) is the one place to work from. Its columns are the dev flow: Backlog, Selected for dev, In progress, Ready for review, In staging and Done. Its rows are the areas in the order below, so work from the top row down. The first ten areas are the product, each a group of functionality that can be walked end to end; the last, Platform and launch, holds the work around the product. Two of its tickets come first even so: the staging build (CB-61) and staging setup (CB-69), because most product tickets can't pass on staging without them.
 
+**Bookmarks:** [Launch board](https://linear.app/clientbridgeca/view/e48dd1630428) for daily work, [Launch QA initiative](https://linear.app/clientbridgeca/initiative/launch-qa-2ad161486768) for progress by area, [My issues](https://linear.app/clientbridgeca/my-issues) and [All issues](https://linear.app/clientbridgeca/team/CB/all) (including Duplicate and Not doing). Each area below links its Linear project.
+
 ## How tickets work
 
 - **This file and Linear are the plan.** Don't create a ticket for every piece of work. Work on a capability belongs to the ticket that already covers it: update that ticket's steps, Automated by or To automate lines rather than opening a new one.
@@ -19,74 +21,76 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 
 | Area | Ticket | Linear | Automation |
 | --- | --- | --- | --- |
-| 1. Get set up | Sign up, sign in safely and recover access on every platform | CB-1 | Partly automated |
-| 1. Get set up | Onboard a business and see its brand on every client page | CB-3 | Partly automated |
-| 1. Get set up | Invite the team and hold every role to its list | CB-4 | Partly automated |
-| 1. Get set up | Remove a team member: their work moves and their devices lose access | CB-23 | Partly automated |
-| 1. Get set up | Connect Stripe and know when payments and payouts work | CB-5 | Partly automated |
-| 1. Get set up | Run the trial, buy a plan, bill seats and go read-only | CB-6 | Partly automated |
-| 1. Get set up | Charge the right sales tax in every province | CB-7 | Partly automated |
-| 2. Clients and catalog | Keep a client record up to date from any device | CB-8 | Partly automated |
-| 2. Clients and catalog | Record what each client books for | CB-9 | Partly automated |
-| 2. Clients and catalog | Keep notes, photos and the client's story in one place | CB-10 | Partly automated |
-| 2. Clients and catalog | Tag clients and merge duplicates without losing anything | CB-11 | Partly automated |
-| 2. Clients and catalog | Set up services, classes and shared resources that book the way they read | CB-13 | Partly automated |
-| 2. Clients and catalog | Set up products and keep stock true to the shelf | CB-14 | Automated |
-| 3. Run the day | See the day on Today | CB-44 | Partly automated |
-| 3. Run the day | Set hours, time off and closures that decide open times | CB-16 | Partly automated |
-| 3. Run the day | Book, move and cancel visits from the calendar | CB-17 | Partly automated |
-| 3. Run the day | Run a visit from On my way to checkout | CB-18 | Manual |
-| 3. Run the day | Book and manage repeat visits | CB-19 | Manual |
-| 3. Run the day | Run classes, waitlists and programs | CB-20 | Automated |
-| 3. Run the day | Work a job with a crew, visit records and photos | CB-21 | Manual |
-| 3. Run the day | Remind clients before each visit | CB-22 | Manual |
-| 4. Book online | Take a booking online with a deposit | CB-24 | Partly automated |
-| 4. Book online | Let returning clients book as themselves | CB-25 | Automated |
-| 4. Book online | Add products to a booking and bill them once | CB-26 | Automated |
-| 4. Book online | Let clients reschedule or cancel from their link | CB-27 | Partly automated |
-| 4. Book online | Put the business page and booking on the business's own site | CB-28 | Automated |
-| 5. Sell at the desk and online | Ring up a sale at the desk and send the receipt | CB-29 | Partly automated |
-| 5. Sell at the desk and online | Take card payments at the desk | CB-30 | Partly automated |
-| 5. Sell at the desk and online | Take Tap to Pay on real phones | CB-31 | Manual |
-| 5. Sell at the desk and online | Add tips and discounts that add up by hand | CB-32 | Partly automated |
-| 5. Sell at the desk and online | Save a client's card or bank account and charge it | CB-12 | Partly automated |
-| 5. Sell at the desk and online | Fill online shop orders from cart to pickup | CB-41 | Partly automated |
-| 6. Invoice and get paid | Quote with an estimate and turn it into an invoice | CB-33 | Automated |
-| 6. Invoice and get paid | Invoice, send by text and get paid by link, card or by hand | CB-34 | Partly automated |
-| 6. Invoice and get paid | Print or share invoices, estimates, receipts and statements | CB-36 | Manual |
-| 6. Invoice and get paid | Take deposits and apply them to the bill | CB-37 | Partly automated |
-| 7. Gift cards, packages and memberships | Set up packages, memberships and gift card items | CB-15 | Manual |
-| 7. Gift cards, packages and memberships | Sell and redeem gift cards | CB-38 | Partly automated |
-| 7. Gift cards, packages and memberships | Sell, use and expire packages | CB-39 | Partly automated |
-| 7. Gift cards, packages and memberships | Run memberships through renewals and failures | CB-40 | Partly automated |
-| 8. Refunds and the books | Refund correctly and unwind what the sale created | CB-42 | Automated |
-| 8. Refunds and the books | Handle chargebacks to their outcome | CB-43 | Automated |
-| 8. Refunds and the books | Hand the bookkeeper reports that add up | CB-45 | Partly automated |
-| 8. Refunds and the books | Record filed GST/HST returns | CB-46 | Automated |
-| 8. Refunds and the books | Match payouts and fees with Stripe | CB-47 | Partly automated |
-| 8. Refunds and the books | Pay the team | CB-48 | Partly automated |
-| 9. Talk to clients | Text clients from one inbox, on the business's own number | CB-49 | Automated |
-| 9. Talk to clients | Honour STOP and consent everywhere | CB-50 | Automated |
-| 9. Talk to clients | Send broadcasts only to clients who agreed | CB-51 | Partly automated |
-| 9. Talk to clients | Collect intake forms before the first visit | CB-53 | Partly automated |
-| 9. Talk to clients | Send contracts and keep what was signed | CB-54 | Automated |
-| 9. Talk to clients | Ask for Google reviews after visits | CB-55 | Partly automated |
-| 10. Work anywhere | Keep working offline and come back cleanly | CB-56 | Automated |
-| 10. Work anywhere | Keep tabs and devices in step | CB-57 | Automated |
-| 10. Work anywhere | Notify staff on their phones | CB-59 | Partly automated |
-| 10. Work anywhere | Use the app on iPhone, Android and iPad | CB-60 | Partly automated |
-| 11. Platform and launch | Make staging run every QA step | CB-69 | Manual |
-| 11. Platform and launch | Ship store builds staff can install | CB-61 | Manual |
-| 11. Platform and launch | Run the business live in production | CB-64 | Manual |
-| 11. Platform and launch | Operate the platform from the admin console | CB-65 | Partly automated |
-| 11. Platform and launch | Launch a marketing site that makes no claim the product can't back | CB-66 | Partly automated |
-| 11. Platform and launch | Run a full business day end to end | CB-68 | Manual |
+| 1. Get set up | Sign up, sign in safely and recover access on every platform | [CB-1](https://linear.app/clientbridgeca/issue/CB-1) | Partly automated |
+| 1. Get set up | Onboard a business and see its brand on every client page | [CB-3](https://linear.app/clientbridgeca/issue/CB-3) | Partly automated |
+| 1. Get set up | Invite the team and hold every role to its list | [CB-4](https://linear.app/clientbridgeca/issue/CB-4) | Partly automated |
+| 1. Get set up | Remove a team member: their work moves and their devices lose access | [CB-23](https://linear.app/clientbridgeca/issue/CB-23) | Partly automated |
+| 1. Get set up | Connect Stripe and know when payments and payouts work | [CB-5](https://linear.app/clientbridgeca/issue/CB-5) | Partly automated |
+| 1. Get set up | Run the trial, buy a plan, bill seats and go read-only | [CB-6](https://linear.app/clientbridgeca/issue/CB-6) | Partly automated |
+| 1. Get set up | Charge the right sales tax in every province | [CB-7](https://linear.app/clientbridgeca/issue/CB-7) | Partly automated |
+| 2. Clients and catalog | Keep a client record up to date from any device | [CB-8](https://linear.app/clientbridgeca/issue/CB-8) | Partly automated |
+| 2. Clients and catalog | Record what each client books for | [CB-9](https://linear.app/clientbridgeca/issue/CB-9) | Partly automated |
+| 2. Clients and catalog | Keep notes, photos and the client's story in one place | [CB-10](https://linear.app/clientbridgeca/issue/CB-10) | Partly automated |
+| 2. Clients and catalog | Tag clients and merge duplicates without losing anything | [CB-11](https://linear.app/clientbridgeca/issue/CB-11) | Partly automated |
+| 2. Clients and catalog | Set up services, classes and shared resources that book the way they read | [CB-13](https://linear.app/clientbridgeca/issue/CB-13) | Partly automated |
+| 2. Clients and catalog | Set up products and keep stock true to the shelf | [CB-14](https://linear.app/clientbridgeca/issue/CB-14) | Automated |
+| 3. Run the day | See the day on Today | [CB-44](https://linear.app/clientbridgeca/issue/CB-44) | Partly automated |
+| 3. Run the day | Set hours, time off and closures that decide open times | [CB-16](https://linear.app/clientbridgeca/issue/CB-16) | Partly automated |
+| 3. Run the day | Book, move and cancel visits from the calendar | [CB-17](https://linear.app/clientbridgeca/issue/CB-17) | Partly automated |
+| 3. Run the day | Run a visit from On my way to checkout | [CB-18](https://linear.app/clientbridgeca/issue/CB-18) | Manual |
+| 3. Run the day | Book and manage repeat visits | [CB-19](https://linear.app/clientbridgeca/issue/CB-19) | Manual |
+| 3. Run the day | Run classes, waitlists and programs | [CB-20](https://linear.app/clientbridgeca/issue/CB-20) | Automated |
+| 3. Run the day | Work a job with a crew, visit records and photos | [CB-21](https://linear.app/clientbridgeca/issue/CB-21) | Manual |
+| 3. Run the day | Remind clients before each visit | [CB-22](https://linear.app/clientbridgeca/issue/CB-22) | Manual |
+| 4. Book online | Take a booking online with a deposit | [CB-24](https://linear.app/clientbridgeca/issue/CB-24) | Partly automated |
+| 4. Book online | Let returning clients book as themselves | [CB-25](https://linear.app/clientbridgeca/issue/CB-25) | Automated |
+| 4. Book online | Add products to a booking and bill them once | [CB-26](https://linear.app/clientbridgeca/issue/CB-26) | Automated |
+| 4. Book online | Let clients reschedule or cancel from their link | [CB-27](https://linear.app/clientbridgeca/issue/CB-27) | Partly automated |
+| 4. Book online | Put the business page and booking on the business's own site | [CB-28](https://linear.app/clientbridgeca/issue/CB-28) | Automated |
+| 5. Sell at the desk and online | Ring up a sale at the desk and send the receipt | [CB-29](https://linear.app/clientbridgeca/issue/CB-29) | Partly automated |
+| 5. Sell at the desk and online | Take card payments at the desk | [CB-30](https://linear.app/clientbridgeca/issue/CB-30) | Partly automated |
+| 5. Sell at the desk and online | Take Tap to Pay on real phones | [CB-31](https://linear.app/clientbridgeca/issue/CB-31) | Manual |
+| 5. Sell at the desk and online | Add tips and discounts that add up by hand | [CB-32](https://linear.app/clientbridgeca/issue/CB-32) | Partly automated |
+| 5. Sell at the desk and online | Save a client's card or bank account and charge it | [CB-12](https://linear.app/clientbridgeca/issue/CB-12) | Partly automated |
+| 5. Sell at the desk and online | Fill online shop orders from cart to pickup | [CB-41](https://linear.app/clientbridgeca/issue/CB-41) | Partly automated |
+| 6. Invoice and get paid | Quote with an estimate and turn it into an invoice | [CB-33](https://linear.app/clientbridgeca/issue/CB-33) | Automated |
+| 6. Invoice and get paid | Invoice, send by text and get paid by link, card or by hand | [CB-34](https://linear.app/clientbridgeca/issue/CB-34) | Partly automated |
+| 6. Invoice and get paid | Print or share invoices, estimates, receipts and statements | [CB-36](https://linear.app/clientbridgeca/issue/CB-36) | Manual |
+| 6. Invoice and get paid | Take deposits and apply them to the bill | [CB-37](https://linear.app/clientbridgeca/issue/CB-37) | Partly automated |
+| 7. Gift cards, packages and memberships | Set up packages, memberships and gift card items | [CB-15](https://linear.app/clientbridgeca/issue/CB-15) | Manual |
+| 7. Gift cards, packages and memberships | Sell and redeem gift cards | [CB-38](https://linear.app/clientbridgeca/issue/CB-38) | Partly automated |
+| 7. Gift cards, packages and memberships | Sell, use and expire packages | [CB-39](https://linear.app/clientbridgeca/issue/CB-39) | Partly automated |
+| 7. Gift cards, packages and memberships | Run memberships through renewals and failures | [CB-40](https://linear.app/clientbridgeca/issue/CB-40) | Partly automated |
+| 8. Refunds and the books | Refund correctly and unwind what the sale created | [CB-42](https://linear.app/clientbridgeca/issue/CB-42) | Automated |
+| 8. Refunds and the books | Handle chargebacks to their outcome | [CB-43](https://linear.app/clientbridgeca/issue/CB-43) | Automated |
+| 8. Refunds and the books | Hand the bookkeeper reports that add up | [CB-45](https://linear.app/clientbridgeca/issue/CB-45) | Partly automated |
+| 8. Refunds and the books | Record filed GST/HST returns | [CB-46](https://linear.app/clientbridgeca/issue/CB-46) | Automated |
+| 8. Refunds and the books | Match payouts and fees with Stripe | [CB-47](https://linear.app/clientbridgeca/issue/CB-47) | Partly automated |
+| 8. Refunds and the books | Pay the team | [CB-48](https://linear.app/clientbridgeca/issue/CB-48) | Partly automated |
+| 9. Talk to clients | Text clients from one inbox, on the business's own number | [CB-49](https://linear.app/clientbridgeca/issue/CB-49) | Automated |
+| 9. Talk to clients | Honour STOP and consent everywhere | [CB-50](https://linear.app/clientbridgeca/issue/CB-50) | Automated |
+| 9. Talk to clients | Send broadcasts only to clients who agreed | [CB-51](https://linear.app/clientbridgeca/issue/CB-51) | Partly automated |
+| 9. Talk to clients | Collect intake forms before the first visit | [CB-53](https://linear.app/clientbridgeca/issue/CB-53) | Partly automated |
+| 9. Talk to clients | Send contracts and keep what was signed | [CB-54](https://linear.app/clientbridgeca/issue/CB-54) | Automated |
+| 9. Talk to clients | Ask for Google reviews after visits | [CB-55](https://linear.app/clientbridgeca/issue/CB-55) | Partly automated |
+| 10. Work anywhere | Keep working offline and come back cleanly | [CB-56](https://linear.app/clientbridgeca/issue/CB-56) | Automated |
+| 10. Work anywhere | Keep tabs and devices in step | [CB-57](https://linear.app/clientbridgeca/issue/CB-57) | Automated |
+| 10. Work anywhere | Notify staff on their phones | [CB-59](https://linear.app/clientbridgeca/issue/CB-59) | Partly automated |
+| 10. Work anywhere | Use the app on iPhone, Android and iPad | [CB-60](https://linear.app/clientbridgeca/issue/CB-60) | Partly automated |
+| 11. Platform and launch | Make staging run every QA step | [CB-69](https://linear.app/clientbridgeca/issue/CB-69) | Manual |
+| 11. Platform and launch | Ship store builds staff can install | [CB-61](https://linear.app/clientbridgeca/issue/CB-61) | Manual |
+| 11. Platform and launch | Run the business live in production | [CB-64](https://linear.app/clientbridgeca/issue/CB-64) | Manual |
+| 11. Platform and launch | Operate the platform from the admin console | [CB-65](https://linear.app/clientbridgeca/issue/CB-65) | Partly automated |
+| 11. Platform and launch | Launch a marketing site that makes no claim the product can't back | [CB-66](https://linear.app/clientbridgeca/issue/CB-66) | Partly automated |
+| 11. Platform and launch | Run a full business day end to end | [CB-68](https://linear.app/clientbridgeca/issue/CB-68) | Manual |
 
 ---
 
 ## 1. Get set up
 
 A new owner signs up, sets up the business, brings in the team, connects Stripe, picks a plan and charges the right tax.
+
+**Linear project:** [1. Get set up](https://linear.app/clientbridgeca/project/1-get-set-up-c5ac21ce18c7)
 
 **Walk on staging:** Sign up as a new owner, set up the business with its brand, invite a staff member who signs in on a phone, connect Stripe, start the plan and ring up a taxed sale.
 
@@ -102,30 +106,30 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **QA steps**
 
-1. From the marketing site, click Start free.
-   **Expect:** the browser lands on `/signup`, not the sign-in page.
-2. Sign up with the new email and enter a wrong code, then the mailed code.
-   **Expect:** the wrong code is refused with a plain message; the right one opens onboarding.
-3. Reload while confirming.
-   **Expect:** you stay signed in and are not sent back to confirm again.
-4. Sign out and back in on web, iPhone and Android.
-   **Expect:** each lands on Today; on mobile, killing and reopening the app keeps you signed in.
-5. Reset the password with the emailed code on web.
-   **Expect:** you are signed in on that device only; the old password fails.
-6. Change the password in Setup > Sign-in & security.
-   **Expect:** the other devices are signed out at their next request.
-7. Sign in with Google on the same address.
-   **Expect:** the same account and business open; on mobile the Google button shows the unavailable state.
-8. Try a wrong password five times.
-   **Expect:** the same error each time and no detail about whether the account exists.
-9. Turn on an authenticator app on web, then sign out and in with a wrong code and the right one.
-   **Expect:** a QR code and a code check; backup codes are shown once; the wrong code is refused and the right one signs in.
+ 1. From the marketing site, click Start free.
+    **Expect:** the browser lands on `/signup`, not the sign-in page.
+ 2. Sign up with the new email and enter a wrong code, then the mailed code.
+    **Expect:** the wrong code is refused with a plain message; the right one opens onboarding.
+ 3. Reload while confirming.
+    **Expect:** you stay signed in and are not sent back to confirm again.
+ 4. Sign out and back in on web, iPhone and Android.
+    **Expect:** each lands on Today; on mobile, killing and reopening the app keeps you signed in.
+ 5. Reset the password with the emailed code on web.
+    **Expect:** you are signed in on that device only; the old password fails.
+ 6. Change the password in Setup > Sign-in & security.
+    **Expect:** the other devices are signed out at their next request.
+ 7. Sign in with Google on the same address.
+    **Expect:** the same account and business open; on mobile the Google button shows the unavailable state.
+ 8. Try a wrong password five times.
+    **Expect:** the same error each time and no detail about whether the account exists.
+ 9. Turn on an authenticator app on web, then sign out and in with a wrong code and the right one.
+    **Expect:** a QR code and a code check; backup codes are shown once; the wrong code is refused and the right one signs in.
 10. Sign in with a code on iPhone and Android.
-   **Expect:** both accept the authenticator code.
+    **Expect:** both accept the authenticator code.
 11. Sign in with one backup code, then try it again.
-   **Expect:** the first use works, the second is refused.
+    **Expect:** the first use works, the second is refused.
 12. On web, add a security key, sign in with password and key, then remove it.
-   **Expect:** the removed key no longer signs in. Keys are web only: on mobile, an account whose only second factor is a key is asked to add an authenticator or backup codes on the web.
+    **Expect:** the removed key no longer signs in. Keys are web only: on mobile, an account whose only second factor is a key is asked to add an authenticator or backup codes on the web.
 
 **Done when:** Every step passes on web, iPhone and Android with no workaround, each second factor can be added, used and removed, and a used backup code never works twice.
 
@@ -436,6 +440,8 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 The business loads its clients, what they book for, and the services and products it sells.
 
+**Linear project:** [2. Clients and catalog](https://linear.app/clientbridgeca/project/2-clients-and-catalog-662d8a53883f)
+
 **Walk on staging:** Add a client with a pet and a note, tag them and merge a duplicate, then add a service and a product with stock and see both on the booking page and in Sales.
 
 ### Keep a client record up to date from any device (CB-8)
@@ -687,6 +693,8 @@ The business loads its clients, what they book for, and the services and product
 ## 3. Run the day
 
 Staff open Today, set hours, book, run each visit from arrival to checkout, and nothing is left open.
+
+**Linear project:** [3. Run the day](https://linear.app/clientbridgeca/project/3-run-the-day-58b5822a4801)
 
 **Walk on staging:** From Today, set a member's hours, book a visit and a repeat visit, run one visit from On my way to checkout, fill a class, and end the day with nothing left open.
 
@@ -1014,6 +1022,8 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 
 Clients find the business, book and pay a deposit, and change their plans without calling.
 
+**Linear project:** [4. Book online](https://linear.app/clientbridgeca/project/4-book-online-216ab0a93dc7)
+
 **Walk on staging:** As a new client, book a visit with a deposit from the business's own site, come back as that client by SMS code, add a product, then reschedule from the link.
 
 ### Take a booking online with a deposit (CB-24)
@@ -1218,6 +1228,8 @@ Clients find the business, book and pay a deposit, and change their plans withou
 ## 5. Sell at the desk and online
 
 Every sale, at the desk or from the online shop, takes the right payment, tip and discount and ends with the right receipt and stock.
+
+**Linear project:** [5. Sell at the desk and online](https://linear.app/clientbridgeca/project/5-sell-at-the-desk-and-online-3b3e608dced5)
 
 **Walk on staging:** Ring up a visit and a product with a tip and a discount, pay one sale by saved card and one by cash, then place an online shop order and hand it over at pickup.
 
@@ -1465,6 +1477,8 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 
 Estimates become invoices, invoices are paid by link, saved card or by hand, and deposits are applied to the bill.
 
+**Linear project:** [6. Invoice and get paid](https://linear.app/clientbridgeca/project/6-invoice-and-get-paid-60b52fcc26c0)
+
 **Walk on staging:** Send an estimate, accept it from the link, turn it into an invoice with the visit's deposit applied, get it paid partly by hand and the rest by link, then print the receipt.
 
 ### Quote with an estimate and turn it into an invoice (CB-33)
@@ -1523,28 +1537,28 @@ Estimates become invoices, invoices are paid by link, saved card or by hand, and
 
 **QA steps**
 
-1. Create an invoice from a completed booking and send it.
-   **Expect:** the preview matches the text that arrives.
-2. Pay through the link in a private window with card 4242.
-   **Expect:** Paid on web and phones, receipt texted.
-3. Pay another with a 3DS card, then close the challenge on a third.
-   **Expect:** settles only after authentication; the closed one stays unpaid after reload.
-4. Open one invoice in two tabs; decline in the first, pay in both.
-   **Expect:** one charge.
-5. Void an unpaid invoice; try to void one with a payment in progress.
-   **Expect:** the second is refused.
-6. Leave an invoice past due.
-   **Expect:** overdue on Today at 07:00 local; the reminder preview matches what is sent.
-7. Pay a sent invoice through the link with the declined card 4000 0000 0000 0002.
-   **Expect:** the page says the card was declined, the client gets one payment-failed text and the invoice stays unpaid.
-8. Record $20 cash on a $50 invoice, then charge the rest to the saved card.
-   **Expect:** Partial, then Paid.
-9. Record an e-Transfer and a cheque on two others.
-   **Expect:** each shows its method on the receipt and in reports, and Today and the income report count each once.
+ 1. Create an invoice from a completed booking and send it.
+    **Expect:** the preview matches the text that arrives.
+ 2. Pay through the link in a private window with card 4242.
+    **Expect:** Paid on web and phones, receipt texted.
+ 3. Pay another with a 3DS card, then close the challenge on a third.
+    **Expect:** settles only after authentication; the closed one stays unpaid after reload.
+ 4. Open one invoice in two tabs; decline in the first, pay in both.
+    **Expect:** one charge.
+ 5. Void an unpaid invoice; try to void one with a payment in progress.
+    **Expect:** the second is refused.
+ 6. Leave an invoice past due.
+    **Expect:** overdue on Today at 07:00 local; the reminder preview matches what is sent.
+ 7. Pay a sent invoice through the link with the declined card 4000 0000 0000 0002.
+    **Expect:** the page says the card was declined, the client gets one payment-failed text and the invoice stays unpaid.
+ 8. Record $20 cash on a $50 invoice, then charge the rest to the saved card.
+    **Expect:** Partial, then Paid.
+ 9. Record an e-Transfer and a cheque on two others.
+    **Expect:** each shows its method on the receipt and in reports, and Today and the income report count each once.
 10. Lose the response after recording cash and retry.
-   **Expect:** one payment.
+    **Expect:** one payment.
 11. Open the send preview, then cancel.
-   **Expect:** the preview shows word for word the text the client gets, and cancelling sends nothing.
+    **Expect:** the preview shows word for word the text the client gets, and cancelling sends nothing.
 
 **Done when:** Invoices move from draft to paid or void with the right status everywhere, and every way a client actually pays is recorded once.
 
@@ -1648,6 +1662,8 @@ Estimates become invoices, invoices are paid by link, saved card or by hand, and
 ## 7. Gift cards, packages and memberships
 
 The business sells gift cards, packages and memberships, and each is used, renewed and expires with the right balance.
+
+**Linear project:** [7. Gift cards, packages and memberships](https://linear.app/clientbridgeca/project/7-gift-cards-packages-and-memberships-9904eea0bce4)
 
 **Walk on staging:** Sell a gift card, a package and a membership, redeem and use each at the desk, renew the membership once and let a package expire.
 
@@ -1800,6 +1816,8 @@ The business sells gift cards, packages and memberships, and each is used, renew
 ## 8. Refunds and the books
 
 Money goes back correctly, every figure agrees with Stripe and the bank, tax is filed and the team is paid.
+
+**Linear project:** [8. Refunds and the books](https://linear.app/clientbridgeca/project/8-refunds-and-the-books-9f95738b3e99)
 
 **Walk on staging:** Refund a sale paid partly by gift card, lose a test dispute, then check that Today, the reports, the payouts and the GST/HST return agree to the cent, and pay the team.
 
@@ -2054,6 +2072,8 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 
 The business texts clients from one inbox, respects consent, and sends forms, contracts and review requests.
 
+**Linear project:** [9. Talk to clients](https://linear.app/clientbridgeca/project/9-talk-to-clients-9c108b7b046b)
+
 **Walk on staging:** Text a client and get the reply, broadcast to a tag that includes a STOP client, send a form and a contract before a visit, and ask for a review after it.
 
 ### Text clients from one inbox, on the business's own number (CB-49)
@@ -2307,6 +2327,8 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 Staff run their day on any phone, tablet or browser tab, online or not, and every device agrees.
 
+**Linear project:** [10. Work anywhere](https://linear.app/clientbridgeca/project/10-work-anywhere-d78e4046f5ab)
+
 **Walk on staging:** Run part of a day on a phone and a tablet with the network off for an hour and web open in two tabs, and see every device agree, with a push for each new booking.
 
 ### Keep working offline and come back cleanly (CB-56)
@@ -2482,6 +2504,8 @@ Staff run their day on any phone, tablet or browser tab, online or not, and ever
 ## 11. Platform and launch
 
 The work around the product: staging that can run every QA step, store builds, production, the admin console, the marketing site and a full business day end to end.
+
+**Linear project:** [11. Platform and launch](https://linear.app/clientbridgeca/project/11-platform-and-launch-748a330808f9)
 
 **Walk on staging:** No walk of its own: CB-68 runs a full business day once the product epics are done.
 
