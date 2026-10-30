@@ -123,6 +123,13 @@ jobs:
           pnpm: "true"
       - run: pnpm --filter connect exec playwright install --with-deps chromium firefox webkit
         working-directory: frontend
+      # Linux WebKit (GnuTLS) follows api.stripe.com's chain to this DigiCert root, which Ubuntu dropped
+      - name: trust the root api.stripe.com chains to
+        run: |
+          openssl x509 -in .github/certs/digicert-high-assurance-ev-root.pem -noout -fingerprint -sha256 \
+            | grep -qx "sha256 Fingerprint=74:31:E5:F4:C3:C1:CE:46:90:77:4F:0B:61:E0:54:40:88:3B:A9:A0:1E:D0:0B:A6:AB:D7:80:6E:D3:B1:18:CF"
+          sudo cp .github/certs/digicert-high-assurance-ev-root.pem /usr/local/share/ca-certificates/digicert-high-assurance-ev-root.crt
+          sudo update-ca-certificates
       - uses: ./.github/actions/stripe-cli
       - run: make test-tier
       - name: run the Stripe browser lane on the leased pair
