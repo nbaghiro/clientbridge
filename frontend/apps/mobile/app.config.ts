@@ -1,5 +1,5 @@
 import { mkdirSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 
 import type { ExpoConfig } from "expo/config";
 
@@ -47,26 +47,22 @@ const STRIPE_MERCHANT_ID = env.STRIPE_MERCHANT_ID ?? "merchant.ca.clientbridge.a
 
 const FACES = { 400: "Regular", 500: "Medium", 600: "SemiBold", 700: "Bold", 800: "ExtraBold" };
 type Weight = keyof typeof FACES;
-// Each family is embedded with every weight the screens use, so fontWeight picks the real face.
-const fontFamily = (name: string, manifest: string, weights: Weight[]) => ({
+// Package specifiers, not absolute paths, so CI and EAS compute the same fingerprint.
+const fontFamily = (name: string, pkg: string, weights: Weight[]) => ({
     fontFamily: name,
     fontDefinitions: weights.map((weight) => {
         const face = `${String(weight)}${FACES[weight]}`;
         const file = `${name.replaceAll(" ", "")}_${face}.ttf`;
-        return { path: join(dirname(manifest), face, file), weight };
+        return { path: `${pkg}/${face}/${file}`, weight };
     }),
 });
 export const FONT_FAMILIES = [
     fontFamily(
         "Schibsted Grotesk",
-        require.resolve("@expo-google-fonts/schibsted-grotesk/package.json"),
+        "@expo-google-fonts/schibsted-grotesk",
         [400, 500, 600, 700, 800],
     ),
-    fontFamily(
-        "Geist Mono",
-        require.resolve("@expo-google-fonts/geist-mono/package.json"),
-        [400, 500, 600, 700],
-    ),
+    fontFamily("Geist Mono", "@expo-google-fonts/geist-mono", [400, 500, 600, 700]),
 ];
 
 // Native modules (op-sqlite, Stripe) need an Expo dev build, not Expo Go; see .docs/engineering.md.
