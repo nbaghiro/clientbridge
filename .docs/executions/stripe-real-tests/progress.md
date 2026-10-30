@@ -55,8 +55,12 @@ A known limit of GitHub concurrency groups: a group keeps one waiting run, so a 
 
 The API suite passed every scenario in CI in about 2.5 minutes. The browser lane had fallen behind the UI while it ran only by hand: Take payment and record-payment had moved from dialogs into the ticket and the invoice drawer (`687eac98`), and the lane kept its own copies of those locators. It now uses the web suite's `paymentPanel`, `saleTicket`, `skipTip`, `choosePaymentMethod` and `paymentDrawer`, and its trigger covers the screens it drives. Two flakes were fixed at the cause: the card form lookup skips an iframe Stripe replaces while it polls, and the submit check listens on the document, so a re-rendered pay button is still observed. Failed cases now keep a screenshot and a trace in the CI artifact. The next run's screenshots showed the WebKit card cases failing because Stripe's card form never rendered: Linux WebKit uses GnuTLS, which follows `api.stripe.com`'s cross-signed chain to DigiCert's High Assurance EV root, a root Ubuntu no longer ships, and rejects it (OpenSSL accepts the same chain). Reproduced in the `mcr.microsoft.com/playwright:v1.63.0-noble` image; trusting that one root fixes it, so the browser job installs it from `.github/certs/` after checking its fingerprint. Safari on macOS and iOS is unaffected. STR-E13 passed on that run.
 
+## Out of the required check (2026-10-30)
+
+Inside the `e2e` group, a queued runner for the Stripe `result` job held `ci-result` for the length of a GitHub Actions incident, and a busy merchant pair would have done the same. `stripe` is now its own job in `ci.yml`, beside `e2e`, that `ci-result` doesn't wait for; its browser shards wait for `e2e / prepare`'s artifact the way the Android lanes do. Making it required adds it back to `ci-result`'s `needs`.
+
 ## Left
 
-- Task 6: after two weeks of runs without a Stripe-caused failure, remove `continue-on-error` from the lane's two jobs.
+- Task 6: after two weeks of runs without a Stripe-caused failure, add `stripe` to `ci-result`'s `needs` and remove `continue-on-error` from its jobs.
 - Apply the cloud stack with the two keys, so the jobs run.
 - A PAD debit scenario.

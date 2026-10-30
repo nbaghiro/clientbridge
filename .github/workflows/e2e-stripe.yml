@@ -86,8 +86,12 @@ jobs:
     needs: shards
     if: needs.shards.outputs.browser != '[]' && needs.shards.outputs.browser != ''
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 40
     continue-on-error: true
+    permissions:
+      contents: read
+      # to see when e2e / prepare has uploaded its builds and seed
+      actions: read
     concurrency:
       group: stripe-pool-${{ matrix.pair }}
       cancel-in-progress: false
@@ -107,7 +111,24 @@ jobs:
         with:
           app: connect
           browser: chromium
-          prepared: "true"
+      # e2e / prepare builds web, Connect and admin and seeds the demo beside this lane, so the shard waits
+      # for its artifact; without it the lane builds and seeds its own
+      - name: wait for e2e's prepared builds and seed
+        id: prepared
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for _ in $(seq 120); do
+            found=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?name=e2e-prepared" --jq .total_count)
+            if [ "$found" = 1 ]; then echo "found=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+            sleep 5
+          done
+          echo "::warning::no prepared builds after ten minutes; the shard builds and seeds its own"
+      - if: steps.prepared.outputs.found == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: e2e-prepared
+          path: ~/.cache/clientbridge-test
       # a shard may hold the cases tagged @browsers, which also run in Firefox and WebKit
       - uses: ./.github/actions/playwright
         with:

@@ -24,13 +24,23 @@ jobs:
   e2e:
     needs: lint
     uses: ./.github/workflows/e2e.yml
-    secrets:
-      STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
-      STRIPE_TEST_PUBLISHABLE_KEY: ${{ secrets.STRIPE_TEST_PUBLISHABLE_KEY }}
     permissions:
       contents: read
       # the Android lanes look up the prepare job's artifact while it may still be uploading
       actions: read
+
+  stripe:
+    # outside ci-result while it only reports, so no wait on Stripe or a busy merchant pair holds the
+    # required check; to require it, add it to ci-result's needs and drop the jobs' continue-on-error
+    needs: lint
+    uses: ./.github/workflows/e2e-stripe.yml
+    permissions:
+      contents: read
+      # the browser shards look up e2e's prepared builds while e2e / prepare may still be uploading them
+      actions: read
+    secrets:
+      STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+      STRIPE_TEST_PUBLISHABLE_KEY: ${{ secrets.STRIPE_TEST_PUBLISHABLE_KEY }}
 
   ci-result:
     # the one required check, so the ruleset doesn't list each job
