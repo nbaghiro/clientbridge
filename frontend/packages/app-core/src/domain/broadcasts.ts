@@ -32,8 +32,7 @@ WHERE NOT EXISTS (
 const IS_E164 = `(phone GLOB '+[1-9]*' AND substr(phone, 2) NOT GLOB '*[^0-9]*'
     AND length(phone) BETWEEN 9 AND 16)`;
 
-// Each client's phone as E.164 by normalizePhone's rule; only phones not stored that way are read
-// a character at a time (no regex), since the API stores E.164.
+// Each client's phone as E.164 by normalizePhone's rule; only non-E.164 phones are scanned.
 const CLIENT_NUMBERS_CTE = `
 stops AS (SELECT 1 FROM consents WHERE source = 'reply' AND status = 'withdrawn' LIMIT 1),
 scan(id, raw, i, digits) AS (
