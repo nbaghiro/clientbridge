@@ -112,12 +112,15 @@ def _credentials(
 RECONCILIATION = "reconciliation.stripe.ts"
 
 
+def reconciliation_results(directory: Path) -> Path:
+    return directory / "browser-results" / "reconciliation"
+
+
 def shard_cases(stack: Stack, part: str) -> list[str]:
-    """This shard's cases, then reconciliation, which checks every source they made on its pair."""
+    """This shard's cases; reconciliation runs after them on its own, so it isn't one of them."""
     listing = argparse.Namespace(surface="stripe", project=None, tests=[])
     cases = [case for case in listed_cases(stack, listing) if case.file != RECONCILIATION]
-    picked = shard_filters(cases, case_seconds("stripe"), part, "e2e/stripe", workers=1)
-    return [*picked, f"e2e/stripe/{RECONCILIATION}"]
+    return shard_filters(cases, case_seconds("stripe"), part, "e2e/stripe", workers=1)
 
 
 def listener(stack: Stack, processes: ExitStack) -> str:
@@ -301,25 +304,32 @@ def run_lane(args: argparse.Namespace, directory: Path, lease: tier.Lease) -> No
                     if args.shard:
                         tests = shard_cases(stack, args.shard)
                         (directory / "shard.json").write_text(json.dumps(tests, indent=2) + "\n")
+                    playwright = [
+                        "pnpm",
+                        "--filter",
+                        "connect",
+                        "exec",
+                        "playwright",
+                        "test",
+                        "--config=playwright.stripe.config.ts",
+                    ]
                     with (directory / "browser.log").open("wb") as browser_log:
-                        stack.command(
-                            [
-                                "pnpm",
-                                "--filter",
-                                "connect",
-                                "exec",
-                                "playwright",
-                                "test",
-                                "--config=playwright.stripe.config.ts",
-                                *tests,
-                            ],
-                            browser_log,
-                            frontend=True,
-                        )
+                        stack.command([*playwright, *tests], browser_log, frontend=True)
+                        if args.shard:
+                            # through its project dependencies it would rerun the whole lane
+                            stack.env["E2E_OUTPUT_DIR"] = str(reconciliation_results(directory))
+                            stack.command(
+                                [*playwright, "--project=reconciliation", "--no-deps"],
+                                browser_log,
+                                frontend=True,
+                            )
                     report = directory / "browser-results" / "results.json"
                     # a shard holds part of the lane, so CI requires the cases on the shards merged
                     if args.tests or args.shard:
                         Report.model_validate_json(report.read_text()).validate_evidence([])
+                    if args.shard:
+                        reconciled = reconciliation_results(directory) / "results.json"
+                        Report.model_validate_json(reconciled.read_text()).validate_evidence([])
                     else:
                         Report.model_validate_json(report.read_text()).validate_evidence(
                             REQUIRED_CASES["stripe"], browser_cases("stripe")
