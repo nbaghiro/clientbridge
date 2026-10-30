@@ -27,19 +27,20 @@ On iOS the lane restarts the simulator's pasteboard daemon first. A stuck `paste
 
 Each flow is named after the concept it covers, as `<concept>.yaml`, or `<concept>.<aspect>.yaml` when a concept has more than one flow. CI's `shards` job splits the flows into five shards of about equal length with `python -m e2e.shards --surface native --count 5`, from each flow's measured seconds in `backend/e2e/seconds.json` (the median for a flow with none yet), so a new flow needs no shard list.
 
-| Flow                  | Checks                                                                                                                                                                  |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `today.yaml`          | Today, search, notifications, schedule, classes, repeating bookings, booking composer, clients and add-client sheet.                                                    |
-| `setup.yaml`          | All eight setup destinations, plus Inventory, weekly hours and online-booking add-on/policy tabs.                                                                       |
-| `payments.yaml`       | All eight payment areas; invoice/estimate composers; sales register/orders/history; credit notes and disputes.                                                          |
-| `messaging.yaml`      | All five Inbox areas; message composer, new-form editor/settings and contract composer.                                                                                 |
-| `clients.record.yaml` | Seeded client detail, history, wallet and pets.                                                                                                                         |
-| `staff.yaml`          | Sign-in/signup/reset entry and Google unavailable state; real staff login; reduced Payments/Inbox/Setup surfaces and own hours. Completion restores the owner session.  |
-| `auth.recovery.yaml`  | Password recovery end to end: the code from Mailpit, a new password, signed in at onboarding. Uses a throwaway auth identity it deletes; completion restores the owner. |
-| `auth.session.yaml`   | NATIVE-IOS-01: the session in SecureStore (the Keychain on iOS) reopens Today after a relaunch, and signing out removes it, so the next launch asks to sign in.         |
-| `offline.yaml`        | NATIVE-IOS-02: with every service cut, a relaunch opens Today and Olivia Martin's record from the device's SQLite replica.                                              |
-| `notifications.yaml`  | NATIVE-IOS-03 (iOS only): the push a client's message sends staff, delivered by the simulator, opens that client's conversation when tapped.                            |
-| `clients.yaml`        | NATIVE-CRM-01: creates and edits a client through the app, with a relaunch after each, and checks both survive.                                                         |
+| Flow                  | Checks                                                                                                                                                                                  |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `today.yaml`          | Today, search, notifications, schedule, classes, repeating bookings, booking composer, clients and add-client sheet.                                                                    |
+| `setup.yaml`          | All eight setup destinations, plus Inventory, weekly hours and online-booking add-on/policy tabs.                                                                                       |
+| `payments.yaml`       | All eight payment areas; invoice/estimate composers; sales register/orders/history; credit notes and disputes.                                                                          |
+| `messaging.yaml`      | All five Inbox areas; message composer, new-form editor/settings and contract composer.                                                                                                 |
+| `clients.record.yaml` | Seeded client detail, history, wallet and pets.                                                                                                                                         |
+| `staff.yaml`          | Sign-in/signup/reset entry and Google unavailable state; real staff login; reduced Payments/Inbox/Setup surfaces and own hours. Completion restores the owner session.                  |
+| `auth.recovery.yaml`  | Password recovery end to end: the code from Mailpit, a new password, signed in at onboarding. Uses a throwaway auth identity it deletes; completion restores the owner.                 |
+| `auth.session.yaml`   | NATIVE-IOS-01: the session in SecureStore (the Keychain on iOS) reopens Today after a relaunch, and signing out removes it, so the next launch asks to sign in.                         |
+| `auth.password.yaml`  | NATIVE-AUTH-01: after the password changes on another device, a relaunch asks to sign in, the old password is refused and the new one works. Uses a throwaway auth identity it deletes. |
+| `offline.yaml`        | NATIVE-IOS-02: with every service cut, a relaunch opens Today and Olivia Martin's record from the device's SQLite replica.                                                              |
+| `notifications.yaml`  | NATIVE-IOS-03 (iOS only): the push a client's message sends staff, delivered by the simulator, opens that client's conversation when tapped.                                            |
+| `clients.yaml`        | NATIVE-CRM-01: creates and edits a client through the app, with a relaunch after each, and checks both survive.                                                                         |
 
 Flows assert meaningful visible controls/content, then capture screenshots. The modal checks protect the regression where the accessible backdrop parent hid every sheet descendant from iOS's accessibility tree. The Inbox entry also relies on its explicit accessible name.
 

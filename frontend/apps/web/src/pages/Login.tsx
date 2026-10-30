@@ -184,11 +184,14 @@ function MfaCard({ auth }: { auth: Auth }) {
                     <p className="text-sm text-ink-soft">{a.mfaWebauthn}</p>
                 ) : (
                     <TextField
+                        type="code"
                         label={auth.mfaMethod === "totp" ? a.mfaTotp : a.mfaLookup}
                         value={auth.code}
                         onChange={auth.setCode}
-                        placeholder={a.codePlaceholder}
-                        autoComplete="one-time-code"
+                        placeholder={
+                            auth.mfaMethod === "totp" ? a.codePlaceholder : a.backupCodePlaceholder
+                        }
+                        autoComplete={auth.mfaMethod === "totp" ? "one-time-code" : "off"}
                         size="lg"
                         autoFocus
                         error={auth.fieldErrors.code}

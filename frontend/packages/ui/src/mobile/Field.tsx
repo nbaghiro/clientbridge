@@ -103,7 +103,7 @@ export function TextField({
     ref,
 }: NativeProps<TextFieldProps> & WithRef<TextInput>) {
     const [value, setValue] = useControllable(valueProp, defaultValue, onChange);
-    const plain = type === "email" || type === "password" || type === "url";
+    const plain = type === "email" || type === "password" || type === "url" || type === "code";
     const input: ReactNode = (
         <TextInput
             ref={ref}

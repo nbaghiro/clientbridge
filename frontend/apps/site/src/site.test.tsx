@@ -2,6 +2,7 @@ import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { App } from "./App";
+import { config, links } from "./config";
 import { LINE_ICON_NAMES } from "./art/LineIcon";
 import { BRANDS } from "./content/brands";
 import { calendar, invoices, tapToPay, today } from "./content/demo";
@@ -66,6 +67,15 @@ describe("pages", () => {
             }
         }
         expect(checked).toBeGreaterThan(100);
+    });
+
+    it("send Start free to sign-up and Sign in to the app's root", () => {
+        expect(links.startFree).toBe(`${config.appUrl}/signup`);
+        expect(links.signIn).toBe(`${config.appUrl}/`);
+        for (const [path, page] of html) {
+            expect(page, path).toContain(`href="${config.appUrl}/signup"`);
+            expect(page, path).toContain(`href="${config.appUrl}/"`);
+        }
     });
 });
 

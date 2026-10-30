@@ -11519,6 +11519,13 @@
     "auth.mfaLookup": {
         "message": "Backup code"
     },
+    "auth.backupCodePlaceholder": {
+        "message": "a1b2c3d4",
+        "description": "Example backup code: eight lowercase letters and digits"
+    },
+    "auth.mfaKeyRefused": {
+        "message": "That security key didn't work. Try again or use another way to sign in."
+    },
     "auth.mfaWebauthn": {
         "message": "Use your security key"
     },
@@ -11647,6 +11654,9 @@
     "auth.securityKeyName": {
         "message": "Key name"
     },
+    "auth.securityKeyNameRequired": {
+        "message": "Name this key so you can tell it apart."
+    },
     "auth.securityKeyNamePlaceholder": {
         "message": "Work laptop"
     },
@@ -11722,6 +11732,12 @@
     },
     "auth.flowMessages.4000034": {
         "message": "That password has appeared in a data breach. Choose a different one."
+    },
+    "auth.flowMessages.4000012": {
+        "message": "That backup code has already been used. Try another one."
+    },
+    "auth.flowMessages.4000016": {
+        "message": "That backup code isn't right. Check it and try again."
     },
     "auth.flowMessages.4060006": {
         "message": "That code isn't right or has expired. Request a new one."

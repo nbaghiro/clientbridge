@@ -10709,6 +10709,12 @@
     "auth.mfaLookup": {
         "message": "[Ɓåçķûþ çöðé one two]"
     },
+    "auth.backupCodePlaceholder": {
+        "message": "[å1ƀ2ç3ð4 one]"
+    },
+    "auth.mfaKeyRefused": {
+        "message": "[Ţĥåţ šéçûŕîţý ķéý ðîðñ'ţ ŵöŕķ. Ţŕý åĝåîñ öŕ ûšé åñöţĥéŕ ŵåý ţö šîĝñ îñ. one two three four five]"
+    },
     "auth.mfaWebauthn": {
         "message": "[Ûšé ýöûŕ šéçûŕîţý ķéý one two]"
     },
@@ -10835,6 +10841,9 @@
     "auth.securityKeyName": {
         "message": "[Ķéý ñåɱé one]"
     },
+    "auth.securityKeyNameRequired": {
+        "message": "[Ñåɱé ţĥîš ķéý šö ýöû çåñ ţéļļ îţ åþåŕţ. one two three]"
+    },
     "auth.securityKeyNamePlaceholder": {
         "message": "[Ŵöŕķ ļåþţöþ one two]"
     },
@@ -10909,6 +10918,12 @@
     },
     "auth.flowMessages.4000034": {
         "message": "[Ţĥåţ þåššŵöŕð ĥåš åþþéåŕéð îñ å ðåţå ƀŕéåçĥ. Çĥööšé å ðîƒƒéŕéñţ öñé. one two three four five]"
+    },
+    "auth.flowMessages.4000012": {
+        "message": "[Ţĥåţ ƀåçķûþ çöðé ĥåš åļŕéåðý ƀééñ ûšéð. Ţŕý åñöţĥéŕ öñé. one two three four]"
+    },
+    "auth.flowMessages.4000016": {
+        "message": "[Ţĥåţ ƀåçķûþ çöðé îšñ'ţ ŕîĝĥţ. Çĥéçķ îţ åñð ţŕý åĝåîñ. one two three four]"
     },
     "auth.flowMessages.4060006": {
         "message": "[Ţĥåţ çöðé îšñ'ţ ŕîĝĥţ öŕ ĥåš éẋþîŕéð. Ŕéǫûéšţ å ñéŵ öñé. one two three four]"

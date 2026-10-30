@@ -13,9 +13,13 @@ import {
     totp,
 } from "./support/auth";
 import { signUp, openBusiness } from "./support/business";
+import { select } from "./support/db";
+import { navigate, signIn } from "./support/session";
 import { runEmail } from "@clientbridge/config/e2e/run";
 
 const a = strings.auth;
+// One second past the API's 30 s identity cache, the most an ended session can still be honoured.
+const IDENTITY_CACHE_MS = 31_000;
 
 for (const width of [1440, 390]) {
     test(`sign-in, signup and reset validation at ${String(width)}px`, async ({ page }) => {
@@ -216,6 +220,217 @@ test(
     },
 );
 
+test("ID-E2E-02 a wrong code then the mailed one confirms the email, and a second browser reaches the same business", async ({
+    page,
+    request,
+    browser,
+}) => {
+    const account = newAccount("confirm");
+    const name = `${account.name}'s Beauty Studio`;
+    await startSignUp(page, account);
+    const mailed = await mailedCode(request, account.email, "verification");
+    await page.getByLabel(a.code, { exact: true }).fill(mailed === "000000" ? "000001" : "000000");
+    await page.getByRole("button", { name: a.verify, exact: true }).click();
+    await expect(page.getByText(a.flowMessages[4070006], { exact: true })).toBeVisible();
+    await page.getByLabel(a.code, { exact: true }).fill(mailed);
+    await page.getByRole("button", { name: a.verify, exact: true }).click();
+    await openBusiness(page, name);
+
+    const second = await browser.newContext({ baseURL: new URL(page.url()).origin });
+    try {
+        const other = await second.newPage();
+        await signIn(other, account);
+        await navigate(other, "/setup/business");
+        await expect(
+            other.getByRole("textbox", { name: strings.business.nameLabel, exact: true }),
+        ).toHaveValue(name, { timeout: 60_000 });
+    } finally {
+        await second.close();
+    }
+});
+
+test("ID-E2E-03 recovery refuses the old session's next business action once the identity cache expires", async ({
+    page,
+    request,
+    browser,
+}) => {
+    const account = newAccount("revoked");
+    const name = `${account.name}'s Beauty Studio`;
+    await signUp(page, request, account);
+    await openBusiness(page, name);
+    await navigate(page, "/setup/business");
+    const nameField = page.getByRole("textbox", { name: strings.business.nameLabel, exact: true });
+    await expect(nameField).toHaveValue(name, { timeout: 60_000 });
+    await nameField.fill(`${name} Renamed`);
+
+    const second = await browser.newContext({ baseURL: new URL(page.url()).origin });
+    try {
+        const recovering = await second.newPage();
+        await recovering.goto("/login");
+        await recovering.getByRole("button", { name: a.forgot, exact: true }).click();
+        await expect(recovering.getByRole("heading", { name: a.resetTitle })).toBeVisible();
+        await recovering.getByRole("textbox", { name: a.email, exact: true }).fill(account.email);
+        await recovering.getByRole("button", { name: a.sendCode, exact: true }).click();
+        await recovering
+            .getByLabel(a.code, { exact: true })
+            .fill(await mailedCode(request, account.email, "password reset"));
+        await recovering.getByRole("button", { name: a.checkCode, exact: true }).click();
+        await recovering.getByLabel(a.newPassword, { exact: true }).fill(`${account.password}-new`);
+        await recovering.getByRole("button", { name: a.savePassword, exact: true }).click();
+        await expect(recovering).toHaveURL(/\/today$/, { timeout: 60_000 });
+
+        await page.waitForTimeout(IDENTITY_CACHE_MS);
+        await page
+            .locator("form", { has: nameField })
+            .getByRole("button", { name: strings.common.save, exact: true })
+            .click();
+        await expect(page.getByRole("heading", { name: a.signInTitle })).toBeVisible();
+        const [business] = await select<{ name: string }>`
+            SELECT b.name FROM businesses b
+            JOIN staff s ON s.business_id = b.id
+            JOIN users u ON u.id = s.user_id
+            WHERE u.email = ${account.email}`;
+        expect(business?.name).toBe(name);
+
+        await navigate(recovering, "/setup/business");
+        await expect(
+            recovering.getByRole("textbox", { name: strings.business.nameLabel, exact: true }),
+        ).toHaveValue(name, { timeout: 60_000 });
+    } finally {
+        await second.close();
+    }
+});
+
+test("ID-E2E-04 a backup code works once, and new codes retire the old ones", async ({
+    page,
+    request,
+}) => {
+    const useCode = async (code: string) => {
+        await passwordStep(page, account);
+        await expect(page.getByRole("heading", { name: a.mfaTitle })).toBeVisible();
+        await page.getByLabel(a.mfaLookup, { exact: true }).fill(code);
+        await page.getByRole("button", { name: a.confirm, exact: true }).click();
+    };
+    const newCodes = async (): Promise<string[]> => {
+        await page.getByRole("button", { name: a.securityNewCodes, exact: true }).click();
+        const shown = page.locator("ul.font-mono li");
+        await expect(shown).not.toHaveCount(0);
+        const codes = await shown.allTextContents();
+        await page.getByRole("button", { name: a.securityConfirmCodes, exact: true }).click();
+        await expect(shown).toHaveCount(0);
+        return codes;
+    };
+    const refused = page.getByText(a.flowMessages[4000016], { exact: true });
+    const business = page
+        .locator("aside")
+        .getByRole("link", { name: strings.navigation.businessMenu, exact: true });
+    const account = newAccount("backup");
+    await signUp(page, request, account);
+    await openBusiness(page, `${account.name}'s Beauty Studio`);
+    await openSecurity(page);
+    const [first = "", second = "", third = ""] = await newCodes();
+
+    await useCode(first);
+    await expect(business).toBeVisible({ timeout: 60_000 });
+
+    await useCode(first);
+    await expect(page.getByText(a.flowMessages[4000012], { exact: true })).toBeVisible();
+    await expect(business).toHaveCount(0);
+
+    await page.getByLabel(a.mfaLookup, { exact: true }).fill(second);
+    await page.getByRole("button", { name: a.confirm, exact: true }).click();
+    await expect(business).toBeVisible({ timeout: 60_000 });
+
+    await openSecurity(page);
+    const [fresh = ""] = await newCodes();
+    await useCode(third);
+    await expect(refused).toBeVisible();
+    await expect(business).toHaveCount(0);
+    await page.getByLabel(a.mfaLookup, { exact: true }).fill(fresh);
+    await page.getByRole("button", { name: a.confirm, exact: true }).click();
+    await expect(business).toBeVisible({ timeout: 60_000 });
+});
+
+test("ID-E2E-05 add a security key, sign in with it, and a removed key is refused", async ({
+    page,
+    request,
+    browser,
+}) => {
+    const authenticator = async (target: Page) => {
+        const cdp = await target.context().newCDPSession(target);
+        await cdp.send("WebAuthn.enable");
+        const { authenticatorId } = await cdp.send("WebAuthn.addVirtualAuthenticator", {
+            options: {
+                protocol: "ctap2",
+                transport: "internal",
+                hasResidentKey: true,
+                hasUserVerification: true,
+                isUserVerified: true,
+                automaticPresenceSimulation: true,
+            },
+        });
+        return { cdp, authenticatorId };
+    };
+    const business = page
+        .locator("aside")
+        .getByRole("link", { name: strings.navigation.businessMenu, exact: true });
+    const owner = await authenticator(page);
+    const account = newAccount("key");
+    await signUp(page, request, account);
+    await openBusiness(page, `${account.name}'s Beauty Studio`);
+
+    await openSecurity(page);
+    const add = page.getByRole("button", { name: a.securityAddKey, exact: true });
+    await add.click();
+    await expect(page.getByText(a.securityKeyNameRequired, { exact: true })).toBeVisible();
+    await page.getByLabel(a.securityKeyName, { exact: true }).fill("Work laptop");
+    await add.click();
+    const remove = page.getByRole("button", {
+        name: a.securityRemoveKey("Work laptop"),
+        exact: true,
+    });
+    await expect(remove).toBeVisible();
+
+    await passwordStep(page, account);
+    await expect(page.getByRole("heading", { name: a.mfaTitle })).toBeVisible();
+    await page.getByRole("button", { name: a.confirm, exact: true }).click();
+    await expect(business).toBeVisible({ timeout: 60_000 });
+    await openSecurity(page);
+
+    // A second browser holds the key and reaches its prompt first, so the server itself must refuse it.
+    const { credentials } = await owner.cdp.send("WebAuthn.getCredentials", {
+        authenticatorId: owner.authenticatorId,
+    });
+    const second = await browser.newContext({ baseURL: new URL(page.url()).origin });
+    try {
+        const stale = await second.newPage();
+        const holder = await authenticator(stale);
+        for (const credential of credentials)
+            await holder.cdp.send("WebAuthn.addCredential", {
+                authenticatorId: holder.authenticatorId,
+                credential,
+            });
+        await passwordStep(stale, account);
+        await expect(stale.getByRole("heading", { name: a.mfaTitle })).toBeVisible();
+
+        await remove.click();
+        await expect(remove).toHaveCount(0);
+
+        await stale.getByRole("button", { name: a.confirm, exact: true }).click();
+        await expect(stale.getByText(a.mfaKeyRefused, { exact: true })).toBeVisible();
+        await expect(
+            stale
+                .locator("aside")
+                .getByRole("link", { name: strings.navigation.businessMenu, exact: true }),
+        ).toHaveCount(0);
+    } finally {
+        await second.close();
+    }
+
+    await passwordStep(page, account);
+    await expect(business).toBeVisible({ timeout: 60_000 });
+});
+
 test("an invite joins the account that signs up with the invited email", async ({
     page,
     request,
@@ -257,6 +472,17 @@ test("an invite refuses an account with a different email", async ({ page, reque
         await cleanup();
     }
 });
+
+async function passwordStep(
+    page: Page,
+    account: { email: string; password: string },
+): Promise<void> {
+    await page.context().clearCookies();
+    await page.goto("/login");
+    await page.getByRole("textbox", { name: a.email, exact: true }).fill(account.email);
+    await page.getByLabel(a.password, { exact: true }).fill(account.password);
+    await page.getByRole("button", { name: a.signIn, exact: true }).click();
+}
 
 async function openSecurity(page: Page): Promise<void> {
     await page.goto("/setup/security");

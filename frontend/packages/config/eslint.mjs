@@ -22,6 +22,7 @@ const MAESTRO_GLOBALS = {
         "E2E_NAMESPACE",
         "MAILPIT_URL",
         "AUTH_ADMIN_URL",
+        "AUTH_URL",
         "CONTROL_URL",
         "ACTION",
         "PAYLOAD",

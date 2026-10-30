@@ -150,14 +150,11 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 * `mobile: auth.recovery.yaml (recovery end to end, unregistered)`
 * `mobile: staff.yaml (sign-in entry and Google unavailable, unregistered)`
 * `XB-E2E-04 (web)`
-
-**To automate**
-
-* `ID-E2E-02` in `apps/web/e2e/auth.e2e.ts`: Wrong then right verification code, then sign-in from a second context reaches the same business (family ID01).
-* `ID-E2E-03` in `apps/web/e2e/auth.e2e.ts`: An old session is refused on its next business action after recovery (ID03).
-* `NATIVE-AUTH-01` in `apps/mobile/e2e/auth.session.yaml`: Register NATIVE-IOS-01's Android run and add sign-in after a password change elsewhere.
-* `ID-E2E-04` in `apps/web/e2e/auth.e2e.ts`: Backup codes: use, reuse refused, regenerate, old code refused (ID04).
-* `ID-E2E-05` in `apps/web/e2e/auth.e2e.ts`: Security key with Playwright's virtual authenticator: register, sign in, remove, removed key refused (ID05).
+* `ID-E2E-02 (web)`
+* `ID-E2E-03 (web)`
+* `ID-E2E-04 (web)`
+* `ID-E2E-05 (web)`
+* `NATIVE-AUTH-01 (native-ios, native-android)`
 
 **Depends on:** Nothing
 

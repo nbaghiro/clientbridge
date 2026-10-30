@@ -320,7 +320,18 @@ export function useAuthForm(
         if (mfaMethod === "webauthn") {
             const options = nodeValue(current, "webauthn_login_trigger");
             if (!opts?.webauthn || !options) throw new Error("webauthn unavailable");
-            body = { method: "webauthn", webauthn_login: await opts.webauthn.login(options) };
+            let assertion: string;
+            try {
+                assertion = await opts.webauthn.login(options);
+            } catch {
+                setError(a.mfaKeyRefused);
+                return;
+            }
+            body = {
+                method: "webauthn",
+                identifier: nodeValue(current, "identifier"),
+                webauthn_login: assertion,
+            };
         } else if (mfaMethod === "lookup_secret")
             body = { method: "lookup_secret", lookup_secret: code.trim() };
         else body = { method: "totp", totp_code: code.trim() };
@@ -330,6 +341,12 @@ export function useAuthForm(
             return;
         }
         await handle(step, () => undefined);
+        if (step.kind === "flow" && mfaMethod === "webauthn") {
+            // This step shows no field, and the auth service's reasons all speak of a code.
+            const errs = flowErrors(step.flow);
+            const refused = errs.form !== null || Object.keys(errs.fields).length > 0;
+            setError(refused ? strings.auth.mfaKeyRefused : null);
+        }
     };
 
     const verify = async (): Promise<void> => {
@@ -413,6 +430,7 @@ export function useAuthForm(
             setMfaMethod(m);
             setCode("");
             setFieldErrors({});
+            setError(null);
         },
         cooldown,
         submit,
@@ -747,6 +765,7 @@ interface SecuritySettings {
     keys: SecurityKey[] | null;
     keyName: string;
     setKeyName: (v: string) => void;
+    keyNameError: string | null;
     addKey: () => void;
     removeKey: (id: string) => void;
     /** The ways this identity can confirm it's them again, or null while none is asked for. */
@@ -793,6 +812,7 @@ export function useSecuritySettings(
     const [newPassword, setNewPassword] = useState("");
     const [totpCode, setTotpCode] = useState("");
     const [keyName, setKeyName] = useState("");
+    const [keyNameError, setKeyNameError] = useState<string | null>(null);
     const [notice, setNotice] = useState<string | null>(null);
     const [reauthFlow, setReauthFlow] = useState<Flow | null>(null);
     const [reauthPassword, setReauthPassword] = useState("");
@@ -955,16 +975,23 @@ export function useSecuritySettings(
         },
         keys,
         keyName,
-        setKeyName,
+        setKeyName: (v: string) => {
+            setKeyName(v);
+            setKeyNameError(null);
+        },
+        keyNameError,
         addKey: () => {
             const webauthn = opts?.webauthn;
             const options = nodeValue(flow, "webauthn_register_trigger");
             if (!webauthn || !options) return;
+            const named = keyName.trim();
+            setKeyNameError(named === "" ? a.securityKeyNameRequired : null);
+            if (named === "") return;
             apply(
                 async () => ({
                     method: "webauthn",
                     webauthn_register: await webauthn.register(options),
-                    webauthn_register_displayname: keyName.trim() || a.securityKey,
+                    webauthn_register_displayname: named,
                 }),
                 () => {
                     setKeyName("");
