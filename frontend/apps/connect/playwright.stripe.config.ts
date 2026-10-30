@@ -25,9 +25,10 @@ export default defineConfig({
     use: {
         baseURL: on("pay", ""),
         viewport: { width: 1280, height: 900 },
-        trace: "off",
+        // only failures keep evidence, so a red run in CI shows what the browser saw
+        trace: "retain-on-failure",
         video: "off",
-        screenshot: "off",
+        screenshot: "only-on-failure",
     },
     projects: [
         { name: "default" },

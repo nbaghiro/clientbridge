@@ -276,12 +276,19 @@ def main() -> None:
     parser.add_argument("--required", nargs="*", default=[])
     parser.add_argument("--surface", choices=tuple(REQUIRED_CASES))
     parser.add_argument("--seconds", type=Path, help="also write each case's measured seconds here")
+    parser.add_argument(
+        "--browsers",
+        action="store_true",
+        help="also require the surface's Firefox and WebKit cases",
+    )
     args = parser.parse_args()
     required = REQUIRED_CASES.get(args.surface, []) + args.required
     report = merged(args.reports)
     if args.seconds is not None:
         args.seconds.write_text(json.dumps(report.case_seconds(), indent=4, sort_keys=True) + "\n")
-    report.validate_evidence(required)
+    report.validate_evidence(
+        required, browser_cases(args.surface) if args.browsers and args.surface else None
+    )
     print("Functional evidence passed: no missing required cases, skipped cases or retries.")
 
 

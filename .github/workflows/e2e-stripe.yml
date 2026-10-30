@@ -1,0 +1,191 @@
+name: e2e stripe
+on:
+  workflow_call:
+    secrets:
+      STRIPE_TEST_SECRET_KEY:
+        required: false
+      STRIPE_TEST_PUBLISHABLE_KEY:
+        required: false
+
+permissions:
+  contents: read
+
+# Real Stripe test mode: the API suite and the browser lane's shards, each on its own merchant pair.
+# Every job sets continue-on-error until two weeks pass without a Stripe-caused failure; then drop it.
+jobs:
+  shards:
+    # which jobs run and the pool pair each leases (python -m e2e.stripe_plan)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      api: ${{ steps.plan.outputs.api }}
+      browser: ${{ steps.plan.outputs.browser }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # a pull request's merge commit diffs against its first parent, the base
+          fetch-depth: 2
+      - uses: astral-sh/setup-uv@v10.3.0
+      - id: plan
+        working-directory: backend
+        env:
+          KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+          RUN: ${{ github.run_number }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          flags=()
+          if [ -n "$KEY" ]; then
+            flags+=(--ready)
+          else
+            echo "::notice title=Real Stripe skipped::no sandbox key (a fork, or before the cloud stack sets it)"
+          fi
+          changed=""
+          # every main commit runs the whole lane; a pull request runs the browser shards when it touches them
+          if [ "$EVENT" = push ]; then
+            flags+=(--every-path)
+          else
+            changed="$(git diff --name-only HEAD^1 HEAD)"
+          fi
+          printf '%s\n' "$changed" | uv run --frozen python -m e2e.stripe_plan --run "$RUN" "${flags[@]}" >> "$GITHUB_OUTPUT"
+
+  api:
+    needs: shards
+    if: needs.shards.outputs.api != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    continue-on-error: true
+    # one run per pair at a time; the next run on a busy pair waits for it
+    concurrency:
+      group: stripe-pool-${{ needs.shards.outputs.api }}
+      cancel-in-progress: false
+    env:
+      STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+      PAIR: ${{ needs.shards.outputs.api }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          uv: backend
+      - uses: ./.github/actions/stripe-cli
+      - run: make test-tier
+      - name: run the real-Stripe scenarios on the leased pair
+        run: make test-stripe-qa STRIPE_QA_ARGS="--pair $PAIR --record check --output ../.scratchpad/stripe-qa/ci"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: stripe-api
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            .scratchpad/stripe-qa/ci/results.json
+            .scratchpad/stripe-qa/ci/stripe_events
+          retention-days: 7
+
+  lane:
+    name: ${{ matrix.name }}
+    needs: shards
+    if: needs.shards.outputs.browser != '[]' && needs.shards.outputs.browser != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    continue-on-error: true
+    concurrency:
+      group: stripe-pool-${{ matrix.pair }}
+      cancel-in-progress: false
+    strategy:
+      fail-fast: false
+      matrix:
+        # the shards split the lane's cases by their measured seconds (backend/e2e/seconds.json)
+        include: ${{ fromJSON(needs.shards.outputs.browser) }}
+    env:
+      STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+      STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_TEST_PUBLISHABLE_KEY }}
+      PAIR: ${{ matrix.pair }}
+      SHARD: ${{ matrix.shard }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/e2e-setup
+        with:
+          app: connect
+          browser: chromium
+          prepared: "true"
+      # a shard may hold the cases tagged @browsers, which also run in Firefox and WebKit
+      - uses: ./.github/actions/playwright
+        with:
+          app: connect
+          browser: firefox
+      - uses: ./.github/actions/playwright
+        with:
+          app: connect
+          browser: webkit
+      # Linux WebKit (GnuTLS) follows api.stripe.com's chain to this DigiCert root, which Ubuntu dropped
+      - name: trust the root api.stripe.com chains to
+        run: |
+          openssl x509 -in .github/certs/digicert-high-assurance-ev-root.pem -noout -fingerprint -sha256 \
+            | grep -qx "sha256 Fingerprint=74:31:E5:F4:C3:C1:CE:46:90:77:4F:0B:61:E0:54:40:88:3B:A9:A0:1E:D0:0B:A6:AB:D7:80:6E:D3:B1:18:CF"
+          sudo cp .github/certs/digicert-high-assurance-ev-root.pem /usr/local/share/ca-certificates/digicert-high-assurance-ev-root.crt
+          sudo update-ca-certificates
+      - uses: ./.github/actions/stripe-cli
+      - name: run this shard of the Stripe browser lane on the leased pair
+        run: make test-stripe-browser STRIPE_BROWSER_ARGS="--credentials environment --pair $PAIR --shard $SHARD"
+      - name: recover run-owned Stripe objects after incomplete cleanup
+        if: always()
+        working-directory: backend
+        run: |
+          set -euo pipefail
+          for state in ../.scratchpad/e2e-*/stripe-fixtures.json; do
+            [ -f "$state" ] || continue
+            cleanup_status="$(uv run python -c 'import json,sys; print(json.load(open(sys.argv[1])).get("provider_cleanup", "unknown"))' "$(dirname "$state")/run.json")"
+            if [ "$cleanup_status" != "passed" ]; then
+              uv run python -m e2e.stripe recover --credentials environment --pair "$PAIR" --state "$state" --apply
+            fi
+          done
+      - if: always()
+        uses: ./.github/actions/e2e-collect
+        with:
+          name: ${{ matrix.artifact }}
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.artifact }}-provider
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            .scratchpad/e2e-*/stripe-fixtures.json
+            .scratchpad/e2e-*/stripe-deliveries.json
+            .scratchpad/e2e-*/stripe-relay.json
+            .scratchpad/e2e-*/provider-recovery.json
+          retention-days: 7
+
+  result:
+    # passes only when every shard passed and the shards together ran every Stripe browser case
+    needs: lane
+    if: always() && needs.lane.result != 'skipped'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.0
+      - run: uv sync --frozen
+        working-directory: backend
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: stripe-browser-[0-9]
+          path: shards
+      - name: require every Stripe browser case, in every browser it names, across the shards
+        working-directory: backend
+        run: |
+          uv run python -m e2e.results ../shards/*/e2e-*/browser-results/results.json \
+            ../shards/*/e2e-*/browser-results/reconciliation/results.json --surface stripe \
+            --browsers --seconds ../stripe-seconds.json
+      # each case's measured seconds, merged into backend/e2e/seconds.json under stripe to rebalance the shards
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: stripe-case-seconds
+          if-no-files-found: ignore
+          path: stripe-seconds.json
+          retention-days: 7
+      - env:
+          RESULT: ${{ needs.lane.result }}
+        run: test "$RESULT" = success

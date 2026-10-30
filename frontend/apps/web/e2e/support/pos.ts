@@ -10,6 +10,31 @@ import { runUrl } from "@clientbridge/config/e2e/run";
 
 const d = strings.pos.desk;
 
+/** The sale ticket beside the catalogue. */
+export function saleTicket(page: Page): Locator {
+    return page.getByRole("complementary", { name: d.ticket, exact: true });
+}
+
+/** The ticket once it is taking payment. */
+export function paymentPanel(page: Page): Locator {
+    return page.getByRole("complementary", { name: d.payTitle, exact: true });
+}
+
+export async function skipTip(payment: Locator): Promise<void> {
+    await payment
+        .getByRole("group", { name: d.tip, exact: true })
+        .getByRole("button", { name: d.tipNone, exact: true })
+        .click();
+}
+
+export async function choosePaymentMethod(payment: Locator, method: string): Promise<void> {
+    await payment
+        .getByRole("group", { name: d.howPaying, exact: true })
+        .getByRole("button")
+        .filter({ hasText: method })
+        .click();
+}
+
 export interface SaleFixture {
     client: ClientFixture;
     item: { id: string; name: string; sku: string };
@@ -211,22 +236,15 @@ export async function ringUpCash(
         await page
             .getByRole("button", { name: strings.ui.onTicket(sale.name, count), exact: true })
             .click();
-    const ticket = page.getByRole("complementary", { name: d.ticket, exact: true });
+    const ticket = saleTicket(page);
     await ticket.getByRole("button").filter({ hasText: d.chooseClient }).click();
     await ticket.getByRole("searchbox", { name: d.clientSearch, exact: true }).fill(client.name);
     await ticket.getByRole("button").filter({ hasText: client.name }).click();
     await expect(ticket).toContainText(client.name);
     await ticket.getByRole("button", { name: d.charge(sale.charge), exact: true }).click();
-    const payment = page.getByRole("complementary", { name: d.payTitle, exact: true });
-    await payment
-        .getByRole("group", { name: d.tip, exact: true })
-        .getByRole("button", { name: d.tipNone, exact: true })
-        .click();
-    await payment
-        .getByRole("group", { name: d.howPaying, exact: true })
-        .getByRole("button")
-        .filter({ hasText: d.methodCash })
-        .click();
+    const payment = paymentPanel(page);
+    await skipTip(payment);
+    await choosePaymentMethod(payment, d.methodCash);
     await payment.getByRole("textbox", { name: d.cashGiven, exact: true }).fill(sale.given);
     return payment;
 }
@@ -405,7 +423,7 @@ export async function ringCash(
             exact: true,
         }),
     ).toBeVisible();
-    const ticket = page.getByRole("complementary", { name: d.ticket, exact: true });
+    const ticket = saleTicket(page);
     await ticket.getByRole("button").filter({ hasText: d.chooseClient }).click();
     await ticket
         .getByRole("searchbox", { name: d.clientSearch, exact: true })
@@ -413,16 +431,9 @@ export async function ringCash(
     await ticket.getByRole("button").filter({ hasText: sale.client.name }).click();
     await expect(ticket).toContainText(sale.client.name);
     await ticket.getByRole("button", { name: d.charge(sale.charge), exact: true }).click();
-    const payment = page.getByRole("complementary", { name: d.payTitle, exact: true });
-    await payment
-        .getByRole("group", { name: d.tip, exact: true })
-        .getByRole("button", { name: d.tipNone, exact: true })
-        .click();
-    await payment
-        .getByRole("group", { name: d.howPaying, exact: true })
-        .getByRole("button")
-        .filter({ hasText: d.methodCash })
-        .click();
+    const payment = paymentPanel(page);
+    await skipTip(payment);
+    await choosePaymentMethod(payment, d.methodCash);
     await payment.getByRole("textbox", { name: d.cashGiven, exact: true }).fill(sale.given);
     return payment;
 }

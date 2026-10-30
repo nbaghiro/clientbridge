@@ -3,6 +3,7 @@
 import argparse
 import asyncio
 import json
+import re
 import tomllib
 from pathlib import Path
 
@@ -14,6 +15,9 @@ from clientbridge.integrations.stripe import (
     account_status_from,
     close_stripe_client,
 )
+
+# the local pair, the hosted CI pair, and the numbered pool pairs runs lease one at a time
+QA_ENVIRONMENT = re.compile(r"local|ci-[1-9][0-9]?")
 
 ACCOUNT_PARAMS: AccountRetrieveParams = {
     "include": ["configuration.merchant", "defaults", "requirements"]
@@ -68,8 +72,8 @@ async def provision(
     environment: str = "local",
     onboarding: bool = False,
 ) -> dict[str, object]:
-    if environment not in ("local", "ci"):
-        raise ValueError("merchant environment must be local or ci")
+    if not QA_ENVIRONMENT.fullmatch(environment):
+        raise ValueError("merchant environment must be local, ci or a ci pool pair such as ci-1")
     if (prepare or bank or onboarding) and not apply:
         raise ValueError("sandbox mutations require --apply")
     config = tomllib.loads((Path.home() / ".config/stripe/config.toml").read_text())
@@ -227,7 +231,7 @@ async def provision(
 async def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--profile", default="clientbridge")
-    parser.add_argument("--environment", choices=("local", "ci"), default="local")
+    parser.add_argument("--environment", default="local", help="local, ci, or a pool pair: ci-1")
     parser.add_argument("--apply", action="store_true")
     parser.add_argument(
         "--bank", action="store_true", help="attach documented CA test bank; requires --apply"

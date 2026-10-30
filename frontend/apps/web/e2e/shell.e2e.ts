@@ -4,7 +4,8 @@ import { demoId, runEmail, runUrl } from "@clientbridge/config/e2e/run";
 import { expect, type Locator, type Page } from "@playwright/test";
 import { test } from "./support/session";
 import { offsiteLoadFailure } from "./support/shell";
-import { createInvoice, openInvoice, showOnly } from "./support/billing";
+import { createInvoice, openInvoice, paymentDrawer, showOnly } from "./support/billing";
+import { paymentPanel } from "./support/pos";
 import {
     bookingApi,
     cancelOwnedBooking,
@@ -646,9 +647,7 @@ test("owner: payments desk, records and their dialogs", async ({ page }) => {
         await openInvoice(page, invoice);
         const record = page.getByRole("dialog");
         await record.getByRole("button", { name: s.recordPayment }).click();
-        await expect(page.getByRole("region", { name: s.rec.title, exact: true })).toContainText(
-            s.rec.howPaid,
-        );
+        await expect(paymentDrawer(page)).toContainText(s.rec.howPaid);
         await page.keyboard.press("Escape");
         await expect(page.getByRole("dialog")).toHaveCount(1);
         await expect(
@@ -717,7 +716,7 @@ test("owner: payments desk, records and their dialogs", async ({ page }) => {
         await expect(page.getByRole("dialog")).toContainText(d.discountScope);
         await escapeDialog(page);
         await ticket.getByRole("button", { name: /^Charge/ }).click();
-        const payment = page.getByRole("complementary", { name: d.payTitle, exact: true });
+        const payment = paymentPanel(page);
         await expect(payment).toContainText(d.howPaying);
         await payment.getByRole("button", { name: d.backToTicket, exact: true }).click();
         await ticket.getByRole("button", { name: d.clear }).click();

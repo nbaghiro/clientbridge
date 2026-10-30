@@ -1,0 +1,11 @@
+name: stripe-cli
+description: Installs the pinned Stripe CLI after checking its checksum, for forwarding test-mode webhooks.
+runs:
+  using: composite
+  steps:
+    - run: |
+        curl --fail --silent --show-error --location https://github.com/stripe/stripe-cli/releases/download/v1.53.1/stripe_1.53.1_linux_x86_64.tar.gz --output /tmp/stripe.tar.gz
+        echo "032fe0b849a9d6a222488bc846445bafeae993af1026b78a8121d02321ca1fd1  /tmp/stripe.tar.gz" | sha256sum --check
+        tar -xzf /tmp/stripe.tar.gz -C /tmp stripe
+        sudo install /tmp/stripe /usr/local/bin/stripe
+      shell: bash

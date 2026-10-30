@@ -231,12 +231,9 @@ merchants before applying that metadata. A local developer can use the existing 
 or copying it: `make test-stripe-qa STRIPE_QA_ARGS="--profile clientbridge --preflight"`, then omit
 `--preflight` to execute. The account/platform variables are still required. CI forbids CLI profiles.
 
-`.github/workflows/stripe-qa.yml` adds a main-only manual workflow with a `stripe-sandbox` environment,
-a constant concurrency group, pinned CLI download checksum and disposable local services. Configure
-the key as an environment secret and the three IDs as environment variables. Configure environment
-protection in GitHub before enabling it; the workflow file alone does not create protection. It uploads
-only sanitized test names/statuses/commit, retaining artifacts for seven days. Raw JUnit and Stripe
-listener output are not uploaded. The workflow has not been executed remotely yet.
+Hosted runs no longer read account ids from the environment: `.github/workflows/e2e-stripe.yml` leases
+a pair from the pool in `backend/e2e/stripe_pool.json` and reads only the two sandbox keys. The
+[Stripe test tiers](../engineering.md#stripe-four-tiers-layered-by-cost) describe the current CI lanes.
 
 The relay verifies genuine CLI signatures, accepts only the run's account and owned payment objects,
 and retains original bytes/signatures for the application webhook. It preserves events arriving out of

@@ -42,21 +42,25 @@ config:
         data:
           - v=DKIM1;k=rsa;p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAs7W81rsonDMcZUlgbP+X1qdtbg50tn7K3bwrOiEyDF6571B1CiNS7bE/JU5Oeog5rPBlSIqWTtqoYDD0cOsWF5C0RAfzmteweOVB0972VOSP52CHFGzHlPJ29ATMk2BJkxNyqWccMLCUQq0mTqsJ5N83lsQdjH2jRw+3IDkJIGCgZ1hsOPOFPZC3onRV0EYSLDoAMgxu44r+Zsf/Mxuvru1QyO36lKBVQhZCH9PefeuPxW4H27eo0FY1FI/1Rp7yB6vjccfRWTQZoJHdbVatYl1LamXVFMQR/XOGp6TZum7Aoosi054evZGYzQRAn3YJyq5wZOL4txEka4dQZKr35QIDAQAB
     staging:
-    - name: resend._domainkey
-      type: TXT
-      data:
-      - p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDFo4wjGAbtkpv1kQAqLOs3FJqVZs3CiSfPDO05cNe4Pq3urlliQ0nAHOdPzrd18iqydYgdET0OUiWuZfBwQiNSPwZxIPqtx8L9uwXBmczQH3660JmsKAvSpZCjPNsFNVGQDALKO/fnTroZcTjNhDSpmV1HzmUN6a/JcXxiesyAgwIDAQAB
-    - name: send
-      type: MX
-      data:
-      - 10 feedback-smtp.us-east-1.amazonses.com.
-    - name: send
-      type: TXT
-      data:
-      - v=spf1 include:amazonses.com ~all
-    - name: rsend
-      type: CNAME
-      data:
-      - send.forge.rmta.net.
+      - name: resend._domainkey
+        type: TXT
+        data:
+          - p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDFo4wjGAbtkpv1kQAqLOs3FJqVZs3CiSfPDO05cNe4Pq3urlliQ0nAHOdPzrd18iqydYgdET0OUiWuZfBwQiNSPwZxIPqtx8L9uwXBmczQH3660JmsKAvSpZCjPNsFNVGQDALKO/fnTroZcTjNhDSpmV1HzmUN6a/JcXxiesyAgwIDAQAB
+      - name: send
+        type: MX
+        data:
+          - 10 feedback-smtp.us-east-1.amazonses.com.
+      - name: send
+        type: TXT
+        data:
+          - v=spf1 include:amazonses.com ~all
+      - name: rsend
+        type: CNAME
+        data:
+          - send.forge.rmta.net.
+  clientbridge:stripeTestSecretKey:
+    secure: v1:qKCNtwHBx/0q8o5+:K1sVgAJnKWCsDa25GOZojLZscgLsvaDBmhCm8rR61cSx5FQntYa0CSJcWDC3JgSuPDv3dCdrhiTNPP3FMU6SJN+g3nbE3Ebof8dWsr8XROLaZooKjq2hGsndaRThL6G3kpvCN2lj+SaRnFLeXVn+5636+rWSxEAYUEqm
+  clientbridge:stripeTestPublishableKey:
+    secure: v1:2j51ecGIGwsHuKot:B3ZdB65YaqMic+R7wV2dy/6LXH64dxmEghxS8DUvcClA3LapYvyJk7QHbGrNBP4uS7VBpaJn+z8H2C8x+vIMXwpy0gHZvx45yqf1Y3m3+9gfyFgGY2t0rjUajSZjZZ/PZZ1jGfyRy3tbwpDxacjNfJDMnQftQcv3lY86
 secretsprovider: gcpkms://projects/clientbridge-platform/locations/us-east1/keyRings/pulumi/cryptoKeys/state
 encryptedkey: CiQADSZLDiaMiMJdMCr+7TCCwvkPaHHuVhNICL0FcoOo8Qft8acSSQAyFkhwPt4FpVijKFeqefYz3jPP8qJC56xLqzaljjJityPYB1gHieZuyzf77BZcr1NpgjL0zJBzJ0YfrzcB11ssK9yAgT9dL98=

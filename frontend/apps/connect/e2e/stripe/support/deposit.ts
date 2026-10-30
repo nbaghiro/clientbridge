@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { expect, type Frame, type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { formatMoney, formatPhone, strings } from "@clientbridge/app-core/public";
 import {
     bookingApi,
@@ -9,7 +9,7 @@ import {
 } from "../../../../web/e2e/support/bookings";
 import { openInvoice } from "../../../../web/e2e/support/billing";
 import { openRefund, type RefundFixture } from "../../../../web/e2e/support/refunds";
-import { enterStripeCard, stripeReady } from "./provider";
+import { cardFrame, enterStripeCard, stripeReady } from "./provider";
 import { registerStripeDeposit } from "./depositContract";
 
 export async function prepareDepositBooking(page: Page) {
@@ -61,26 +61,7 @@ export async function collectDepositUi(
     expect(response.status(), await response.text()).toBe(200);
     const body = (await response.json()) as { booking_id: string; payment_id: string };
     expect(body.booking_id).toBe(booking.visit.id);
-    let cardFrame: Frame | undefined;
-    await expect
-        .poll(
-            async () => {
-                for (const frame of page.frames())
-                    if (
-                        await frame
-                            .getByRole("textbox", { name: "Card number", exact: true })
-                            .isVisible()
-                    ) {
-                        cardFrame = frame;
-                        return true;
-                    }
-                return false;
-            },
-            { timeout: 60_000 },
-        )
-        .toBe(true);
-    if (!cardFrame) throw new Error("real Stripe PaymentElement did not load");
-    await enterStripeCard(cardFrame, card);
+    await enterStripeCard(await cardFrame(page), card);
     const submit = page.getByRole("button", {
         name: strings.checkout.charge(formatMoney(2000, "CAD")),
         exact: true,

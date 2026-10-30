@@ -92,6 +92,11 @@ export async function expectPaid(page: Page): Promise<void> {
     ).toHaveCount(0);
 }
 
+/** The record-payment form that opens inside an invoice's drawer. */
+export function paymentDrawer(page: Page): Locator {
+    return page.getByRole("region", { name: strings.billing.rec.title, exact: true });
+}
+
 /** Records a manual payment in the invoice's drawer, for part of the balance when given. */
 export async function recordPayment(
     page: Page,
@@ -101,7 +106,7 @@ export async function recordPayment(
 ): Promise<string> {
     const r = strings.billing.rec;
     await page.getByRole("button", { name: strings.billing.recordPayment, exact: true }).click();
-    const dialog = page.getByRole("region", { name: r.title, exact: true });
+    const dialog = paymentDrawer(page);
     await dialog
         .getByRole("group", { name: r.howPaid, exact: true })
         .getByRole("button")

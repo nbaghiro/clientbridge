@@ -27,6 +27,7 @@ from e2e.stripe_clients import (
 )
 from e2e.stripe_context import BUSINESS
 from e2e.stripe_deposits import DepositFixture, validate_deposit_intent
+from e2e.stripe_pool import checked, lease_file, pair, pairs
 from e2e.tier import ROOT
 
 
@@ -169,7 +170,9 @@ class Manifest(BaseModel):
         return self
 
 
-def recovery_credentials(mode: str, profile: str, merchants: Path) -> dict[str, str]:
+def recovery_credentials(
+    mode: str, profile: str, merchants: Path, leased: str | None = None
+) -> dict[str, str]:
     names = ("STRIPE_TEST_PLATFORM", "STRIPE_TEST_CONNECTED_ACCOUNT", "STRIPE_TEST_OTHER_ACCOUNT")
     if mode == "local":
         if os.environ.get("CI"):
@@ -182,8 +185,12 @@ def recovery_credentials(mode: str, profile: str, merchants: Path) -> dict[str, 
             raise ValueError("merchant manifest and CLI profile platform differ")
         env = {name: saved[name] for name in names}
         env["STRIPE_TEST_SECRET_KEY"] = selected.get("test_mode_api_key", "")
+    elif leased is not None:
+        env = pair(leased) | {
+            "STRIPE_TEST_SECRET_KEY": os.environ.get("STRIPE_TEST_SECRET_KEY", "")
+        }
     else:
-        env = {name: os.environ.get(name, "") for name in (*names, "STRIPE_TEST_SECRET_KEY")}
+        raise ValueError("recovery on environment credentials needs the pool pair the run leased")
     if not all(env.values()) or not env["STRIPE_TEST_SECRET_KEY"].startswith(
         ("sk_test_", "rk_test_")
     ):
@@ -201,8 +208,7 @@ async def recover(
     apply: bool,
     actions: list[dict[str, object]] | None = None,
 ) -> list[dict[str, object]]:
-    if environment not in ("local", "ci"):
-        raise ValueError("unsupported recovery environment")
+    checked(environment)
     if (
         manifest.platform != env["STRIPE_TEST_PLATFORM"]
         or manifest.account != env["STRIPE_TEST_CONNECTED_ACCOUNT"]
@@ -333,7 +339,9 @@ async def recover_main(argv: list[str]) -> int:
         "--merchants", type=Path, default=ROOT / ".scratchpad/stripe-local-merchants-ready.json"
     )
     parser.add_argument("--apply", action="store_true")
+    parser.add_argument("--pair", choices=pairs(), help="the CI pool pair the run leased")
     args = parser.parse_args(argv)
+    environment = args.pair or "local"
     state = args.state.resolve()
     if (
         args.state.is_symlink()
@@ -344,7 +352,7 @@ async def recover_main(argv: list[str]) -> int:
         parser.error("requires one exact run manifest under repo .scratchpad/e2e-<12 hex>")
     destination = state.parent / "provider-recovery.json"
     attempt: dict[str, object] = {"started_at": clock.wall().isoformat(), "apply": args.apply}
-    lease = (ROOT / ".scratchpad/stripe-qa.lock").open("a")
+    lease = lease_file(environment, ROOT).open("a")
     held = False
     code = 1
     try:
@@ -357,13 +365,13 @@ async def recover_main(argv: list[str]) -> int:
         manifest = Manifest.model_validate_json(state.read_text())
         attempt["run_id"] = str(manifest.run_id)
         attempt["account"] = manifest.account
-        env = recovery_credentials(args.credentials, args.profile, args.merchants)
+        env = recovery_credentials(args.credentials, args.profile, args.merchants, args.pair)
         actions: list[dict[str, object]] = []
         attempt["actions"] = actions
         await recover(
             manifest,
             env,
-            "ci" if args.credentials == "environment" else "local",
+            environment,
             apply=args.apply,
             actions=actions,
         )

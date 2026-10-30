@@ -22,4 +22,5 @@ Use a new folder for a separate execution. Record tested behavior, remaining wor
 
 - [Connect hosts](connect-hosts/plan.md): one host per kind of Connect page and a subdomain per business page, on `connect-hosts`; [QA checklist](connect-hosts/qa.md).
 - [End to end testing](e2e/README.md): the audit families still to cover, with the [audit families](e2e/families.json) and [decisions to review](e2e/decisions.md).
+- [Real Stripe in CI](stripe-real-tests/plan.md): a pool of QA merchants, a real-Stripe API suite on every pull request and the browser lane on payments changes and nightly; [progress](stripe-real-tests/progress.md).
 - [Web replica storage](web-storage/plan.md): the web replica on OPFS in every browser, with the open decisions listed in the plan.

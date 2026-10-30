@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { addDays, combineDayAndTime, formatMoney, strings } from "@clientbridge/app-core/public";
-import { expect, type Frame, type Locator, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { runPort } from "@clientbridge/config/e2e/run";
 import {
     bookingApi,
@@ -15,7 +15,7 @@ import { select } from "../../../../web/e2e/support/db";
 import { openRefund } from "../../../../web/e2e/support/refunds";
 import { navigate } from "../../../../web/e2e/support/session";
 import { registerStripeDeposit } from "./depositContract";
-import { enterStripeCard } from "./provider";
+import { cardFrame, enterStripeCard } from "./provider";
 
 const execute = promisify(execFile);
 
@@ -203,29 +203,6 @@ export async function expectDisputeListed(
     await expect(
         row.getByText(strings.refunds.disputeStatus[status], { exact: true }),
     ).toBeVisible();
-}
-
-export async function cardFrame(page: Page): Promise<Frame> {
-    let found: Frame | undefined;
-    await expect
-        .poll(
-            async () => {
-                for (const frame of page.frames())
-                    if (
-                        await frame
-                            .getByRole("textbox", { name: "Card number", exact: true })
-                            .isVisible()
-                    ) {
-                        found = frame;
-                        return true;
-                    }
-                return false;
-            },
-            { timeout: 60_000 },
-        )
-        .toBe(true);
-    if (!found) throw new Error("the Stripe card form did not load");
-    return found;
 }
 
 export async function sellGiftCardByCard(

@@ -1,0 +1,27 @@
+{
+  "amount": "integer",
+  "balance_transaction": "string",
+  "charge": "string",
+  "created": "integer",
+  "currency": "string",
+  "customer": "string",
+  "customer_account": "null",
+  "destination_details": {
+    "card": {
+      "reference_status": "string",
+      "reference_type": "string",
+      "type": "string"
+    },
+    "type": "string"
+  },
+  "id": "string",
+  "metadata": {},
+  "object": "string",
+  "payment_intent": "string",
+  "payment_method": "string",
+  "reason": "null",
+  "receipt_number": "null",
+  "source_transfer_reversal": "null",
+  "status": "string",
+  "transfer_reversal": "null"
+}

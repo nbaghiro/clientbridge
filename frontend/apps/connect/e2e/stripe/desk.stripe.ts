@@ -1,17 +1,15 @@
 import { strings } from "@clientbridge/app-core/public";
 import { expect, test } from "@playwright/test";
 import { runPort } from "@clientbridge/config/e2e/run";
-import { saleEvidence, stockProduct } from "../../../web/e2e/support/pos";
-import { signIn } from "../../../web/e2e/support/session";
 import {
-    cardFrame,
-    choose,
-    deskPayments,
-    paySheet,
-    ringUpWalkIn,
-    stripeIntent,
-} from "./support/desk";
-import { stripeReady } from "./support/provider";
+    choosePaymentMethod,
+    paymentPanel,
+    saleEvidence,
+    stockProduct,
+} from "../../../web/e2e/support/pos";
+import { signIn } from "../../../web/e2e/support/session";
+import { deskPayments, ringUpWalkIn, stripeIntent } from "./support/desk";
+import { cardFrame, stripeReady } from "./support/provider";
 
 test.use({ actionTimeout: 60_000 });
 const d = strings.pos.desk;
@@ -41,7 +39,7 @@ test("STR-E05 a canceled desk card checkout is canceled in Stripe and the sale i
             stock: 3,
         });
         const payment = await ringUpWalkIn(page, product, "$20.00");
-        await choose(payment, d.methodCard);
+        await choosePaymentMethod(payment, d.methodCard);
         const opened = page.waitForResponse(
             (response) =>
                 /\/v1\/orders\/[^/]+\/pay$/.test(response.url()) &&
@@ -73,16 +71,15 @@ test("STR-E05 a canceled desk card checkout is canceled in Stripe and the sale i
                 result.url().endsWith(`/v1/orders/${checkout.order_id}/checkout/cancel`) &&
                 result.request().method() === "POST",
         );
-        await page
-            .getByRole("dialog")
+        await paymentPanel(page)
             .getByRole("button", { name: strings.common.cancel, exact: true })
             .click();
         expect((await canceled).status()).toBe(200);
         expect(await stripeIntent(intentId)).toMatchObject({ status: "canceled" });
         expect((await deskPayments(checkout.order_id))[0]?.status).toBe("canceled");
 
-        const sheet = paySheet(page);
-        await choose(sheet, d.methodCash);
+        const sheet = paymentPanel(page);
+        await choosePaymentMethod(sheet, d.methodCash);
         await sheet.getByRole("textbox", { name: d.cashGiven, exact: true }).fill("20.00");
         const cash = page.waitForResponse(
             (result) =>

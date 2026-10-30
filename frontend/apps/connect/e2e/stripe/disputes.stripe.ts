@@ -12,7 +12,6 @@ import { collectDepositUi, invoiceVisitUi } from "./support/deposit";
 import {
     DISPUTE_CARD,
     INQUIRY_CARD,
-    cardFrame,
     categoryTotals,
     clientMoney,
     expectDisputeListed,
@@ -29,6 +28,7 @@ import {
     stripeDispute,
 } from "./support/disputes";
 import {
+    cardFrame,
     enterStripeCard,
     openRegisteredStripeInvoice,
     settledStripeInvoice,

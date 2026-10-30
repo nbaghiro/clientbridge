@@ -9,7 +9,7 @@ import httpx
 import pytest
 import stripe
 from fastapi import FastAPI
-from scripts.stripe_qa import REQUIRED, environment, results
+from scripts.stripe_qa import REQUIRED, annotate, cases_in, drift, environment, results
 
 from clientbridge.core import clock
 from clientbridge.integrations.stripe import STRIPE_API_VERSION, StripeGateway, close_stripe_client
@@ -80,6 +80,33 @@ def test_sandbox_records_actual_passed_tests(tmp_path: Path) -> None:
         "passed": True,
         "tests": [{"test": "suite::case", "status": "passed"}],
     }
+
+
+@pytest.mark.parametrize(
+    "detail,expected",
+    [
+        ("stripe.RateLimitError: Request rate limit exceeded", "stripe_rate_limit"),
+        ("stripe.APIConnectionError: Could not connect to Stripe", "stripe_outage"),
+        ("Request req_abc: An unknown error occurred (status 502)", "stripe_outage"),
+        ("assert 1200 == 1100", "test"),
+    ],
+)
+def test_sandbox_names_whose_problem_a_failure_is(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], detail: str, expected: str
+) -> None:
+    report = tmp_path / "junit.xml"
+    report.write_text(
+        '<testsuites><testsuite><testcase classname="suite" name="case">'
+        f'<failure message="{detail}"/></testcase></testsuite></testsuites>'
+    )
+    cases = cases_in(report)
+    assert cases[0]["cause"] == expected
+    annotate(cases)
+    title = {"stripe_rate_limit": "Stripe rate limit", "stripe_outage": "Stripe outage"}
+    assert (
+        capsys.readouterr().out
+        == f"::error title={title.get(expected, 'Test failure')}::suite::case\n"
+    )
 
 
 @pytest.mark.parametrize(
@@ -161,3 +188,13 @@ async def test_webhook_wait_preserves_other_event_types() -> None:
     finally:
         await close_stripe_client()
         stripe.api_key, stripe.api_version = previous_key, previous_version
+
+
+def test_sandbox_drift_names_a_changed_field_of_an_event_received(tmp_path: Path) -> None:
+    committed, fresh = tmp_path / "committed", tmp_path / "fresh"
+    committed.mkdir()
+    (committed / "payout.paid.json").write_text('{"amount": "integer"}')
+    (committed / "refund.created.json").write_text('{"amount": "integer"}')
+    fresh.mkdir()
+    (fresh / "payout.paid.json").write_text('{"amount": "string"}')
+    assert drift(fresh, committed) == ["payout.paid.amount: no longer sent as integer"]

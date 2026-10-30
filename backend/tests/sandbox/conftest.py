@@ -1,17 +1,20 @@
 """Isolated Stripe sandbox fixtures; explicit sandbox runs fail when prerequisites are missing."""
 
 import asyncio
+import json
 import os
 import re
 import socket
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass, field
+from pathlib import Path
 from uuid import uuid4
 
 import httpx
 import pytest
 import stripe
 import uvicorn
+from e2e import stripe_shapes
 from fastapi import FastAPI, Request, Response
 
 from clientbridge.integrations.stripe import (
@@ -94,6 +97,8 @@ class StripeRun:
     intents: list[tuple[str, str]] = field(default_factory=list)
     clocks: list[tuple[str, str]] = field(default_factory=list)
     prices: list[tuple[str, str]] = field(default_factory=list)
+    # charges a test paid out on purpose; the money is at the bank, so there's nothing to refund
+    kept: set[str] = field(default_factory=set)
 
     async def customer(self, account: str | None = None) -> str:
         scope = account or self.account
@@ -109,13 +114,19 @@ class StripeRun:
         return identity
 
     async def clean_intent(self, account: str, identity: str) -> None:
+        await unlocked(lambda: self._clean_intent(account, identity))
+
+    async def _clean_intent(self, account: str, identity: str) -> None:
         intent = await stripe.PaymentIntent.retrieve_async(identity, stripe_account=account)
         assert intent.livemode is False
         if intent.status == "succeeded":
+            if identity in self.kept:
+                return
             charge_id = intent.latest_charge
             assert isinstance(charge_id, str)
             charge = await stripe.Charge.retrieve_async(charge_id, stripe_account=account)
-            if charge.amount_refunded < charge.amount:
+            # a disputed charge can't be refunded; the dispute already moved its money
+            if charge.amount_refunded < charge.amount and not charge.disputed:
                 await stripe.Refund.create_async(
                     payment_intent=identity,
                     amount=charge.amount - charge.amount_refunded,
@@ -167,6 +178,19 @@ class StripeRun:
             raise ExceptionGroup("Stripe QA cleanup failed", errors)
 
 
+async def unlocked[T](request: Callable[[], Awaitable[T]]) -> T:
+    """Retries Stripe's lock_timeout, returned while Stripe itself is still updating the object."""
+    # a dispute can hold its charge for most of a minute while Stripe processes it
+    for attempt in range(9):
+        try:
+            return await request()
+        except stripe.RateLimitError as exc:
+            if exc.code != "lock_timeout" or attempt == 8:
+                raise
+            await asyncio.sleep(min(2**attempt, 10))
+    raise AssertionError("unreachable")
+
+
 @pytest.fixture
 async def stripe_run(
     live_gateway: StripeGateway, connected_account_id: str
@@ -197,13 +221,17 @@ class StripeEvents:
             for key in ("id", "payment_intent")
             if isinstance(event.data.get(key), str)
         ):
+            recording = os.environ.get("STRIPE_RECORD_EVENTS")
+            if recording:
+                body = json.loads(payload)
+                stripe_shapes.record(event.type, body["data"]["object"], Path(recording))
             await self.queue.put((payload, signature))
         return Response(status_code=204)
 
-    async def next(self, kind: str) -> tuple[bytes, str]:
+    async def next(self, kind: str, *, within: float = 60) -> tuple[bytes, str]:
         deferred: list[tuple[bytes, str]] = []
         try:
-            async with asyncio.timeout(60):
+            async with asyncio.timeout(within):
                 while True:
                     payload, signature = await self.queue.get()
                     if self.gateway.verify_webhook(payload, signature).type == kind:
@@ -243,7 +271,22 @@ async def stripe_events(
             "--events-from",
             "@accounts",
             "--events",
-            "payment_intent.succeeded,payment_intent.payment_failed,refund.created,refund.updated",
+            ",".join(
+                (
+                    "payment_intent.succeeded",
+                    "payment_intent.payment_failed",
+                    "payment_intent.canceled",
+                    "refund.created",
+                    "refund.updated",
+                    "charge.dispute.created",
+                    "charge.dispute.updated",
+                    "charge.dispute.closed",
+                    "charge.dispute.funds_withdrawn",
+                    "charge.dispute.funds_reinstated",
+                    "payout.created",
+                    "payout.paid",
+                )
+            ),
             "--forward-to",
             f"http://127.0.0.1:{port}/events",
             "--skip-update",

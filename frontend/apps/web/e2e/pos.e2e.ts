@@ -13,6 +13,7 @@ import {
     prepareCashSale,
     ringCash,
     saleEvidence,
+    saleTicket,
     stockProduct,
 } from "./support/pos";
 import { navigate, signIn } from "./support/session";
@@ -303,7 +304,7 @@ test("SALE-E2E-11 front-desk staff may sell past zero stock but cannot refund, v
         if (order === undefined) throw new Error("The staff sale was not committed");
         expect(order).toMatchObject({ client_id: client.id, total_cents: 3600, paid: true });
 
-        const done = staffPage.getByRole("complementary", { name: d.ticket, exact: true });
+        const done = saleTicket(staffPage);
         await expect(done.getByRole("heading", { name: d.paidTitle, exact: true })).toBeVisible();
         await expect(done.getByRole("button", { name: d.refund, exact: true })).toHaveCount(0);
         await navigate(staffPage, "/payments/sales?view=history");

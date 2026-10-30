@@ -761,6 +761,7 @@ Use the [categorized QA checklist](qa/payments.md) for scenario coverage and the
 | Backend regression | `make test-backend`                             | Product behavior, ledger invariants, duplicate/out-of-order events, replay, reconciliation and tenant/role isolation with fakes and disposable Postgres. |
 | Stripe contract    | `make stripe-mock`, then `make test-contract`   | Real adapter request/response shapes against stripe-mock; not provider state or Accounts v2 behavior.                                                    |
 | Provider sandbox   | `make test-sandbox`                             | Real sandbox behavior when test keys are configured; skipped otherwise. May create provider test objects.                                                |
+| Real Stripe in CI  | `make test-stripe-qa STRIPE_QA_ARGS="--pair ci-N"` | The sandbox suite with no skips on a leased pool pair, each scenario's ledger checked against Stripe's balance transactions. Runs on every pull request. |
 | Frontend           | `make test-frontend` and normal lint/type gates | Shared view-model and client checks; not proof of successful embedded-provider interaction.                                                              |
 
 The sandbox tier uses `STRIPE_TEST_SECRET_KEY` and, for existing merchant scenarios, `STRIPE_TEST_CONNECTED_ACCOUNT`;
@@ -768,7 +769,10 @@ the setup script prints the demo account ID. Follow the [test tiers](engineering
 for the complete harness and prerequisites. A green fake/contract suite is not a live payout sign-off.
 
 The Stripe browser lane ([test tiers](engineering.md#stripe-four-tiers-layered-by-cost)) runs each money
-flow against the sandbox's QA merchants.
+flow against the sandbox's QA merchants. CI leases one of six merchant pairs from `backend/e2e/stripe_pool.json`,
+never a demo business: staging and local development are linked to the demo accounts, so staging's webhook
+would book every test charge, refund and dispute into the demo. The [operations guide](operations.md#stripe-sandbox-for-hosted-ci)
+covers adding a pair and giving CI the keys.
 
 Manual sandbox pass:
 

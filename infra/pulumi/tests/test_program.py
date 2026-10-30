@@ -119,9 +119,11 @@ def config_for(stack: str) -> dict[str, str]:
     project = yaml.safe_load((PROGRAM / "Pulumi.yaml").read_text())["config"]
     config = {f"clientbridge:{key}": str(each["default"]) for key, each in project.items()}
     stack_config = yaml.safe_load((PROGRAM / f"Pulumi.{stack}.yaml").read_text())["config"]
+    # encrypted values can't be decrypted under mocks; a test that needs one sets its own
     config |= {
         key: value if isinstance(value, str) else json.dumps(value)
         for key, value in stack_config.items()
+        if not (isinstance(value, dict) and "secure" in value)
     }
     return config
 
@@ -1321,9 +1323,14 @@ def test_each_host_takes_routes_only_from_its_own_environment(
 
 
 def test_no_stack_config_holds_a_pulumi_secret() -> None:
-    # every deployer decrypts with the one state key, so a secret here would reach every deployer
+    # every deployer decrypts with the one state key; only the test-mode Stripe keys may be here
+    allowed = {f"clientbridge:{name}" for name in environments.STRIPE_SANDBOX_SECRETS}
     for config in PROGRAM.glob("Pulumi.*.yaml"):
-        assert "secure:" not in config.read_text(), config.name
+        values = yaml.safe_load(config.read_text())["config"]
+        secured = {
+            key for key, value in values.items() if isinstance(value, dict) and "secure" in value
+        }
+        assert secured <= (allowed if config.name == "Pulumi.cloud.yaml" else set()), config.name
 
 
 def test_production_keeps_a_served_pod_through_a_node_upgrade(stacks: dict[str, Built]) -> None:
@@ -1567,9 +1574,6 @@ def test_business_profile_apis_are_on_and_reviews_and_the_key_wait_for_the_flag(
 STRIPE_SANDBOX = {
     "clientbridge:stripeTestSecretKey": "sk_test_sandbox",
     "clientbridge:stripeTestPublishableKey": "pk_test_sandbox",
-    "clientbridge:stripeTestPlatform": "acct_platform",
-    "clientbridge:stripeTestConnectedAccount": "acct_merchant_a",
-    "clientbridge:stripeTestOtherAccount": "acct_merchant_b",
 }
 
 
@@ -1579,11 +1583,6 @@ def with_stripe() -> Built:
 
 
 SANDBOX_SECRETS = {"STRIPE_TEST_SECRET_KEY", "STRIPE_TEST_PUBLISHABLE_KEY"}
-SANDBOX_VARIABLES = {
-    "STRIPE_TEST_PLATFORM": "acct_platform",
-    "STRIPE_TEST_CONNECTED_ACCOUNT": "acct_merchant_a",
-    "STRIPE_TEST_OTHER_ACCOUNT": "acct_merchant_b",
-}
 
 
 def _sandbox_secrets(built: Built) -> list[Registered]:
@@ -1596,47 +1595,35 @@ def _sandbox_secrets(built: Built) -> list[Registered]:
 
 def test_the_stripe_sandbox_waits_for_its_configuration(cloud: Built) -> None:
     assert not _sandbox_secrets(cloud)
-    assert not set(_variables(cloud)) & set(SANDBOX_VARIABLES)
 
 
-def test_the_stripe_sandbox_hands_actions_its_test_keys_and_merchants(with_stripe: Built) -> None:
+def test_the_stripe_sandbox_hands_actions_only_its_test_keys(with_stripe: Built) -> None:
     secrets = _sandbox_secrets(with_stripe)
     assert {str(dig(each.inputs, "secretName")) for each in secrets} == SANDBOX_SECRETS
     assert all(list(secret_values(each.inputs)) for each in secrets)
-    variables = _variables(with_stripe)
-    assert {name: variables[name] for name in SANDBOX_VARIABLES} == SANDBOX_VARIABLES
     assert not with_stripe.secret_outputs
-    # the workflow reads exactly these names, and only runs from main
-    jobs = dig(workflow("stripe-qa.yml"), "jobs")
+    # the merchants come from the checked-in pool, so the workflows read only the two keys
+    jobs = dig(workflow("e2e-stripe.yml"), "jobs")
     assert isinstance(jobs, dict)
     for job in jobs.values():
-        assert dig(job, "if") == "github.ref == 'refs/heads/main'"
-        env = dig(job, "env")
+        env = dig(job, "env") if "env" in job else {}
         assert isinstance(env, dict)
         read = {
             str(value).removeprefix("${{ ").removesuffix(" }}")
             for value in env.values()
-            if str(value).startswith("${{ ")
+            if str(value).startswith("${{ secrets.")
         }
-        assert read <= {f"secrets.{name}" for name in SANDBOX_SECRETS} | {
-            f"vars.{name}" for name in SANDBOX_VARIABLES
-        }
+        assert read <= {f"secrets.{name}" for name in SANDBOX_SECRETS}
+    for caller, job in (("ci.yml", "e2e"), ("e2e.yml", "stripe")):
+        passed = dig(workflow(caller), "jobs", job, "secrets")
+        assert isinstance(passed, dict) and set(passed) == SANDBOX_SECRETS
+    # reports only: a Stripe failure shows on its own check without failing e2e or ci-result
+    assert all(dig(jobs, name, "continue-on-error") is True for name in ("api", "lane", "result"))
 
 
-@pytest.mark.parametrize(
-    ("change", "message"),
-    [
-        ({"clientbridge:stripeTestOtherAccount": None}, "needs every key"),
-        ({"clientbridge:stripeTestOtherAccount": "acct_merchant_a"}, "must all differ"),
-        ({"clientbridge:stripeTestPlatform": "platform"}, "acct_"),
-    ],
-)
-def test_a_partial_or_mistaken_stripe_sandbox_stops_the_stack(
-    change: dict[str, str | None], message: str
-) -> None:
-    config = {key: value for key, value in (STRIPE_SANDBOX | change).items() if value is not None}
-    pulumi.runtime.set_all_config(config)
-    with pytest.raises(ValueError, match=message):
+def test_a_partial_stripe_sandbox_stops_the_stack() -> None:
+    pulumi.runtime.set_all_config({"clientbridge:stripeTestSecretKey": "sk_test_sandbox"})
+    with pytest.raises(ValueError, match="needs both keys"):
         environments.stripe_sandbox(pulumi.Config("clientbridge"))
 
 

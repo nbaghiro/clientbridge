@@ -177,6 +177,25 @@ async def test_decline_leaves_invoice_due_then_retry_settles_once(
     assert await ledger.collected(db, BIZ, "invoice", invoice_id) == (2000, False)
 
 
+async def test_a_card_that_needs_3d_secure_books_nothing_until_it_is_canceled(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    stripe_run: StripeRun,
+    stripe_events: StripeEvents,
+) -> None:
+    invoice_id, token, payment = await open_invoice(as_owner, db, stripe_run, stripe_events)
+    intent = await confirm(stripe_run, payment, "pm_card_threeDSecure2Required")
+    assert intent.status == "requires_action"
+    assert (await as_owner.get(f"/pay/{token}")).json()["balance_cents"] == 2000
+    assert await ledger.collected(db, BIZ, "invoice", invoice_id) == (0, False)
+    assert payment.provider_ref is not None
+    await stripe.PaymentIntent.cancel_async(payment.provider_ref, stripe_account=stripe_run.account)
+    await deliver(as_owner, *(await stripe_events.next("payment_intent.canceled")))
+    await db.refresh(payment)
+    assert payment.status == "canceled"
+    assert await ledger.collected(db, BIZ, "invoice", invoice_id) == (0, False)
+
+
 async def test_withheld_webhook_is_repaired_from_the_owned_charge(
     as_owner: httpx.AsyncClient,
     db: AsyncSession,

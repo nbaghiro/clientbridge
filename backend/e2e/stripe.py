@@ -30,12 +30,14 @@ from clientbridge.integrations.stripe import (
 from e2e import tier
 from e2e.builds import source_snapshot
 from e2e.results import REQUIRED_CASES, Report, browser_cases
+from e2e.shards import case_seconds, listed_cases, shard, shard_filters
 from e2e.stack import Stack, owned_processes, stop
 from e2e.stripe_clients import clients_main
 from e2e.stripe_deposits import deposits_evidence_main, deposits_main
 from e2e.stripe_disputes import disputes_main
 from e2e.stripe_evidence import browser_main
 from e2e.stripe_fixtures import setup_main
+from e2e.stripe_pool import lease_file, pair, pairs
 from e2e.stripe_reconcile import plan_main, reconcile_main
 from e2e.stripe_recovery import recover_main
 from e2e.stripe_relay import Relay, delivery_main
@@ -43,10 +45,23 @@ from e2e.tier import ROOT
 
 
 def stack_credentials(
-    profile: str, merchants: Path, publishable_file: Path, mode: str
+    profile: str, merchants: Path, publishable_file: Path, mode: str, leased: str | None = None
 ) -> dict[str, str]:
-    if mode == "environment":
-        supplied = environment(None)
+    if mode == "environment" and leased is None:
+        raise ValueError("a run on environment credentials leases a pool pair with --pair")
+    env = _credentials(profile, merchants, publishable_file, mode, leased)
+    if leased is not None:
+        env |= pair(leased)
+        env["STRIPE_BROWSER_ENVIRONMENT"] = leased
+    asyncio.run(preflight(env))
+    return env
+
+
+def _credentials(
+    profile: str, merchants: Path, publishable_file: Path, mode: str, leased: str | None
+) -> dict[str, str]:
+    if mode == "environment" and leased is not None:
+        supplied = environment(None, pair(leased))
         publishable = supplied.get("STRIPE_PUBLISHABLE_KEY", "")
         if not publishable.startswith("pk_test_"):
             raise ValueError("protected environment requires a test publishable key")
@@ -61,8 +76,6 @@ def stack_credentials(
             )
         }
         env["STRIPE_SECRET_KEY"] = env["STRIPE_TEST_SECRET_KEY"]
-        env["STRIPE_BROWSER_ENVIRONMENT"] = "ci"
-        asyncio.run(preflight(env))
         return env
     if os.environ.get("CI"):
         raise ValueError("local CLI profile onboarding credentials are forbidden in CI")
@@ -93,8 +106,21 @@ def stack_credentials(
             )
         },
     }
-    asyncio.run(preflight(env))
     return env
+
+
+RECONCILIATION = "reconciliation.stripe.ts"
+
+
+def reconciliation_results(directory: Path) -> Path:
+    return directory / "browser-results" / "reconciliation"
+
+
+def shard_cases(stack: Stack, part: str) -> list[str]:
+    """This shard's cases; reconciliation runs after them on its own, so it isn't one of them."""
+    listing = argparse.Namespace(surface="stripe", project=None, tests=[])
+    cases = [case for case in listed_cases(stack, listing) if case.file != RECONCILIATION]
+    return shard_filters(cases, case_seconds("stripe"), part, "e2e/stripe", workers=1)
 
 
 def listener(stack: Stack, processes: ExitStack) -> str:
@@ -237,7 +263,11 @@ def run_lane(args: argparse.Namespace, directory: Path, lease: tier.Lease) -> No
                 nonlocal prepared, relay
                 stack.env.update(
                     stack_credentials(
-                        args.profile, args.merchants, args.publishable_file, args.credentials
+                        args.profile,
+                        args.merchants,
+                        args.publishable_file,
+                        args.credentials,
+                        args.pair,
                     )
                 )
                 stack.env.update(
@@ -270,24 +300,36 @@ def run_lane(args: argparse.Namespace, directory: Path, lease: tier.Lease) -> No
                 try:
                     stack.start(processes, log, before_api=before_api, browser_fixtures=False)
                     stack.use_builds(log)
+                    tests = args.tests
+                    if args.shard:
+                        tests = shard_cases(stack, args.shard)
+                        (directory / "shard.json").write_text(json.dumps(tests, indent=2) + "\n")
+                    playwright = [
+                        "pnpm",
+                        "--filter",
+                        "connect",
+                        "exec",
+                        "playwright",
+                        "test",
+                        "--config=playwright.stripe.config.ts",
+                    ]
                     with (directory / "browser.log").open("wb") as browser_log:
-                        stack.command(
-                            [
-                                "pnpm",
-                                "--filter",
-                                "connect",
-                                "exec",
-                                "playwright",
-                                "test",
-                                "--config=playwright.stripe.config.ts",
-                                *args.tests,
-                            ],
-                            browser_log,
-                            frontend=True,
-                        )
+                        stack.command([*playwright, *tests], browser_log, frontend=True)
+                        if args.shard:
+                            # through its project dependencies it would rerun the whole lane
+                            stack.env["E2E_OUTPUT_DIR"] = str(reconciliation_results(directory))
+                            stack.command(
+                                [*playwright, "--project=reconciliation", "--no-deps"],
+                                browser_log,
+                                frontend=True,
+                            )
                     report = directory / "browser-results" / "results.json"
-                    if args.tests:
+                    # a shard holds part of the lane, so CI requires the cases on the shards merged
+                    if args.tests or args.shard:
                         Report.model_validate_json(report.read_text()).validate_evidence([])
+                    if args.shard:
+                        reconciled = reconciliation_results(directory) / "results.json"
+                        Report.model_validate_json(reconciled.read_text()).validate_evidence([])
                     else:
                         Report.model_validate_json(report.read_text()).validate_evidence(
                             REQUIRED_CASES["stripe"], browser_cases("stripe")
@@ -369,10 +411,16 @@ def stack_main(argv: list[str]) -> int:
     parser.add_argument("--allow-source-changes", action="store_true")
     # pays out of slot a's available balance, which cleanup refunds and lost disputes can drain
     parser.add_argument("--payout-case", action="store_true")
+    parser.add_argument("--pair", choices=pairs(), help="lease a CI pool pair instead")
+    parser.add_argument("--shard", type=shard, help="run one part of the lane, as <index>/<total>")
     parser.add_argument("tests", nargs=argparse.REMAINDER)
     args = parser.parse_args(argv)
     if args.tests[:1] == ["--"]:
         args.tests = args.tests[1:]
+    if args.shard and args.tests:
+        parser.error("a shard picks its own cases")
+    if args.credentials == "environment" and args.pair is None:
+        parser.error("environment credentials lease a pool pair with --pair")
     if args.allow_source_changes and os.environ.get("CI"):
         parser.error("CI cannot accept source changes")
     if args.activation != "pointer" and os.environ.get("CI"):
@@ -381,7 +429,7 @@ def stack_main(argv: list[str]) -> int:
     directory.mkdir(parents=True)
     signal.signal(signal.SIGTERM, lambda _signal, _frame: sys.exit(143))
     try:
-        with (ROOT / ".scratchpad/stripe-qa.lock").open("a") as lock:
+        with lease_file(args.pair or "local", ROOT).open("a") as lock:
             try:
                 fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError:

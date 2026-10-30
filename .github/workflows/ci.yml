@@ -24,6 +24,9 @@ jobs:
   e2e:
     needs: lint
     uses: ./.github/workflows/e2e.yml
+    secrets:
+      STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+      STRIPE_TEST_PUBLISHABLE_KEY: ${{ secrets.STRIPE_TEST_PUBLISHABLE_KEY }}
     permissions:
       contents: read
       # the Android lanes look up the prepare job's artifact while it may still be uploading

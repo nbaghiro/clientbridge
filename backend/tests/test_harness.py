@@ -31,8 +31,11 @@ from e2e import (
     native,
     snapshot,
     stripe_clients,
+    stripe_plan,
+    stripe_pool,
     stripe_recovery,
     stripe_relay,
+    stripe_shapes,
     tier,
 )
 from e2e import relay as tier_relay
@@ -1083,7 +1086,11 @@ def test_provider_runner_retains_cleanup_failures_without_external_services(
         return runtime
 
     def credentials(
-        _profile: str, _merchants: Path, _publishable_file: Path, _mode: str
+        _profile: str,
+        _merchants: Path,
+        _publishable_file: Path,
+        _mode: str,
+        _leased: str | None = None,
     ) -> dict[str, str]:
         return {}
 
@@ -1102,6 +1109,8 @@ def test_provider_runner_retains_cleanup_failures_without_external_services(
         credentials="environment",
         activation="pointer",
         payout_case=False,
+        pair="ci-1",
+        shard=None,
         allow_source_changes=False,
         profile="unused",
         merchants=tmp_path / "unused",
@@ -1485,7 +1494,9 @@ async def test_recovery_cli_preserves_failed_evidence_and_redacts_credentials(
     )
     before = (state.read_bytes(), original.read_bytes())
 
-    def credentials(_mode: str, _profile: str, _merchants: Path) -> dict[str, str]:
+    def credentials(
+        _mode: str, _profile: str, _merchants: Path, _leased: str | None
+    ) -> dict[str, str]:
         return ENV
 
     monkeypatch.setattr(stripe_recovery, "ROOT", tmp_path)
@@ -2403,3 +2414,109 @@ def test_a_digest_leaves_out_bytecode(tmp_path: Path) -> None:
     assert tier.digest(tmp_path) == before
     (tmp_path / "versions" / "cb0001.py").write_text("upgrade(); downgrade()")
     assert tier.digest(tmp_path) != before
+
+
+def test_a_pool_pair_names_its_accounts_and_its_own_lease(tmp_path: Path) -> None:
+    leased = stripe_pool.pair("ci-3")
+    assert leased["STRIPE_TEST_CONNECTED_ACCOUNT"] != leased["STRIPE_TEST_OTHER_ACCOUNT"]
+    assert leased["STRIPE_TEST_PLATFORM"].startswith("acct_")
+    assert stripe_pool.lease_file("ci-3", tmp_path) != stripe_pool.lease_file("ci-4", tmp_path)
+    assert stripe_pool.lease_file("local", tmp_path).name == "stripe-qa.lock"
+    with pytest.raises(ValueError):
+        stripe_pool.pair("ci-99")
+    with pytest.raises(ValueError):
+        stripe_pool.checked("staging")
+
+
+def test_a_hosted_run_on_environment_credentials_must_lease_a_pool_pair(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="leases a pool pair"):
+        stripe_lane.stack_credentials("unused", tmp_path, tmp_path, "environment")
+    with pytest.raises(ValueError, match="needs the pool pair"):
+        stripe_recovery.recovery_credentials("environment", "unused", tmp_path)
+
+
+def test_recovery_on_environment_credentials_reads_the_pairs_accounts(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("STRIPE_TEST_SECRET_KEY", "sk_test_pool")
+    env = stripe_recovery.recovery_credentials("environment", "unused", tmp_path, "ci-2")
+    assert env == stripe_pool.pair("ci-2") | {"STRIPE_TEST_SECRET_KEY": "sk_test_pool"}
+
+
+def test_every_pool_pair_names_distinct_accounts() -> None:
+    accounts = [
+        account
+        for name in stripe_pool.pairs()
+        for account in (
+            stripe_pool.pair(name)["STRIPE_TEST_CONNECTED_ACCOUNT"],
+            stripe_pool.pair(name)["STRIPE_TEST_OTHER_ACCOUNT"],
+        )
+    ]
+    assert len(stripe_pool.pairs()) == 6
+    assert len(accounts) == len(set(accounts))
+
+
+def test_a_recorded_event_shape_merges_what_each_event_sends() -> None:
+    first = stripe_shapes.shape({"id": "re_1", "failure_reason": None, "charge": {"id": "ch_1"}})
+    second = stripe_shapes.shape({"id": "re_2", "failure_reason": "lost_card", "amount": 50})
+    assert stripe_shapes.merge(first, second) == {
+        "amount": "integer",
+        "charge": {"id": "string"},
+        "failure_reason": "string",
+        "id": "string",
+    }
+
+
+def test_a_fake_event_is_checked_against_the_real_shape() -> None:
+    real = stripe_shapes.shape(
+        {"id": "pi_1", "amount": 2000, "metadata": {}, "charges": [{"id": "ch_1"}]}
+    )
+    assert stripe_shapes.differences({"id": "pi_1", "amount": None}, real) == []
+    assert stripe_shapes.differences({"metadata": {"invoice_id": "inv_1"}}, real) == []
+    assert stripe_shapes.differences({"id": "pi_1", "amount_paid": 5}, real) == [
+        ".amount_paid: real Stripe doesn't send this field"
+    ]
+    assert stripe_shapes.differences({"amount": "20.00", "charges": [{"id": 1}]}, real) == [
+        ".amount: real Stripe sends integer, the fake sends string",
+        ".charges[].id: real Stripe sends string, the fake sends integer",
+    ]
+
+
+def test_a_recording_names_what_real_stripe_stopped_sending() -> None:
+    committed = stripe_shapes.shape({"id": "po_1", "arrival_date": 1, "trace": {"status": "x"}})
+    fresh = stripe_shapes.shape({"id": "po_2", "arrival_date": "2026-10-30", "trace": "x"})
+    assert stripe_shapes.removed(committed, fresh) == [
+        ".arrival_date: no longer sent as integer",
+        ".trace: was an object, now string",
+    ]
+    assert stripe_shapes.removed(
+        committed, stripe_shapes.shape({"id": "po_3", "arrival_date": 2})
+    ) == [".trace: no longer sent"]
+
+
+def test_a_run_leases_a_distinct_pair_for_each_real_stripe_job() -> None:
+    for run in range(1, 40):
+        planned = stripe_plan.plan(run, browser=True)
+        shards = cast(list[dict[str, str]], planned["browser"])
+        assert [shard["name"] for shard in shards] == ["browser (1/2)", "browser (2/2)"]
+        leased = [cast(str, planned["api"]), *(shard["pair"] for shard in shards)]
+        assert len(set(leased)) == 3
+        assert set(leased) <= set(stripe_pool.pairs())
+    assert stripe_plan.plan(7, browser=False)["browser"] == []
+    assert stripe_plan.plan(7, browser=True, ready=False) == {"api": "", "browser": []}
+
+
+@pytest.mark.parametrize(
+    ("path", "runs"),
+    [
+        ("frontend/apps/web/src/components/SaleTicket.tsx", True),
+        ("frontend/apps/web/e2e/support/pos.ts", True),
+        ("backend/src/clientbridge/services/ledger.py", True),
+        (".github/workflows/e2e-stripe.yml", True),
+        ("frontend/apps/mobile/src/screens/Today.tsx", False),
+        ("backend/src/clientbridge/services/messaging.py", False),
+        (".docs/engineering.md", False),
+    ],
+)
+def test_the_browser_lane_runs_when_its_screens_or_payments_change(path: str, runs: bool) -> None:
+    assert stripe_plan.touches_browser_lane([path]) is runs
