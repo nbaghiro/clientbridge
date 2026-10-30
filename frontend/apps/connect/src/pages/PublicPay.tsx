@@ -68,6 +68,7 @@ export function PublicPay() {
             contact={null}
             actions={
                 <Button
+                    tone="inverse"
                     variant="outline"
                     size="sm"
                     icon="printer"

@@ -397,9 +397,12 @@ function ToDo({ mg }: { mg: ManageBookingFlow }) {
                         key={`${item.kind}:${String(i)}`}
                         className="flex items-center justify-between gap-3"
                     >
-                        <span className="min-w-0 flex-1 text-sm text-ink-soft">{item.label}</span>
+                        {/* the note yields, not the label: unconstrained it crushed it to 14px */}
+                        <span className="shrink-0 text-sm text-ink-soft">{item.label}</span>
                         {item.path === null ? (
-                            <span className="text-xs text-muted">{s.toDoAtDesk}</span>
+                            <span className="min-w-0 flex-1 text-right text-xs text-muted">
+                                {s.toDoAtDesk}
+                            </span>
                         ) : (
                             <Button
                                 size="sm"
