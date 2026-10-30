@@ -146,9 +146,6 @@ def main() -> int:
     parser.add_argument("--preflight", action="store_true")
     parser.add_argument("--pair", choices=pairs(), help="lease a CI pool pair")
     parser.add_argument(
-        "--full", action="store_true", help="also run the slow scenarios, such as a payout"
-    )
-    parser.add_argument(
         "--record",
         choices=("check", "update"),
         help="record real event shapes and check them against, or update, the committed ones",
@@ -204,7 +201,7 @@ def main() -> int:
             "tests/sandbox/test_payments_sandbox_disputes.py",
             "tests/sandbox/test_payments_sandbox_payouts.py",
             "-m",
-            "sandbox" if args.full else "sandbox and not slow",
+            "sandbox",
             "-q",
             "--tb=short",
             f"--junitxml={junit}",

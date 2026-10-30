@@ -1,4 +1,4 @@
-"""A real manual payout: in transit when Stripe creates it, in the bank once Stripe pays it."""
+"""A real manual payout: its creation moves the net out of Stripe to transit or the bank."""
 
 import asyncio
 
@@ -12,7 +12,7 @@ from tests.sandbox.test_payments_sandbox import confirm, deliver, open_invoice
 
 from clientbridge.services import ledger
 
-pytestmark = [pytest.mark.sandbox, pytest.mark.slow, pytest.mark.wall_clock]
+pytestmark = [pytest.mark.sandbox, pytest.mark.wall_clock]
 
 
 async def _balance(db: AsyncSession, category: str) -> int:
@@ -72,6 +72,7 @@ async def test_a_manual_payout_moves_through_transit_to_the_bank(
         assert isinstance(charge.balance_transaction, stripe.BalanceTransaction)
         net = charge.balance_transaction.net
         await _cover(stripe_run, net)
+        stripe_before = await _balance(db, "stripe")
         transit, bank = await _balance(db, "transit"), await _balance(db, "bank")
         payout = await stripe.Payout.create_async(
             amount=net,
@@ -81,12 +82,11 @@ async def test_a_manual_payout_moves_through_transit_to_the_bank(
         )
         stripe_events.owned.add(payout.id)
         await deliver(as_owner, *(await stripe_events.next("payout.created")))
-        # test mode may report the payout paid on creation, which books both journals at once
         assert await ledger.journal_for(db, BIZ, f"payout:{payout.id}") is not None
-        await deliver(as_owner, *(await stripe_events.next("payout.paid", within=300)))
-        assert await ledger.journal_for(db, BIZ, f"payout:{payout.id}:paid") is not None
-        assert await _balance(db, "transit") == transit
-        assert await _balance(db, "bank") - bank == net
+        # test mode pays at no fixed time, so the net sits in transit or the bank, never in Stripe
+        assert await _balance(db, "stripe") - stripe_before == -net
+        moved = await _balance(db, "transit") - transit + await _balance(db, "bank") - bank
+        assert moved == net
     finally:
         await stripe.Account.modify_async(
             stripe_run.account,

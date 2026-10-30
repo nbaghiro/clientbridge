@@ -87,9 +87,7 @@ jobs:
       - uses: ./.github/actions/stripe-cli
       - run: make test-tier
       - name: run the real-Stripe scenarios on the leased pair
-        env:
-          ARGS: ${{ needs.lease.outputs.payments == 'true' && '--full' || '' }}
-        run: make test-stripe-qa STRIPE_QA_ARGS="--pair $PAIR --record check --output ../.scratchpad/stripe-qa/ci $ARGS"
+        run: make test-stripe-qa STRIPE_QA_ARGS="--pair $PAIR --record check --output ../.scratchpad/stripe-qa/ci"
       - uses: actions/upload-artifact@v7
         if: always()
         with:
