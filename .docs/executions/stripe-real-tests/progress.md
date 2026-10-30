@@ -51,6 +51,10 @@ A known limit of GitHub concurrency groups: a group keeps one waiting run, so a 
 
 `e2e/stripe_shapes.py` records the shape of real event objects (field names and types, metadata left open) and compares fakes with it. The sandbox run records with `--record`; `tests/fixtures/stripe_events/` holds the first recording, from `ci-2`, for nine event types. `stripe_event` in `tests/helpers.py` checks every fake webhook against it, and every CI run fails when an event it received no longer has a recorded field. The payout events were recorded from a full run on `ci-3`. Invoice and failed-refund events aren't recorded, because no sandbox scenario produces them.
 
+## First CI runs (2026-10-30)
+
+The API suite passed every scenario in CI in about 2.5 minutes. The browser lane had fallen behind the UI while it ran only by hand: Take payment and record-payment had moved from dialogs into the ticket and the invoice drawer (`687eac98`), and the lane kept its own copies of those locators. It now uses the web suite's `paymentPanel`, `saleTicket`, `skipTip`, `choosePaymentMethod` and `paymentDrawer`, and its trigger covers the screens it drives. Two flakes were fixed at the cause: the card form lookup skips an iframe Stripe replaces while it polls, and the submit check listens on the document, so a re-rendered pay button is still observed. Failed cases now keep a screenshot and a trace in the CI artifact. STR-E13 and the WebKit card cases still failed in CI only; their screenshots from the next run decide the fix.
+
 ## Left
 
 - Task 6: after two weeks of runs without a Stripe-caused failure, remove `continue-on-error` from the lane's two jobs.

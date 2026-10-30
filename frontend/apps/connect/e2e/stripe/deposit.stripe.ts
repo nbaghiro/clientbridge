@@ -1,6 +1,11 @@
 import { expect, test, type Page, type BrowserContext } from "@playwright/test";
 import { formatMoney, strings } from "@clientbridge/app-core/public";
-import { openInvoice, recordCash, expectPaid } from "../../../web/e2e/support/billing";
+import {
+    expectPaid,
+    openInvoice,
+    paymentDrawer,
+    recordCash,
+} from "../../../web/e2e/support/billing";
 import { signIn } from "../../../web/e2e/support/session";
 import {
     depositEvidence,
@@ -31,7 +36,7 @@ async function outstanding(
             .first(),
     ).toBeVisible();
     await page.getByRole("button", { name: strings.billing.recordPayment, exact: true }).click();
-    const payment = page.getByRole("region", { name: strings.billing.rec.title, exact: true });
+    const payment = paymentDrawer(page);
     await expect(
         payment.getByRole("button", {
             name: strings.billing.rec.record(formatMoney(cents, "CAD")),

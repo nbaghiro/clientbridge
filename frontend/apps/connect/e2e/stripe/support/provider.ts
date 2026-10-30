@@ -306,44 +306,67 @@ export async function checkoutDiagnostics(page: Page, info: TestInfo, stop = tru
 }
 
 export async function submitStripeCard(page: Page, info: TestInfo): Promise<void> {
-    const submit = page.getByRole("button", {
-        name: strings.checkout.pay(formatMoneyWithCurrency(2000, "CAD")),
-        exact: true,
-    });
+    const label = strings.checkout.pay(formatMoneyWithCurrency(2000, "CAD"));
+    const submit = page.getByRole("button", { name: label, exact: true });
     await checkoutDiagnostics(page, info);
-    const observation = await submit.evaluateHandle((button): CheckoutObservation => {
+    // listen on the document, since the page may re-render the button between setup and the click
+    const observation = await page.evaluateHandle((label): CheckoutObservation => {
         const signals: CheckoutSignals = { clicks: [], submits: [], attributes: [], invalid: 0 };
-        const state = () => ({
+        const current = (): HTMLButtonElement | undefined =>
+            Array.from(document.querySelectorAll("button")).find(
+                (button) => button.textContent.trim() === label,
+            );
+        const state = (button: Element) => ({
             disabled: button.hasAttribute("disabled"),
             busy: button.getAttribute("aria-busy") === "true",
         });
         const click = (event: Event) => {
-            signals.clicks.push({ trusted: event.isTrusted, ...state() });
+            const button = event.target instanceof Element ? event.target.closest("button") : null;
+            if (button !== null && button === current()) {
+                signals.clicks.push({ trusted: event.isTrusted, ...state(button) });
+            }
         };
-        const form = button.closest("form");
         const submitted = (event: Event) => {
-            signals.submits.push({ trusted: event.isTrusted });
+            const button = current();
+            if (
+                event.target instanceof HTMLFormElement &&
+                button &&
+                event.target.contains(button)
+            ) {
+                signals.submits.push({ trusted: event.isTrusted });
+            }
         };
-        const invalid = () => {
-            signals.invalid++;
+        const invalid = (event: Event) => {
+            const form = current()?.closest("form");
+            if (form && event.target instanceof Node && form.contains(event.target)) {
+                signals.invalid++;
+            }
         };
-        button.addEventListener("click", click, true);
-        form?.addEventListener("submit", submitted, true);
-        form?.addEventListener("invalid", invalid, true);
-        const observer = new MutationObserver(() => {
-            signals.attributes.push(state());
+        document.addEventListener("click", click, true);
+        document.addEventListener("submit", submitted, true);
+        document.addEventListener("invalid", invalid, true);
+        const observer = new MutationObserver((records) => {
+            for (const record of records) {
+                if (record.target instanceof Element && record.target === current()) {
+                    signals.attributes.push(state(record.target));
+                }
+            }
         });
-        observer.observe(button, { attributes: true, attributeFilter: ["disabled", "aria-busy"] });
+        observer.observe(document.body, {
+            subtree: true,
+            attributes: true,
+            attributeFilter: ["disabled", "aria-busy"],
+        });
         return {
             signals,
             stop: () => {
-                button.removeEventListener("click", click, true);
-                form?.removeEventListener("submit", submitted, true);
-                form?.removeEventListener("invalid", invalid, true);
+                document.removeEventListener("click", click, true);
+                document.removeEventListener("submit", submitted, true);
+                document.removeEventListener("invalid", invalid, true);
                 observer.disconnect();
             },
         };
-    });
+    }, label);
     const network: { endpoint: string; status: number }[] = [];
     const response = (result: Response) => {
         const url = new URL(result.url());

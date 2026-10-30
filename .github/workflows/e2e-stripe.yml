@@ -56,9 +56,8 @@ jobs:
           fi
           pattern='^backend/src/clientbridge/(integrations/stripe|services/(payments|ledger|billing|orders|entitlements|earnings|public|public_orders|remittances))\.py$'
           pattern+='|^backend/(e2e/stripe|tests/sandbox/|scripts/stripe_qa)'
-          pattern+='|^frontend/packages/app-core/src/domain/(payments|payouts|checkout|publicPay|billing|pos)\.ts$'
-          pattern+='|^frontend/packages/ui/src/(web|mobile)/(CardForm|ChargeSheet|PaymentMethodForm)\.tsx$'
-          pattern+='|^frontend/apps/connect/(src/pages/Public(Pay|PaymentSetup|Order|Booking)\.tsx$|e2e/stripe)'
+          # the screens the browser lane drives, and the web suite's helpers it shares
+          pattern+='|^frontend/(packages/(app-core/src|ui/src/web)|apps/(web/src|connect/src|web/e2e/support|connect/e2e))/'
           pattern+='|^\.github/workflows/e2e-stripe'
           if git diff --name-only "$base" HEAD | grep -Eq "$pattern"; then
             echo "payments=true" >> "$GITHUB_OUTPUT"
@@ -153,4 +152,7 @@ jobs:
             .scratchpad/e2e-*/stripe-relay.json
             .scratchpad/e2e-*/provider-recovery.json
             .scratchpad/e2e-*/browser-results/results.json
+            .scratchpad/e2e-*/browser-results/*/error-context.md
+            .scratchpad/e2e-*/browser-results/*/*.png
+            .scratchpad/e2e-*/browser-results/*/trace.zip
           retention-days: 7

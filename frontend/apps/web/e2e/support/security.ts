@@ -4,6 +4,7 @@ import { expect, type Page } from "@playwright/test";
 import {
     createInvoice,
     openInvoice,
+    paymentDrawer,
     type InvoiceFixture,
     documentEvidence,
     type DocumentEvidence,
@@ -96,7 +97,7 @@ export async function expectOwnerUnchanged(page: Page, fixture: SecurityFixture)
     await expect(
         page.getByRole("button", { name: strings.billing.rec.record("$6.00"), exact: true }),
     ).toBeVisible();
-    const payment = page.getByRole("region", { name: strings.billing.rec.title, exact: true });
+    const payment = paymentDrawer(page);
     await expect(
         payment.getByRole("heading", { name: strings.billing.rec.title, exact: true }),
     ).toBeVisible();

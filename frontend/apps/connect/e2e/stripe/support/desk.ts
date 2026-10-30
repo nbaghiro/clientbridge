@@ -2,7 +2,12 @@ import { strings } from "@clientbridge/app-core/public";
 import { expect, type Locator, type Page } from "@playwright/test";
 import { select } from "../../../../web/e2e/support/db";
 import { navigate } from "../../../../web/e2e/support/session";
-import type { StockedProduct } from "../../../../web/e2e/support/pos";
+import {
+    paymentPanel,
+    saleTicket,
+    skipTip,
+    type StockedProduct,
+} from "../../../../web/e2e/support/pos";
 import { merchant } from "./payouts";
 
 const d = strings.pos.desk;
@@ -49,24 +54,9 @@ export async function ringUpWalkIn(
     const tile = page.getByRole("button", { name: product.name, exact: true });
     await expect(tile).toContainText(d.inStock(3), { timeout: 60_000 });
     await tile.click();
-    const ticket = page.getByRole("complementary", { name: d.ticket, exact: true });
+    const ticket = saleTicket(page);
     await ticket.getByRole("button", { name: d.charge(charge), exact: true }).click();
-    const payment = paySheet(page);
-    await payment
-        .getByRole("group", { name: d.tip, exact: true })
-        .getByRole("button", { name: d.tipNone, exact: true })
-        .click();
+    const payment = paymentPanel(page);
+    await skipTip(payment);
     return payment;
-}
-
-export function paySheet(page: Page): Locator {
-    return page.getByRole("complementary", { name: d.payTitle, exact: true });
-}
-
-export function choose(payment: Locator, method: string): Promise<void> {
-    return payment
-        .getByRole("group", { name: d.howPaying, exact: true })
-        .getByRole("button")
-        .filter({ hasText: method })
-        .click();
 }
