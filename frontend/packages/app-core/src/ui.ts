@@ -160,7 +160,7 @@ export interface FieldProps {
 }
 
 // Dates and times have their own fields (DateField, TimeField, DateTimeField).
-export type TextFieldType = "text" | "email" | "password" | "number" | "tel" | "url";
+export type TextFieldType = "text" | "email" | "password" | "number" | "tel" | "url" | "code";
 
 export interface TextFieldProps {
     // Without a label the placeholder (or `name`) names the input for screen readers.

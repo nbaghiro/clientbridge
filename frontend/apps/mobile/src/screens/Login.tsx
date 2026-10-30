@@ -155,11 +155,15 @@ function CodeStep({
     busy,
     submit,
     submitLabel,
+    placeholder = a.codePlaceholder,
+    autoComplete = "one-time-code",
     children,
 }: {
     title: string;
     body: string;
     label: string;
+    placeholder?: string;
+    autoComplete?: string;
     code: string;
     setCode: (v: string) => void;
     error: string | null;
@@ -177,12 +181,13 @@ function CodeStep({
             <Text style={styles.title}>{title}</Text>
             <Text style={styles.subtitle}>{body}</Text>
             <TextField
+                type="code"
                 label={label}
                 value={code}
                 onChange={setCode}
                 onSubmit={submit}
-                placeholder={a.codePlaceholder}
-                autoComplete="one-time-code"
+                placeholder={placeholder}
+                autoComplete={autoComplete}
                 size="lg"
                 surface="surface"
             />
@@ -216,6 +221,8 @@ function SecondFactor({ auth }: { auth: Auth }) {
             title={a.mfaTitle}
             body={a.mfaSubtitle}
             label={auth.mfaMethod === "totp" ? a.mfaTotp : a.mfaLookup}
+            placeholder={auth.mfaMethod === "totp" ? a.codePlaceholder : a.backupCodePlaceholder}
+            autoComplete={auth.mfaMethod === "totp" ? "one-time-code" : "off"}
             code={auth.code}
             setCode={auth.setCode}
             error={auth.error ?? auth.fieldErrors.code ?? null}

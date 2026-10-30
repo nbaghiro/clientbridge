@@ -289,6 +289,8 @@ def run_native(
         f"MAILPIT_URL={stack.env['MAILPIT_URL']}",
         "-e",
         f"AUTH_ADMIN_URL={stack.env['AUTH_ADMIN_URL']}",
+        "-e",
+        f"AUTH_URL=http://localhost:{tier.PORTS['auth']}",
         # only the iOS simulator takes a push without a push service
         *(["--exclude-tags", "ios"] if args.platform == "android" else []),
         "--format",

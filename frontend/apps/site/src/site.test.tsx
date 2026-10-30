@@ -67,6 +67,13 @@ describe("pages", () => {
         }
         expect(checked).toBeGreaterThan(100);
     });
+
+    it("send Start free to sign-up and Sign in to the app's root", () => {
+        for (const [path, page] of html) {
+            expect(page, path).toContain('href="http://localhost:8700/signup"');
+            expect(page, path).toContain('href="http://localhost:8700/"');
+        }
+    });
 });
 
 describe("demo figures", () => {

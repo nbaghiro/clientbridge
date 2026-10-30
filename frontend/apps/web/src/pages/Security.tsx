@@ -224,6 +224,7 @@ export function Security() {
                             value={s.keyName}
                             onChange={s.setKeyName}
                             placeholder={a.securityKeyNamePlaceholder}
+                            error={s.keyNameError}
                         />
                         <Button variant="outline" busy={s.busy} onPress={s.addKey}>
                             {a.securityAddKey}

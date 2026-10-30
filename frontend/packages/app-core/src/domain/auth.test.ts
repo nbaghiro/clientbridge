@@ -3,7 +3,7 @@ import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { ApiLike, Flow, FlowNode, FlowStep, IdentityLike } from "../api";
+import type { ApiLike, Flow, FlowNode, FlowStep, IdentityLike, WebAuthnLike } from "../api";
 import { strings } from "../strings";
 import {
     checkSession,
@@ -191,6 +191,83 @@ describe("useAuthForm", () => {
         expect(result.current.mfaMethods).toContain("totp");
     });
 
+    describe("a security key at the second step", () => {
+        const challenge = [
+            { ...node("default", "identifier"), value: "pat@test.ca" },
+            node("webauthn", "webauthn_login_trigger", "{}"),
+        ];
+        const webauthn = {
+            register: vi.fn<WebAuthnLike["register"]>(),
+            login: vi.fn<WebAuthnLike["login"]>(() => Promise.resolve("assertion")),
+        };
+
+        async function atKeyStep(steps: FlowStep[]) {
+            const identity = fakeIdentity([
+                { kind: "redirect", url: "https://auth.test/self-service/login/browser?aal=aal2" },
+                ...steps,
+            ]);
+            identity.start.mockImplementation((kind) =>
+                Promise.resolve(flow(challenge, null, kind)),
+            );
+            const signedIn = vi.fn();
+            const { result } = renderHook(() => useAuthForm(identity, signedIn, { webauthn }));
+            act(() => {
+                result.current.setEmail("pat@test.ca");
+                result.current.setPassword("hunter22");
+            });
+            act(() => {
+                result.current.submit();
+            });
+            await waitFor(() => {
+                expect(result.current.mfaMethod).toBe("webauthn");
+            });
+            act(() => {
+                result.current.submit();
+            });
+            return { identity, signedIn, result };
+        }
+
+        it("names the account it is proving, as the auth service requires", async () => {
+            const { identity, signedIn } = await atKeyStep([{ kind: "done" }]);
+            await waitFor(() => {
+                expect(signedIn).toHaveBeenCalled();
+            });
+            expect(identity.submit).toHaveBeenLastCalledWith(
+                expect.anything(),
+                {
+                    method: "webauthn",
+                    identifier: "pat@test.ca",
+                    webauthn_login: "assertion",
+                },
+                undefined,
+            );
+        });
+
+        it("shows a refusal the auth service pins to a field this step does not show", async () => {
+            const refused = node("default", "identifier");
+            refused.messages = [{ id: 4000002, type: "error", text: "missing" }];
+            const { result } = await atKeyStep([
+                { kind: "flow", flow: flow([refused], null, "login") },
+            ]);
+            await waitFor(() => {
+                expect(result.current.error).toBe(strings.auth.mfaKeyRefused);
+            });
+        });
+
+        it("says the key didn't work when its prompt fails, and forgets that on another method", async () => {
+            webauthn.login.mockRejectedValueOnce(new Error("NotAllowedError"));
+            const { identity, result } = await atKeyStep([]);
+            await waitFor(() => {
+                expect(result.current.error).toBe(strings.auth.mfaKeyRefused);
+            });
+            expect(identity.submit).toHaveBeenCalledTimes(1);
+            act(() => {
+                result.current.setMfaMethod("lookup_secret");
+            });
+            expect(result.current.error).toBeNull();
+        });
+    });
+
     it("treats a session the auth service already holds as signed in", async () => {
         const identity = fakeIdentity([]);
         identity.session.mockResolvedValueOnce("none").mockResolvedValueOnce("active");
@@ -342,6 +419,32 @@ describe("useSecuritySettings", () => {
         const hook = renderHook(() => useSecuritySettings(identity, opts));
         return { identity, ...hook };
     }
+
+    it("asks for a key's name before prompting for the key", async () => {
+        const register = vi.fn<WebAuthnLike["register"]>(() => Promise.resolve("credential"));
+        const identity = fakeIdentity([]);
+        identity.start.mockImplementation((kind) =>
+            Promise.resolve(
+                flow([node("webauthn", "webauthn_register_trigger", "{}")], null, kind),
+            ),
+        );
+        const { result } = renderHook(() =>
+            useSecuritySettings(identity, {
+                webauthn: { register, login: vi.fn<WebAuthnLike["login"]>() },
+            }),
+        );
+        await waitFor(() => {
+            expect(result.current.ready).toBe(true);
+        });
+        act(() => {
+            result.current.setKeyName("   ");
+        });
+        act(() => {
+            result.current.addKey();
+        });
+        expect(result.current.keyNameError).toBe(strings.auth.securityKeyNameRequired);
+        expect(register).not.toHaveBeenCalled();
+    });
 
     it("starts one settings flow when React runs its effects twice, so the secret stays put", async () => {
         const identity = fakeIdentity([]);

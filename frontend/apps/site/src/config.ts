@@ -34,6 +34,6 @@ export const demoBusinessLink = (slug: DemoSlug): string | null =>
 
 export const links = {
     signIn: config.waitlist ? null : `${config.appUrl}/`,
-    startFree: config.waitlist ? "/waitlist" : `${config.appUrl}/`,
+    startFree: config.waitlist ? "/waitlist" : `${config.appUrl}/signup`,
     demoBusiness: demoBusinessLink("birchbark"),
 };

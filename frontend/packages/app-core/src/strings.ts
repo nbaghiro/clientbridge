@@ -3931,6 +3931,8 @@ interface Strings {
         readonly mfaSubtitle: string;
         readonly mfaTotp: string;
         readonly mfaLookup: string;
+        readonly backupCodePlaceholder: string;
+        readonly mfaKeyRefused: string;
         readonly mfaWebauthn: string;
         readonly mfaKeyOnly: string;
         readonly mfaUse: {
@@ -3975,6 +3977,7 @@ interface Strings {
         readonly securityKeys: string;
         readonly securityKeysHint: string;
         readonly securityKeyName: string;
+        readonly securityKeyNameRequired: string;
         readonly securityKeyNamePlaceholder: string;
         readonly securityAddKey: string;
         readonly securityRemoveKey: (name: string) => string;
@@ -4001,6 +4004,8 @@ interface Strings {
             readonly "4000007": string;
             readonly "4000008": string;
             readonly "4000034": string;
+            readonly "4000012": string;
+            readonly "4000016": string;
             readonly "4060006": string;
             readonly "4070006": string;
         } & Labels;

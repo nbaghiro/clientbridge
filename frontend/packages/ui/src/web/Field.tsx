@@ -128,6 +128,9 @@ export function TextField({
         disabled,
         autoFocus,
         maxLength,
+        autoCapitalize: type === "code" ? "none" : undefined,
+        autoCorrect: type === "code" ? "off" : undefined,
+        spellCheck: type === "code" ? false : undefined,
         "aria-required": required,
         "aria-label": label === undefined ? (name ?? placeholder) : undefined,
         "aria-invalid": error !== undefined && error !== null ? true : undefined,
@@ -161,7 +164,7 @@ export function TextField({
                     ) : null}
                     <input
                         {...shared}
-                        type={type === "number" ? "text" : type}
+                        type={type === "number" || type === "code" ? "text" : type}
                         inputMode={type === "number" ? "decimal" : undefined}
                         autoComplete={autoComplete}
                         onChange={(e) => {
@@ -176,7 +179,7 @@ export function TextField({
             ) : (
                 <input
                     {...shared}
-                    type={type === "number" ? "text" : type}
+                    type={type === "number" || type === "code" ? "text" : type}
                     inputMode={type === "number" ? "decimal" : undefined}
                     autoComplete={autoComplete}
                     min={min}
