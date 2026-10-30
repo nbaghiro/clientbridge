@@ -128,9 +128,15 @@ export function ClientEditorSheet({
                             src={photos.client(dup.client.id)}
                             size="sm"
                         />
-                        <Text style={styles.dupTitle}>{e.duplicateTitle(dup.client.name)}</Text>
+                        <Text style={styles.dupTitle}>
+                            {dup.phoneTaken
+                                ? e.phoneTakenTitle(dup.client.name)
+                                : e.duplicateTitle(dup.client.name)}
+                        </Text>
                     </View>
-                    <Text style={styles.dupBody}>{e.duplicateBody(dup.reasons.join(e.and))}</Text>
+                    <Text style={styles.dupBody}>
+                        {dup.phoneTaken ? e.phoneTakenBody : e.duplicateBody}
+                    </Text>
                     <View style={styles.row}>
                         <Button
                             style={{ alignSelf: "center" }}
@@ -141,14 +147,16 @@ export function ClientEditorSheet({
                         >
                             {e.duplicateOpen}
                         </Button>
-                        <Button
-                            style={{ alignSelf: "center" }}
-                            size="sm"
-                            variant="quiet"
-                            onPress={editor.ignoreDuplicates}
-                        >
-                            {e.duplicateKeep}
-                        </Button>
+                        {dup.phoneTaken ? null : (
+                            <Button
+                                style={{ alignSelf: "center" }}
+                                size="sm"
+                                variant="quiet"
+                                onPress={editor.ignoreDuplicates}
+                            >
+                                {e.duplicateKeep}
+                            </Button>
+                        )}
                     </View>
                 </View>
             ) : null}

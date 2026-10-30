@@ -634,3 +634,43 @@ test("CRM-E2E-08 a detailing business books a client's parked vehicle as the vis
         contentType: "application/json",
     });
 });
+
+test("CRM-E2E-15 a phone another client holds is refused, and the form offers to open that client", async ({
+    page,
+}) => {
+    const e = strings.clients.edit;
+    await signIn(page);
+    const holder = await createClient(page);
+    const refused = await page.request.post(`${bookingApi()}/v1/clients`, {
+        headers: { Origin: new URL(page.url()).origin },
+        data: { name: demoPerson(randomUUID()), phone: holder.phone },
+    });
+    expect(refused.status(), await refused.text()).toBe(409);
+    expect(await refused.json()).toMatchObject({
+        error: "phone_taken",
+        detail: { client_id: holder.id },
+    });
+    await openClient(page, holder);
+    await navigate(page, "/clients");
+    await page.getByRole("button", { name: strings.clients.add, exact: true }).click();
+    const add = page.getByRole("dialog", { name: e.addTitle, exact: true });
+    await add.getByRole("textbox", { name: e.nameLabel }).fill(demoPerson(randomUUID()));
+    await add.getByRole("textbox", { name: e.phoneLabel }).fill(holder.phone);
+    await expect(add.getByText(e.phoneTakenTitle(holder.name), { exact: true })).toBeVisible();
+    await expect(add.getByText(e.phoneTakenBody, { exact: true })).toBeVisible();
+    await expect(add.getByRole("button", { name: e.duplicateKeep, exact: true })).toHaveCount(0);
+    let posted = 0;
+    page.on("request", (request) => {
+        if (request.method() === "POST" && new URL(request.url()).pathname === "/v1/clients")
+            posted += 1;
+    });
+    await add.getByRole("button", { name: e.add, exact: true }).click();
+    await expect(add.getByText(e.phoneTakenTitle(holder.name), { exact: true })).toBeVisible();
+    expect(posted).toBe(0);
+    await add.getByRole("button", { name: e.duplicateOpen, exact: true }).click();
+    await expect(
+        page
+            .getByRole("complementary", { name: holder.name, exact: true })
+            .getByRole("heading", { name: holder.name, exact: true }),
+    ).toBeVisible();
+});

@@ -29,23 +29,47 @@ WHERE NOT EXISTS (
       AND (n.created_at > k.created_at OR (n.created_at = k.created_at AND n.id > k.id))
 )`;
 
-// Clients whose number's, or whose own, newest STOP or START reply was STOP; own = 1 for theirs.
+const IS_E164 = `(phone GLOB '+[1-9]*' AND substr(phone, 2) NOT GLOB '*[^0-9]*'
+    AND length(phone) BETWEEN 9 AND 16)`;
+
+// Each client's phone as E.164 by normalizePhone's rule; only phones not stored that way are read
+// a character at a time (no regex), since the API stores E.164.
+const CLIENT_NUMBERS_CTE = `
+stops AS (SELECT 1 FROM consents WHERE source = 'reply' AND status = 'withdrawn' LIMIT 1),
+scan(id, raw, i, digits) AS (
+    SELECT id, phone, 1, '' FROM clients
+    WHERE phone IS NOT NULL AND phone != '' AND NOT ${IS_E164} AND EXISTS (SELECT 1 FROM stops)
+    UNION ALL
+    SELECT id, raw, i + 1,
+           digits || CASE WHEN substr(raw, i, 1) GLOB '[0-9]' THEN substr(raw, i, 1) ELSE '' END
+    FROM scan WHERE i <= length(raw)
+),
+numbers(id, number) AS (
+    SELECT id, CASE
+        WHEN ltrim(raw, ' ' || char(9, 10, 11, 12, 13)) LIKE '+%' THEN CASE
+            WHEN length(digits) BETWEEN 8 AND 15 AND substr(digits, 1, 1) != '0' THEN '+' || digits
+            WHEN length(digits) = 11 AND substr(digits, 1, 1) = '1'
+                 AND substr(digits, 2, 1) NOT IN ('0', '1') THEN '+' || digits
+        END
+        WHEN length(digits) = 10 AND substr(digits, 1, 1) NOT IN ('0', '1') THEN '+1' || digits
+        WHEN length(digits) = 11 AND substr(digits, 1, 1) = '1'
+             AND substr(digits, 2, 1) NOT IN ('0', '1') THEN '+' || digits
+    END
+    FROM scan WHERE i = length(raw) + 1
+    UNION ALL
+    SELECT id, phone FROM clients WHERE ${IS_E164} AND EXISTS (SELECT 1 FROM stops)
+)`;
+
+// Clients whose number's newest STOP or START reply was STOP, with when it replied.
 export const TEXTS_STOPPED_SQL = `
-SELECT h.id AS client_id, k.created_at, 0 AS own
-FROM consents k
-JOIN clients h ON h.phone = k.phone
+WITH RECURSIVE ${CLIENT_NUMBERS_CTE}
+SELECT n.id AS client_id, k.created_at
+FROM numbers n
+JOIN consents k ON k.phone = n.number
 WHERE k.source = 'reply' AND k.status = 'withdrawn' AND NOT EXISTS (
-    SELECT 1 FROM consents n
-    WHERE n.phone = k.phone AND n.source = 'reply'
-      AND (n.created_at > k.created_at OR (n.created_at = k.created_at AND n.id > k.id))
-)
-UNION ALL
-SELECT k.client_id, k.created_at, 1 AS own
-FROM consents k
-WHERE k.source = 'reply' AND k.status = 'withdrawn' AND NOT EXISTS (
-    SELECT 1 FROM consents n
-    WHERE n.client_id = k.client_id AND n.source = 'reply'
-      AND (n.created_at > k.created_at OR (n.created_at = k.created_at AND n.id > k.id))
+    SELECT 1 FROM consents x
+    WHERE x.phone = k.phone AND x.source = 'reply'
+      AND (x.created_at > k.created_at OR (x.created_at = k.created_at AND x.id > k.id))
 )`;
 
 export const AUDIENCE_CLIENTS_SQL = `
@@ -124,29 +148,21 @@ const canBroadcast = (c: MarketingConsent): boolean =>
 
 type ConsentMap = Map<string, MarketingConsent>;
 
-interface StopRow {
-    client_id: string;
-    created_at: string;
-    own: number;
-}
-
-/** Every client's current SMS consent, and who replied STOP themselves rather than by number. */
+/** Every client's current SMS consent, and the clients whose number replied STOP. */
 export function useConsents(): {
     map: ConsentMap;
-    stoppedByClient: ReadonlySet<string>;
+    stopped: ReadonlySet<string>;
     isLoading: boolean;
 } {
     const rows = useQuery<ConsentRow>(LATEST_CONSENTS_SQL);
-    const stopped = useQuery<StopRow>(TEXTS_STOPPED_SQL);
-    const { map, stoppedByClient } = useMemo(() => {
+    const stops = useQuery<{ client_id: string; created_at: string }>(TEXTS_STOPPED_SQL);
+    const { map, stopped } = useMemo(() => {
         const now = new Date();
         const out: ConsentMap = new Map();
-        const own = new Set<string>();
         for (const row of rows.data) {
             out.set(row.client_id, consentOf(row, now));
         }
-        for (const stop of stopped.data) {
-            if (stop.own === 1) own.add(stop.client_id);
+        for (const stop of stops.data) {
             out.set(stop.client_id, {
                 state: "opted_out",
                 source: "reply",
@@ -154,19 +170,13 @@ export function useConsents(): {
                 expiresAt: null,
             });
         }
-        return { map: out, stoppedByClient: own };
-    }, [rows.data, stopped.data]);
-    return { map, stoppedByClient, isLoading: rows.isLoading || stopped.isLoading };
+        return { map: out, stopped: new Set(stops.data.map((stop) => stop.client_id)) };
+    }, [rows.data, stops.data]);
+    return { map, stopped, isLoading: rows.isLoading || stops.isLoading };
 }
 
 export function consentFor(map: ConsentMap, clientId: string): MarketingConsent {
     return map.get(clientId) ?? consentOf(undefined);
-}
-
-/** Whether a STOP reply from the client's number, or from the client, has turned texts off. */
-export function textsStopped(map: ConsentMap, clientId: string): boolean {
-    const consent = consentFor(map, clientId);
-    return consent.state === "opted_out" && consent.source === "reply";
 }
 
 function parseList(raw: string | null): string[] {
@@ -216,7 +226,7 @@ export function smsSegments(body: string): { chars: number; segments: number } {
 interface AudienceExclusion {
     id: string;
     name: string;
-    reason: "opted_out" | "no_consent" | "no_contact" | "shared_number";
+    reason: "opted_out" | "no_consent" | "no_contact";
     detail: string;
 }
 
@@ -239,7 +249,6 @@ function buildAudience(
     const matched = tagged.filter((c) => tags.length === 0 || c.list.some((t) => tags.includes(t)));
     const recipients: BroadcastAudience["recipients"] = [];
     const excluded: AudienceExclusion[] = [];
-    const reachable: { id: string; name: string; phone: string }[] = [];
     for (const c of matched) {
         const consent = consentFor(consents, c.id);
         if (c.phone === null || c.phone === "")
@@ -256,18 +265,7 @@ function buildAudience(
             });
         else if (!canBroadcast(consent))
             excluded.push({ id: c.id, name: c.name, reason: "no_consent", detail: "" });
-        else reachable.push({ id: c.id, name: c.name, phone: c.phone });
-    }
-    // as the server does, one copy per number, to the client first by id
-    const first = new Map<string, { id: string; name: string }>();
-    for (const c of reachable) {
-        const kept = first.get(c.phone);
-        if (kept === undefined || c.id < kept.id) first.set(c.phone, c);
-    }
-    for (const c of reachable) {
-        const kept = first.get(c.phone);
-        if (kept === undefined || kept.id === c.id) recipients.push({ id: c.id, name: c.name });
-        else excluded.push({ id: c.id, name: c.name, reason: "shared_number", detail: kept.name });
+        else recipients.push({ id: c.id, name: c.name });
     }
     return {
         allTags: [...counts.entries()]

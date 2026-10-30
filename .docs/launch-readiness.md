@@ -474,7 +474,7 @@ The business loads its clients, what they book for, and everything it sells.
 **QA steps**
 
 1. Add a client on a phone.
-   **Expect:** they appear on web within seconds; a duplicate phone warns.
+   **Expect:** they appear on web within seconds; a phone number another client already has is refused, with a button to open that client.
 2. Find them by phone number in the web directory and the command palette.
    **Expect:** both find them.
 3. Edit their name on web.
@@ -491,6 +491,7 @@ The business loads its clients, what they book for, and everything it sells.
 **Automated by**
 
 * `CRM-E2E-01 (web)`
+* `CRM-E2E-15 (web)`
 * `NATIVE-CRM-01 (native-ios, native-android)`
 * `CRM-E2E-06 (journeys)`
 * `FLOW-04-A (journeys)`
@@ -2138,16 +2139,18 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **QA steps**
 
-1. Reply STOP from a client.
-   **Expect:** every device shows texts off; queued notices to them are not sent.
+1. Reply STOP from a client's phone.
+   **Expect:** every device shows texts off for that client; queued notices to the number are not sent.
 2. Turn texts back on from the staff toggle.
-   **Expect:** refused until the client replies START.
-3. Record a no to offers for another client.
+   **Expect:** refused until the number replies START.
+3. Change the client's phone to another number.
+   **Expect:** texts to the new number work; the old number stays stopped.
+4. Record a no to offers for another client.
    **Expect:** shown on the record with the date.
-4. Export consents.
+5. Export consents.
    **Expect:** a CSV with each client's state and dates.
 
-**Done when:** An opted-out client can't be texted by the business except what the law allows.
+**Done when:** A number that replied STOP can't be texted by the business, except what the law allows, until it replies START.
 
 **Automated by**
 

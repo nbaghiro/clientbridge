@@ -65,3 +65,53 @@ it("keeps what the person typed when the record refreshes", () => {
     expect(result.current.draft.name).toBe("Ann T.");
     expect(result.current.draft.phone).toBe("(604) 555-0001");
 });
+
+const bo: ClientListRow = { ...ann, id: "cl_bo", name: "Bo Diaz", phone: "+16045550009" };
+
+function adding(directory: readonly ClientListRow[], post: ApiLike["post"]) {
+    return renderHook(() => useClientEditor({ ...api, post }, directory, null, () => undefined), {
+        wrapper,
+    });
+}
+
+it("won't save a phone another client holds, and offers that client instead", () => {
+    const post = vi.fn();
+    const { result } = adding([ann], post);
+    act(() => {
+        result.current.set("name", "Someone New");
+        result.current.set("phone", "604 555 0001");
+    });
+    expect(result.current.duplicates).toEqual([{ client: ann, phoneTaken: true }]);
+    act(() => {
+        result.current.ignoreDuplicates();
+        result.current.submit();
+    });
+    expect(result.current.duplicates).toEqual([{ client: ann, phoneTaken: true }]);
+    expect(post).not.toHaveBeenCalled();
+});
+
+it("shows the client a refused save names as holding the phone", async () => {
+    const refused = Object.assign(new Error("409"), {
+        status: 409,
+        code: "phone_taken",
+        detail: { client_id: "cl_bo" },
+    });
+    const post = vi.fn().mockRejectedValue(refused);
+    const { result } = adding([{ ...bo, phone: null }], post);
+    act(() => {
+        result.current.set("name", "Someone New");
+        result.current.set("phone", "604 555 0009");
+    });
+    await act(async () => {
+        result.current.submit();
+        await Promise.resolve();
+    });
+    expect(result.current.duplicates).toEqual([
+        { client: { ...bo, phone: null }, phoneTaken: true },
+    ]);
+    expect(result.current.error).toBeNull();
+    act(() => {
+        result.current.set("phone", "604 555 0010");
+    });
+    expect(result.current.duplicates).toEqual([]);
+});

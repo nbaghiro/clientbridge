@@ -27,6 +27,7 @@ import { signIn, navigate } from "./support/session";
 import { freshPhone, textsTo } from "./support/auth";
 import { randomUUID } from "node:crypto";
 import { demoId, runEmail } from "@clientbridge/config/e2e/run";
+import { demoPerson } from "@clientbridge/config/e2e/demo";
 
 const s = strings.messaging;
 for (const retry of [false, true]) {
@@ -112,7 +113,7 @@ test("MSG-E2E-03 a message the provider refused keeps its draft and a retry send
     await signIn(page);
     const client = await messageFixture(page);
     // a number set aside for fiction, which the dev text transport refuses like a carrier
-    const refused = "+12505550142";
+    const refused = "+18675550142";
     await renumber(page, client, refused);
     const dialog = await composeMessage(page, client);
     const input = dialog.getByRole("textbox", { name: s.newMessageTitle, exact: true });
@@ -330,8 +331,16 @@ test("MSG-E2E-11 inbound texts route only to the number's business and unsigned 
         const theirs = await createContact(cedarOwner.page, { phone: shared });
         const twin = freshPhone();
         const first = await createContact(page, { phone: twin });
-        const second = await createContact(page, { phone: twin });
-        const ids = [ours.id, theirs.id, first.id, second.id];
+        const second = await page.request.post(`${apiBase()}/v1/clients`, {
+            data: { name: demoPerson(randomUUID()), phone: twin },
+            headers: headers(page),
+        });
+        expect(second.status(), await second.text()).toBe(409);
+        expect(await second.json()).toMatchObject({
+            error: "phone_taken",
+            detail: { client_id: first.id },
+        });
+        const ids = [ours.id, theirs.id, first.id];
         const empty = await clientOutreach(...ids);
         expect(empty).toEqual({ threads: [], messages: [], consents: [] });
 
@@ -361,21 +370,19 @@ test("MSG-E2E-11 inbound texts route only to the number's business and unsigned 
             body: "Is anyone there?",
         });
         expect(unknown.response.status()).toBe(200);
-        const ambiguous = await postInboundSms(page.request, {
+        const stop = await postInboundSms(page.request, {
             from: twin,
             to: BIRCHBARK_SMS,
             body: "STOP",
         });
-        expect(ambiguous.response.status()).toBe(200);
-        // a shared number's reply lands with one of its clients, and its STOP covers all of them
-        const [sender, sharer] = first.id < second.id ? [first, second] : [second, first];
-        const stopped = await clientOutreach(first.id, second.id);
-        expect(stopped.threads.map((t) => t.client_id)).toEqual([sender.id]);
+        expect(stop.response.status()).toBe(200);
+        const stopped = await clientOutreach(first.id);
+        expect(stopped.threads.map((t) => t.client_id)).toEqual([first.id]);
         expect(stopped.messages.map((m) => [m.client_id, m.direction, m.body])).toEqual([
-            [sender.id, "in", "STOP"],
+            [first.id, "in", "STOP"],
         ]);
         expect(stopped.consents.map((c) => [c.client_id, c.source, c.status])).toEqual([
-            [sender.id, "reply", "withdrawn"],
+            [first.id, "reply", "withdrawn"],
         ]);
         expect(await clientOutreach(ours.id, theirs.id)).toEqual(empty);
         const inbound = (sid: string | null, to: string, optOut: boolean, from: string) => ({
@@ -385,9 +392,9 @@ test("MSG-E2E-11 inbound texts route only to the number's business and unsigned 
             status: "processed",
             payload: { from, to, matched: false, business_id: null, opt_out: optOut },
         });
-        const matched = inbound(ambiguous.sid, BIRCHBARK_SMS, true, twin);
+        const matched = inbound(stop.sid, BIRCHBARK_SMS, true, twin);
         expect(
-            await webhookRows(`twilio_${unknown.sid ?? ""}`, `twilio_${ambiguous.sid ?? ""}`),
+            await webhookRows(`twilio_${unknown.sid ?? ""}`, `twilio_${stop.sid ?? ""}`),
         ).toEqual(
             [
                 inbound(unknown.sid, "+12365550191", false, shared),
@@ -449,23 +456,20 @@ test("MSG-E2E-11 inbound texts route only to the number's business and unsigned 
             theirLog.getByText("Can Biscuit's walk move to noon?", { exact: true }),
         ).toHaveCount(1);
         await expect(theirLog.getByText(toUs.body, { exact: true })).toHaveCount(0);
-        await expect(await openConversation(page, sender, "all")).toHaveCount(1);
-        await expect(await openConversation(page, sharer, "all")).toHaveCount(0);
-        const checkIn = (client: Contact) =>
+        await expect(await openConversation(page, first, "all")).toHaveCount(1);
+        const checkIn = () =>
             page.request.post(`${apiBase()}/v1/messages`, {
-                data: { client_id: client.id, body: "Checking in" },
+                data: { client_id: first.id, body: "Checking in" },
                 headers: headers(page),
             });
-        for (const twinClient of [sender, sharer]) {
-            expect((await checkIn(twinClient)).status()).toBe(409);
-        }
+        expect((await checkIn()).status()).toBe(409);
         const restart = await postInboundSms(page.request, {
             from: twin,
             to: BIRCHBARK_SMS,
             body: "START",
         });
         expect(restart.response.status()).toBe(200);
-        const send = await checkIn(sharer);
+        const send = await checkIn();
         expect(send.status(), await send.text()).toBe(200);
     } finally {
         await cedarOwner.context.close();

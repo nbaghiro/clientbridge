@@ -128,8 +128,8 @@
     "api.shopNotReady": {
         "message": "[Ţĥîš šĥöþ îšñ'ţ ţåķîñĝ öñļîñé öŕðéŕš ýéţ. one two three]"
     },
-    "api.contactAmbiguous": {
-        "message": "[Ţĥîš þĥöñé ñûɱƀéŕ ɱåţçĥéš ɱöŕé ţĥåñ öñé çļîéñţ. Çĥéçķ ţĥé ñûɱƀéŕ, öŕ çöñţåçţ ţĥé ƀûšîñéšš. one two three four five six]"
+    "api.phoneTaken": {
+        "message": "[Åñöţĥéŕ çļîéñţ åļŕéåðý ĥåš ţĥîš þĥöñé ñûɱƀéŕ. Éåçĥ ñûɱƀéŕ ƀéļöñĝš ţö öñé çļîéñţ. one two three four five six]"
     },
     "api.slotUnavailable": {
         "message": "[Ţĥåţ ţîɱé îš ñö ļöñĝéŕ öþéñ. Þîçķ åñöţĥéŕ ţîɱé. one two three]"
@@ -5048,9 +5048,6 @@
     "clients.record.textsStopped": {
         "message": "[Ţĥéîŕ ñûɱƀéŕ ŕéþļîéð ŠŢÖÞ öñ {when}. Ţéẋţš šţåý öƒƒ ûñţîļ îţ ŕéþļîéš ŠŢÅŔŢ. one two three four five]"
     },
-    "clients.record.textsStoppedByClient": {
-        "message": "[Ţĥéý ŕéþļîéð ŠŢÖÞ öñ {when}. Ţéẋţš šţåý öƒƒ ûñţîļ ţĥéý ŕéþļý ŠŢÅŔŢ. one two three four]"
-    },
     "clients.record.inProgress": {
         "message": "[Îñ þŕöĝŕéšš one two]"
     },
@@ -5166,22 +5163,19 @@
         "message": "[{name} ɱåý åļŕéåðý ƀé å çļîéñţ one two]"
     },
     "clients.edit.duplicateBody": {
-        "message": "[Šåɱé {reasons}. Öþéñ ţĥéîŕ ŕéçöŕð îñšţéåð öƒ åððîñĝ å šéçöñð öñé. one two three four]"
+        "message": "[Šåɱé ñåɱé. Öþéñ ţĥéîŕ ŕéçöŕð îñšţéåð öƒ åððîñĝ å šéçöñð öñé. one two three four]"
+    },
+    "clients.edit.phoneTakenTitle": {
+        "message": "[{name} åļŕéåðý ĥåš ţĥîš þĥöñé ñûɱƀéŕ one two three]"
+    },
+    "clients.edit.phoneTakenBody": {
+        "message": "[Éåçĥ ñûɱƀéŕ ƀéļöñĝš ţö öñé çļîéñţ. Öþéñ ţĥéîŕ ŕéçöŕð, öŕ éñţéŕ å ðîƒƒéŕéñţ ñûɱƀéŕ. one two three four five six]"
     },
     "clients.edit.duplicateOpen": {
         "message": "[Öþéñ ŕéçöŕð one two]"
     },
     "clients.edit.duplicateKeep": {
         "message": "[Åðð åñýŵåý one two]"
-    },
-    "clients.edit.reasonPhone": {
-        "message": "[þĥöñé ñûɱƀéŕ one two]"
-    },
-    "clients.edit.reasonName": {
-        "message": "[ñåɱé one]"
-    },
-    "clients.edit.and": {
-        "message": "[ åñð  one]"
     },
     "clients.edit.archive": {
         "message": "[Åŕçĥîṽé çļîéñţ one two]"
@@ -6125,12 +6119,6 @@
     "messaging.textsOffBody": {
         "message": "[Ţĥéîŕ ñûɱƀéŕ ŕéþļîéð ŠŢÖÞ. Ţéẋţš šţåý öƒƒ ûñţîļ îţ ŕéþļîéš ŠŢÅŔŢ. one two three four five]"
     },
-    "messaging.textsOffBodyByClient": {
-        "message": "[Ţĥéý ŕéþļîéð ŠŢÖÞ. Ţéẋţš šţåý öƒƒ ûñţîļ ţĥéý ŕéþļý ŠŢÅŔŢ. one two three four]"
-    },
-    "messaging.sharedNumber": {
-        "message": "[Ţĥîš ñûɱƀéŕ îš šĥåŕéð ŵîţĥ {names}. one two three]"
-    },
     "messaging.manyTexts": {
         "message": "[{segments,plural,one{Ţĥîš ŵîļļ šéñð åš # ţéẋţ.} other{Ţĥîš ŵîļļ šéñð åš # ţéẋţš, éåçĥ ƀîļļéð šéþåŕåţéļý.}} one two three four five]"
     },
@@ -6287,11 +6275,8 @@
     "broadcasts.reasons.no_contact": {
         "message": "[Ñö çöñţåçţ öñ ƒîļé one two]"
     },
-    "broadcasts.reasons.shared_number": {
-        "message": "[Šĥåŕéš å ñûɱƀéŕ one two]"
-    },
     "broadcasts.leftOutHelp": {
-        "message": "[Çļîéñţš ŵĥö öþţéð öûţ öŕ ñéṽéŕ åĝŕééð åŕé šķîþþéð, åñð çĥéçķéð åĝåîñ åţ šéñð ţîɱé. Å ñûɱƀéŕ šĥåŕéð ƀý šéṽéŕåļ çļîéñţš ĝéţš öñé çöþý. one two three four five six seven eight]"
+        "message": "[Çļîéñţš ŵĥö öþţéð öûţ öŕ ñéṽéŕ åĝŕééð åŕé šķîþþéð, åñð çĥéçķéð åĝåîñ åţ šéñð ţîɱé. one two three four five six]"
     },
     "broadcasts.previewLabel": {
         "message": "[Þŕéṽîéŵ one]"

@@ -284,7 +284,9 @@ owner/admin/staff/contractor, payout config `payee`/`rate_type` with the rate in
 `attributes` JSONB holds that kind's details, validated per kind in `schemas/subjects.py` with unknown keys kept), `notes` (polymorphic
 `parent_type`/`parent_id` over client/subject/booking, `created_by`), `consents` (one row per change to a
 client's marketing consent, with its `source`; the newest row holds, and a STOP or START reply
-also records the `phone` it came from, where the newest one decides texts for every client on that number).
+also records the `phone` it came from, where the newest one decides whether that number gets texts).
+A phone number belongs to one live client per business (`uq_clients_business_phone`, archived clients
+included, merged ones not).
 
 **catalog (5)** — `items` (**one table drives the whole catalog** via `kind` service/class/product/package/
 subscription/gift — duration, capacity, deposit, recurrence, session_count, `stripe_price_id`, and
@@ -861,15 +863,22 @@ takes cards.
 
 ### Messaging
 
-All businesses share one platform SMS number today. An inbound text goes to the business that most
-recently texted that phone (`messaging.route_inbound_sms`, through `scoped()`); with no sender or a tie it
-is recorded as unmatched rather than guessed, and STOP or START applies only to the business it was routed
-to. Each business texts from its own number, assigned in the admin console (CB-49). The SMS webhook checks `X-Twilio-Signature`, and
-production refuses to boot without `TWILIO_AUTH_TOKEN`. Phones are stored as E.164 (`core/phones.py` and
-app-core `normalizePhone` share one rule). A STOP holds for the number it came from until that number
-replies START, for every client on it, so moving or merging a client doesn't carry it elsewhere. When
-clients share a phone, a reply lands with the active one texted most recently (broadcasts aside), and a
-broadcast or class message sends the number one copy. STOP is the only way a client opts out themselves; staff can also record a client's yes or no to offers. A broadcast is
+Each business texts from its own number, assigned in the admin console (CB-49). An inbound text goes to
+the business that owns the number it was sent to, and there to the one live client holding the sending
+phone (`messaging.route_inbound_sms`, through `scoped()`). An archived client still holds their number, so
+their replies, and their STOP, land on their thread. A text to an unassigned number, or from a phone no
+client holds, is recorded as unmatched, and STOP or START applies only to the business it was routed to.
+The SMS webhook checks `X-Twilio-Signature`, and production refuses to boot without `TWILIO_AUTH_TOKEN`.
+Phones are stored as E.164 (`core/phones.py` and app-core `normalizePhone` share one rule). Creating or
+editing a client with a phone another live client holds is refused with `phone_taken`, which names that
+client, and a merge leaves the number with the record that's kept.
+
+A STOP belongs to the phone number it came from, not to the person: texts to that number stop until it
+replies START, and a client who moves to another number can be texted there. Every send path checks the
+number's newest STOP or START reply, including texts to a number typed in for a sale or a gift, and the
+delivery worker checks it again just before sending. A STOP from a phone no client holds isn't recorded,
+since a consent row needs a client. STOP is the only way a client opts out themselves; staff can also
+record a client's yes or no to offers, which can't override a STOP on their number. A broadcast is
 refused until the business has a legal address and a public contact method.
 Broadcasts are sent by the job one recipient at a time, claimed with `SKIP LOCKED` and saved before and after
 each send, so delivery is at most once, and they wait during quiet hours (21:00 to 09:00 local). An inbound

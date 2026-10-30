@@ -24,6 +24,13 @@ class Client(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
     __table_args__ = (
         enum_check("clients", "status", ClientStatus),
         Index("ix_clients_business_phone", "business_id", "phone"),
+        Index(
+            "uq_clients_business_phone",
+            "business_id",
+            "phone",
+            unique=True,
+            postgresql_where=text("phone IS NOT NULL AND deleted_at IS NULL"),
+        ),
         Index("ix_clients_created_by", "created_by"),
         Index("ix_clients_user", "user_id"),
     )

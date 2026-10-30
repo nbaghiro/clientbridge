@@ -10,10 +10,10 @@ from clientbridge.core.config import get_settings
 from clientbridge.core.ids import new_id
 from clientbridge.integrations.twilio import twilio_signature
 from clientbridge.models.clients import Client, Consent
-from clientbridge.models.messaging import Broadcast, Message, Thread
+from clientbridge.models.messaging import Message, Thread
 from clientbridge.models.platform import Device, Webhook
 from clientbridge.services.consents import number_stopped, record_text_reply, texts_stopped
-from clientbridge.services.messaging import open_thread, unread_count
+from clientbridge.services.messaging import unread_count
 from tests.conftest import BIZ, Factory, FakePushSender
 from tests.helpers import TWILIO_TOKEN, ok, summary, text_in, texted
 
@@ -115,193 +115,78 @@ async def test_stop_applies_only_to_the_business_it_was_routed_to(
     assert not await texts_stopped(db, BIZ, ours)
 
 
-async def test_a_stop_from_a_number_two_clients_share_stops_texts_to_both(
+async def test_a_stop_stays_with_the_number_when_its_client_moves_to_another(
     api: httpx.AsyncClient, as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    first = await _client_with_phone(db)
-    second = await _client_with_phone(db)
-    now = clock.now()
-    await texted(db, first, at=now - timedelta(hours=2))
-    ok(await text_in(api, {"From": PHONE, "Body": "STOP", "MessageSid": "SM_shared_stop"}))
-    assert await texts_stopped(db, BIZ, first) and await texts_stopped(db, BIZ, second)
-    for cid in (first, second):
-        res = await as_owner.post("/v1/messages", json={"client_id": cid, "body": "Still there?"})
-        assert res.status_code == 409
-    await texted(db, second, at=now - timedelta(hours=1))
-    ok(await text_in(api, {"From": PHONE, "Body": "START", "MessageSid": "SM_shared_start"}))
-    assert not await texts_stopped(db, BIZ, first) and not await texts_stopped(db, BIZ, second)
+    mover = await _client_with_phone(db)
+    await texted(db, mover)
+    ok(await text_in(api, {"From": PHONE, "Body": "STOP", "MessageSid": "SM_mover_stop"}))
+    assert await texts_stopped(db, BIZ, mover)
+    await db.execute(update(Client).where(Client.id == mover).values(phone=OTHER))
+    assert not await texts_stopped(db, BIZ, mover) and await number_stopped(db, BIZ, PHONE)
+    res = await as_owner.post("/v1/messages", json={"client_id": mover, "body": "New number?"})
+    assert res.status_code == 200, res.text
+    newcomer = await _client_with_phone(db)
+    assert await texts_stopped(db, BIZ, newcomer)
+    blocked = await as_owner.post("/v1/messages", json={"client_id": newcomer, "body": "Welcome"})
+    assert blocked.status_code == 409
 
 
-async def test_a_stop_stays_with_the_number_when_a_sharer_moves_to_their_own(
+async def test_a_start_from_the_number_lifts_its_stop(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    first = await _client_with_phone(db)
-    second = await _client_with_phone(db)
-    await texted(db, first)
-    ok(await text_in(api, {"From": PHONE, "Body": "STOP", "MessageSid": "SM_stop_moved"}))
+    cid = await _client_with_phone(db)
+    await texted(db, cid)
+    ok(await text_in(api, {"From": PHONE, "Body": "STOP", "MessageSid": "SM_lift_stop"}))
+    ok(await text_in(api, {"From": PHONE, "Body": "START", "MessageSid": "SM_lift_start"}))
+    assert not await texts_stopped(db, BIZ, cid) and not await number_stopped(db, BIZ, PHONE)
     replies = await db.scalars(
-        select(Consent.client_id).where(
-            Consent.client_id.in_([first, second]), Consent.source == "reply"
-        )
+        select(Consent.phone).where(Consent.client_id == cid, Consent.source == "reply")
     )
-    assert list(replies) == [first]
-    await db.execute(update(Client).where(Client.id == second).values(phone="+15145552222"))
-    assert await texts_stopped(db, BIZ, first) and not await texts_stopped(db, BIZ, second)
+    assert list(replies) == [PHONE, PHONE]
 
 
-async def test_a_stop_stays_with_the_number_and_its_sender_when_the_sender_moves(
-    api: httpx.AsyncClient, as_owner: httpx.AsyncClient, db: AsyncSession
+async def test_a_repeated_stop_or_a_start_from_a_number_never_stopped_records_nothing(
+    db: AsyncSession,
 ) -> None:
-    sender = await _client_with_phone(db)
-    sharer = await _client_with_phone(db)
-    await texted(db, sender)
-    ok(await text_in(api, {"From": PHONE, "Body": "STOP", "MessageSid": "SM_sender_moves"}))
-    await db.execute(update(Client).where(Client.id == sender).values(phone=OTHER))
-    assert await texts_stopped(db, BIZ, sharer) and await texts_stopped(db, BIZ, sender)
-    for cid in (sender, sharer):
-        res = await as_owner.post("/v1/messages", json={"client_id": cid, "body": "Still there?"})
-        assert res.status_code == 409
-    ok(await text_in(api, {"From": PHONE, "Body": "START", "MessageSid": "SM_sharer_starts"}))
-    assert not await texts_stopped(db, BIZ, sharer) and await texts_stopped(db, BIZ, sender)
-
-
-async def test_a_moved_sender_texts_again_once_they_reply_start_from_their_new_number(
-    api: httpx.AsyncClient, db: AsyncSession
-) -> None:
-    sender = await _client_with_phone(db)
-    sharer = await _client_with_phone(db)
-    await texted(db, sender)
-    ok(await text_in(api, {"From": PHONE, "Body": "STOP", "MessageSid": "SM_moved_stop"}))
-    await db.execute(update(Client).where(Client.id == sender).values(phone=OTHER))
-    ok(await text_in(api, {"From": OTHER, "Body": "START", "MessageSid": "SM_moved_start"}))
-    assert not await texts_stopped(db, BIZ, sender)
-    assert await texts_stopped(db, BIZ, sharer) and await number_stopped(db, BIZ, PHONE)
-
-
-async def _reply(db: AsyncSession, client_id: str, number: str, *, stop: bool) -> bool:
-    client = await db.get(Client, client_id, populate_existing=True)
+    cid = await _client_with_phone(db)
+    client = await db.get(Client, cid)
     assert client is not None
-    return await record_text_reply(db, client, number, stop=stop)
+    assert not await record_text_reply(db, client, PHONE, stop=False)
+    assert await record_text_reply(db, client, PHONE, stop=True)
+    assert not await record_text_reply(db, client, PHONE, stop=True)
+    replies = await db.scalars(select(Consent.id).where(Consent.client_id == cid))
+    assert len(list(replies)) == 1
 
 
-async def test_a_start_from_a_shared_number_lifts_a_stop_its_sharer_sent_from_it(
-    db: AsyncSession,
-) -> None:
-    first = await _client_with_phone(db)
-    second = await _client_with_phone(db)
-    assert await _reply(db, first, PHONE, stop=True)
-    assert await _reply(db, second, PHONE, stop=False)
-    assert not await texts_stopped(db, BIZ, first) and not await texts_stopped(db, BIZ, second)
-    await db.execute(update(Client).where(Client.id == first).values(phone=OTHER))
-    assert not await texts_stopped(db, BIZ, first)
-
-
-async def test_a_start_from_a_number_keeps_a_stop_a_newcomer_sent_from_their_old_one(
-    db: AsyncSession,
-) -> None:
-    newcomer = await _client_with_phone(db, phone=OTHER)
-    resident = await _client_with_phone(db)
-    assert await _reply(db, newcomer, OTHER, stop=True)
-    assert await _reply(db, resident, PHONE, stop=True)
-    await db.execute(update(Client).where(Client.id == newcomer).values(phone=PHONE))
-    assert await _reply(db, resident, PHONE, stop=False)
-    assert not await texts_stopped(db, BIZ, resident) and await texts_stopped(db, BIZ, newcomer)
-    assert not await number_stopped(db, BIZ, PHONE)
-
-
-async def test_a_second_stop_from_a_stopped_number_is_kept_for_its_own_sender(
-    db: AsyncSession,
-) -> None:
-    first = await _client_with_phone(db)
-    second = await _client_with_phone(db)
-    assert await _reply(db, first, PHONE, stop=True)
-    assert await _reply(db, second, PHONE, stop=True)
-    assert not await _reply(db, second, PHONE, stop=True)
-    assert not await _reply(db, first, PHONE, stop=True)
-    replies = await db.scalars(
-        select(Consent.client_id).where(
-            Consent.client_id.in_([first, second]), Consent.source == "reply"
-        )
-    )
-    assert sorted(replies) == sorted([first, second])
-
-
-async def test_a_stop_stays_with_the_number_and_the_record_its_sender_is_merged_into(
+async def test_a_stop_follows_the_number_through_a_merge(
     api: httpx.AsyncClient, as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     sender = await _client_with_phone(db)
-    kept = await _client_with_phone(db, phone="+15145552222")
+    kept = await _client_with_phone(db, phone=OTHER)
     await texted(db, sender)
     ok(await text_in(api, {"From": PHONE, "Body": "STOP", "MessageSid": "SM_merged_away"}))
-    merged = await as_owner.post(f"/v1/clients/{kept}/merge", json={"from_client_id": sender})
+    merged = await as_owner.post(
+        f"/v1/clients/{kept}/merge", json={"from_client_id": sender, "fields": {"phone": "other"}}
+    )
     assert merged.status_code == 200, merged.text
-    assert await texts_stopped(db, BIZ, kept)
-    assert await texts_stopped(db, BIZ, await _client_with_phone(db))
+    assert merged.json()["phone"] == PHONE and await texts_stopped(db, BIZ, kept)
 
 
-async def test_a_client_added_after_a_stop_on_their_number_is_stopped_too(
-    api: httpx.AsyncClient, as_owner: httpx.AsyncClient, db: AsyncSession
-) -> None:
-    first = await _client_with_phone(db)
-    await texted(db, first)
-    ok(await text_in(api, {"From": PHONE, "Body": "STOP", "MessageSid": "SM_stop_before"}))
-    later = await _client_with_phone(db)
-    assert await texts_stopped(db, BIZ, later)
-    res = await as_owner.post("/v1/messages", json={"client_id": later, "body": "Welcome"})
-    assert res.status_code == 409
-    ok(await text_in(api, {"From": PHONE, "Body": "START", "MessageSid": "SM_start_after"}))
-    assert not await texts_stopped(db, BIZ, first) and not await texts_stopped(db, BIZ, later)
-
-
-async def test_a_broadcast_does_not_move_where_a_shared_number_reply_lands(
+async def test_a_reply_reaches_an_archived_client_who_still_holds_the_number(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    talking = await _client_with_phone(db)
-    sharer = await _client_with_phone(db)
-    now = clock.now()
-    await texted(db, talking, at=now - timedelta(hours=1))
-    broadcast = Broadcast(
-        id=new_id("broadcast"), business_id=BIZ, name="Promo", body="Sale", status="sent"
+    cid = await _client_with_phone(db)
+    await db.execute(
+        update(Client)
+        .where(Client.id == cid)
+        .values(status="inactive", archived_at=clock.now() - timedelta(days=3))
     )
-    db.add(broadcast)
-    await db.flush()
-    thread = await open_thread(db, BIZ, sharer)
-    db.add(
-        Message(
-            id=new_id("message"),
-            business_id=BIZ,
-            thread_id=thread.id,
-            direction="out",
-            body="Sale",
-            status="sent",
-            broadcast_id=broadcast.id,
-            created_at=now,
-        )
-    )
-    await db.flush()
-    ok(await text_in(api, {"From": PHONE, "Body": "Yes, 3pm works", "MessageSid": "SM_after"}))
-    msg = await _inbound(db, "SM_after")
-    assert msg is not None
-    routed = (await db.execute(select(Thread).where(Thread.id == msg.thread_id))).scalar_one()
-    assert routed.client_id == talking
-
-
-async def test_a_reply_from_a_shared_number_lands_with_the_active_client_texted_last(
-    api: httpx.AsyncClient, db: AsyncSession
-) -> None:
-    earlier = await _client_with_phone(db)
-    later = await _client_with_phone(db)
-    archived = await _client_with_phone(db)
-    await db.execute(update(Client).where(Client.id == archived).values(status="inactive"))
-    now = clock.now()
-    await texted(db, earlier, at=now - timedelta(days=2))
-    await texted(db, later, at=now - timedelta(days=1))
-    await texted(db, archived, at=now)
-    ok(await text_in(api, {"From": PHONE, "Body": "On my way", "MessageSid": "SM_shared"}))
-    msg = await _inbound(db, "SM_shared")
+    ok(await text_in(api, {"From": PHONE, "Body": "STOP", "MessageSid": "SM_archived"}))
+    msg = await _inbound(db, "SM_archived")
     assert msg is not None
     thread = (await db.execute(select(Thread).where(Thread.id == msg.thread_id))).scalar_one()
-    assert thread.client_id == later
+    assert thread.client_id == cid and await texts_stopped(db, BIZ, cid)
 
 
 async def test_a_number_without_an_assigned_destination_is_recorded_unmatched(

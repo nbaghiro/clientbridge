@@ -12,7 +12,8 @@ from clientbridge.core.ids import new_id
 from clientbridge.integrations.twilio import Sms
 from clientbridge.models.business import Business
 from clientbridge.models.clients import Client
-from clientbridge.models.messaging import Broadcast, Message, Thread
+from clientbridge.models.messaging import Broadcast, Message
+from clientbridge.models.platform import Audit
 from clientbridge.services.consents import record_consent
 from clientbridge.services.deliveries import run_deliveries
 from clientbridge.services.messaging import open_thread, run_due_broadcasts
@@ -74,24 +75,6 @@ async def test_broadcast_reaches_only_clients_who_agreed(
     assert sorted(m.to for m in sms.sent) == ["+15145558000", "+15145558001"]
     assert all(m.body.endswith("Reply STOP to opt out.") for m in sms.sent)
     assert email.sent == []
-
-
-async def test_a_number_two_agreed_clients_share_gets_one_copy(
-    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
-) -> None:
-    ids = await _audience(db)
-    await db.execute(update(Client).where(Client.id == ids["implied"]).values(phone="+15145558000"))
-    now = await local_hour(db, 12)
-    out = ok(await as_owner.post("/v1/broadcasts", json=_promo())).json()
-    assert (out["recipient_count"], out["excluded_count"]) == (1, 3)
-    await run_due_broadcasts(db, sms, FakeEmailSender(), FakePushSender(), now)
-    assert [m.to for m in sms.sent] == ["+15145558000"]
-    copies = await db.scalars(
-        select(Thread.client_id)
-        .join(Message, Message.thread_id == Thread.id)
-        .where(Message.broadcast_id == out["id"])
-    )
-    assert list(copies) == [min(ids["agreed"], ids["implied"])]
 
 
 async def test_broadcast_row_keeps_its_counts(
@@ -503,6 +486,10 @@ async def test_a_broadcast_whose_stored_audience_is_invalid_is_canceled_once(
     row = await db.get(Broadcast, bid, populate_existing=True)
     assert row is not None and row.status == "canceled"
     assert f"broadcast {bid} canceled" in caplog.text
+    audit = await db.scalar(
+        select(Audit).where(Audit.entity_id == bid, Audit.action == "broadcast.cancel")
+    )
+    assert audit is not None and audit.changes == {"reason": "invalid_audience"}
     assert not [m for m in sms.sent if "Soon" in m.body]
     caplog.clear()
     await run_due_broadcasts(db, sms, FakeEmailSender(), FakePushSender(), later)

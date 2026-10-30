@@ -9,6 +9,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Order
 from clientbridge.models.scheduling import Booking
 from clientbridge.services import ledger
+from clientbridge.services.consents import record_consent
 from tests.conftest import BIZ, Factory, FakeEmailSender, FakeSmsSender
 from tests.helpers import client_id, enable_payments, key, ok, settle
 
@@ -225,6 +226,27 @@ async def test_receipt_by_text_after_payment(
     assert page["tip_cents"] == 200
     assert page["payments"][0]["method"] == "cash"
     assert (await unauth.get("/receipt/missing")).status_code == 404
+
+
+async def test_no_receipt_text_goes_to_a_number_that_replied_stop(
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
+) -> None:
+    cid = await client_id(db)
+    await record_consent(
+        db, BIZ, cid, status="withdrawn", source="reply", recorded_by=None, phone="+12505550229"
+    )
+    sale = ok(
+        await as_owner.post("/v1/orders", json={"client_id": cid, "lines": [BRUSH]}), 201
+    ).json()
+    ok(
+        await as_owner.post(
+            f"/v1/orders/{sale['id']}/cash", json={"tendered_cents": 5000}, headers=key()
+        )
+    )
+    ok(await as_owner.post(f"/v1/orders/{sale['id']}/receipt", json={"to": "+12505550229"}))
+    assert "+12505550229" not in [m.to for m in sms.sent]
+    ok(await as_owner.post(f"/v1/orders/{sale['id']}/receipt", json={"to": "+12505550230"}))
+    assert [m.to for m in sms.sent if "/r/" in m.body] == ["+12505550230"]
 
 
 async def test_a_paid_online_order_joins_the_pickup_queue_only_once_paid(

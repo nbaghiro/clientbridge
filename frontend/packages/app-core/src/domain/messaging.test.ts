@@ -7,7 +7,6 @@ import {
     INBOX_SQL,
     type InboxThread,
     resolveInboxTarget,
-    SHARED_NUMBER_SQL,
     segmentNote,
     textLengthError,
     useConversation,
@@ -29,12 +28,10 @@ const inboxRows = [
     subject_names: null,
 }));
 
-let sharers: { name: string }[] = [];
-
 vi.mock("../hooks", async (importOriginal) => ({
     ...(await importOriginal<typeof import("../hooks")>()),
     useBusinessQuery: (sql: string) => ({
-        data: sql === INBOX_SQL ? inboxRows : sql === SHARED_NUMBER_SQL ? sharers : [],
+        data: sql === INBOX_SQL ? inboxRows : [],
     }),
 }));
 
@@ -104,7 +101,6 @@ const thread: InboxThread = {
     ago: "",
     subjects: [],
     textsOff: false,
-    textsOffBody: strings.messaging.textsOffBody,
 };
 
 describe("earlier messages", () => {
@@ -271,24 +267,5 @@ describe("long texts", () => {
         await waitFor(() => {
             expect(post).toHaveBeenCalledTimes(1);
         });
-    });
-});
-
-describe("a shared number", () => {
-    afterEach(() => {
-        sharers = [];
-    });
-
-    it("names no one when the client's number is theirs alone", () => {
-        const api = { get: vi.fn() } as unknown as ApiLike;
-        const { result } = renderHook(() => useConversation(api, thread));
-        expect(result.current.sharedWith).toBeNull();
-    });
-
-    it("names everyone else on the number as one list", () => {
-        sharers = [{ name: "Lee" }, { name: "Sam" }];
-        const api = { get: vi.fn() } as unknown as ApiLike;
-        const { result } = renderHook(() => useConversation(api, thread));
-        expect(result.current.sharedWith).toBe(strings.messaging.sharedNumber("Lee and Sam"));
     });
 });

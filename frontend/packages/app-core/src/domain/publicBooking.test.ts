@@ -276,8 +276,6 @@ describe("booking a time", () => {
         );
         const refused = Object.assign(new Error("409"), { status: 409, code: "slot_unavailable" });
         expect(bookingFailure(refused, s.bookError)).toBe(s.slotTaken);
-        const contact = Object.assign(new Error("409"), { status: 409, code: "contact_ambiguous" });
-        expect(bookingFailure(contact, s.bookError)).toBe(strings.api.contactAmbiguous);
         const overlap = Object.assign(new Error("409"), { status: 409, code: "conflict" });
         expect(bookingFailure(overlap, s.bookError)).toBe(s.slotTaken);
         const other = Object.assign(new Error("422"), { status: 422, code: "unprocessable" });
@@ -428,118 +426,87 @@ it("asks for extras before the time and looks for times long enough for them", a
     });
 });
 
-it.each(["contact_ambiguous", "slot_unavailable", "conflict"])(
-    "keeps contact conflicts editable but refreshes occupied times (%s)",
-    async (code) => {
-        const opening = slot(at(14, 10), "member");
-        const client: Parameters<typeof usePublicBookingFlow>[0] = {
-            getServices: vi.fn().mockResolvedValue({
-                business_name: "Demo",
-                brand: { logo_url: null, primary: null, tagline: null },
-                services: [
-                    {
-                        id: "service",
-                        name: "Visit",
-                        description: null,
-                        duration_min: 60,
-                        price_cents: 1000,
-                        currency: "CAD",
-                        deposit_required: false,
-                        deposit_amount_cents: 0,
-                        image_url: null,
-                        kind: "service",
-                        category: null,
-                        color: null,
-                        staff_ids: ["member"],
-                    },
-                ],
-                staff: [{ id: "member", name: "Sam", title: null, color: null, photo_url: null }],
-                addons: [],
+it.each(["slot_unavailable", "conflict"])("refreshes occupied times (%s)", async (code) => {
+    const opening = slot(at(14, 10), "member");
+    const client: Parameters<typeof usePublicBookingFlow>[0] = {
+        getServices: vi.fn().mockResolvedValue({
+            business_name: "Demo",
+            brand: { logo_url: null, primary: null, tagline: null },
+            services: [
+                {
+                    id: "service",
+                    name: "Visit",
+                    description: null,
+                    duration_min: 60,
+                    price_cents: 1000,
+                    currency: "CAD",
+                    deposit_required: false,
+                    deposit_amount_cents: 0,
+                    image_url: null,
+                    kind: "service",
+                    category: null,
+                    color: null,
+                    staff_ids: ["member"],
+                },
+            ],
+            staff: [{ id: "member", name: "Sam", title: null, color: null, photo_url: null }],
+            addons: [],
+            stripe_account_id: null,
+            slug: "demo",
+            now: "2026-10-13T17:00:00Z",
+            timezone: ZONE,
+            policy: null,
+            subject: null,
+        }),
+        getDays: vi
+            .fn()
+            .mockResolvedValue([
+                { date: "2026-10-14", count: 1, closed: false, waitlist: 0, reason: null },
+            ]),
+        getSlots: vi.fn().mockResolvedValue([opening]),
+        book: vi
+            .fn()
+            .mockRejectedValueOnce(Object.assign(new Error("refused"), { status: 409, code }))
+            .mockResolvedValue({
+                booking_id: "booking",
+                status: "confirmed",
+                deposit_client_secret: null,
                 stripe_account_id: null,
-                slug: "demo",
-                now: "2026-10-13T17:00:00Z",
-                timezone: ZONE,
-                policy: null,
-                subject: null,
+                manage_token: "manage",
+                deposit_cents: 0,
             }),
-            getDays: vi
-                .fn()
-                .mockResolvedValue([
-                    { date: "2026-10-14", count: 1, closed: false, waitlist: 0, reason: null },
-                ]),
-            getSlots: vi.fn().mockResolvedValue([opening]),
-            book: vi
-                .fn()
-                .mockRejectedValueOnce(Object.assign(new Error("refused"), { status: 409, code }))
-                .mockResolvedValue({
-                    booking_id: "booking",
-                    status: "confirmed",
-                    deposit_client_secret: null,
-                    stripe_account_id: null,
-                    manage_token: "manage",
-                    deposit_cents: 0,
-                }),
-            joinWaitlist: vi.fn(),
-            getPrograms: vi.fn().mockResolvedValue([]),
-        };
-        const { result } = renderHook(() =>
-            usePublicBookingFlow(client, "demo", {
-                itemId: "service",
-                staffId: "member",
-                startsAt: opening.starts_at,
-            }),
-        );
-        await waitFor(() => {
-            expect(result.current.slot).toEqual(opening);
-        });
-        act(() => {
-            result.current.next();
-            result.current.fields.setName("Sam Chen");
-            result.current.fields.setPhone("+16045550140");
-        });
-        expect(result.current.step).toBe("details");
-        const daysBefore = vi.mocked(client.getDays).mock.calls.length;
-        const slotsBefore = vi.mocked(client.getSlots).mock.calls.length;
-        act(() => {
-            result.current.next();
-        });
-        await waitFor(() => {
-            expect(result.current.error).toBe(
-                code === "contact_ambiguous" ? strings.api.contactAmbiguous : s.slotTaken,
-            );
-        });
-        if (code !== "contact_ambiguous") {
-            expect(result.current.step).toBe("time");
-            expect(result.current.startsAt).toBe("");
-            await waitFor(() => {
-                expect(vi.mocked(client.getSlots).mock.calls.length).toBeGreaterThan(slotsBefore);
-            });
-            return;
-        }
-        expect(result.current.step).toBe("details");
-        expect(result.current.startsAt).toBe(opening.starts_at);
-        expect(result.current.staffId).toBe("member");
-        expect(client.getDays).toHaveBeenCalledTimes(daysBefore);
-        expect(client.getSlots).toHaveBeenCalledTimes(slotsBefore);
-        act(() => {
-            result.current.fields.setPhone("+16045550141");
-        });
-        act(() => {
-            result.current.next();
-        });
-        await waitFor(() => {
-            expect(result.current.step).toBe("done");
-        });
-        const calls = vi.mocked(client.book).mock.calls;
-        expect(calls).toHaveLength(2);
-        expect(calls[1]?.[1]).toMatchObject({
-            startsAt: opening.starts_at,
+        joinWaitlist: vi.fn(),
+        getPrograms: vi.fn().mockResolvedValue([]),
+    };
+    const { result } = renderHook(() =>
+        usePublicBookingFlow(client, "demo", {
+            itemId: "service",
             staffId: "member",
-            client: { phone: "+16045550141" },
-        });
-        expect(calls[1]?.[2]).not.toBe(calls[0]?.[2]);
-    },
-);
+            startsAt: opening.starts_at,
+        }),
+    );
+    await waitFor(() => {
+        expect(result.current.slot).toEqual(opening);
+    });
+    act(() => {
+        result.current.next();
+        result.current.fields.setName("Sam Chen");
+        result.current.fields.setPhone("+16045550140");
+    });
+    expect(result.current.step).toBe("details");
+    const slotsBefore = vi.mocked(client.getSlots).mock.calls.length;
+    act(() => {
+        result.current.next();
+    });
+    await waitFor(() => {
+        expect(result.current.error).toBe(s.slotTaken);
+    });
+    expect(result.current.step).toBe("time");
+    expect(result.current.startsAt).toBe("");
+    await waitFor(() => {
+        expect(vi.mocked(client.getSlots).mock.calls.length).toBeGreaterThan(slotsBefore);
+    });
+});
 
 const managed = (extra: Record<string, unknown> = {}) => ({
     booking_id: "booking",

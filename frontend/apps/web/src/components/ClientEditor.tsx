@@ -44,19 +44,23 @@ function DuplicateCard({
             <Avatar name={match.client.name} src={photos.client(match.client.id)} />
             <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-ink">
-                    {s.duplicateTitle(match.client.name)}
+                    {match.phoneTaken
+                        ? s.phoneTakenTitle(match.client.name)
+                        : s.duplicateTitle(match.client.name)}
                 </p>
                 <p className="mt-0.5 text-xs text-ink-soft">
-                    {s.duplicateBody(match.reasons.join(s.and))}
+                    {match.phoneTaken ? s.phoneTakenBody : s.duplicateBody}
                 </p>
                 <p className="mt-0.5 truncate text-xs text-muted">{match.client.phoneLabel}</p>
                 <div className="mt-2 flex gap-2">
                     <Button size="sm" onPress={onOpen}>
                         {s.duplicateOpen}
                     </Button>
-                    <Button size="sm" variant="quiet" onPress={onIgnore}>
-                        {s.duplicateKeep}
-                    </Button>
+                    {match.phoneTaken ? null : (
+                        <Button size="sm" variant="quiet" onPress={onIgnore}>
+                            {s.duplicateKeep}
+                        </Button>
+                    )}
                 </div>
             </div>
         </div>

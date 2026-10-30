@@ -83,22 +83,13 @@ async def test_phone_proof_reveals_only_verified_profile(
     assert (await _verify(api, challenge, code)).status_code == 401
 
 
-async def test_unknown_and_ambiguous_numbers_have_same_request_response(
-    api: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender, factory: Factory
+async def test_an_unknown_number_gets_the_same_request_response(
+    api: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
     await _client(db)
-    other = await db.get(Client, "cl_jordan")
-    if other is None:
-        business = await factory.business()
-        other = await factory.client(business=business)
-        other.business_id = BIZ
-    other.phone = PHONE
-    await db.flush()
-    challenge, code = await _request(api, sms)
-    assert (await _verify(api, challenge, code)).json() == {"token": None, "profile": None}
     challenge, code = await _request(api, sms, "+16045550999")
     assert (await _verify(api, challenge, code)).json() == {"token": None, "profile": None}
-    assert len(sms.sent) == 2
+    assert len(sms.sent) == 1
 
 
 async def test_bad_codes_lock_after_five_and_expired_codes_fail(

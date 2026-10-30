@@ -1,5 +1,6 @@
 """Helpers shared by the test files: setup steps, Stripe events and direct database reads."""
 
+import itertools
 import json
 import os
 import uuid
@@ -85,6 +86,14 @@ async def email_event(
         "Content-Type": "application/json",
     }
     return await api.post("/webhooks/email", content=payload, headers=headers)
+
+
+_PHONES = itertools.count()
+
+
+def unique_phone() -> str:
+    """A mobile number no seeded client holds, new on each call, as each client needs its own."""
+    return f"+1604555{7000 + next(_PHONES) % 3000:04d}"
 
 
 async def texted(
@@ -197,14 +206,14 @@ async def new_client(
     db: AsyncSession,
     *,
     name: str = "Test Client",
-    phone: str | None = "+16045550223",
+    phone: str | None = "",
     customer: str | None = None,
 ) -> str:
     client = Client(
         id=new_id("client"),
         business_id=BIZ,
         name=name,
-        phone=phone,
+        phone=unique_phone() if phone == "" else phone,
         tags=[],
         custom_fields={},
         stripe_customer_id=customer,
