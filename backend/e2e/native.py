@@ -290,7 +290,7 @@ def run_native(
         "-e",
         f"AUTH_ADMIN_URL={stack.env['AUTH_ADMIN_URL']}",
         "-e",
-        f"AUTH_URL=http://localhost:{tier.PORTS['auth']}",
+        f"AUTH_URL={tier.environment()['AUTH_PUBLIC_URL']}",
         # only the iOS simulator takes a push without a push service
         *(["--exclude-tags", "ios"] if args.platform == "android" else []),
         "--format",

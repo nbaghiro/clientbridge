@@ -249,7 +249,7 @@ test("ID-E2E-02 a wrong code then the mailed one confirms the email, and a secon
     }
 });
 
-test("ID-E2E-03 recovery refuses the old session's next business action within the identity cache's window", async ({
+test("ID-E2E-03 recovery refuses the old session's next business action once the identity cache expires", async ({
     page,
     request,
     browser,

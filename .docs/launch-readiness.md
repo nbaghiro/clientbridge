@@ -154,10 +154,7 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 * `ID-E2E-03 (web)`
 * `ID-E2E-04 (web)`
 * `ID-E2E-05 (web)`
-
-**To automate**
-
-* `NATIVE-AUTH-01` in `apps/mobile/e2e/auth.password.yaml`: Sign-in after a password change elsewhere, with NATIVE-IOS-01's Android run (written; first run on a device outstanding).
+* `NATIVE-AUTH-01 (native-ios, native-android)`
 
 **Depends on:** Nothing
 

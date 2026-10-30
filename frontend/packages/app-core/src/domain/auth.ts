@@ -975,7 +975,10 @@ export function useSecuritySettings(
         },
         keys,
         keyName,
-        setKeyName,
+        setKeyName: (v: string) => {
+            setKeyName(v);
+            setKeyNameError(null);
+        },
         keyNameError,
         addKey: () => {
             const webauthn = opts?.webauthn;

@@ -420,7 +420,7 @@ describe("useSecuritySettings", () => {
         return { identity, ...hook };
     }
 
-    it("asks for a key's name before prompting for the key", async () => {
+    it("asks for a key's name before prompting for the key, and clears the ask once one is typed", async () => {
         const register = vi.fn<WebAuthnLike["register"]>(() => Promise.resolve("credential"));
         const identity = fakeIdentity([]);
         identity.start.mockImplementation((kind) =>
@@ -444,6 +444,10 @@ describe("useSecuritySettings", () => {
         });
         expect(result.current.keyNameError).toBe(strings.auth.securityKeyNameRequired);
         expect(register).not.toHaveBeenCalled();
+        act(() => {
+            result.current.setKeyName("Work laptop");
+        });
+        expect(result.current.keyNameError).toBeNull();
     });
 
     it("starts one settings flow when React runs its effects twice, so the secret stays put", async () => {
