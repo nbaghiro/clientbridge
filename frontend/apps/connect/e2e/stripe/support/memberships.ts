@@ -5,8 +5,8 @@ import { bookingApi } from "../../../../web/e2e/support/bookings";
 import type { ClientFixture } from "../../../../web/e2e/support/clients";
 import { navigate } from "../../../../web/e2e/support/session";
 import { select } from "../../../../web/e2e/support/db";
-import { type ChargeEvidence, cardFrame, stripeHarness } from "./disputes";
-import { enterStripeCard } from "./provider";
+import { type ChargeEvidence, stripeHarness } from "./disputes";
+import { cardFrame, enterStripeCard } from "./provider";
 
 export const DAY = 86_400;
 

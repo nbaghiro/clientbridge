@@ -6,7 +6,7 @@ import {
     formatMoney,
     strings,
 } from "@clientbridge/app-core/public";
-import { expect, type Browser, type Frame, type Page } from "@playwright/test";
+import { expect, type Browser, type Page } from "@playwright/test";
 import { bookingApi } from "../../../../web/e2e/support/bookings";
 import {
     apiCall,
@@ -15,7 +15,7 @@ import {
     onlineBooker,
     teamMember,
 } from "../../../../web/e2e/support/visit";
-import { enterStripeCard, stripeReady } from "./provider";
+import { cardFrame, enterStripeCard, stripeReady } from "./provider";
 import { bindEnrolment, registerEnrolmentClient, type DepositFixture } from "./depositContract";
 import { demoSlug, runEmail } from "@clientbridge/config/e2e/run";
 
@@ -148,26 +148,7 @@ export async function enrolWithCardDeposit(
         expect(enrolled.deposit_cents).toBe(PROGRAM.deposit);
         expect(enrolled.deposit_client_secret).not.toBeNull();
         const fixture = await bindEnrolment(setup.clientId, enrolled.booking_id);
-        let card: Frame | undefined;
-        await expect
-            .poll(
-                async () => {
-                    for (const frame of page.frames())
-                        if (
-                            await frame
-                                .getByRole("textbox", { name: "Card number", exact: true })
-                                .isVisible()
-                        ) {
-                            card = frame;
-                            return true;
-                        }
-                    return false;
-                },
-                { timeout: 60_000 },
-            )
-            .toBe(true);
-        if (!card) throw new Error("real Stripe PaymentElement did not load");
-        await enterStripeCard(card, "4242424242424242");
+        await enterStripeCard(await cardFrame(page), "4242424242424242");
         const pay = page.getByRole("button", {
             name: b.pay(formatMoney(PROGRAM.deposit, "CAD")),
             exact: true,

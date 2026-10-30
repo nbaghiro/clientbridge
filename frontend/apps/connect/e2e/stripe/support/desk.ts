@@ -1,5 +1,5 @@
 import { strings } from "@clientbridge/app-core/public";
-import { expect, type Frame, type Locator, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { select } from "../../../../web/e2e/support/db";
 import { navigate } from "../../../../web/e2e/support/session";
 import type { StockedProduct } from "../../../../web/e2e/support/pos";
@@ -60,9 +60,7 @@ export async function ringUpWalkIn(
 }
 
 export function paySheet(page: Page): Locator {
-    return page
-        .getByRole("dialog")
-        .filter({ has: page.getByRole("heading", { name: d.payTitle, exact: true }) });
+    return page.getByRole("complementary", { name: d.payTitle, exact: true });
 }
 
 export function choose(payment: Locator, method: string): Promise<void> {
@@ -71,28 +69,4 @@ export function choose(payment: Locator, method: string): Promise<void> {
         .getByRole("button")
         .filter({ hasText: method })
         .click();
-}
-
-export async function cardFrame(page: Page): Promise<Frame> {
-    let found: Frame | undefined;
-    await expect
-        .poll(
-            async () => {
-                for (const frame of page.frames()) {
-                    if (
-                        await frame
-                            .getByRole("textbox", { name: "Card number", exact: true })
-                            .isVisible()
-                    ) {
-                        found = frame;
-                        return true;
-                    }
-                }
-                return false;
-            },
-            { timeout: 60_000 },
-        )
-        .toBe(true);
-    if (!found) throw new Error("Stripe card input frame did not become ready");
-    return found;
 }

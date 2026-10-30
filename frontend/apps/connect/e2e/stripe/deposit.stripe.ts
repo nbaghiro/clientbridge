@@ -31,14 +31,14 @@ async function outstanding(
             .first(),
     ).toBeVisible();
     await page.getByRole("button", { name: strings.billing.recordPayment, exact: true }).click();
-    const dialog = page.getByRole("dialog").last();
+    const payment = page.getByRole("region", { name: strings.billing.rec.title, exact: true });
     await expect(
-        dialog.getByRole("button", {
+        payment.getByRole("button", {
             name: strings.billing.rec.record(formatMoney(cents, "CAD")),
             exact: true,
         }),
     ).toBeVisible();
-    await dialog.getByRole("button", { name: strings.common.close, exact: true }).click();
+    await payment.getByRole("button", { name: strings.billing.backToInvoice, exact: true }).click();
 }
 
 test("FIN-DEPOSIT-04 real deposit refund reopens invoice debt while ordinary cash refund credits tax", async ({

@@ -155,30 +155,40 @@ export async function openRegisteredStripeInvoice(
     );
     await page.getByRole("button", { name: strings.publicPay.payByCard, exact: true }).click();
     expect((await starting).postDataJSON()).toMatchObject({ tip_cents: 0 });
-    let cardFrame: Frame | undefined;
+    return { invoice, payment: await cardFrame(page) };
+}
+
+/** Stripe's card form, wherever its iframe mounts; a frame Stripe replaces while polling is skipped. */
+export async function cardFrame(page: Page): Promise<Frame> {
+    let found: Frame | undefined;
     await expect
         .poll(
             async () => {
                 for (const frame of page.frames()) {
-                    if (
-                        await frame
-                            .getByRole("textbox", { name: "Card number", exact: true })
-                            .isVisible()
-                    ) {
-                        cardFrame = frame;
-                        return true;
+                    if (frame.isDetached()) continue;
+                    try {
+                        if (
+                            await frame
+                                .getByRole("textbox", { name: "Card number", exact: true })
+                                .isVisible()
+                        ) {
+                            found = frame;
+                            return true;
+                        }
+                        // Firefox gets the methods collapsed, with none chosen until one is clicked
+                        const card = frame.getByRole("button", { name: "Card", exact: true });
+                        if (await card.isVisible()) await card.click();
+                    } catch (error) {
+                        if (!frame.isDetached()) throw error;
                     }
-                    // Firefox gets the methods collapsed, with none chosen until one is clicked
-                    const card = frame.getByRole("button", { name: "Card", exact: true });
-                    if (await card.isVisible()) await card.click();
                 }
                 return false;
             },
             { timeout: 60_000 },
         )
         .toBe(true);
-    if (!cardFrame) throw new Error("Stripe card input frame did not become ready");
-    return { invoice, payment: cardFrame };
+    if (!found) throw new Error("Stripe card input frame did not become ready");
+    return found;
 }
 
 export async function enterStripeCard(payment: Frame, number: string): Promise<void> {
