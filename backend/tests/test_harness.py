@@ -31,6 +31,7 @@ from e2e import (
     native,
     snapshot,
     stripe_clients,
+    stripe_plan,
     stripe_pool,
     stripe_recovery,
     stripe_relay,
@@ -1109,6 +1110,7 @@ def test_provider_runner_retains_cleanup_failures_without_external_services(
         activation="pointer",
         payout_case=False,
         pair="ci-1",
+        shard=None,
         allow_source_changes=False,
         profile="unused",
         merchants=tmp_path / "unused",
@@ -2490,3 +2492,31 @@ def test_a_recording_names_what_real_stripe_stopped_sending() -> None:
     assert stripe_shapes.removed(
         committed, stripe_shapes.shape({"id": "po_3", "arrival_date": 2})
     ) == [".trace: no longer sent"]
+
+
+def test_a_run_leases_a_distinct_pair_for_each_real_stripe_job() -> None:
+    for run in range(1, 40):
+        planned = stripe_plan.plan(run, browser=True)
+        shards = cast(list[dict[str, str]], planned["browser"])
+        assert [shard["name"] for shard in shards] == ["browser (1/2)", "browser (2/2)"]
+        leased = [cast(str, planned["api"]), *(shard["pair"] for shard in shards)]
+        assert len(set(leased)) == 3
+        assert set(leased) <= set(stripe_pool.pairs())
+    assert stripe_plan.plan(7, browser=False)["browser"] == []
+    assert stripe_plan.plan(7, browser=True, ready=False) == {"api": "", "browser": []}
+
+
+@pytest.mark.parametrize(
+    ("path", "runs"),
+    [
+        ("frontend/apps/web/src/components/SaleTicket.tsx", True),
+        ("frontend/apps/web/e2e/support/pos.ts", True),
+        ("backend/src/clientbridge/services/ledger.py", True),
+        (".github/workflows/e2e-stripe.yml", True),
+        ("frontend/apps/mobile/src/screens/Today.tsx", False),
+        ("backend/src/clientbridge/services/messaging.py", False),
+        (".docs/engineering.md", False),
+    ],
+)
+def test_the_browser_lane_runs_when_its_screens_or_payments_change(path: str, runs: bool) -> None:
+    assert stripe_plan.touches_browser_lane([path]) is runs

@@ -18,13 +18,15 @@ from e2e.tier import ROOT
 
 
 def playwright_app(surface: str) -> str:
+    if surface == "stripe":
+        return "connect"
     return "web" if surface in ("journeys", "filings") else surface
 
 
 def playwright_config(surface: str) -> str:
     return (
         f"playwright.{surface}.config.ts"
-        if surface in ("journeys", "filings")
+        if surface in ("journeys", "filings", "stripe")
         else "playwright.config.ts"
     )
 
@@ -38,7 +40,7 @@ def listed_cases(stack: "Stack", args: argparse.Namespace) -> list[Spec]:
             "playwright",
             "test",
             f"--config={playwright_config(args.surface)}",
-            f"--project={args.project}",
+            *([f"--project={args.project}"] if args.project else []),
             "--list",
             "--reporter=json",
             *args.tests,
@@ -85,16 +87,22 @@ def usual_seconds(seconds: dict[str, int]) -> int:
     return known[len(known) // 2] if known else 30
 
 
-def shard_filters(cases: list[Spec], seconds: dict[str, int], shard: str) -> list[str]:
+def shard_filters(
+    cases: list[Spec],
+    seconds: dict[str, int],
+    shard: str,
+    folder: str = "e2e",
+    workers: int = WORKERS,
+) -> list[str]:
     """This shard's cases as file:line filters, balanced by each case's measured seconds."""
     index, total = (int(part) for part in shard.split("/"))
     usual = usual_seconds(seconds)
     units: dict[str, int] = {}
     for case in cases:
         # cases declared on one line, such as a loop's, can only be selected together
-        unit = f"e2e/{case.file}:{case.line}"
+        unit = f"{folder}/{case.file}:{case.line}"
         units[unit] = units.get(unit, 0) + seconds.get(case.key, usual)
-    picked = balanced(units, total)[index - 1]
+    picked = balanced(units, total, workers)[index - 1]
     if not picked:
         raise ValueError(f"shard {shard} has no cases; use fewer shards")
     return sorted(picked)
@@ -105,6 +113,8 @@ def measured_seconds() -> dict[str, dict[str, int]]:
 
 
 def case_seconds(surface: str) -> dict[str, int]:
+    if surface == "stripe":
+        return measured_seconds().get("stripe", {})
     return measured_seconds()["web"] if playwright_app(surface) == "web" else {}
 
 

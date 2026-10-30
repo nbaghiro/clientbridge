@@ -30,6 +30,7 @@ from clientbridge.integrations.stripe import (
 from e2e import tier
 from e2e.builds import source_snapshot
 from e2e.results import REQUIRED_CASES, Report, browser_cases
+from e2e.shards import case_seconds, listed_cases, shard, shard_filters
 from e2e.stack import Stack, owned_processes, stop
 from e2e.stripe_clients import clients_main
 from e2e.stripe_deposits import deposits_evidence_main, deposits_main
@@ -106,6 +107,17 @@ def _credentials(
         },
     }
     return env
+
+
+RECONCILIATION = "reconciliation.stripe.ts"
+
+
+def shard_cases(stack: Stack, part: str) -> list[str]:
+    """This shard's cases, then reconciliation, which checks every source they made on its pair."""
+    listing = argparse.Namespace(surface="stripe", project=None, tests=[])
+    cases = [case for case in listed_cases(stack, listing) if case.file != RECONCILIATION]
+    picked = shard_filters(cases, case_seconds("stripe"), part, "e2e/stripe", workers=1)
+    return [*picked, f"e2e/stripe/{RECONCILIATION}"]
 
 
 def listener(stack: Stack, processes: ExitStack) -> str:
@@ -285,6 +297,10 @@ def run_lane(args: argparse.Namespace, directory: Path, lease: tier.Lease) -> No
                 try:
                     stack.start(processes, log, before_api=before_api, browser_fixtures=False)
                     stack.use_builds(log)
+                    tests = args.tests
+                    if args.shard:
+                        tests = shard_cases(stack, args.shard)
+                        (directory / "shard.json").write_text(json.dumps(tests, indent=2) + "\n")
                     with (directory / "browser.log").open("wb") as browser_log:
                         stack.command(
                             [
@@ -295,13 +311,14 @@ def run_lane(args: argparse.Namespace, directory: Path, lease: tier.Lease) -> No
                                 "playwright",
                                 "test",
                                 "--config=playwright.stripe.config.ts",
-                                *args.tests,
+                                *tests,
                             ],
                             browser_log,
                             frontend=True,
                         )
                     report = directory / "browser-results" / "results.json"
-                    if args.tests:
+                    # a shard holds part of the lane, so CI requires the cases on the shards merged
+                    if args.tests or args.shard:
                         Report.model_validate_json(report.read_text()).validate_evidence([])
                     else:
                         Report.model_validate_json(report.read_text()).validate_evidence(
@@ -385,10 +402,13 @@ def stack_main(argv: list[str]) -> int:
     # pays out of slot a's available balance, which cleanup refunds and lost disputes can drain
     parser.add_argument("--payout-case", action="store_true")
     parser.add_argument("--pair", choices=pairs(), help="lease a CI pool pair instead")
+    parser.add_argument("--shard", type=shard, help="run one part of the lane, as <index>/<total>")
     parser.add_argument("tests", nargs=argparse.REMAINDER)
     args = parser.parse_args(argv)
     if args.tests[:1] == ["--"]:
         args.tests = args.tests[1:]
+    if args.shard and args.tests:
+        parser.error("a shard picks its own cases")
     if args.credentials == "environment" and args.pair is None:
         parser.error("environment credentials lease a pool pair with --pair")
     if args.allow_source_changes and os.environ.get("CI"):

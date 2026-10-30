@@ -1618,7 +1618,7 @@ def test_the_stripe_sandbox_hands_actions_only_its_test_keys(with_stripe: Built)
         passed = dig(workflow(caller), "jobs", job, "secrets")
         assert isinstance(passed, dict) and set(passed) == SANDBOX_SECRETS
     # reports only: a Stripe failure shows on its own check without failing e2e or ci-result
-    assert all(dig(jobs, name, "continue-on-error") is True for name in ("api", "browser"))
+    assert all(dig(jobs, name, "continue-on-error") is True for name in ("api", "lane", "result"))
 
 
 def test_a_partial_stripe_sandbox_stops_the_stack() -> None:

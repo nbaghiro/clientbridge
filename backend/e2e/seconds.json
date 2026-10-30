@@ -13,6 +13,25 @@
         "Scoped replica startup and hours editor": 29,
         "Staff pay totals retain their labels": 19
     },
+    "stripe": {
+        "account.stripe.ts > STR-E13 bank details stay behind Stripe's sign-in, which sends its code to the account's phone": 20,
+        "deposit.stripe.ts > FIN-DEPOSIT-04 real deposit refund reopens invoice debt while ordinary cash refund credits tax": 85,
+        "deposit.stripe.ts > FIN-DEPOSIT-10 a card deposit paid while enrolling in a camp on Connect part-pays the enrolment invoice": 46,
+        "desk.stripe.ts > STR-E05 a canceled desk card checkout is canceled in Stripe and the sale is paid in cash": 21,
+        "disputes.stripe.ts > STR-E02 a part refund made during an inquiry fails when it escalates, and losing the dispute unwinds the invoice once": 82,
+        "disputes.stripe.ts > STR-E03 a lost dispute on a part-used gift card gives back only what it still holds and books the rest as a loss": 36,
+        "disputes.stripe.ts > STR-E04 a lost dispute takes back a forfeited deposit, and a deposit paid after its visit was settled is refunded": 87,
+        "memberships.stripe.ts > STR-E07 a daily membership renews on a test clock, sends one notice per failed renewal and can be canceled while the plan is lapsed": 137,
+        "payouts.stripe.ts > STR-E01 a Connect invoice payment books fees that match Stripe's balance transaction": 22,
+        "payouts.stripe.ts > STR-E09 Getting paid shows payouts paused from the mirrored account and Check again reads it back from Stripe": 22,
+        "provider.stripe.ts > STRIPE-BROWSER-01 customer pays a CAD invoice through Stripe.js and signed settlement persists": 42,
+        "provider.stripe.ts > STRIPE-BROWSER-02 declined card stays unpaid then corrected card settles the same payment once": 51,
+        "provider.stripe.ts > STRIPE-BROWSER-03 completing a real 3DS challenge settles only after authentication": 47,
+        "provider.stripe.ts > STRIPE-BROWSER-04 closing a real 3DS challenge leaves the invoice unpaid after reload": 34,
+        "provider.stripe.ts > STRIPE-BROWSER-05 owner issues an invoice and emailed card checkout reaches both owner replicas": 56,
+        "provider.stripe.ts > STRIPE-BROWSER-06 held genuine settlement leaves durable invoice unpaid until release": 59,
+        "tabs.stripe.ts > STR-E06 one invoice in two tabs: a decline in the first, then both pay, and only one charge goes through": 52
+    },
     "web": {
         "admin.e2e.ts > OPS-E2E-01 only a granted operator reaches the admin ops, and every page stays uncached": 12,
         "admin.e2e.ts > OPS-E2E-02 an operator's edition change reaches the owner's app once and leaves the plan alone": 12,

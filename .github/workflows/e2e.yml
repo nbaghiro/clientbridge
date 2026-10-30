@@ -46,6 +46,7 @@ jobs:
     uses: ./.github/workflows/e2e-mobile.yml
 
   stripe:
+    needs: prepare
     uses: ./.github/workflows/e2e-stripe.yml
     secrets:
       STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
