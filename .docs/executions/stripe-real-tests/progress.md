@@ -37,8 +37,8 @@ Measured on `ci-2` from a laptop: 17 scenarios in 2m22s with the payout, 2m51s o
 
 ## Task 4: CI wiring (done 2026-10-29)
 
-- `.github/workflows/stripe-real.yml` (reusable): a lease job picks `ci-((run number mod pool size) + 1)` and applies the path filter; `api` runs the suite; `browser` runs the lane when payments code changes or on a run started by hand. Both hold the concurrency group `stripe-pool-ci-N`. With no sandbox key (a fork, or before `pulumi up`), the jobs skip with a notice.
-- `ci.yml` calls it as `stripe-real` after lint, outside `ci-result`, passing only the two Stripe secrets.
+- `.github/workflows/e2e-stripe.yml`, the `stripe` lane of `e2e.yml`: a lease job picks `ci-((run number mod pool size) + 1)` and applies the path filter; `api` runs the suite; `browser` runs the lane when payments code changes or on a run started by hand. Both hold the concurrency group `stripe-pool-ci-N`. With no sandbox key (a fork, or before `pulumi up`), the jobs skip with a notice.
+- `ci.yml` passes only the two Stripe secrets to `e2e.yml`, which passes them to the lane. The lane's jobs set `continue-on-error`, so they report without failing `e2e` or `ci-result`.
 - There is no nightly run. Its cases run on every pull request and `main` commit instead: the drift check always, the slow payout scenario and the browser lane when payments code changes. `stripe-qa.yml` is removed, and `stripe-real.yml` can be started by hand for a full run.
 - `scripts/stripe_qa.py` labels each failure `Stripe rate limit`, `Stripe outage` or `Test failure` in the run's annotations and `results.json`.
 - `.github/actions/stripe-cli` installs the pinned, checksummed Stripe CLI for both jobs.
@@ -53,6 +53,6 @@ A known limit of GitHub concurrency groups: a group keeps one waiting run, so a 
 
 ## Left
 
-- Task 6: after two weeks of runs without a Stripe-caused failure, add `stripe-real` to `ci-result`.
+- Task 6: after two weeks of runs without a Stripe-caused failure, remove `continue-on-error` from the lane's two jobs.
 - Apply the cloud stack with the two keys, so the jobs run.
 - A PAD debit scenario.

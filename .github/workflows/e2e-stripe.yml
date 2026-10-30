@@ -1,4 +1,4 @@
-name: stripe-real
+name: e2e stripe
 on:
   workflow_call:
     secrets:
@@ -24,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          # a pull request's merge commit and a squash-merged main commit both diff against their first parent
+          # a pull request's merge commit diffs against its first parent, the base
           fetch-depth: 2
       - id: lease
         env:
@@ -42,8 +42,15 @@ jobs:
       - id: changes
         env:
           EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
         run: |
-          if [ "$EVENT" = workflow_dispatch ]; then
+          base=HEAD^1
+          # a push can carry several commits, so it compares with the commit main was at before it
+          if [ "$EVENT" = push ]; then
+            base="$BEFORE"
+            git fetch --quiet --depth=1 origin "$base" || base=""
+          fi
+          if [ "$EVENT" = workflow_dispatch ] || [ -z "$base" ] || [ "$base" = 0000000000000000000000000000000000000000 ]; then
             echo "payments=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -52,8 +59,8 @@ jobs:
           pattern+='|^frontend/packages/app-core/src/domain/(payments|payouts|checkout|publicPay|billing|pos)\.ts$'
           pattern+='|^frontend/packages/ui/src/(web|mobile)/(CardForm|ChargeSheet|PaymentMethodForm)\.tsx$'
           pattern+='|^frontend/apps/connect/(src/pages/Public(Pay|PaymentSetup|Order|Booking)\.tsx$|e2e/stripe)'
-          pattern+='|^\.github/workflows/stripe-'
-          if git diff --name-only HEAD^1 HEAD | grep -Eq "$pattern"; then
+          pattern+='|^\.github/workflows/e2e-stripe'
+          if git diff --name-only "$base" HEAD | grep -Eq "$pattern"; then
             echo "payments=true" >> "$GITHUB_OUTPUT"
           else
             echo "payments=false" >> "$GITHUB_OUTPUT"
@@ -61,6 +68,8 @@ jobs:
 
   api:
     needs: lease
+    # reports only until two weeks pass without a Stripe-caused failure; then drop this line
+    continue-on-error: true
     if: needs.lease.outputs.ready == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -85,7 +94,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: stripe-real-api
+          name: stripe-api
           include-hidden-files: true
           path: |
             .scratchpad/stripe-qa/ci/results.json
@@ -95,6 +104,8 @@ jobs:
 
   browser:
     needs: [lease, api]
+    # reports only until two weeks pass without a Stripe-caused failure; then drop this line
+    continue-on-error: true
     if: needs.lease.outputs.ready == 'true' && needs.lease.outputs.payments == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -132,7 +143,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: stripe-real-browser
+          name: stripe-browser
           include-hidden-files: true
           if-no-files-found: error
           path: |

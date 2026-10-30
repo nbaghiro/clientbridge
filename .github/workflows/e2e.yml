@@ -1,6 +1,11 @@
 name: e2e
 on:
   workflow_call:
+    secrets:
+      STRIPE_TEST_SECRET_KEY:
+        required: false
+      STRIPE_TEST_PUBLISHABLE_KEY:
+        required: false
 
 permissions:
   contents: read
@@ -39,6 +44,12 @@ jobs:
 
   mobile:
     uses: ./.github/workflows/e2e-mobile.yml
+
+  stripe:
+    uses: ./.github/workflows/e2e-stripe.yml
+    secrets:
+      STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+      STRIPE_TEST_PUBLISHABLE_KEY: ${{ secrets.STRIPE_TEST_PUBLISHABLE_KEY }}
 
   sync:
     runs-on: ubuntu-24.04

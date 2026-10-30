@@ -231,7 +231,7 @@ merchants before applying that metadata. A local developer can use the existing 
 or copying it: `make test-stripe-qa STRIPE_QA_ARGS="--profile clientbridge --preflight"`, then omit
 `--preflight` to execute. The account/platform variables are still required. CI forbids CLI profiles.
 
-Hosted runs no longer read account ids from the environment: `.github/workflows/stripe-real.yml` leases
+Hosted runs no longer read account ids from the environment: `.github/workflows/e2e-stripe.yml` leases
 a pair from the pool in `backend/e2e/stripe_pool.json` and reads only the two sandbox keys. The
 [Stripe test tiers](../engineering.md#stripe-four-tiers-layered-by-cost) describe the current CI lanes.
 

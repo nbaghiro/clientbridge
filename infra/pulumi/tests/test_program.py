@@ -119,9 +119,11 @@ def config_for(stack: str) -> dict[str, str]:
     project = yaml.safe_load((PROGRAM / "Pulumi.yaml").read_text())["config"]
     config = {f"clientbridge:{key}": str(each["default"]) for key, each in project.items()}
     stack_config = yaml.safe_load((PROGRAM / f"Pulumi.{stack}.yaml").read_text())["config"]
+    # encrypted values can't be decrypted under mocks; a test that needs one sets its own
     config |= {
         key: value if isinstance(value, str) else json.dumps(value)
         for key, value in stack_config.items()
+        if not (isinstance(value, dict) and "secure" in value)
     }
     return config
 
@@ -1321,9 +1323,14 @@ def test_each_host_takes_routes_only_from_its_own_environment(
 
 
 def test_no_stack_config_holds_a_pulumi_secret() -> None:
-    # every deployer decrypts with the one state key, so a secret here would reach every deployer
+    # every deployer decrypts with the one state key; only the test-mode Stripe keys may be here
+    allowed = {f"clientbridge:{name}" for name in environments.STRIPE_SANDBOX_SECRETS}
     for config in PROGRAM.glob("Pulumi.*.yaml"):
-        assert "secure:" not in config.read_text(), config.name
+        values = yaml.safe_load(config.read_text())["config"]
+        secured = {
+            key for key, value in values.items() if isinstance(value, dict) and "secure" in value
+        }
+        assert secured <= (allowed if config.name == "Pulumi.cloud.yaml" else set()), config.name
 
 
 def test_production_keeps_a_served_pod_through_a_node_upgrade(stacks: dict[str, Built]) -> None:
@@ -1596,7 +1603,7 @@ def test_the_stripe_sandbox_hands_actions_only_its_test_keys(with_stripe: Built)
     assert all(list(secret_values(each.inputs)) for each in secrets)
     assert not with_stripe.secret_outputs
     # the merchants come from the checked-in pool, so the workflows read only the two keys
-    jobs = dig(workflow("stripe-real.yml"), "jobs")
+    jobs = dig(workflow("e2e-stripe.yml"), "jobs")
     assert isinstance(jobs, dict)
     for job in jobs.values():
         env = dig(job, "env") if "env" in job else {}
@@ -1607,9 +1614,11 @@ def test_the_stripe_sandbox_hands_actions_only_its_test_keys(with_stripe: Built)
             if str(value).startswith("${{ secrets.")
         }
         assert read <= {f"secrets.{name}" for name in SANDBOX_SECRETS}
-    passed = dig(workflow("ci.yml"), "jobs", "stripe-real", "secrets")
-    assert isinstance(passed, dict) and set(passed) == SANDBOX_SECRETS
-    assert "stripe-real" not in str(dig(workflow("ci.yml"), "jobs", "ci-result", "needs"))
+    for caller, job in (("ci.yml", "e2e"), ("e2e.yml", "stripe")):
+        passed = dig(workflow(caller), "jobs", job, "secrets")
+        assert isinstance(passed, dict) and set(passed) == SANDBOX_SECRETS
+    # reports only: a Stripe failure shows on its own check without failing e2e or ci-result
+    assert all(dig(jobs, name, "continue-on-error") is True for name in ("api", "browser"))
 
 
 def test_a_partial_stripe_sandbox_stops_the_stack() -> None:
