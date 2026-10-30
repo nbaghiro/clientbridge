@@ -190,6 +190,7 @@ test-mobile:
 
 migrate:
 	cd backend && uv run python -m scripts.db_access roles
+	cd backend && uv run python -m scripts.db_access unpublish
 	cd backend && uv run alembic upgrade head
 	cd backend && uv run python -m scripts.db_access grants
 

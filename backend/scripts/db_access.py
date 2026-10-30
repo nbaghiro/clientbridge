@@ -279,6 +279,39 @@ async def publication(admin_url: str, migrator: str) -> None:
     await engine.dispose()
 
 
+async def unpublish(admin_url: str, migrator: str) -> None:
+    """Before an upgrade, publish only the columns the new rules keep, so others can be dropped."""
+    engine = create_async_engine(admin_url)
+    async with engine.begin() as conn:
+        everything = await conn.scalar(
+            text("SELECT puballtables FROM pg_publication WHERE pubname = 'powersync'")
+        )
+        if everything is not False:
+            return
+        columns = await conn.execute(
+            text(
+                "SELECT table_name, column_name FROM information_schema.columns "
+                "WHERE table_schema = 'public'"
+            )
+        )
+        existing: dict[str, set[str]] = {}
+        for table, column in columns:
+            existing.setdefault(table, set()).add(column)
+        kept = {
+            table: [c for c in wanted if c in existing.get(table, set())]
+            for table, wanted in published_columns().items()
+        }
+        tables = ", ".join(
+            f"public.{quote(table)} ({', '.join(quote(c) for c in cols)})"
+            for table, cols in kept.items()
+            if cols
+        )
+        if tables:
+            await conn.execute(text(f"SET LOCAL ROLE {quote(migrator)}"))
+            await conn.execute(text(f"ALTER PUBLICATION powersync SET TABLE {tables}"))
+    await engine.dispose()
+
+
 async def storage_owner(admin_url: str, storage: Login) -> None:
     engine = create_async_engine(
         make_url(admin_url).set(database=storage.database), isolation_level="AUTOCOMMIT"
@@ -333,8 +366,11 @@ async def application_database(admin_url: str) -> None:
 
 
 async def main(phase: str) -> None:
-    if phase not in ("roles", "grants"):
-        raise SystemExit("usage: python -m scripts.db_access roles|grants")
+    if phase not in ("roles", "unpublish", "grants"):
+        raise SystemExit("usage: python -m scripts.db_access roles|unpublish|grants")
+    if phase == "unpublish":
+        await unpublish(ADMIN_URL, logins().migrator.role)
+        return
     if phase == "grants":
         await apply(phase)
         return

@@ -1,4 +1,4 @@
-"""The migrate Job that runs before every rollout: db_access roles, Alembic, grants, then auth."""
+"""The migrate Job before every rollout: db_access roles, unpublish, Alembic, grants, then auth."""
 
 import pulumi
 import pulumi_kubernetes as k8s

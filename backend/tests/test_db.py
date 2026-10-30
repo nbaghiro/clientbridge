@@ -522,3 +522,44 @@ async def test_migrate_stops_on_an_unknown_revision_unless_a_rollback_allows_it(
         await owner.dispose()
         await reader.dispose()
         await admin(f"DROP DATABASE IF EXISTS {quote(database)} WITH (FORCE)")
+
+
+async def test_an_upgrade_can_drop_a_column_the_publication_still_lists() -> None:
+    settings = get_settings()
+    database = f"clientbridge_unpublish_{secrets.token_hex(4)}"
+    env = os.environ | {
+        "ADMIN_DATABASE_URL": on(ADMIN_URL, database),
+        "MIGRATION_DATABASE_URL": on(settings.migration_database_url, database),
+        "DATABASE_URL": on(settings.database_url, database),
+    }
+
+    def step(*args: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [sys.executable, "-m", *args], env=env, check=False, capture_output=True, text=True
+        )
+
+    await admin(f"CREATE DATABASE {quote(database)}")
+    owner = create_async_engine(on(ADMIN_URL, database))
+    try:
+        assert step("scripts.db_access", "roles").returncode == 0
+        assert step("alembic", "upgrade", "cb0035").returncode == 0
+        # the publication as a deploy of the previous image left it, still carrying clients.email
+        async with owner.begin() as conn:
+            await conn.execute(
+                text(
+                    "ALTER PUBLICATION powersync SET TABLE public.clients (id, business_id, email)"
+                )
+            )
+        refused = step("alembic", "upgrade", "cb0036")
+        assert "publication of table clients" in refused.stderr
+        assert step("scripts.db_access", "unpublish").returncode == 0
+        upgraded = step("alembic", "upgrade", "cb0036")
+        assert upgraded.returncode == 0, upgraded.stderr
+        async with owner.connect() as conn:
+            published = await conn.scalar(
+                text("SELECT attnames FROM pg_publication_tables WHERE tablename = 'clients'")
+            )
+        assert published is not None and "email" not in published
+    finally:
+        await owner.dispose()
+        await admin(f"DROP DATABASE IF EXISTS {quote(database)} WITH (FORCE)")

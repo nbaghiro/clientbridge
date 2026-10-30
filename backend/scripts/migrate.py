@@ -68,6 +68,8 @@ def main() -> int:
             flush=True,
         )
         return 0
+    # the publication still lists the old columns, and Postgres won't drop a published one
+    run("scripts.db_access", "unpublish")
     run("alembic", "upgrade", "head")
     run("scripts.db_access", "grants")
     return 0
