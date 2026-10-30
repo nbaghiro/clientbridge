@@ -17,6 +17,7 @@ Keep the root for the main, maintained documentation. Reviews, explorations and 
 | -------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | [QA](qa/payments.md) | Maintained product checklists and automation plans, starting with payments and Stripe. |
 | [Design](design/app-explorer.html)     | Design system, information architecture and visual references.                                   |
+| [Job descriptions](jds/README.md)      | Job descriptions for the first hires, ready to post on LinkedIn.                                 |
 | [Reviews](reviews/README.md)           | Dated findings and implementation inventories; evidence of the system at the reviewed snapshot.  |
 | [Explorations](explorations/README.md) | Investigations, experiments and proposals that are not yet the maintained architecture.          |
 | [Executions](executions/README.md)     | One folder per execution that is planned or in progress, with its plan, task state and progress. |
