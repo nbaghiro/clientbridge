@@ -29,13 +29,16 @@ WHERE NOT EXISTS (
       AND (n.created_at > k.created_at OR (n.created_at = k.created_at AND n.id > k.id))
 )`;
 
-// Each client's phone as E.164 by normalizePhone's rule, read a character at a time (no regex).
+const IS_E164 = `(phone GLOB '+[1-9]*' AND substr(phone, 2) NOT GLOB '*[^0-9]*'
+    AND length(phone) BETWEEN 9 AND 16)`;
+
+// Each client's phone as E.164 by normalizePhone's rule; only phones not stored that way are read
+// a character at a time (no regex), since the API stores E.164.
 const CLIENT_NUMBERS_CTE = `
+stops AS (SELECT 1 FROM consents WHERE source = 'reply' AND status = 'withdrawn' LIMIT 1),
 scan(id, raw, i, digits) AS (
     SELECT id, phone, 1, '' FROM clients
-    WHERE phone IS NOT NULL AND phone != '' AND EXISTS (
-        SELECT 1 FROM consents WHERE source = 'reply' AND status = 'withdrawn'
-    )
+    WHERE phone IS NOT NULL AND phone != '' AND NOT ${IS_E164} AND EXISTS (SELECT 1 FROM stops)
     UNION ALL
     SELECT id, raw, i + 1,
            digits || CASE WHEN substr(raw, i, 1) GLOB '[0-9]' THEN substr(raw, i, 1) ELSE '' END
@@ -53,6 +56,8 @@ numbers(id, number) AS (
              AND substr(digits, 2, 1) NOT IN ('0', '1') THEN '+' || digits
     END
     FROM scan WHERE i = length(raw) + 1
+    UNION ALL
+    SELECT id, phone FROM clients WHERE ${IS_E164} AND EXISTS (SELECT 1 FROM stops)
 )`;
 
 // Clients whose number's newest STOP or START reply was STOP, with when it replied.

@@ -46,6 +46,7 @@ async def _seed(engine: AsyncEngine) -> None:
             ("cl_same_time_b", "bz_a", _PHONE, _day(2), None),
             ("cl_merged", "bz_a", _PHONE, datetime(2025, 1, 1, tzinfo=UTC), _day(3)),
             ("cl_other_business", "bz_b", _PHONE, _day(3), None),
+            ("cl_typed", "bz_a", "(416) 555-0101", _day(4), None),
             ("cl_alone", "bz_a", "+14165550102", _day(3), None),
             ("cl_none_1", "bz_a", None, _day(3), None),
             ("cl_none_2", "bz_a", None, _day(3), None),
@@ -113,12 +114,13 @@ async def test_cb0039_clears_shared_phones_and_its_downgrade_drops_only_the_inde
             "cl_newer": None,
             "cl_same_time_b": None,
             "cl_merged": _PHONE,
+            "cl_typed": None,
             "cl_other_business": _PHONE,
             "cl_alone": "+14165550102",
             "cl_none_1": None,
             "cl_none_2": None,
         }
-        assert "cl_newer" in upgraded.stderr and "cl_same_time_b" in upgraded.stderr
+        assert all(c in upgraded.stderr for c in ("cl_newer", "cl_same_time_b", "cl_typed"))
         assert "cl_oldest" not in upgraded.stderr
         assert await _has_index(engine)
         with pytest.raises(IntegrityError, match="uq_clients_business_phone"):

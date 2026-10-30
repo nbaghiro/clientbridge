@@ -14,12 +14,19 @@ depends_on: str | Sequence[str] | None = None
 _log = logging.getLogger("alembic.runtime.migration")
 
 _CLEAR_SHARED = """
-WITH ranked AS (
-    SELECT id, row_number() OVER (
-        PARTITION BY business_id, phone ORDER BY created_at, id
-    ) AS place
+WITH numbers AS (
+    SELECT id, business_id, created_at, ltrim(phone) LIKE '+%' AS international,
+           regexp_replace(phone, '[^0-9]', '', 'g') AS digits
     FROM clients
     WHERE phone IS NOT NULL AND deleted_at IS NULL
+),
+ranked AS (
+    SELECT id, row_number() OVER (
+        PARTITION BY business_id,
+            CASE WHEN NOT international AND length(digits) = 10 THEN '1' || digits ELSE digits END
+        ORDER BY created_at, id
+    ) AS place
+    FROM numbers
 )
 UPDATE clients SET phone = NULL
 FROM ranked
