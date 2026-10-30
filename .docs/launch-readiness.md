@@ -21,65 +21,65 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 
 | Area | Ticket | Linear | Automation |
 | --- | --- | --- | --- |
-| 1. Get set up | Sign up, sign in safely and recover access on every platform | [CB-1](https://linear.app/clientbridgeca/issue/CB-1) | Partly automated |
-| 1. Get set up | Onboard a business and see its brand on every client page | [CB-3](https://linear.app/clientbridgeca/issue/CB-3) | Partly automated |
-| 1. Get set up | Invite the team and hold every role to its list | [CB-4](https://linear.app/clientbridgeca/issue/CB-4) | Partly automated |
-| 1. Get set up | Remove a team member: their work moves and their devices lose access | [CB-23](https://linear.app/clientbridgeca/issue/CB-23) | Partly automated |
-| 1. Get set up | Connect Stripe and know when payments and payouts work | [CB-5](https://linear.app/clientbridgeca/issue/CB-5) | Partly automated |
-| 1. Get set up | Run the trial, buy a plan, bill seats and go read-only | [CB-6](https://linear.app/clientbridgeca/issue/CB-6) | Partly automated |
-| 1. Get set up | Charge the right sales tax in every province | [CB-7](https://linear.app/clientbridgeca/issue/CB-7) | Partly automated |
-| 2. Clients and catalog | Keep a client record up to date from any device | [CB-8](https://linear.app/clientbridgeca/issue/CB-8) | Partly automated |
-| 2. Clients and catalog | Record what each client books for | [CB-9](https://linear.app/clientbridgeca/issue/CB-9) | Partly automated |
-| 2. Clients and catalog | Keep notes, photos and the client's story in one place | [CB-10](https://linear.app/clientbridgeca/issue/CB-10) | Partly automated |
-| 2. Clients and catalog | Tag clients and merge duplicates without losing anything | [CB-11](https://linear.app/clientbridgeca/issue/CB-11) | Partly automated |
-| 2. Clients and catalog | Set up services, classes and shared resources that book the way they read | [CB-13](https://linear.app/clientbridgeca/issue/CB-13) | Partly automated |
-| 2. Clients and catalog | Set up products and keep stock true to the shelf | [CB-14](https://linear.app/clientbridgeca/issue/CB-14) | Automated |
-| 3. Run the day | See the day on Today | [CB-44](https://linear.app/clientbridgeca/issue/CB-44) | Partly automated |
-| 3. Run the day | Set hours, time off and closures that decide open times | [CB-16](https://linear.app/clientbridgeca/issue/CB-16) | Partly automated |
-| 3. Run the day | Book, move and cancel visits from the calendar | [CB-17](https://linear.app/clientbridgeca/issue/CB-17) | Partly automated |
-| 3. Run the day | Run a visit from On my way to checkout | [CB-18](https://linear.app/clientbridgeca/issue/CB-18) | Manual |
-| 3. Run the day | Book and manage repeat visits | [CB-19](https://linear.app/clientbridgeca/issue/CB-19) | Manual |
-| 3. Run the day | Run classes, waitlists and programs | [CB-20](https://linear.app/clientbridgeca/issue/CB-20) | Automated |
-| 3. Run the day | Work a job with a crew, visit records and photos | [CB-21](https://linear.app/clientbridgeca/issue/CB-21) | Manual |
-| 3. Run the day | Remind clients before each visit | [CB-22](https://linear.app/clientbridgeca/issue/CB-22) | Manual |
-| 4. Book online | Take a booking online with a deposit | [CB-24](https://linear.app/clientbridgeca/issue/CB-24) | Partly automated |
-| 4. Book online | Let returning clients book as themselves | [CB-25](https://linear.app/clientbridgeca/issue/CB-25) | Automated |
-| 4. Book online | Add products to a booking and bill them once | [CB-26](https://linear.app/clientbridgeca/issue/CB-26) | Automated |
-| 4. Book online | Let clients reschedule or cancel from their link | [CB-27](https://linear.app/clientbridgeca/issue/CB-27) | Partly automated |
-| 4. Book online | Put the business page and booking on the business's own site | [CB-28](https://linear.app/clientbridgeca/issue/CB-28) | Automated |
-| 5. Sell at the desk and online | Ring up a sale at the desk and send the receipt | [CB-29](https://linear.app/clientbridgeca/issue/CB-29) | Partly automated |
-| 5. Sell at the desk and online | Take card payments at the desk | [CB-30](https://linear.app/clientbridgeca/issue/CB-30) | Partly automated |
-| 5. Sell at the desk and online | Take Tap to Pay on real phones | [CB-31](https://linear.app/clientbridgeca/issue/CB-31) | Manual |
-| 5. Sell at the desk and online | Add tips and discounts that add up by hand | [CB-32](https://linear.app/clientbridgeca/issue/CB-32) | Partly automated |
-| 5. Sell at the desk and online | Save a client's card or bank account and charge it | [CB-12](https://linear.app/clientbridgeca/issue/CB-12) | Partly automated |
-| 5. Sell at the desk and online | Fill online shop orders from cart to pickup | [CB-41](https://linear.app/clientbridgeca/issue/CB-41) | Partly automated |
-| 6. Invoice and get paid | Quote with an estimate and turn it into an invoice | [CB-33](https://linear.app/clientbridgeca/issue/CB-33) | Automated |
-| 6. Invoice and get paid | Invoice, send by text and get paid by link, card or by hand | [CB-34](https://linear.app/clientbridgeca/issue/CB-34) | Partly automated |
-| 6. Invoice and get paid | Print or share invoices, estimates, receipts and statements | [CB-36](https://linear.app/clientbridgeca/issue/CB-36) | Manual |
-| 6. Invoice and get paid | Take deposits and apply them to the bill | [CB-37](https://linear.app/clientbridgeca/issue/CB-37) | Partly automated |
-| 7. Gift cards, packages and memberships | Set up packages, memberships and gift card items | [CB-15](https://linear.app/clientbridgeca/issue/CB-15) | Manual |
-| 7. Gift cards, packages and memberships | Sell and redeem gift cards | [CB-38](https://linear.app/clientbridgeca/issue/CB-38) | Partly automated |
-| 7. Gift cards, packages and memberships | Sell, use and expire packages | [CB-39](https://linear.app/clientbridgeca/issue/CB-39) | Partly automated |
-| 7. Gift cards, packages and memberships | Run memberships through renewals and failures | [CB-40](https://linear.app/clientbridgeca/issue/CB-40) | Partly automated |
-| 8. Refunds and the books | Refund correctly and unwind what the sale created | [CB-42](https://linear.app/clientbridgeca/issue/CB-42) | Automated |
-| 8. Refunds and the books | Handle chargebacks to their outcome | [CB-43](https://linear.app/clientbridgeca/issue/CB-43) | Automated |
-| 8. Refunds and the books | Hand the bookkeeper reports that add up | [CB-45](https://linear.app/clientbridgeca/issue/CB-45) | Partly automated |
-| 8. Refunds and the books | Record filed GST/HST returns | [CB-46](https://linear.app/clientbridgeca/issue/CB-46) | Automated |
-| 8. Refunds and the books | Match payouts and fees with Stripe | [CB-47](https://linear.app/clientbridgeca/issue/CB-47) | Partly automated |
-| 8. Refunds and the books | Pay the team | [CB-48](https://linear.app/clientbridgeca/issue/CB-48) | Partly automated |
-| 9. Talk to clients | Text clients from one inbox, on the business's own number | [CB-49](https://linear.app/clientbridgeca/issue/CB-49) | Automated |
-| 9. Talk to clients | Honour STOP and consent everywhere | [CB-50](https://linear.app/clientbridgeca/issue/CB-50) | Automated |
-| 9. Talk to clients | Send broadcasts only to clients who agreed | [CB-51](https://linear.app/clientbridgeca/issue/CB-51) | Partly automated |
-| 9. Talk to clients | Collect intake forms before the first visit | [CB-53](https://linear.app/clientbridgeca/issue/CB-53) | Partly automated |
-| 9. Talk to clients | Send contracts and keep what was signed | [CB-54](https://linear.app/clientbridgeca/issue/CB-54) | Automated |
-| 9. Talk to clients | Ask for Google reviews after visits | [CB-55](https://linear.app/clientbridgeca/issue/CB-55) | Partly automated |
-| 10. Work anywhere | Keep working offline and come back cleanly | [CB-56](https://linear.app/clientbridgeca/issue/CB-56) | Automated |
-| 10. Work anywhere | Keep tabs and devices in step | [CB-57](https://linear.app/clientbridgeca/issue/CB-57) | Automated |
-| 10. Work anywhere | Notify staff on their phones | [CB-59](https://linear.app/clientbridgeca/issue/CB-59) | Partly automated |
-| 10. Work anywhere | Use the app on iPhone, Android and iPad | [CB-60](https://linear.app/clientbridgeca/issue/CB-60) | Partly automated |
-| 11. Platform and launch | Operate the platform from the admin console | [CB-65](https://linear.app/clientbridgeca/issue/CB-65) | Partly automated |
-| 11. Platform and launch | Launch a marketing site that makes no claim the product can't back | [CB-66](https://linear.app/clientbridgeca/issue/CB-66) | Partly automated |
-| 11. Platform and launch | Run a full business day end to end | [CB-68](https://linear.app/clientbridgeca/issue/CB-68) | Manual |
+| 1. Get set up | Sign-up and sign-in: two-factor, security keys and recovery | [CB-1](https://linear.app/clientbridgeca/issue/CB-1) | Partly automated |
+| 1. Get set up | Business onboarding and branding | [CB-3](https://linear.app/clientbridgeca/issue/CB-3) | Partly automated |
+| 1. Get set up | Team invites and role permissions | [CB-4](https://linear.app/clientbridgeca/issue/CB-4) | Partly automated |
+| 1. Get set up | Removing a team member | [CB-23](https://linear.app/clientbridgeca/issue/CB-23) | Partly automated |
+| 1. Get set up | Stripe payments setup | [CB-5](https://linear.app/clientbridgeca/issue/CB-5) | Partly automated |
+| 1. Get set up | Plan billing: trial, purchase, seats and read-only | [CB-6](https://linear.app/clientbridgeca/issue/CB-6) | Partly automated |
+| 1. Get set up | Sales tax by province | [CB-7](https://linear.app/clientbridgeca/issue/CB-7) | Partly automated |
+| 2. Clients and catalog | Client records: add, edit and search | [CB-8](https://linear.app/clientbridgeca/issue/CB-8) | Partly automated |
+| 2. Clients and catalog | Client subjects: who or what is booked | [CB-9](https://linear.app/clientbridgeca/issue/CB-9) | Partly automated |
+| 2. Clients and catalog | Client notes, photos and history | [CB-10](https://linear.app/clientbridgeca/issue/CB-10) | Partly automated |
+| 2. Clients and catalog | Client tags and duplicate merge | [CB-11](https://linear.app/clientbridgeca/issue/CB-11) | Partly automated |
+| 2. Clients and catalog | Services, classes and resources | [CB-13](https://linear.app/clientbridgeca/issue/CB-13) | Partly automated |
+| 2. Clients and catalog | Products and stock | [CB-14](https://linear.app/clientbridgeca/issue/CB-14) | Automated |
+| 3. Run the day | Today screen | [CB-44](https://linear.app/clientbridgeca/issue/CB-44) | Partly automated |
+| 3. Run the day | Hours, time off and closures | [CB-16](https://linear.app/clientbridgeca/issue/CB-16) | Partly automated |
+| 3. Run the day | Calendar: book, move and cancel | [CB-17](https://linear.app/clientbridgeca/issue/CB-17) | Partly automated |
+| 3. Run the day | Visit flow: on my way to checkout | [CB-18](https://linear.app/clientbridgeca/issue/CB-18) | Manual |
+| 3. Run the day | Repeat visits | [CB-19](https://linear.app/clientbridgeca/issue/CB-19) | Manual |
+| 3. Run the day | Classes, waitlists and programs | [CB-20](https://linear.app/clientbridgeca/issue/CB-20) | Automated |
+| 3. Run the day | Crew jobs, visit records and photos | [CB-21](https://linear.app/clientbridgeca/issue/CB-21) | Manual |
+| 3. Run the day | Visit reminders | [CB-22](https://linear.app/clientbridgeca/issue/CB-22) | Manual |
+| 4. Book online | Online booking with deposits | [CB-24](https://linear.app/clientbridgeca/issue/CB-24) | Partly automated |
+| 4. Book online | Returning-client sign-in by text code | [CB-25](https://linear.app/clientbridgeca/issue/CB-25) | Automated |
+| 4. Book online | Booking add-ons billed once | [CB-26](https://linear.app/clientbridgeca/issue/CB-26) | Automated |
+| 4. Book online | Reschedule and cancel by link | [CB-27](https://linear.app/clientbridgeca/issue/CB-27) | Partly automated |
+| 4. Book online | Business page and website embed | [CB-28](https://linear.app/clientbridgeca/issue/CB-28) | Automated |
+| 5. Sell at the desk and online | Desk sales and receipts | [CB-29](https://linear.app/clientbridgeca/issue/CB-29) | Partly automated |
+| 5. Sell at the desk and online | Card payments at the desk | [CB-30](https://linear.app/clientbridgeca/issue/CB-30) | Partly automated |
+| 5. Sell at the desk and online | Tap to Pay | [CB-31](https://linear.app/clientbridgeca/issue/CB-31) | Manual |
+| 5. Sell at the desk and online | Tips and discounts | [CB-32](https://linear.app/clientbridgeca/issue/CB-32) | Partly automated |
+| 5. Sell at the desk and online | Saved cards and bank accounts | [CB-12](https://linear.app/clientbridgeca/issue/CB-12) | Partly automated |
+| 5. Sell at the desk and online | Online shop orders and pickup | [CB-41](https://linear.app/clientbridgeca/issue/CB-41) | Partly automated |
+| 6. Invoice and get paid | Estimates to invoices | [CB-33](https://linear.app/clientbridgeca/issue/CB-33) | Automated |
+| 6. Invoice and get paid | Invoices and payment links | [CB-34](https://linear.app/clientbridgeca/issue/CB-34) | Partly automated |
+| 6. Invoice and get paid | Printed and shared documents | [CB-36](https://linear.app/clientbridgeca/issue/CB-36) | Manual |
+| 6. Invoice and get paid | Deposits applied to the bill | [CB-37](https://linear.app/clientbridgeca/issue/CB-37) | Partly automated |
+| 7. Gift cards, packages and memberships | Package, membership and gift card items | [CB-15](https://linear.app/clientbridgeca/issue/CB-15) | Manual |
+| 7. Gift cards, packages and memberships | Gift cards: sell and redeem | [CB-38](https://linear.app/clientbridgeca/issue/CB-38) | Partly automated |
+| 7. Gift cards, packages and memberships | Packages: sell, use and expire | [CB-39](https://linear.app/clientbridgeca/issue/CB-39) | Partly automated |
+| 7. Gift cards, packages and memberships | Memberships: renewals and failed payments | [CB-40](https://linear.app/clientbridgeca/issue/CB-40) | Partly automated |
+| 8. Refunds and the books | Refunds and credit notes | [CB-42](https://linear.app/clientbridgeca/issue/CB-42) | Automated |
+| 8. Refunds and the books | Disputes and chargebacks | [CB-43](https://linear.app/clientbridgeca/issue/CB-43) | Automated |
+| 8. Refunds and the books | Bookkeeper reports and exports | [CB-45](https://linear.app/clientbridgeca/issue/CB-45) | Partly automated |
+| 8. Refunds and the books | GST/HST returns | [CB-46](https://linear.app/clientbridgeca/issue/CB-46) | Automated |
+| 8. Refunds and the books | Payouts and fee reconciliation | [CB-47](https://linear.app/clientbridgeca/issue/CB-47) | Partly automated |
+| 8. Refunds and the books | Staff pay and T4A | [CB-48](https://linear.app/clientbridgeca/issue/CB-48) | Partly automated |
+| 9. Talk to clients | Inbox: two-way texting | [CB-49](https://linear.app/clientbridgeca/issue/CB-49) | Automated |
+| 9. Talk to clients | STOP and texting consent | [CB-50](https://linear.app/clientbridgeca/issue/CB-50) | Automated |
+| 9. Talk to clients | Broadcasts to consenting clients | [CB-51](https://linear.app/clientbridgeca/issue/CB-51) | Partly automated |
+| 9. Talk to clients | Intake forms | [CB-53](https://linear.app/clientbridgeca/issue/CB-53) | Partly automated |
+| 9. Talk to clients | Contracts and signatures | [CB-54](https://linear.app/clientbridgeca/issue/CB-54) | Automated |
+| 9. Talk to clients | Google review requests | [CB-55](https://linear.app/clientbridgeca/issue/CB-55) | Partly automated |
+| 10. Work anywhere | Offline mode and reconnect | [CB-56](https://linear.app/clientbridgeca/issue/CB-56) | Automated |
+| 10. Work anywhere | Multi-tab and multi-device sync | [CB-57](https://linear.app/clientbridgeca/issue/CB-57) | Automated |
+| 10. Work anywhere | Staff push notifications | [CB-59](https://linear.app/clientbridgeca/issue/CB-59) | Partly automated |
+| 10. Work anywhere | Mobile app on phones, tablets and screen readers | [CB-60](https://linear.app/clientbridgeca/issue/CB-60) | Partly automated |
+| 11. Platform and launch | Admin console | [CB-65](https://linear.app/clientbridgeca/issue/CB-65) | Partly automated |
+| 11. Platform and launch | Marketing site | [CB-66](https://linear.app/clientbridgeca/issue/CB-66) | Partly automated |
+| 11. Platform and launch | Full business day on staging | [CB-68](https://linear.app/clientbridgeca/issue/CB-68) | Manual |
 
 ---
 
@@ -91,7 +91,7 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **Walk on staging:** Sign up as a new owner, set up the business with its brand, invite a staff member who signs in on a phone, connect Stripe, start the plan and ring up a taxed sale.
 
-### Sign up, sign in safely and recover access on every platform (CB-1)
+### Sign-up and sign-in: two-factor, security keys and recovery (CB-1)
 
 **Covers:** Web Login and Setup > Sign-in & security, mobile Login and Sign-in & security, the auth service, Mailpit or real email on staging
 **Before you start:** A fresh email address you can read; a Google account on the same address; an authenticator app; a security key or platform passkey on a laptop; web, an iPhone and an Android phone with the staging build
@@ -161,7 +161,7 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **Depends on:** Nothing
 
-### Onboard a business and see its brand on every client page (CB-3)
+### Business onboarding and branding (CB-3)
 
 **Covers:** Web and mobile Onboarding, Setup > Business, Get set up, Connect business, booking, pay and shop pages
 **Before you start:** A new account from CB-1 with no business
@@ -205,7 +205,7 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **Depends on:** CB-1
 
-### Invite the team and hold every role to its list (CB-4)
+### Team invites and role permissions (CB-4)
 
 **Covers:** Setup > Team & hours, accept-invite page, role gates on every screen and endpoint, web and mobile
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; two fresh email addresses for invitees
@@ -261,7 +261,7 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **Depends on:** Nothing
 
-### Remove a team member: their work moves and their devices lose access (CB-23)
+### Removing a team member (CB-23)
 
 **Covers:** Setup > Team & hours removal dialog, schedule, Connect, the removed member's devices
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
@@ -299,7 +299,7 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **Depends on:** Nothing
 
-### Connect Stripe and know when payments and payouts work (CB-5)
+### Stripe payments setup (CB-5)
 
 **Covers:** Setup > Getting paid on web and mobile, Stripe embedded onboarding and account management
 **Before you start:** Staging with Stripe in test mode; a new business from CB-3 with no Stripe account
@@ -341,7 +341,7 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **Depends on:** CB-3
 
-### Run the trial, buy a plan, bill seats and go read-only (CB-6)
+### Plan billing: trial, purchase, seats and read-only (CB-6)
 
 **Covers:** Setup > Plan on web (mobile shows the plan read-only), Stripe Checkout and Billing Portal, shell notices, the read-only gate on API and Connect
 **Before you start:** Staging with Stripe in test mode; a new business on its trial; Cedar Coast Pet Care for an existing trial; Stripe test clocks
@@ -393,7 +393,7 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **Depends on:** CB-3
 
-### Charge the right sales tax in every province (CB-7)
+### Sales tax by province (CB-7)
 
 **Covers:** Setup > Sales tax on web and mobile, item tax class, invoice and sale tax lines
 **Before you start:** Maple and Main Hair Studio (ON, HST), Birchbark (BC, GST + PST), Clearcoat Mobile Detailing (QC, GST + QST), a new Nova Scotia business
@@ -441,7 +441,7 @@ The business loads its clients, what they book for, and the services and product
 
 **Walk on staging:** Add a client with a pet and a note, tag them and merge a duplicate, then add a service and a product with stock and see both on the booking page and in Sales.
 
-### Keep a client record up to date from any device (CB-8)
+### Client records: add, edit and search (CB-8)
 
 **Covers:** Clients on web and mobile, the command palette and mobile Search, booking pickers
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
@@ -483,7 +483,7 @@ The business loads its clients, what they book for, and the services and product
 
 **Depends on:** Nothing
 
-### Record what each client books for (CB-9)
+### Client subjects: who or what is booked (CB-9)
 
 **Covers:** Client record subjects on web and mobile, booking composer, Connect details step
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; Brightwater Home Cleaning (properties); Lakeside Learning Studio (students); Northlight Security (sites); Clearcoat (vehicles)
@@ -526,7 +526,7 @@ The business loads its clients, what they book for, and the services and product
 
 **Depends on:** Nothing
 
-### Keep notes, photos and the client's story in one place (CB-10)
+### Client notes, photos and history (CB-10)
 
 **Covers:** Client notes, booking notes, photos, client history on web and mobile
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a client with a year of history
@@ -567,7 +567,7 @@ The business loads its clients, what they book for, and the services and product
 
 **Depends on:** Nothing
 
-### Tag clients and merge duplicates without losing anything (CB-11)
+### Client tags and duplicate merge (CB-11)
 
 **Covers:** Client tags, merge dialog on web and mobile
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a seeded duplicate client
@@ -599,7 +599,7 @@ The business loads its clients, what they book for, and the services and product
 
 **Depends on:** Nothing
 
-### Set up services, classes and shared resources that book the way they read (CB-13)
+### Services, classes and resources (CB-13)
 
 **Covers:** Services & products editor on web and mobile, Setup > Resources, booking page
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; Ridgeline Strength Studio (Studio and Turf); Riverbend Driving School (three cars)
@@ -639,7 +639,7 @@ The business loads its clients, what they book for, and the services and product
 
 **Depends on:** Nothing
 
-### Set up products and keep stock true to the shelf (CB-14)
+### Products and stock (CB-14)
 
 **Covers:** Item editor and Stock on web and mobile, Sales, invoice editor, shop
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
@@ -695,7 +695,7 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 
 **Walk on staging:** From Today, set a member's hours, book a visit and a repeat visit, run one visit from On my way to checkout, fill a class, and end the day with nothing left open.
 
-### See the day on Today (CB-44)
+### Today screen (CB-44)
 
 **Covers:** Today on web and mobile, owner and staff
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
@@ -732,7 +732,7 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 
 **Depends on:** Nothing
 
-### Set hours, time off and closures that decide open times (CB-16)
+### Hours, time off and closures (CB-16)
 
 **Covers:** Setup > Team & hours on web and mobile, time off and closures, Connect open times
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
@@ -778,7 +778,7 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 
 **Depends on:** Nothing
 
-### Book, move and cancel visits from the calendar (CB-17)
+### Calendar: book, move and cancel (CB-17)
 
 **Covers:** Schedule on web (day, week, month, staff, agenda) and mobile (day and agenda), booking composer and panel
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
@@ -823,7 +823,7 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 
 **Depends on:** Nothing
 
-### Run a visit from On my way to checkout (CB-18)
+### Visit flow: on my way to checkout (CB-18)
 
 **Covers:** Today and the booking panel on web and mobile, check-in sheet, Complete and No-show, auto-complete job
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; Northlight Security for On my way; a visit with a form and a deposit outstanding
@@ -860,7 +860,7 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 
 **Depends on:** Nothing
 
-### Book and manage repeat visits (CB-19)
+### Repeat visits (CB-19)
 
 **Covers:** Series composer and Repeat visits on web and mobile
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
@@ -896,7 +896,7 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 
 **Depends on:** Nothing
 
-### Run classes, waitlists and programs (CB-20)
+### Classes, waitlists and programs (CB-20)
 
 **Covers:** Classes and program board on web and mobile (creating a program is web only), Connect class and program booking, seat notices, class messages
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234 (puppy class); Lakeside Learning Studio (Fall Coding Camp); Ridgeline (full class)
@@ -937,7 +937,7 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 
 **Depends on:** Nothing
 
-### Work a job with a crew, visit records and photos (CB-21)
+### Crew jobs, visit records and photos (CB-21)
 
 **Covers:** Booking panel crew, visit records, job photos on web and mobile, insurance receipt
 **Before you start:** Northlight Security (two-person install); Harbourside Massage and Wellness (SOAP notes); Foothills Lawn and Garden (photos)
@@ -976,7 +976,7 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 
 **Depends on:** Nothing
 
-### Remind clients before each visit (CB-22)
+### Visit reminders (CB-22)
 
 **Covers:** Setup > Reminders on web and mobile, reminder texts
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a client with a real phone on staging
@@ -1023,7 +1023,7 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 **Walk on staging:** As a new client, book a visit with a deposit from the business's own site, come back as that client by SMS code, add a product, then reschedule from the link.
 
-### Take a booking online with a deposit (CB-24)
+### Online booking with deposits (CB-24)
 
 **Covers:** Connect booking page, Setup > Online booking, approvals on the schedule, the reaper job
 **Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234 (approval for new clients); Cedar Coast (no approval)
@@ -1071,7 +1071,7 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 **Depends on:** Nothing
 
-### Let returning clients book as themselves (CB-25)
+### Returning-client sign-in by text code (CB-25)
 
 **Covers:** Connect returning-client verification by SMS code
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a client with a pet and a real phone on staging
@@ -1110,7 +1110,7 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 **Depends on:** Nothing
 
-### Add products to a booking and bill them once (CB-26)
+### Booking add-ons billed once (CB-26)
 
 **Covers:** Connect extras step, booking panel add-ons, invoice from booking
 **Before you start:** Brightwater Home Cleaning (add-ons that lengthen the visit); Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
@@ -1144,7 +1144,7 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 **Depends on:** Nothing
 
-### Let clients reschedule or cancel from their link (CB-27)
+### Reschedule and cancel by link (CB-27)
 
 **Covers:** Connect manage page `/m/<token>`
 **Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
@@ -1182,7 +1182,7 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 **Depends on:** Nothing
 
-### Put the business page and booking on the business's own site (CB-28)
+### Business page and website embed (CB-28)
 
 **Covers:** Connect business page, embed script and widgets, host routing (the embed code and QR are web only)
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a scratch HTML page on another origin
@@ -1230,7 +1230,7 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 
 **Walk on staging:** Ring up a visit and a product with a tip and a discount, pay one sale by saved card and one by cash, then place an online shop order and hand it over at pickup.
 
-### Ring up a sale at the desk and send the receipt (CB-29)
+### Desk sales and receipts (CB-29)
 
 **Covers:** Sales on web and mobile: ticket, held tickets, cash, receipts by text
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
@@ -1271,7 +1271,7 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 
 **Depends on:** Nothing
 
-### Take card payments at the desk (CB-30)
+### Card payments at the desk (CB-30)
 
 **Covers:** Sales card checkout on web, saved card, gift card and package tender
 **Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
@@ -1308,7 +1308,7 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 
 **Depends on:** Nothing
 
-### Take Tap to Pay on real phones (CB-31)
+### Tap to Pay (CB-31)
 
 **Covers:** Mobile Sales and invoice payment with Stripe Terminal
 **Before you start:** Staging with Stripe in test mode; an NFC iPhone and an NFC Android phone with the staging app; Stripe test cards for Terminal
@@ -1342,7 +1342,7 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 
 **Depends on:** Nothing
 
-### Add tips and discounts that add up by hand (CB-32)
+### Tips and discounts (CB-32)
 
 **Covers:** Sales, invoice and estimate editors, pay link tip, Tap to Pay tip, member perk
 **Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a client with a membership that has a product perk
@@ -1387,7 +1387,7 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 
 **Depends on:** Nothing
 
-### Save a client's card or bank account and charge it (CB-12)
+### Saved cards and bank accounts (CB-12)
 
 **Covers:** Client wallet on web and mobile, Connect payment setup page, Stripe SetupIntents and PAD mandates
 **Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
@@ -1427,7 +1427,7 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 
 **Depends on:** Nothing
 
-### Fill online shop orders from cart to pickup (CB-41)
+### Online shop orders and pickup (CB-41)
 
 **Covers:** Connect shop and order page, Sales > Orders on web and mobile, pickup reminder job
 **Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
@@ -1478,7 +1478,7 @@ Estimates become invoices, invoices are paid by link, saved card or by hand, and
 
 **Walk on staging:** Send an estimate, accept it from the link, turn it into an invoice with the visit's deposit applied, get it paid partly by hand and the rest by link, then print the receipt.
 
-### Quote with an estimate and turn it into an invoice (CB-33)
+### Estimates to invoices (CB-33)
 
 **Covers:** Estimate editor on web and mobile, Connect estimate page, convert, book from estimate
 **Before you start:** Northlight Security (estimates with optional lines)
@@ -1522,7 +1522,7 @@ Estimates become invoices, invoices are paid by link, saved card or by hand, and
 
 **Depends on:** Nothing
 
-### Invoice, send by text and get paid by link, card or by hand (CB-34)
+### Invoices and payment links (CB-34)
 
 **Covers:** Invoice editor and record payment on web and mobile, Connect pay and receipt pages, overdue sweep
 **Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a client with a saved card
@@ -1585,7 +1585,7 @@ Estimates become invoices, invoices are paid by link, saved card or by hand, and
 
 **Depends on:** Nothing
 
-### Print or share invoices, estimates, receipts and statements (CB-36)
+### Printed and shared documents (CB-36)
 
 **Covers:** Printed document view on web, share on mobile, Connect pages
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
@@ -1620,7 +1620,7 @@ Estimates become invoices, invoices are paid by link, saved card or by hand, and
 
 **Depends on:** Nothing
 
-### Take deposits and apply them to the bill (CB-37)
+### Deposits applied to the bill (CB-37)
 
 **Covers:** Deposit on booking, invoice from booking, no-show and cancel paths
 **Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
@@ -1664,7 +1664,7 @@ The business sells gift cards, packages and memberships, and each is used, renew
 
 **Walk on staging:** Sell a gift card, a package and a membership, redeem and use each at the desk, renew the membership once and let a package expire.
 
-### Set up packages, memberships and gift card items (CB-15)
+### Package, membership and gift card items (CB-15)
 
 **Covers:** Item editor for entitlement kinds on web and mobile, Sales tiles
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
@@ -1697,7 +1697,7 @@ The business sells gift cards, packages and memberships, and each is used, renew
 
 **Depends on:** Nothing
 
-### Sell and redeem gift cards (CB-38)
+### Gift cards: sell and redeem (CB-38)
 
 **Covers:** Gift cards on web and mobile, gift card checkout, redemption at the desk
 **Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
@@ -1731,7 +1731,7 @@ The business sells gift cards, packages and memberships, and each is used, renew
 
 **Depends on:** Nothing
 
-### Sell, use and expire packages (CB-39)
+### Packages: sell, use and expire (CB-39)
 
 **Covers:** Package checkout, cover at the desk and on invoices, expiry job
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234 (5-bath pack for one pet)
@@ -1769,7 +1769,7 @@ The business sells gift cards, packages and memberships, and each is used, renew
 
 **Depends on:** Nothing
 
-### Run memberships through renewals and failures (CB-40)
+### Memberships: renewals and failed payments (CB-40)
 
 **Covers:** Membership checkout, Stripe subscriptions, client panel, covered visits
 **Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; Stripe test clocks
@@ -1818,7 +1818,7 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 
 **Walk on staging:** Refund a sale paid partly by gift card, lose a test dispute, then check that Today, the reports, the payouts and the GST/HST return agree to the cent, and pay the team.
 
-### Refund correctly and unwind what the sale created (CB-42)
+### Refunds and credit notes (CB-42)
 
 **Covers:** Refund panel on web and mobile, credit notes, Stripe refunds
 **Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
@@ -1862,7 +1862,7 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 
 **Depends on:** Nothing
 
-### Handle chargebacks to their outcome (CB-43)
+### Disputes and chargebacks (CB-43)
 
 **Covers:** Disputes in Payments, Stripe test disputes (answering a dispute is web only)
 **Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
@@ -1903,7 +1903,7 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 
 **Depends on:** Nothing
 
-### Hand the bookkeeper reports that add up (CB-45)
+### Bookkeeper reports and exports (CB-45)
 
 **Covers:** Payments > Reports on web and mobile, CSV downloads, bookkeeper ZIP
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234 after a test week of sales, refunds and pay
@@ -1937,7 +1937,7 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 
 **Depends on:** Nothing
 
-### Record filed GST/HST returns (CB-46)
+### GST/HST returns (CB-46)
 
 **Covers:** Payments > Tax returns on web and mobile
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234 with a completed quarter
@@ -1970,7 +1970,7 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 
 **Depends on:** Nothing
 
-### Match payouts and fees with Stripe (CB-47)
+### Payouts and fee reconciliation (CB-47)
 
 **Covers:** Payments > Payouts on web and mobile (bank details and the payout schedule are web only), Stripe dashboard, reconciliation job, admin drift
 **Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234 linked to the Stripe sandbox
@@ -2018,7 +2018,7 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 
 **Depends on:** Nothing
 
-### Pay the team (CB-48)
+### Staff pay and T4A (CB-48)
 
 **Covers:** Payments > Staff pay and My pay on web and mobile, statements, T4A
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234 (Diego on commission)
@@ -2073,7 +2073,7 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **Walk on staging:** Text a client and get the reply, broadcast to a tag that includes a STOP client, send a form and a contract before a visit, and ask for a review after it.
 
-### Text clients from one inbox, on the business's own number (CB-49)
+### Inbox: two-way texting (CB-49)
 
 **Covers:** Inbox on web and mobile, Twilio inbound webhook, admin SMS assignment
 **Before you start:** Staging with Stripe in test mode with Twilio; two businesses with their own numbers; a real phone
@@ -2122,7 +2122,7 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **Depends on:** Nothing
 
-### Honour STOP and consent everywhere (CB-50)
+### STOP and texting consent (CB-50)
 
 **Covers:** Client record consent, inbound STOP and START, staff toggle, consent export
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
@@ -2159,7 +2159,7 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **Depends on:** Nothing
 
-### Send broadcasts only to clients who agreed (CB-51)
+### Broadcasts to consenting clients (CB-51)
 
 **Covers:** Inbox > Broadcasts on web and mobile (the results table is web only), broadcast job
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
@@ -2196,7 +2196,7 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **Depends on:** Nothing
 
-### Collect intake forms before the first visit (CB-53)
+### Intake forms (CB-53)
 
 **Covers:** Forms on web and mobile, Connect form page, intake job
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
@@ -2237,7 +2237,7 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **Depends on:** Nothing
 
-### Send contracts and keep what was signed (CB-54)
+### Contracts and signatures (CB-54)
 
 **Covers:** Contracts on web and mobile, Connect contract page
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
@@ -2280,7 +2280,7 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **Depends on:** Nothing
 
-### Ask for Google reviews after visits (CB-55)
+### Google review requests (CB-55)
 
 **Covers:** Inbox > Reviews on web and mobile, review request job, Google Business Profile connection
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a Google review link; after Google approval, a test Business Profile
@@ -2328,7 +2328,7 @@ Staff run their day on any phone, tablet or browser tab, online or not, and ever
 
 **Walk on staging:** Run part of a day on a phone and a tablet with the network off for an hour and web open in two tabs, and see every device agree, with a push for each new booking.
 
-### Keep working offline and come back cleanly (CB-56)
+### Offline mode and reconnect (CB-56)
 
 **Covers:** Web production build with its service worker, mobile release build
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a release build on a phone; a production web build
@@ -2372,7 +2372,7 @@ Staff run their day on any phone, tablet or browser tab, online or not, and ever
 
 **Depends on:** Nothing
 
-### Keep tabs and devices in step (CB-57)
+### Multi-tab and multi-device sync (CB-57)
 
 **Covers:** Web tabs on OPFS and IndexedDB, sign-out, account switch, sync health and debug panel
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; Chrome, Safari and Firefox
@@ -2422,7 +2422,7 @@ Staff run their day on any phone, tablet or browser tab, online or not, and ever
 
 **Depends on:** Nothing
 
-### Notify staff on their phones (CB-59)
+### Staff push notifications (CB-59)
 
 **Covers:** Push registration, notifications feed on web and mobile
 **Before you start:** Staging with Stripe in test mode; the staging app on an iPhone and an Android phone
@@ -2457,7 +2457,7 @@ Staff run their day on any phone, tablet or browser tab, online or not, and ever
 
 **Depends on:** Nothing
 
-### Use the app on iPhone, Android and iPad (CB-60)
+### Mobile app on phones, tablets and screen readers (CB-60)
 
 **Covers:** Every mobile screen on phones and tablets, screen readers
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; the staging app
@@ -2506,7 +2506,7 @@ The surfaces around the product: the platform admin console, the marketing site 
 
 **Walk on staging:** No walk of its own: CB-68 runs a full business day once the product epics are done.
 
-### Operate the platform from the admin console (CB-65)
+### Admin console (CB-65)
 
 **Covers:** Admin app pages and `/v1/admin`
 **Before you start:** An operator account; a non-operator account
@@ -2547,7 +2547,7 @@ The surfaces around the product: the platform admin console, the marketing site 
 
 **Depends on:** Nothing
 
-### Launch a marketing site that makes no claim the product can't back (CB-66)
+### Marketing site (CB-66)
 
 **Covers:** Marketing site pages, contact form, waitlist build
 **Before you start:** The built site on staging
@@ -2589,7 +2589,7 @@ The surfaces around the product: the platform admin console, the marketing site 
 
 **Depends on:** Nothing
 
-### Run a full business day end to end (CB-68)
+### Full business day on staging (CB-68)
 
 **Covers:** Everything, on staging with the staging app
 **Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; Chrome and Safari on a laptop; one iPhone and one Android phone with the staging app
