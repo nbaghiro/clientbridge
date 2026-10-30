@@ -34,7 +34,7 @@ async def _disputed(
     return invoice_id, payment, dispute, before
 
 
-async def _stripe_net(run: StripeRun, payment: Payment, dispute: str) -> int:
+async def _stripe_net(run: StripeRun, payment: Payment, dispute: dict[str, object]) -> int:
     """What the charge and its dispute moved in Stripe, from Stripe's balance transactions."""
     assert payment.provider_ref is not None
     provider_ref = payment.provider_ref
@@ -48,16 +48,16 @@ async def _stripe_net(run: StripeRun, payment: Payment, dispute: str) -> int:
     charge = intent.latest_charge
     assert isinstance(charge, stripe.Charge)
     assert isinstance(charge.balance_transaction, stripe.BalanceTransaction)
-    found = await unlocked(
-        lambda: stripe.Dispute.retrieve_async(dispute, stripe_account=run.account)
-    )
-    return charge.balance_transaction.net + sum(t.net for t in found.balance_transactions)
+    moved = dispute["balance_transactions"]
+    assert isinstance(moved, list)
+    return charge.balance_transaction.net + sum(int(t["net"]) for t in moved)
 
 
 async def _close(
     api: httpx.AsyncClient, run: StripeRun, events: StripeEvents, dispute: str, evidence: str
-) -> None:
-    # Stripe's test evidence decides the outcome: winning_evidence wins, losing_evidence loses
+) -> dict[str, object]:
+    """Submits Stripe's test evidence and returns the dispute as its closing event carries it."""
+    # winning_evidence wins and losing_evidence loses
     await unlocked(
         lambda: stripe.Dispute.modify_async(
             dispute,
@@ -66,7 +66,9 @@ async def _close(
             stripe_account=run.account,
         )
     )
-    await deliver(api, *(await events.next("charge.dispute.closed", within=180)))
+    payload, signature = await events.next("charge.dispute.closed", within=180)
+    await deliver(api, payload, signature)
+    return events.gateway.verify_webhook(payload, signature).data
 
 
 async def test_a_lost_dispute_writes_the_invoice_off_and_matches_stripe(
@@ -76,11 +78,11 @@ async def test_a_lost_dispute_writes_the_invoice_off_and_matches_stripe(
     stripe_events: StripeEvents,
 ) -> None:
     invoice_id, payment, dispute, before = await _disputed(as_owner, db, stripe_run, stripe_events)
-    await _close(as_owner, stripe_run, stripe_events, dispute, "losing_evidence")
+    closed = await _close(as_owner, stripe_run, stripe_events, dispute, "losing_evidence")
     await db.refresh(payment)
     assert payment.dispute_status == "lost"
     assert (await ledger.collected(db, BIZ, "invoice", invoice_id))[0] == 0
-    assert await _stripe_ledger(db) - before == await _stripe_net(stripe_run, payment, dispute)
+    assert await _stripe_ledger(db) - before == await _stripe_net(stripe_run, payment, closed)
 
 
 async def test_a_won_dispute_restores_the_payment_and_matches_stripe(
@@ -94,4 +96,7 @@ async def test_a_won_dispute_restores_the_payment_and_matches_stripe(
     await db.refresh(payment)
     assert payment.dispute_status == "won"
     assert (await ledger.collected(db, BIZ, "invoice", invoice_id))[0] == 2000
-    assert await _stripe_ledger(db) - before == await _stripe_net(stripe_run, payment, dispute)
+    # the reinstatement event carries both the withdrawal and the funds Stripe returned
+    payload, signature = await stripe_events.next("charge.dispute.funds_reinstated", within=180)
+    reinstated = stripe_events.gateway.verify_webhook(payload, signature).data
+    assert await _stripe_ledger(db) - before == await _stripe_net(stripe_run, payment, reinstated)
