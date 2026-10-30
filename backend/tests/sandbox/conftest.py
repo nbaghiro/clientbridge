@@ -114,6 +114,9 @@ class StripeRun:
         return identity
 
     async def clean_intent(self, account: str, identity: str) -> None:
+        await unlocked(lambda: self._clean_intent(account, identity))
+
+    async def _clean_intent(self, account: str, identity: str) -> None:
         intent = await stripe.PaymentIntent.retrieve_async(identity, stripe_account=account)
         assert intent.livemode is False
         if intent.status == "succeeded":
