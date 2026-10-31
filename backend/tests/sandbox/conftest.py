@@ -264,10 +264,10 @@ async def stripe_events(
                     await serving
                     raise RuntimeError("webhook capture server did not start")
                 await asyncio.sleep(0.05)
+        # no --latest: events must render at the sandbox default, the version the webhook pins
         process = await asyncio.create_subprocess_exec(
             "stripe",
             "listen",
-            "--latest",
             "--events-from",
             "@accounts",
             "--events",

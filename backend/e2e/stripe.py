@@ -124,11 +124,11 @@ def shard_cases(stack: Stack, part: str) -> list[str]:
 
 
 def listener(stack: Stack, processes: ExitStack) -> str:
+    # no --latest: events must render at the sandbox default, the version the webhook pins
     process = subprocess.Popen(
         [
             "stripe",
             "listen",
-            "--latest",
             "--events-from",
             "@accounts",
             "--events",
