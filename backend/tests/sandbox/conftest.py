@@ -180,12 +180,13 @@ class StripeRun:
 
 async def unlocked[T](request: Callable[[], Awaitable[T]]) -> T:
     """Retries Stripe's lock_timeout, returned while Stripe itself is still updating the object."""
-    # a won dispute can hold its charge for over a minute while Stripe processes it
-    for attempt in range(21):
+    # a dispute can hold its charge for most of a minute while Stripe processes it
+    for attempt in range(9):
         try:
             return await request()
         except stripe.RateLimitError as exc:
-            if exc.code != "lock_timeout" or attempt == 20:
+            # the SDK leaves a 429's code off exc.code and keeps it on exc.error
+            if exc.error is None or exc.error.code != "lock_timeout" or attempt == 8:
                 raise
             await asyncio.sleep(min(2**attempt, 10))
     raise AssertionError("unreachable")
