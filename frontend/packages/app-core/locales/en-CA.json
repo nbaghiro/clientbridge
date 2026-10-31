@@ -7610,9 +7610,6 @@
     "business.onboarding.verifyFirst": {
         "message": "Confirm your email address before creating your business."
     },
-    "business.onboarding.verifyEmail": {
-        "message": "Confirm my email"
-    },
     "hours.title": {
         "message": "Hours and time off"
     },
@@ -11491,18 +11488,11 @@
     "auth.verifyBodyAnyEmail": {
         "message": "We sent a code to your email."
     },
-    "auth.verifyToContinue": {
-        "message": "This email already has an account. Confirm it's yours to keep going, or sign out.",
-        "description": "The confirm-email screen when the API refuses the session until the address is verified"
-    },
     "auth.verifyDone": {
         "message": "Your email is confirmed."
     },
     "auth.verify": {
         "message": "Confirm email"
-    },
-    "auth.skipForNow": {
-        "message": "Skip for now"
     },
     "auth.continue": {
         "message": "Continue"

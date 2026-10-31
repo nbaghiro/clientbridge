@@ -1,4 +1,4 @@
-"""The auth service on Ory Kratos: sessions, plus the admin calls relinking and the seed need."""
+"""The auth service on Ory Kratos: sessions, plus the admin calls the API, seed and dev need."""
 
 import logging
 import time
@@ -188,6 +188,34 @@ class KratosIdentityProvider:
             return
         value: dict[str, object] = {**metadata, DEMO_TAG: True}
         patch: list[dict[str, object]] = [{"op": "add", "path": "/metadata_admin", "value": value}]
+        if (await self._call("PATCH", url, json=patch)).status_code != 200:
+            raise unavailable()
+
+    async def mark_verified(self, identity_id: str, email: str) -> None:
+        url = f"{self._admin}/admin/identities/{identity_id}"
+        response = await self._call("GET", url)
+        if response.status_code != 200:
+            raise unavailable()
+        addresses = _dict(response.json()).get("verifiable_addresses")
+        index = next(
+            (
+                i
+                for i, address in enumerate(addresses if isinstance(addresses, list) else [])
+                if normalize_email(_str(_dict(address).get("value")) or "")
+                == normalize_email(email)
+            ),
+            None,
+        )
+        if index is None:
+            raise unavailable()
+        patch: list[dict[str, object]] = [
+            {"op": "replace", "path": f"/verifiable_addresses/{index}/verified", "value": True},
+            {
+                "op": "replace",
+                "path": f"/verifiable_addresses/{index}/status",
+                "value": "completed",
+            },
+        ]
         if (await self._call("PATCH", url, json=patch)).status_code != 200:
             raise unavailable()
 

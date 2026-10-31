@@ -38,7 +38,7 @@ import { Classes } from "./pages/Classes";
 import { Recurrences } from "./pages/Recurrences";
 import { Clients } from "./pages/Clients";
 import { Inbox } from "./pages/Inbox";
-import { Onboarding } from "./pages/Onboarding";
+import { ConfirmEmail, Onboarding } from "./pages/Onboarding";
 import { Payments } from "./pages/Payments";
 import { Setup } from "./pages/Setup";
 import { Today } from "./pages/Today";
@@ -105,9 +105,8 @@ export function App() {
                     <Route
                         path="/verify"
                         element={
-                            <VerifyEmail
-                                unverified
-                                onContinue={restore}
+                            <ConfirmEmail
+                                onConfirmed={restore}
                                 onSignOut={() => {
                                     discard();
                                 }}

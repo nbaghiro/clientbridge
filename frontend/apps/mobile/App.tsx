@@ -1,6 +1,6 @@
 import { NavigationBar } from "expo-navigation-bar";
 import { StatusBar } from "expo-status-bar";
-import { type ReactElement, type ReactNode, useCallback } from "react";
+import { type ReactElement, type ReactNode, useCallback, useState } from "react";
 import {
     checkSession,
     strings,
@@ -53,8 +53,8 @@ import { ClientWalletScreen } from "./src/screens/ClientWallet";
 import { InboxScreen } from "./src/screens/Inbox";
 import { NotificationsScreen } from "./src/screens/Notifications";
 import { SearchScreen } from "./src/screens/Search";
-import { ConfirmEmailScreen, LoginScreen } from "./src/screens/Login";
-import { OnboardingScreen } from "./src/screens/Onboarding";
+import { LoginScreen } from "./src/screens/Login";
+import { ConfirmEmailScreen, OnboardingScreen } from "./src/screens/Onboarding";
 import { PaymentsScreen } from "./src/screens/Payments";
 import { GettingPaidScreen } from "./src/screens/GettingPaid";
 import { BusinessScreen, SetupScreen, TeamHoursScreen } from "./src/screens/Setup";
@@ -176,6 +176,7 @@ const lifecycle = {
 function Root() {
     const { db, loading, failed, unverified, restore, discard, retry, reauthenticate } =
         useReplicaSession(lifecycle);
+    const [verificationFlow, setVerificationFlow] = useState<string | null>(null);
     if (loading || failed) {
         return (
             <View style={styles.boot}>
@@ -204,7 +205,8 @@ function Root() {
     if (unverified)
         return (
             <ConfirmEmailScreen
-                onContinue={restore}
+                flowId={verificationFlow}
+                onConfirmed={restore}
                 onSignOut={() => {
                     discard();
                 }}
@@ -213,6 +215,7 @@ function Root() {
     if (!db)
         return (
             <LoginScreen
+                onVerificationStarted={setVerificationFlow}
                 onSuccess={(sessionToken) => {
                     const stored = sessionToken ? signIn(sessionToken) : Promise.resolve();
                     stored.then(restore).catch(() => undefined);

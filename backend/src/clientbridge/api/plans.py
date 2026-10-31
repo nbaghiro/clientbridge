@@ -28,6 +28,7 @@ LAPSED_WRITES = frozenset(
         ("POST", "/v1/plan/portal"),
         ("PATCH", "/v1/business"),
         ("POST", "/v1/onboarding"),
+        ("POST", "/v1/me/verification"),
         ("POST", "/v1/devices/register"),
         ("POST", "/v1/devices/unregister"),
         ("POST", "/v1/staff/invites/preview"),

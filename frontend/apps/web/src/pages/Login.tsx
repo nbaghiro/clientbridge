@@ -9,7 +9,7 @@ import {
     Notice,
     TextField,
 } from "@clientbridge/ui";
-import { type ReactNode, type SubmitEvent } from "react";
+import { type ReactNode, type SubmitEvent, useRef } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { identity } from "../lib/api";
@@ -398,11 +398,15 @@ function SignIn({ onSuccess, probe }: { onSuccess: () => void; probe?: boolean }
               : `${pathname}${search}`;
     const returnTo = new URL(landing, window.location.origin);
     returnTo.searchParams.set("session", "1");
+    const verification = useRef<string | null>(null);
     const auth = useAuthForm(
         identity,
         () => {
             expectSession();
-            const navigated = navigate(landing, { replace: true });
+            const next = verification.current
+                ? `/verify?flow=${encodeURIComponent(verification.current)}`
+                : landing;
+            const navigated = navigate(next, { replace: true });
             if (navigated) navigated.catch(() => undefined);
             onSuccess();
         },
@@ -411,7 +415,10 @@ function SignIn({ onSuccess, probe }: { onSuccess: () => void; probe?: boolean }
             defaultEmail: params.get("email") ?? "",
             returnTo: returnTo.toString(),
             probe: probe ?? (getUserId() !== null || params.has("session") || sessionHinted()),
-            onSessionStarted: hintSession,
+            onVerificationStarted: (flowId) => {
+                hintSession();
+                verification.current = flowId;
+            },
             openUrl: (url) => leave(url).then(() => null),
             ...(webauthn ? { webauthn } : {}),
             ...(params.get("flow") ? { flowId: params.get("flow") ?? "" } : {}),
@@ -419,27 +426,6 @@ function SignIn({ onSuccess, probe }: { onSuccess: () => void; probe?: boolean }
     );
 
     if (auth.mode === "mfa") return <MfaCard auth={auth} />;
-    if (auth.mode === "verify")
-        return (
-            <CodeCard
-                title={a.verifyTitle}
-                body={auth.email.trim() ? a.verifyBody(auth.email.trim()) : a.verifyBodyAnyEmail}
-                code={auth.code}
-                setCode={auth.setCode}
-                error={auth.error ?? auth.fieldErrors.code ?? null}
-                notice={null}
-                busy={auth.busy}
-                cooldown={auth.cooldown}
-                submit={auth.submit}
-                resend={auth.resend}
-                submitLabel={a.verify}
-                footer={
-                    <Button variant="link" onPress={auth.skipVerification}>
-                        {a.skipForNow}
-                    </Button>
-                }
-            />
-        );
     return (
         <CredentialsCard
             auth={auth}
@@ -480,17 +466,8 @@ function Recover({ onSuccess }: { onSuccess: () => void }) {
     );
 }
 
-/** The auth service's verify link lands here; it also works while signed in, or held back by the API. */
-export function VerifyEmail({
-    unverified = false,
-    onContinue,
-    onSignOut,
-}: {
-    /** The API refuses this session until the email is verified, so sign-out is the way out. */
-    unverified?: boolean;
-    onContinue?: () => void;
-    onSignOut?: () => void;
-}) {
+/** The auth service's verify link lands here when no session is open in this browser. */
+export function VerifyEmail() {
     const [params] = useSearchParams();
     const navigate = useNavigate();
     const flowId = params.get("flow");
@@ -500,7 +477,6 @@ export function VerifyEmail({
             replace: true,
         });
         if (navigated) navigated.catch(() => undefined);
-        onContinue?.();
     };
     return (
         <Shell>
@@ -516,7 +492,9 @@ export function VerifyEmail({
             ) : (
                 <CodeCard
                     title={a.verifyTitle}
-                    body={unverified ? a.verifyToContinue : a.verifyBodyAnyEmail}
+                    body={
+                        verification.email ? a.verifyBody(verification.email) : a.verifyBodyAnyEmail
+                    }
                     code={verification.code}
                     setCode={verification.setCode}
                     error={verification.error}
@@ -526,13 +504,6 @@ export function VerifyEmail({
                     submit={verification.submit}
                     resend={verification.resend}
                     submitLabel={a.verify}
-                    footer={
-                        onSignOut ? (
-                            <Button variant="link" onPress={onSignOut}>
-                                {strings.navigation.signOut}
-                            </Button>
-                        ) : undefined
-                    }
                 />
             )}
         </Shell>

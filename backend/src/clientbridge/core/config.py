@@ -113,6 +113,8 @@ class Settings(BaseSettings):
     admin_base_url: str = ""
     platform_admin_identity_ids: str = ""
     dev_platform_admin_identity_ids: str = ""
+    # confirms the signed-in email in place of the mailed code; ignored unless ENV is 'dev'
+    dev_verification_code: str = ""
     # each business's public page is its own subdomain, so the slug fills the template
     business_page_url: str = "http://{slug}.localhost:8709"
     book_base_url: str = "http://book.localhost:8709"

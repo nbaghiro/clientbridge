@@ -331,6 +331,14 @@ class FakeIdentityProvider:
         if login := self.accounts.get(identity_id):
             self.accounts[identity_id] = Login(identity_id, login.email, True)
 
+    async def mark_verified(self, identity_id: str, email: str) -> None:
+        self.sessions = {
+            k: replace(v, verified_emails=v.verified_emails | {normalize_email(email)})
+            if v.id == identity_id
+            else v
+            for k, v in self.sessions.items()
+        }
+
     async def list_identities(self) -> list[Login]:
         return [a for i, a in self.accounts.items() if i not in self.deleted]
 

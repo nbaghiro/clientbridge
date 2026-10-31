@@ -69,8 +69,15 @@ describe("checkSession", () => {
         apiOf(() => Promise.reject(Object.assign(new Error(code), { status, code })));
 
     it("names the signed-in user", async () => {
-        const api = apiOf((() => Promise.resolve({ user_id: "us_1" })) as ApiLike["get"]);
+        const api = apiOf((() =>
+            Promise.resolve({ user_id: "us_1", email_verified: true })) as ApiLike["get"]);
         expect(await checkSession(api, null)).toMatchObject({ state: "user", userId: "us_1" });
+    });
+
+    it("holds a session whose email is not confirmed yet", async () => {
+        const api = apiOf((() =>
+            Promise.resolve({ user_id: "us_1", email_verified: false })) as ApiLike["get"]);
+        expect(await checkSession(api, "us_1")).toEqual({ state: "unverified" });
     });
 
     it("keeps a recently verified user through an outage, and nobody otherwise", async () => {
@@ -268,6 +275,34 @@ describe("useAuthForm", () => {
         });
     });
 
+    it("signs a new account in and hands its mailed verification flow to the app", async () => {
+        const identity = fakeIdentity([
+            { kind: "done", sessionToken: "tok", next: { flow: "verification", id: "v-1" } },
+        ]);
+        const signedIn = vi.fn();
+        const started = vi.fn();
+        const { result } = renderHook(() =>
+            useAuthForm(identity, signedIn, {
+                initialMode: "signup",
+                probe: false,
+                onVerificationStarted: started,
+            }),
+        );
+        act(() => {
+            result.current.setName("Pat");
+            result.current.setEmail("pat@test.ca");
+            result.current.setPassword("hunter22");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(signedIn).toHaveBeenCalledWith("tok");
+        });
+        expect(started).toHaveBeenCalledWith("v-1");
+        expect(result.current.mode).toBe("signup");
+    });
+
     it("treats a session the auth service already holds as signed in", async () => {
         const identity = fakeIdentity([]);
         identity.session.mockResolvedValueOnce("none").mockResolvedValueOnce("active");
@@ -382,6 +417,56 @@ describe("useVerificationForm", () => {
             method: "code",
             email: "saved@test.ca",
         });
+    });
+
+    it("accepts the API's development code when the auth service refuses it", async () => {
+        const identity = fakeIdentity([
+            { kind: "flow", flow: flow([], "sent_email", "verification") },
+        ]);
+        identity.resume.mockResolvedValue(flow([], "sent_email", "verification"));
+        const post = vi.fn<ApiLike["post"]>(() => Promise.resolve(undefined as never));
+        const devApi = { post } as unknown as ApiLike;
+        const { result } = renderHook(() =>
+            useVerificationForm(identity, { flowId: "v-1", devApi }),
+        );
+        await waitFor(() => {
+            expect(identity.resume).toHaveBeenCalled();
+        });
+        act(() => {
+            result.current.setCode("000000");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(result.current.verified).toBe(true);
+        });
+        expect(post).toHaveBeenCalledWith("/v1/me/verification", { code: "000000" });
+    });
+
+    it("stays unconfirmed when neither the auth service nor the API accepts the code", async () => {
+        const identity = fakeIdentity([
+            { kind: "flow", flow: flow([], "sent_email", "verification") },
+        ]);
+        identity.resume.mockResolvedValue(flow([], "sent_email", "verification"));
+        const post = vi.fn<ApiLike["post"]>(() => Promise.reject(new Error("invalid_code")));
+        const devApi = { post } as unknown as ApiLike;
+        const { result } = renderHook(() =>
+            useVerificationForm(identity, { flowId: "v-1", devApi }),
+        );
+        await waitFor(() => {
+            expect(identity.resume).toHaveBeenCalled();
+        });
+        act(() => {
+            result.current.setCode("111111");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(post).toHaveBeenCalled();
+        });
+        expect(result.current.verified).toBe(false);
     });
 
     it("sends one code and holds resends during the cooldown", async () => {

@@ -314,6 +314,38 @@ async def test_tagging_a_demo_identity_keeps_its_other_admin_metadata() -> None:
             await kratos.tag_demo("plain")
 
 
+async def test_marking_an_email_verified_patches_its_own_address() -> None:
+    patches: list[object] = []
+    addresses = [{"value": "old@test.ca"}, {"value": "Pat@Test.ca"}]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "PATCH":
+            patches.append(json.loads(request.content))
+            return httpx.Response(200, json={})
+        return httpx.Response(200, json={"verifiable_addresses": addresses})
+
+    kratos, _ = provider(handler)
+    await kratos.mark_verified("pat", "pat@test.ca")
+    assert patches == [
+        [
+            {"op": "replace", "path": "/verifiable_addresses/1/verified", "value": True},
+            {"op": "replace", "path": "/verifiable_addresses/1/status", "value": "completed"},
+        ]
+    ]
+    with pytest.raises(AppError):
+        await kratos.mark_verified("pat", "someone@test.ca")
+    for failing in ("GET", "PATCH"):
+
+        def refused(request: httpx.Request, method: str = failing) -> httpx.Response:
+            if request.method == method:
+                return httpx.Response(500, json={})
+            return httpx.Response(200, json={"verifiable_addresses": addresses})
+
+        kratos, _ = provider(refused)
+        with pytest.raises(AppError):
+            await kratos.mark_verified("pat", "pat@test.ca")
+
+
 async def test_deleting_an_identity_that_is_already_gone_succeeds() -> None:
     deleted: list[str] = []
 

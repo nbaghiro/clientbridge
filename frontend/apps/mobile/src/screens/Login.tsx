@@ -1,4 +1,4 @@
-import { strings, useAuthForm, useRecoveryForm, useVerificationForm } from "@clientbridge/app-core";
+import { strings, useAuthForm, useRecoveryForm } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { StatusBar } from "expo-status-bar";
 import { type ReactNode, useState } from "react";
@@ -249,32 +249,6 @@ function SecondFactor({ auth }: { auth: Auth }) {
     );
 }
 
-function Verify({ auth }: { auth: Auth }) {
-    return (
-        <CodeStep
-            title={a.verifyTitle}
-            body={auth.email.trim() ? a.verifyBody(auth.email.trim()) : a.verifyBodyAnyEmail}
-            label={a.code}
-            code={auth.code}
-            setCode={auth.setCode}
-            error={auth.error ?? auth.fieldErrors.code ?? null}
-            notice={null}
-            busy={auth.busy}
-            submit={auth.submit}
-            submitLabel={a.verify}
-        >
-            <View style={styles.links}>
-                <Button variant="link" onPress={auth.resend} disabled={auth.cooldown > 0}>
-                    {auth.cooldown > 0 ? a.resendIn(auth.cooldown) : a.resendCode}
-                </Button>
-                <Button variant="link" onPress={auth.skipVerification}>
-                    {a.skipForNow}
-                </Button>
-            </View>
-        </CodeStep>
-    );
-}
-
 function Recover({ recovery, onBack }: { recovery: Recovery; onBack: () => void }) {
     if (recovery.step === "code")
         return (
@@ -475,56 +449,18 @@ function Frame({ children }: { children: ReactNode }) {
     );
 }
 
-/** The API refuses the stored session until its email is verified; sign-out is the other way out. */
-export function ConfirmEmailScreen({
-    onContinue,
-    onSignOut,
+export function LoginScreen({
+    onSuccess,
+    onVerificationStarted,
 }: {
-    onContinue: () => void;
-    onSignOut: () => void;
+    onSuccess: (sessionToken?: string) => void;
+    onVerificationStarted: (flowId: string) => void;
 }) {
-    const v = useVerificationForm(identity, {});
-    if (v.verified)
-        return (
-            <Frame>
-                <Text style={styles.title}>{a.verifyDone}</Text>
-                <View style={styles.submit}>
-                    <Button size="lg" full onPress={onContinue}>
-                        {a.continue}
-                    </Button>
-                </View>
-            </Frame>
-        );
-    return (
-        <Frame>
-            <CodeStep
-                title={a.verifyTitle}
-                body={a.verifyToContinue}
-                label={a.code}
-                code={v.code}
-                setCode={v.setCode}
-                error={v.error}
-                notice={v.notice}
-                busy={v.busy}
-                submit={v.submit}
-                submitLabel={a.verify}
-            >
-                <View style={styles.links}>
-                    <Button variant="link" onPress={v.resend} disabled={v.cooldown > 0}>
-                        {v.cooldown > 0 ? a.resendIn(v.cooldown) : a.resendCode}
-                    </Button>
-                    <Button variant="link" onPress={onSignOut}>
-                        {strings.navigation.signOut}
-                    </Button>
-                </View>
-            </CodeStep>
-        </Frame>
-    );
-}
-
-export function LoginScreen({ onSuccess }: { onSuccess: (sessionToken?: string) => void }) {
     const [recovering, setRecovering] = useState(false);
-    const auth = useAuthForm(identity, onSuccess, { openUrl: openAuthSession });
+    const auth = useAuthForm(identity, onSuccess, {
+        openUrl: openAuthSession,
+        onVerificationStarted,
+    });
     const credentials = auth.mode === "signin" || auth.mode === "signup";
     const signup = auth.mode === "signup";
 
@@ -541,8 +477,6 @@ export function LoginScreen({ onSuccess }: { onSuccess: (sessionToken?: string) 
                     />
                 ) : auth.mode === "mfa" ? (
                     <SecondFactor auth={auth} />
-                ) : auth.mode === "verify" ? (
-                    <Verify auth={auth} />
                 ) : (
                     <Credentials
                         auth={auth}

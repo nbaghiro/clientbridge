@@ -926,6 +926,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Verify With Dev Code */
+        post: operations["verify_with_dev_code_v1_me_verification_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/clients": {
         parameters: {
             query?: never;
@@ -5554,6 +5571,11 @@ export interface components {
         DetachResult: {
             /** Detached */
             detached: boolean;
+        };
+        /** DevVerificationIn */
+        DevVerificationIn: {
+            /** Code */
+            code: string;
         };
         /** DeviceOut */
         DeviceOut: {
@@ -12163,6 +12185,39 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MeOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_with_dev_code_v1_me_verification_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DevVerificationIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

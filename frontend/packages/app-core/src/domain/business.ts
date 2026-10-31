@@ -629,7 +629,6 @@ interface OnboardingForm {
     taxSummary: string | null;
     busy: boolean;
     error: string | null;
-    needsVerification: boolean;
     submit: () => void;
 }
 
@@ -645,8 +644,6 @@ export function useOnboardingForm(
     const [slugEdited, setSlugEdited] = useState(false);
     const [province, setProvince] = useState<ProvinceCode | null>(null);
     const [industry, setIndustry] = useState<Industry | null>(null);
-    // Stays true across retries so the verify step keeps one code instead of mailing a new one.
-    const [needsVerification, setNeedsVerification] = useState(false);
     const { busy, error, setError, run } = useAsyncAction();
 
     const setName = (v: string): void => {
@@ -681,12 +678,10 @@ export function useOnboardingForm(
                 onCreated(await onboard(api, { name, slug: slugify(slug), province, industry }));
             },
             {
-                errorMessage: (e) => {
-                    if (failedCode(e) !== "email_unverified")
-                        return failureMessage(e, strings.business.onboarding.createError);
-                    setNeedsVerification(true);
-                    return strings.business.onboarding.verifyFirst;
-                },
+                errorMessage: (e) =>
+                    failedCode(e) === "email_unverified"
+                        ? strings.business.onboarding.verifyFirst
+                        : failureMessage(e, strings.business.onboarding.createError),
             },
         );
     };
@@ -707,7 +702,6 @@ export function useOnboardingForm(
             province === null ? null : taxSummary(province, dateKey(new Date(), NEW_BUSINESS_ZONE)),
         busy,
         error,
-        needsVerification,
         submit,
     };
 }

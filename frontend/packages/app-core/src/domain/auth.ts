@@ -16,7 +16,7 @@ import {
     type WebAuthnLike,
 } from "../api";
 
-type AuthMode = "signin" | "signup" | "mfa" | "verify";
+type AuthMode = "signin" | "signup" | "mfa";
 type MfaMethod = "totp" | "lookup_secret" | "webauthn";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -68,7 +68,7 @@ function useCooldown(): [number, (s: number) => void] {
 type SessionCheck =
     | { state: "user"; userId: string; verifiedAt: number }
     | { state: "none" }
-    /** A live session the API refuses until its email is verified (a recreated identity). */
+    /** A live session whose email is not confirmed yet: the app shows only the code step. */
     | { state: "unverified" };
 
 /** What `/v1/me` says about the session this device holds; offline, the remembered user stands. */
@@ -84,11 +84,13 @@ export async function checkSession(
                 reject(new Error("session check timed out"));
             }, 8_000);
         });
-        const me = await Promise.race([api.get<{ user_id: string }>("/v1/me"), deadline]).finally(
-            () => {
-                clearTimeout(timer);
-            },
-        );
+        const me = await Promise.race([
+            api.get<{ user_id: string; email_verified: boolean }>("/v1/me"),
+            deadline,
+        ]).finally(() => {
+            clearTimeout(timer);
+        });
+        if (!me.email_verified) return { state: "unverified" };
         return { state: "user", userId: me.user_id, verifiedAt: Date.now() };
     } catch (e) {
         const status = failedStatus(e);
@@ -132,8 +134,8 @@ interface AuthOptions {
     probe?: boolean;
     /** Web navigates away; mobile opens an auth session and returns the callback URL. */
     openUrl?: (url: string) => Promise<string | null>;
-    /** The auth service set a session before the app signed in (sign-up waiting on email verification). */
-    onSessionStarted?: () => void;
+    /** Sign-up mailed a code: the app's confirm step resumes this verification flow. */
+    onVerificationStarted?: (flowId: string) => void;
     webauthn?: WebAuthnLike;
 }
 
@@ -157,15 +159,12 @@ interface AuthForm {
     mfaMethods: MfaMethod[];
     mfaMethod: MfaMethod;
     setMfaMethod: (m: MfaMethod) => void;
-    cooldown: number;
     submit: () => void;
     google: () => void;
-    resend: () => void;
-    skipVerification: () => void;
     cancel: () => void;
 }
 
-/** Sign in, sign up (then verify), and the second factor, over the auth service; mobile gets a token. */
+/** Sign in, sign up, and the second factor, over the auth service; mobile gets a token. */
 export function useAuthForm(
     identity: IdentityLike,
     onSignedIn: (sessionToken?: string) => void | Promise<void>,
@@ -181,7 +180,6 @@ export function useAuthForm(
     const [fieldErrors, setFieldErrors] = useState<AuthFieldErrors>({});
     const [notice, setNotice] = useState<string | null>(null);
     const [mfaMethod, setMfaMethod] = useState<MfaMethod>("totp");
-    const [cooldown, setCooldown] = useCooldown();
     const [flow, setFlow] = useState<Flow | null>(null);
     const pending = useRef<string | undefined>(undefined);
     const { busy, error, setError, run } = useAsyncAction();
@@ -242,15 +240,11 @@ export function useAuthForm(
                     secondStep(await identity.resume("login", id));
                 else await opts?.openUrl?.(step.url);
             } else if (step.next?.flow === "verification") {
-                opts?.onSessionStarted?.();
-                pending.current = step.sessionToken;
-                setFlow(await identity.resume("verification", step.next.id));
-                setModeState("verify");
-                setCode("");
-                setCooldown(RESEND_SECONDS);
+                opts?.onVerificationStarted?.(step.next.id);
+                await onSignedIn(step.sessionToken);
             } else await finish(step.sessionToken);
         },
-        [a.flowExpired, finish, identity, opts, secondStep, setCooldown, setError, show],
+        [a.flowExpired, finish, identity, onSignedIn, opts, secondStep, setError, show],
     );
 
     useEffect(() => {
@@ -349,16 +343,6 @@ export function useAuthForm(
         }
     };
 
-    const verify = async (): Promise<void> => {
-        if (!flow) return;
-        const step = await identity.submit(flow, { method: "code", code: code.trim() });
-        if (step.kind === "flow" && step.flow.state === "passed_challenge") {
-            await onSignedIn(pending.current);
-            return;
-        }
-        await handle(step, () => undefined);
-    };
-
     const submit = (): void => {
         const errs: AuthFieldErrors = {};
         if (mode === "signin" || mode === "signup") {
@@ -371,7 +355,7 @@ export function useAuthForm(
         } else if (mfaMethod !== "webauthn" && code.trim() === "") errs.code = a.codeRequired;
         setFieldErrors(errs);
         if (Object.keys(errs).length > 0) return;
-        const work = mode === "mfa" ? secondFactor : mode === "verify" ? verify : credentials;
+        const work = mode === "mfa" ? secondFactor : credentials;
         run(work, { errorMessage: a.unavailable });
     };
 
@@ -389,19 +373,6 @@ export function useAuthForm(
                 if (returned) await finish(await identity.exchange(current, returned));
             },
             { errorMessage: a.googleFailed },
-        );
-    };
-
-    const resend = (): void => {
-        if (cooldown > 0 || !flow) return;
-        run(
-            async () => {
-                const address = nodeValue(flow, "email") || email.trim();
-                const step = await identity.submit(flow, { method: "code", email: address });
-                if (step.kind === "flow") show(step.flow);
-                setCooldown(RESEND_SECONDS);
-            },
-            { errorMessage: a.resendFailed },
         );
     };
 
@@ -432,13 +403,8 @@ export function useAuthForm(
             setFieldErrors({});
             setError(null);
         },
-        cooldown,
         submit,
         google,
-        resend,
-        skipVerification: () => {
-            run(() => Promise.resolve(onSignedIn(pending.current)));
-        },
         cancel: () => {
             run(async () => {
                 await identity.signOut();
@@ -605,6 +571,8 @@ export function useRecoveryForm(
 
 interface VerificationForm {
     verified: boolean;
+    /** Where the code went, once known. */
+    email: string;
     code: string;
     setCode: (v: string) => void;
     error: string | null;
@@ -618,10 +586,16 @@ interface VerificationForm {
 /** Confirms the email with the code the auth service sent (or a fresh one), e.g. from the verify link. */
 export function useVerificationForm(
     identity: IdentityLike,
-    opts: { flowId?: string; email?: string },
+    opts: {
+        flowId?: string;
+        email?: string;
+        /** Development builds: the API also accepts its local test code (DEV_VERIFICATION_CODE). */
+        devApi?: ApiLike;
+    },
 ): VerificationForm {
     const a = strings.auth;
     const [flow, setFlow] = useState<Flow | null>(null);
+    const [devPassed, setDevPassed] = useState(false);
     const [code, setCode] = useState("");
     const [notice, setNotice] = useState<string | null>(null);
     const [cooldown, setCooldown] = useCooldown();
@@ -637,10 +611,10 @@ export function useVerificationForm(
         [setError],
     );
 
-    const sentTo = useRef("");
+    const [sentTo, setSentTo] = useState("");
     const send = useCallback(
         async (current: Flow, address: string): Promise<void> => {
-            sentTo.current = address;
+            setSentTo(address);
             const step = await identity.submit(current, { method: "code", email: address });
             if (step.kind === "flow") show(step.flow);
             setCooldown(RESEND_SECONDS);
@@ -651,10 +625,24 @@ export function useVerificationForm(
     const confirm = useCallback(
         async (current: Flow, value: string): Promise<void> => {
             const step = await identity.submit(current, { method: "code", code: value });
+            const refused = step.kind !== "flow" || step.flow.state !== "passed_challenge";
+            if (refused && opts.devApi) {
+                const accepted = await opts.devApi
+                    .post("/v1/me/verification", { code: value })
+                    .then(
+                        () => true,
+                        () => false,
+                    );
+                if (accepted) {
+                    setError(null);
+                    setDevPassed(true);
+                    return;
+                }
+            }
             if (step.kind === "flow") show(step.flow);
             else if (step.kind === "restart") setError(a.flowExpired);
         },
-        [identity, show, setError],
+        [identity, opts.devApi, show, setError],
     );
 
     useEffect(() => {
@@ -688,7 +676,8 @@ export function useVerificationForm(
     }, []);
 
     return {
-        verified: flow?.state === "passed_challenge",
+        verified: devPassed || flow?.state === "passed_challenge",
+        email: sentTo || nodeValue(flow, "email"),
         code,
         setCode,
         error,
@@ -704,7 +693,7 @@ export function useVerificationForm(
             run(() => confirm(flow, code.trim()), { errorMessage: a.unavailable });
         },
         resend: () => {
-            const address = sentTo.current || nodeValue(flow, "email");
+            const address = sentTo || nodeValue(flow, "email");
             if (cooldown > 0 || !address) return;
             run(
                 async () => {

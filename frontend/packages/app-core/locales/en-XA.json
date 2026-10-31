@@ -7025,9 +7025,6 @@
     "business.onboarding.verifyFirst": {
         "message": "[Çöñƒîŕɱ ýöûŕ éɱåîļ åððŕéšš ƀéƒöŕé çŕéåţîñĝ ýöûŕ ƀûšîñéšš. one two three four]"
     },
-    "business.onboarding.verifyEmail": {
-        "message": "[Çöñƒîŕɱ ɱý éɱåîļ one two]"
-    },
     "hours.title": {
         "message": "[Ĥöûŕš åñð ţîɱé öƒƒ one two]"
     },
@@ -10682,17 +10679,11 @@
     "auth.verifyBodyAnyEmail": {
         "message": "[Ŵé šéñţ å çöðé ţö ýöûŕ éɱåîļ. one two three]"
     },
-    "auth.verifyToContinue": {
-        "message": "[Ţĥîš éɱåîļ åļŕéåðý ĥåš åñ åççöûñţ. Çöñƒîŕɱ îţ'š ýöûŕš ţö ķééþ ĝöîñĝ, öŕ šîĝñ öûţ. one two three four five]"
-    },
     "auth.verifyDone": {
         "message": "[Ýöûŕ éɱåîļ îš çöñƒîŕɱéð. one two]"
     },
     "auth.verify": {
         "message": "[Çöñƒîŕɱ éɱåîļ one two]"
-    },
-    "auth.skipForNow": {
-        "message": "[Šķîþ ƒöŕ ñöŵ one two]"
     },
     "auth.continue": {
         "message": "[Çöñţîñûé one]"
