@@ -1,8 +1,10 @@
 import { randomUUID } from "node:crypto";
 import {
     addDays,
+    addMonths,
     combineDayAndTime,
     formatFullDate,
+    formatMonthYear,
     formatTime,
     strings,
 } from "@clientbridge/app-core/public";
@@ -116,11 +118,21 @@ export async function fillBookingComposer(page: Page, fixture: BookingFixture): 
 
 export async function pickBookingDay(page: Page, date: Date, zone: string): Promise<void> {
     await page.getByRole("button", { name: strings.bookings.composerDate, exact: true }).click();
-    const target = page.getByRole("gridcell", { name: formatFullDate(date, zone), exact: true });
-    for (let month = 0; month < 3 && (await target.count()) === 0; month++) {
-        await page.getByRole("button", { name: strings.ui.nextMonth, exact: true }).click();
+    // the picker opens on the month already chosen, which may be before or after the target
+    const picker = page.getByRole("dialog", { name: strings.bookings.composerDate, exact: true });
+    const grid = picker.getByRole("grid");
+    await expect(grid).toBeVisible();
+    const shown = await grid.getAttribute("aria-label");
+    const ahead = Array.from({ length: 25 }, (_, i) => i - 12).find(
+        (months) => formatMonthYear(addMonths(date, months, zone), zone) === shown,
+    );
+    if (ahead === undefined) throw new Error(`The date picker shows ${String(shown)}`);
+    const step = ahead > 0 ? strings.ui.previousMonth : strings.ui.nextMonth;
+    for (let month = 0; month < Math.abs(ahead); month++) {
+        await picker.getByRole("button", { name: step, exact: true }).click();
     }
-    await target.click();
+    await expect(grid).toHaveAccessibleName(formatMonthYear(date, zone));
+    await grid.getByRole("gridcell", { name: formatFullDate(date, zone), exact: true }).click();
 }
 
 export async function pickBookingTime(
