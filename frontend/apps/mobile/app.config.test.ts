@@ -25,7 +25,7 @@ describe("app config", () => {
         const { FONT_FAMILIES } = await import("./app.config");
         expect(FONT_FAMILIES.map((f) => f.fontFamily)).toEqual([theme.fonts.ui, theme.fonts.mono]);
         for (const { path } of FONT_FAMILIES.flatMap((f) => f.fontDefinitions)) {
-            expect(existsSync(path)).toBe(true);
+            expect(existsSync(require.resolve(path))).toBe(true);
         }
     });
 

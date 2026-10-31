@@ -31,7 +31,12 @@
         },
         "apps/mobile": {
             "entry": ["e2e/helpers/*.js"],
-            "ignoreDependencies": ["@babel/core", "expo-updates"]
+            "ignoreDependencies": [
+                "@babel/core",
+                "expo-updates",
+                "@expo-google-fonts/geist-mono",
+                "@expo-google-fonts/schibsted-grotesk"
+            ]
         },
         "packages/app-core": {
             "ignoreDependencies": ["@powersync/react"]
