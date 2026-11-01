@@ -32,7 +32,6 @@ import {
 } from "@clientbridge/ui";
 
 import { identity, openAuthSession } from "../lib/api";
-import { holdSession } from "../lib/auth";
 
 const c = theme.colors;
 const a = strings.auth;
@@ -349,7 +348,7 @@ function Recovering({
     onBack: () => void;
     onSuccess: (sessionToken?: string) => void;
 }) {
-    const recovery = useRecoveryForm(identity, onSuccess, { defaultEmail: email, holdSession });
+    const recovery = useRecoveryForm(identity, onSuccess, { defaultEmail: email });
     return <Recover recovery={recovery} onBack={onBack} />;
 }
 
@@ -478,7 +477,6 @@ export function LoginScreen({
     const auth = useAuthForm(identity, onSuccess, {
         openUrl: openAuthSession,
         onVerificationStarted,
-        holdSession,
     });
     const credentials = auth.mode === "signin" || auth.mode === "signup";
     const signup = auth.mode === "signup";

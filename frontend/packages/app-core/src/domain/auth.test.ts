@@ -450,11 +450,8 @@ describe("useAuthForm", () => {
             const identity = fakeIdentity([{ kind: "done", sessionToken: "half" }, ...steps]);
             identity.session.mockResolvedValue("second_factor");
             identity.start.mockImplementation(() => Promise.resolve(login));
-            const holdSession = vi.fn();
             const signedIn = vi.fn();
-            const { result } = renderHook(() =>
-                useAuthForm(identity, signedIn, { holdSession, probe: false }),
-            );
+            const { result } = renderHook(() => useAuthForm(identity, signedIn, { probe: false }));
             act(() => {
                 result.current.setEmail("pat@test.ca");
                 result.current.setPassword("hunter22");
@@ -465,12 +462,11 @@ describe("useAuthForm", () => {
             await waitFor(() => {
                 expect(result.current.mode).toBe("mfa");
             });
-            return { identity, holdSession, signedIn, result };
+            return { identity, signedIn, result };
         }
 
         it("ends the half-finished session on the server when the user backs out", async () => {
-            const { identity, holdSession, result } = await atSecondStep();
-            expect(holdSession).toHaveBeenLastCalledWith("half");
+            const { identity, result } = await atSecondStep();
             act(() => {
                 result.current.cancel();
             });
@@ -478,11 +474,10 @@ describe("useAuthForm", () => {
                 expect(result.current.mode).toBe("signin");
             });
             expect(identity.signOut).toHaveBeenCalledWith("half");
-            expect(holdSession).toHaveBeenLastCalledWith(null);
         });
 
-        it("lets go of the held token once signed in, before the app stores it", async () => {
-            const { holdSession, signedIn, result } = await atSecondStep([
+        it("hands over the session the second factor returns", async () => {
+            const { identity, signedIn, result } = await atSecondStep([
                 { kind: "done", sessionToken: "full" },
             ]);
             act(() => {
@@ -494,10 +489,12 @@ describe("useAuthForm", () => {
             await waitFor(() => {
                 expect(signedIn).toHaveBeenCalledWith("full");
             });
-            expect(holdSession).toHaveBeenLastCalledWith(null);
-            expect(holdSession.mock.invocationCallOrder.at(-1)).toBeLessThan(
-                signedIn.mock.invocationCallOrder[0] ?? 0,
+            expect(identity.submit).toHaveBeenLastCalledWith(
+                login,
+                { method: "totp", totp_code: "123456" },
+                "half",
             );
+            expect(identity.signOut).not.toHaveBeenCalled();
         });
     });
 });
@@ -739,44 +736,66 @@ describe("useRecoveryForm", () => {
         expect(result.current.step).toBe("code");
     });
 
-    it("holds the reset's session token on a phone until it is finished or abandoned", async () => {
-        const holdSession = vi.fn();
-        const identity = fakeIdentity([
-            { kind: "flow", flow: sent },
-            { kind: "done", sessionToken: "recovered", next: { flow: "settings", id: "s-1" } },
-            { kind: "flow", flow: flow([], "success") },
-        ]);
-        const signedIn = vi.fn();
-        const { result } = renderHook(() => useRecoveryForm(identity, signedIn, { holdSession }));
-        act(() => {
-            result.current.setEmail("pat@test.ca");
+    describe("a screen closed partway", () => {
+        async function atPasswordStep(steps: FlowStep[] = []) {
+            const identity = fakeIdentity([
+                { kind: "flow", flow: sent },
+                { kind: "done", sessionToken: "recovered", next: { flow: "settings", id: "s-1" } },
+                ...steps,
+            ]);
+            const signedIn = vi.fn();
+            const rendered = renderHook(() => useRecoveryForm(identity, signedIn));
+            const { result } = rendered;
+            act(() => {
+                result.current.setEmail("pat@test.ca");
+            });
+            act(() => {
+                result.current.submit();
+            });
+            await waitFor(() => {
+                expect(result.current.step).toBe("code");
+            });
+            act(() => {
+                result.current.setCode("123456");
+            });
+            act(() => {
+                result.current.submit();
+            });
+            await waitFor(() => {
+                expect(result.current.step).toBe("password");
+            });
+            return { identity, signedIn, ...rendered };
+        }
+
+        it("ends the reset's session when it closes before the password is saved", async () => {
+            const { identity, unmount } = await atPasswordStep();
+            unmount();
+            expect(identity.signOut).toHaveBeenCalledWith("recovered");
         });
-        act(() => {
-            result.current.submit();
+
+        it("keeps the session once the new password is saved", async () => {
+            const { identity, signedIn, result, unmount } = await atPasswordStep([
+                { kind: "flow", flow: flow([], "success") },
+            ]);
+            act(() => {
+                result.current.setPassword("a-new-password");
+            });
+            act(() => {
+                result.current.submit();
+            });
+            await waitFor(() => {
+                expect(signedIn).toHaveBeenCalledWith("recovered");
+            });
+            unmount();
+            expect(identity.signOut).not.toHaveBeenCalled();
         });
-        await waitFor(() => {
-            expect(result.current.step).toBe("code");
+
+        it("ends nothing when no code was accepted yet", () => {
+            const identity = fakeIdentity([]);
+            const { unmount } = renderHook(() => useRecoveryForm(identity, vi.fn()));
+            unmount();
+            expect(identity.signOut).not.toHaveBeenCalled();
         });
-        act(() => {
-            result.current.setCode("123456");
-        });
-        act(() => {
-            result.current.submit();
-        });
-        await waitFor(() => {
-            expect(result.current.step).toBe("password");
-        });
-        expect(holdSession).toHaveBeenLastCalledWith("recovered");
-        act(() => {
-            result.current.setPassword("a-new-password");
-        });
-        act(() => {
-            result.current.submit();
-        });
-        await waitFor(() => {
-            expect(signedIn).toHaveBeenCalledWith("recovered");
-        });
-        expect(holdSession).toHaveBeenLastCalledWith(null);
     });
 
     it("starts over when the privileged window ran out, without signing in", async () => {

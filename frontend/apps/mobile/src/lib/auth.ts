@@ -11,7 +11,6 @@ interface StoredSession {
 }
 
 const KEY = "cb_session";
-const HELD_KEY = "cb_session_held";
 
 // in memory as well, so a screen mounted later queries as this user from its first render
 let currentUser: string | null = null;
@@ -55,26 +54,6 @@ function serialized<T>(fn: () => Promise<T>): Promise<T> {
         () => undefined,
     );
     return next;
-}
-
-/** A sign-in or reset still under way; if the app is killed, its token would otherwise be lost. */
-export function holdSession(sessionToken: string | null): void {
-    serialized(() =>
-        sessionToken === null
-            ? SecureStore.deleteItemAsync(HELD_KEY)
-            : SecureStore.setItemAsync(HELD_KEY, sessionToken),
-    ).catch(() => undefined);
-}
-
-/** At launch, ends what a killed app left behind; offline, it stays for the next launch. */
-export async function endHeldSession(end: (sessionToken: string) => Promise<void>): Promise<void> {
-    const held = await serialized(() => SecureStore.getItemAsync(HELD_KEY));
-    if (held === null) return;
-    await end(held);
-    await serialized(async () => {
-        if ((await SecureStore.getItemAsync(HELD_KEY)) === held)
-            await SecureStore.deleteItemAsync(HELD_KEY);
-    });
 }
 
 export async function forgetSession(): Promise<void> {

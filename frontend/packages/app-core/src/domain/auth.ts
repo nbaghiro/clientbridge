@@ -173,8 +173,6 @@ interface AuthOptions {
     probe?: boolean;
     /** Web navigates away; mobile opens an auth session and returns the callback URL. */
     openUrl?: (url: string) => Promise<string | null>;
-    /** Mobile keeps an unfinished sign-in's token, so a launch after the app was killed can end it. */
-    holdSession?: (sessionToken: string | null) => void;
     /** Sign-up mailed a code: the app's confirm step resumes this verification flow. */
     onVerificationStarted?: (flowId: string) => void;
     webauthn?: WebAuthnLike;
@@ -238,22 +236,6 @@ export function useAuthForm(
     });
     const { enter } = mfa;
 
-    const hold = useCallback(
-        (sessionToken: string | undefined): void => {
-            pending.current = sessionToken;
-            opts?.holdSession?.(sessionToken ?? null);
-        },
-        [opts],
-    );
-
-    const complete = useCallback(
-        async (sessionToken?: string): Promise<void> => {
-            hold(undefined);
-            await onSignedIn(sessionToken);
-        },
-        [hold, onSignedIn],
-    );
-
     const show = useCallback(
         (next: Flow): void => {
             setFlow(next);
@@ -284,13 +266,13 @@ export function useAuthForm(
         async (sessionToken?: string): Promise<void> => {
             const state = await identity.session(sessionToken);
             if (state === "second_factor") {
-                hold(sessionToken);
+                pending.current = sessionToken;
                 secondStep(await identity.start("login", { secondFactor: true, sessionToken }));
                 return;
             }
-            await complete(sessionToken);
+            await onSignedIn(sessionToken);
         },
-        [complete, hold, identity, secondStep],
+        [identity, onSignedIn, secondStep],
     );
 
     const handle = useCallback(
@@ -310,10 +292,10 @@ export function useAuthForm(
                 else await opts?.openUrl?.(step.url);
             } else if (step.next?.flow === "verification") {
                 opts?.onVerificationStarted?.(step.next.id);
-                await complete(step.sessionToken);
+                await onSignedIn(step.sessionToken);
             } else await finish(step.sessionToken);
         },
-        [a.flowExpired, complete, finish, identity, opts, secondStep, setError, show],
+        [a.flowExpired, finish, identity, onSignedIn, opts, secondStep, setError, show],
     );
 
     useEffect(() => {
@@ -379,7 +361,7 @@ export function useAuthForm(
         const step = await mfa.confirm(current, pending.current);
         if (step === null) return;
         if (step.kind === "done") {
-            await complete(step.sessionToken ?? pending.current);
+            await onSignedIn(step.sessionToken ?? pending.current);
             return;
         }
         await handle(step, () => undefined);
@@ -446,7 +428,7 @@ export function useAuthForm(
         cancel: () => {
             run(async () => {
                 await identity.signOut(pending.current);
-                hold(undefined);
+                pending.current = undefined;
                 setMode("signin");
             });
         },
@@ -568,8 +550,6 @@ export function useRecoveryForm(
         defaultEmail?: string;
         flowId?: string;
         webauthn?: WebAuthnLike;
-        /** Mobile keeps an unfinished reset's token, so a launch after the app was killed can end it. */
-        holdSession?: (sessionToken: string | null) => void;
     },
 ): RecoveryForm {
     const a = strings.auth;
@@ -582,6 +562,7 @@ export function useRecoveryForm(
     const [cooldown, setCooldown] = useCooldown();
     const [flow, setFlow] = useState<Flow | null>(null);
     const token = useRef<string | undefined>(undefined);
+    const holding = useRef(false);
     const settingsId = useRef("");
     const { busy, error, setError, run } = useAsyncAction();
     const mfa = useSecondFactor(identity, opts?.webauthn, {
@@ -594,8 +575,21 @@ export function useRecoveryForm(
 
     const hold = (sessionToken: string | undefined): void => {
         token.current = sessionToken;
-        opts?.holdSession?.(sessionToken ?? null);
+        holding.current = true;
     };
+
+    const release = (): void => {
+        token.current = undefined;
+        holding.current = false;
+    };
+
+    // Leaving before the password is saved (a back gesture, say) ends the reset's session too.
+    useEffect(
+        () => () => {
+            if (holding.current) identity.signOut(token.current).catch(() => undefined);
+        },
+        [],
+    );
 
     const show = (next: Flow): void => {
         setFlow(next);
@@ -678,7 +672,7 @@ export function useRecoveryForm(
     // Ends the half-finished session too, or the auth service refuses to start another reset.
     const startOver = async (message: string | null): Promise<void> => {
         await identity.signOut(token.current).catch(() => undefined);
-        hold(undefined);
+        release();
         setFlow(null);
         setCode("");
         setPassword("");
@@ -713,7 +707,7 @@ export function useRecoveryForm(
         const outcome = passwordSaveOutcome(result);
         if (outcome === "saved") {
             const saved = token.current;
-            hold(undefined);
+            release();
             await onSignedIn(saved);
             return;
         }

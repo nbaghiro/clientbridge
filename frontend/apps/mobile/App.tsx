@@ -34,7 +34,7 @@ import { Splash, revealApp } from "./src/components/Splash";
 import { ShellBanners, TabBar } from "./src/components/TabBar";
 import { TaskHost } from "./src/components/TaskHost";
 import { api, identity, onSignedOut, selectBusiness } from "./src/lib/api";
-import { clearSession, endHeldSession, getSession, rememberUser, signIn } from "./src/lib/auth";
+import { clearSession, getSession, rememberUser, signIn } from "./src/lib/auth";
 import { stripePublishableKey } from "./src/lib/config";
 import { isTablet } from "./src/lib/device";
 import { connectPowerSync, replica, signOut } from "./src/lib/powersync";
@@ -69,7 +69,6 @@ import { SecurityScreen } from "./src/screens/Security";
 configureStripe(stripePublishableKey);
 // transport failures already show in the shell's sync banner; the dev overlay only repeats them
 LogBox.ignoreLogs([/^\[PowerSync\]: Sync error/]);
-endHeldSession((sessionToken) => identity.signOut(sessionToken)).catch(() => undefined);
 
 const Tab = createBottomTabNavigator<TabParamList>();
 const RootStack = createNativeStackNavigator<RootStackParamList>();
