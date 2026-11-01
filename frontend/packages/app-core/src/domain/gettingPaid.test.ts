@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -13,6 +13,7 @@ import {
     requirementErrorCopy,
     useAccountNotices,
     useGettingPaid,
+    usePaymentAccount,
 } from "./gettingPaid";
 
 vi.mock("../hooks", async (importOriginal) => ({
@@ -312,5 +313,67 @@ describe("useGettingPaid", () => {
         await waitFor(() => {
             expect(result.current.phase).toBe("enabled");
         });
+    });
+});
+
+function sessionApi(): ApiLike & { asked: unknown[]; answer: () => void } {
+    const asked: unknown[] = [];
+    const waiting: (() => void)[] = [];
+    return {
+        ...statusApi(true),
+        asked,
+        answer: () => {
+            for (const resolve of waiting.splice(0)) resolve();
+        },
+        post: <T>(_path: string, body?: unknown) => {
+            asked.push(body);
+            return new Promise<T>((resolve) => {
+                waiting.push(() => {
+                    resolve({ client_secret: "as_secret" } as T);
+                });
+            });
+        },
+    };
+}
+
+describe("usePaymentAccount", () => {
+    it("gives the open panel a session for its component", async () => {
+        const api = sessionApi();
+        const { result } = renderHook(() => usePaymentAccount(api));
+        await waitFor(() => {
+            expect(result.current.ready).toBe(true);
+        });
+        act(() => {
+            result.current.open("account");
+        });
+        const secret = result.current.props?.fetchClientSecret();
+        api.answer();
+        await expect(secret).resolves.toBe("as_secret");
+        expect(api.asked).toEqual([{ component: "account" }]);
+    });
+
+    it("refuses a session to a panel that was closed or replaced", async () => {
+        const api = sessionApi();
+        const { result } = renderHook(() => usePaymentAccount(api));
+        await waitFor(() => {
+            expect(result.current.ready).toBe(true);
+        });
+        act(() => {
+            result.current.open("payments");
+        });
+        const replaced = result.current.props?.fetchClientSecret;
+        const inFlight = replaced?.();
+        act(() => {
+            result.current.open("payouts");
+        });
+        api.answer();
+        await expect(inFlight).rejects.toThrow(strings.paymentAccount.expired);
+        await expect(replaced?.()).rejects.toThrow(strings.paymentAccount.expired);
+        const closed = result.current.props?.fetchClientSecret;
+        act(() => {
+            result.current.close();
+        });
+        await expect(closed?.()).rejects.toThrow(strings.paymentAccount.expired);
+        expect(api.asked).toEqual([{ component: "payments" }]);
     });
 });
