@@ -130,12 +130,17 @@ export async function newBusiness(
     return { ...row, name, email: account.email, password: account.password };
 }
 
-/** A change made straight through the API, as another device would. */
-export async function patchBusiness(page: Page, data: unknown) {
-    return page.request.patch(`${runUrl("VITE_API_URL")}/v1/business`, {
+function apiRequest(page: Page, method: "PATCH" | "POST", path: string, data: unknown) {
+    return page.request.fetch(`${runUrl("VITE_API_URL")}${path}`, {
+        method,
         headers: { Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() },
         data,
     });
+}
+
+/** A change made straight through the API, as another device would. */
+export async function patchBusiness(page: Page, data: unknown) {
+    return apiRequest(page, "PATCH", "/v1/business", data);
 }
 
 export async function storedBrand(id: string): Promise<Record<string, unknown>> {
@@ -210,22 +215,17 @@ export async function expectBranded(
 
 /** A sent invoice's public pay link, on a client of the signed-in business. */
 export async function payLink(page: Page): Promise<string> {
-    const api = runUrl("VITE_API_URL");
-    const headers = { Origin: new URL(page.url()).origin };
-    const client = await page.request.post(`${api}/v1/clients`, {
-        headers: { ...headers, "Idempotency-Key": randomUUID() },
-        data: { name: "Pay Link Client", phone: freshPhone() },
+    const client = await apiRequest(page, "POST", "/v1/clients", {
+        name: "Pay Link Client",
+        phone: freshPhone(),
     });
     expect(client.status(), await client.text()).toBe(201);
-    const invoice = await page.request.post(`${api}/v1/invoices`, {
-        headers: { ...headers, "Idempotency-Key": randomUUID() },
-        data: {
-            client_id: ((await client.json()) as { id: string }).id,
-            lines: [
-                { description: "Visit", quantity: 1, unit_amount_cents: 5000, tax_class: "exempt" },
-            ],
-            send: true,
-        },
+    const invoice = await apiRequest(page, "POST", "/v1/invoices", {
+        client_id: ((await client.json()) as { id: string }).id,
+        lines: [
+            { description: "Visit", quantity: 1, unit_amount_cents: 5000, tax_class: "exempt" },
+        ],
+        send: true,
     });
     expect(invoice.status(), await invoice.text()).toBe(201);
     const id = ((await invoice.json()) as { id: string }).id;
