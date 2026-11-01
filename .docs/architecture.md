@@ -523,13 +523,16 @@ a non-2xx reply makes it retry.
   cluster. `scripts.verify_kratos` runs the pinned Kratos with that environment and the Kratos contract
   against it.
 - **Rate limits** — Kratos OSS has no login lockout, so Cloud Armor throttles the auth service's
-  `/auth/self-service/*` paths per address at the gateway (`gateway.auth_limits`, CB-1) and answers 429:
-  10 POSTs a minute to recovery and verification, 30 to login and registration, 120 requests a minute to
-  anything else. Guessing spread over many addresses is not stopped. A browser can't read that 429 across
-  origins, so it shows `auth.unavailable`; a phone shows `auth.tooManyAttempts`. `send_auth_email` also
-  caps auth mail at 10 an hour per recipient, whoever asks for it, and answers the courier as if the rest
-  were sent; a send that fails gives its count back, so the courier's retries during an outage don't use
-  up the cap, and a Redis outage lifts the cap rather than stopping sign-ups and resets.
+  `/auth/self-service/*` paths per address at the gateway and answers 429, at the per-minute rates in
+  `gateway.AUTH_RULES` (CB-1). Guessing spread over many addresses is not stopped. A browser can't read
+  that 429 across origins, so it shows `auth.unavailable`; a phone shows `auth.tooManyAttempts`.
+  `send_auth_email` also caps auth mail at 10 an hour for each recipient and template
+  (`auth_email_hourly_limit`), whoever asks for it, and answers the courier as if the rest were sent.
+  Counting by template means a flood of recovery requests can't hold back the same person's verification
+  or sign-up code. The count uses one form of the address (trimmed, lowercased, without a `+tag`, and without dots for Gmail), so
+  spellings of one inbox share it; mail still goes to the address as given. A send that fails gives its
+  count back, so the courier's retries during an outage don't use up the cap, and a Redis outage lifts
+  the cap rather than stopping sign-ups and resets.
 - **Not built in** — the admin API must stay on the private network.
 
 ## Authorization & visibility

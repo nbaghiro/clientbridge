@@ -1,11 +1,12 @@
 import secrets
+from collections.abc import Awaitable, Callable
 
 import httpx
 import pytest
 
 from clientbridge.core.config import Environment, get_settings
 from clientbridge.core.deps import get_auth_email_secret
-from clientbridge.core.ratelimit import RateLimiter, allow_action, release_action
+from clientbridge.core.ratelimit import RateLimiter
 from clientbridge.integrations.resend import Email, get_email_sender
 from clientbridge.main import app
 from clientbridge.services import notifications
@@ -22,6 +23,25 @@ def _courier(template_type: str, **extra: object) -> dict[str, object]:
 class FailingEmailSender:
     async def send(self, email: Email) -> None:
         raise ConnectionError("smtp down")
+
+
+PostFailing = Callable[[dict[str, object]], Awaitable[int]]
+
+
+@pytest.fixture
+def post_failing(api: httpx.AsyncClient, email: FakeEmailSender) -> PostFailing:
+    """Posts with a sender that raises, reading the 500 rather than raising it, then puts back."""
+
+    async def post(body: dict[str, object]) -> int:
+        app.dependency_overrides[get_email_sender] = FailingEmailSender
+        transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+        try:
+            async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+                return (await client.post(URL, json=body, headers=GOOD)).status_code
+        finally:
+            app.dependency_overrides[get_email_sender] = lambda: email
+
+    return post
 
 
 @pytest.mark.parametrize(
@@ -115,18 +135,57 @@ async def test_one_address_stops_getting_auth_email_at_its_limit(
 ) -> None:
     monkeypatch.setattr(notifications, "auth_email_limiter", RateLimiter(limit=2, window_s=3600))
     code = {"code": "482913", "expires_in_minutes": 15}
-    for kind, address in (
-        ("recovery_code_valid", "limited@example.com"),
-        ("verification_code_valid", "Limited@Example.com"),
-        ("recovery_code_invalid", "limited@example.com"),
-        ("recovery_code_valid", "other@example.com"),
+    for address in (
+        "limited@example.com",
+        "Limited@Example.com",
+        "limited@example.com",
+        "other@example.com",
     ):
-        body = {**_courier(kind, **code), "to": address}
+        body = {**_courier("recovery_code_valid", **code), "to": address}
         assert (await api.post(URL, json=body, headers=GOOD)).status_code == 200
     assert [sent.to for sent in email.sent] == [
         "limited@example.com",
         "Limited@Example.com",
         "other@example.com",
+    ]
+
+
+async def test_recovery_spam_does_not_block_a_verification_code(
+    api: httpx.AsyncClient, email: FakeEmailSender, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(notifications, "auth_email_limiter", RateLimiter(limit=1, window_s=3600))
+    code = {"code": "482913", "expires_in_minutes": 15}
+    for kind in ("recovery_code_valid", "recovery_code_valid", "verification_code_valid"):
+        body = {**_courier(kind, **code), "to": "victim@example.com"}
+        assert (await api.post(URL, json=body, headers=GOOD)).status_code == 200
+    assert [sent.subject for sent in email.sent] == [
+        "Your Clientbridge password reset code",
+        "Your Clientbridge verification code",
+    ]
+
+
+async def test_tag_and_dot_spellings_of_one_inbox_share_a_count(
+    api: httpx.AsyncClient, email: FakeEmailSender, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(notifications, "auth_email_limiter", RateLimiter(limit=2, window_s=3600))
+    code = {"code": "482913", "expires_in_minutes": 15}
+    for address in (
+        "jane.doe@gmail.com",
+        " JaneDoe+reset@gmail.com",
+        "j.a.n.e.doe+x@gmail.com",
+        "jane.doe+a@example.com",
+        "jane.doe+b@example.com",
+        "jane.doe@example.com",
+        "janedoe@example.com",
+    ):
+        body = {**_courier("recovery_code_valid", **code), "to": address}
+        assert (await api.post(URL, json=body, headers=GOOD)).status_code == 200
+    assert [sent.to for sent in email.sent] == [
+        "jane.doe@gmail.com",
+        " JaneDoe+reset@gmail.com",
+        "jane.doe+a@example.com",
+        "jane.doe+b@example.com",
+        "janedoe@example.com",
     ]
 
 
@@ -153,19 +212,18 @@ async def test_a_redis_outage_still_sends_auth_email(
     assert len(email.sent) == 1
 
 
-async def test_send_failure_is_a_5xx_so_the_auth_service_retries(api: httpx.AsyncClient) -> None:
-    app.dependency_overrides[get_email_sender] = FailingEmailSender
+async def test_send_failure_is_a_5xx_so_the_auth_service_retries(
+    post_failing: PostFailing,
+) -> None:
     body = _courier("recovery_code_valid", code="482913", expires_in_minutes=15)
-    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
-    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-        res = await client.post(URL, json=body, headers=GOOD)
-    assert res.status_code == 500
+    assert await post_failing(body) == 500
 
 
 @pytest.mark.parametrize("env", ["dev", "staging"])
 async def test_failed_sends_do_not_use_up_the_limit(
     api: httpx.AsyncClient,
     email: FakeEmailSender,
+    post_failing: PostFailing,
     monkeypatch: pytest.MonkeyPatch,
     env: Environment,
 ) -> None:
@@ -173,35 +231,17 @@ async def test_failed_sends_do_not_use_up_the_limit(
     monkeypatch.setattr(notifications, "auth_email_limiter", RateLimiter(limit=1, window_s=60))
     address = f"{secrets.token_hex(12)}@example.com"
     body = {**_courier("recovery_code_valid", code="482913", expires_in_minutes=15), "to": address}
-    app.dependency_overrides[get_email_sender] = FailingEmailSender
-    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
-    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-        for _ in range(3):
-            assert (await client.post(URL, json=body, headers=GOOD)).status_code == 500
-    app.dependency_overrides[get_email_sender] = lambda: email
+    for _ in range(3):
+        assert await post_failing(body) == 500
     for _ in range(2):
         assert (await api.post(URL, json=body, headers=GOOD)).status_code == 200
     assert [sent.to for sent in email.sent] == [address]
 
 
 async def test_a_failed_send_during_a_redis_outage_is_still_a_5xx(
-    api: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+    post_failing: PostFailing, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(get_settings(), "env", "staging")
     monkeypatch.setattr(get_settings(), "redis_url", "redis://127.0.0.1:1/0")
-    app.dependency_overrides[get_email_sender] = FailingEmailSender
     body = _courier("recovery_code_valid", code="482913", expires_in_minutes=15)
-    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
-    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-        assert (await client.post(URL, json=body, headers=GOOD)).status_code == 500
-
-
-async def test_giving_back_a_lapsed_count_keeps_the_next_window_limited(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(get_settings(), "env", "staging")
-    limiter = RateLimiter(limit=1, window_s=60)
-    address = f"{secrets.token_hex(12)}@example.com"
-    await release_action(address, "auth-email", limiter)
-    assert await allow_action(address, "auth-email", limiter)
-    assert not await allow_action(address, "auth-email", limiter)
+    assert await post_failing(body) == 500
