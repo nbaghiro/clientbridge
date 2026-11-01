@@ -340,6 +340,10 @@ describe("useBrandForm", () => {
             expect(files.done).toHaveLength(2);
         });
         expect(result.current.uploading).toBe(true);
+        act(() => {
+            result.current.submit();
+        });
+        expect(bodies).toEqual([]);
         replica.rows = [
             { ...BRAND_ROW, brand: JSON.stringify({ primary: "#2E4A3F", tagline: "Newer" }) },
         ];
