@@ -7,16 +7,12 @@ import {
     bareUrl,
     bookingPageUrl,
     brandColourName,
-    coverTarget,
-    logoTarget,
-    mediaUrl,
     pageDomain,
     strings,
     timeZoneOptions,
     useBookingPreview,
     useBrandForm,
     useBusinessForm,
-    useFileUpload,
 } from "@clientbridge/app-core";
 import { readableInk } from "@clientbridge/tokens";
 import {
@@ -47,7 +43,7 @@ const l = strings.business.legalAddress;
 export function Business() {
     const brand = useBrandForm(api);
     const form = useBusinessForm(api);
-    useLeaveGuard(brand.dirty || form.dirty);
+    useLeaveGuard(brand.dirty || brand.uploading || form.dirty);
     return (
         <div className="space-y-6">
             <PageHeader
@@ -275,17 +271,15 @@ function BookingPreview({ brand, logo }: { brand: BrandForm; logo: string | null
 
 /** Logo, cover, colour and the public business page, with a live preview of the booking page. */
 function BrandPanel({ brand }: { brand: BrandForm }) {
-    const upload = useFileUpload(api, brand.setLogoFileId);
     const input = useRef<HTMLInputElement>(null);
     const coverInput = useRef<HTMLInputElement>(null);
-    const coverUpload = useFileUpload(api, brand.setCoverFileId);
 
-    const logo = brand.logoFileId === "" ? null : mediaUrl(apiBaseUrl, brand.logoFileId);
-    const cover = brand.coverFileId === "" ? null : mediaUrl(apiBaseUrl, brand.coverFileId);
+    const logo = brand.logo.src(apiBaseUrl);
+    const cover = brand.cover.src(apiBaseUrl);
     const onPick = (e: ChangeEvent<HTMLInputElement>): void => {
         const file = e.target.files?.[0];
-        if (file === undefined || brand.businessId === null) return;
-        upload.upload(isSvg(file) ? pngFromSvg(file) : file, logoTarget(brand.businessId));
+        if (file === undefined) return;
+        brand.logo.upload(isSvg(file) ? pngFromSvg(file) : file);
         e.target.value = "";
     };
     return (
@@ -301,15 +295,7 @@ function BrandPanel({ brand }: { brand: BrandForm }) {
                         {brand.error !== null ? <Notice tone="danger">{brand.error}</Notice> : null}
                         {brand.saved ? <Notice tone="success">{o.saved}</Notice> : null}
                         {brand.dirty ? <Notice tone="info">{o.unsaved}</Notice> : null}
-                        <Button
-                            onPress={() => {
-                                upload.reset();
-                                coverUpload.reset();
-                                brand.submit();
-                            }}
-                            busy={brand.busy}
-                            disabled={coverUpload.busy || upload.busy}
-                        >
+                        <Button onPress={brand.submit} busy={brand.busy} disabled={brand.uploading}>
                             {brand.busy ? o.saving : o.save}
                         </Button>
                     </>
@@ -337,7 +323,7 @@ function BrandPanel({ brand }: { brand: BrandForm }) {
                             size="sm"
                             variant="outline"
                             icon="upload"
-                            busy={upload.busy}
+                            busy={brand.logo.busy}
                             disabled={!brand.ready}
                             onPress={() => {
                                 input.current?.click();
@@ -346,13 +332,7 @@ function BrandPanel({ brand }: { brand: BrandForm }) {
                             {logo !== null ? strings.files.replaceLogo : strings.files.uploadLogo}
                         </Button>
                         {logo !== null ? (
-                            <Button
-                                size="sm"
-                                variant="link"
-                                onPress={() => {
-                                    brand.setLogoFileId("");
-                                }}
-                            >
+                            <Button size="sm" variant="link" onPress={brand.logo.remove}>
                                 {strings.files.removeLogo}
                             </Button>
                         ) : null}
@@ -364,7 +344,9 @@ function BrandPanel({ brand }: { brand: BrandForm }) {
                             className="hidden"
                         />
                     </div>
-                    {upload.error !== null ? <Notice tone="danger">{upload.error}</Notice> : null}
+                    {brand.logo.error !== null ? (
+                        <Notice tone="danger">{brand.logo.error}</Notice>
+                    ) : null}
                     <Field label={o.coverPhoto} hint={o.coverHint}>
                         <div
                             className="aspect-[3/1] overflow-hidden rounded-lg"
@@ -378,7 +360,7 @@ function BrandPanel({ brand }: { brand: BrandForm }) {
                             <Button
                                 size="sm"
                                 variant="outline"
-                                busy={coverUpload.busy}
+                                busy={brand.cover.busy}
                                 disabled={!brand.ready}
                                 onPress={() => {
                                     coverInput.current?.click();
@@ -387,13 +369,7 @@ function BrandPanel({ brand }: { brand: BrandForm }) {
                                 {cover !== null ? o.replaceCover : o.uploadCover}
                             </Button>
                             {cover !== null ? (
-                                <Button
-                                    size="sm"
-                                    variant="link"
-                                    onPress={() => {
-                                        brand.setCoverFileId("");
-                                    }}
-                                >
+                                <Button size="sm" variant="link" onPress={brand.cover.remove}>
                                     {o.removeCover}
                                 </Button>
                             ) : null}
@@ -405,13 +381,12 @@ function BrandPanel({ brand }: { brand: BrandForm }) {
                             hidden
                             onChange={(event) => {
                                 const file = event.target.files?.[0];
-                                if (file && brand.businessId)
-                                    coverUpload.upload(file, coverTarget(brand.businessId));
+                                if (file) brand.cover.upload(file);
                                 event.target.value = "";
                             }}
                         />
-                        {coverUpload.error ? (
-                            <Notice tone="danger">{coverUpload.error}</Notice>
+                        {brand.cover.error !== null ? (
+                            <Notice tone="danger">{brand.cover.error}</Notice>
                         ) : null}
                     </Field>
                     <Field label={o.colour}>

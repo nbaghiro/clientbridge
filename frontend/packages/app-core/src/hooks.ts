@@ -280,6 +280,91 @@ export function useMonthGrid(value: string, zone: string, min?: string, max?: st
     };
 }
 
+type DraftValue = string | readonly string[];
+
+function sameDraftValue(a: DraftValue | undefined, b: DraftValue | undefined): boolean {
+    if (typeof a !== "object" || typeof b !== "object") return a === b;
+    return a.length === b.length && a.every((value, i) => value === b[i]);
+}
+
+type Drafted<T> = { [K in keyof T]?: { value: T[K]; over: T[K] | undefined } };
+
+interface SyncedDraft<T> {
+    /** The saved values with the edits over them; null until `stored` loads. */
+    values: T | null;
+    /** What is saved: the last save's answer until the replica moves on, then the replica. */
+    base: T | null;
+    changes: Partial<T>;
+    dirty: boolean;
+    set: <K extends keyof T>(key: K, value: T[K] | ((current: T[K]) => T[K])) => void;
+    /** After a save: edits it sent leave the draft, and `saved` shows until the replica changes. */
+    settle: (sent: Partial<T>, saved: T | null) => void;
+}
+
+/** Only what was edited over a synced record, so a field nobody touched follows the replica. */
+export function useSyncedDraft<T extends { [K in keyof T]: DraftValue }>(
+    stored: T | null,
+): SyncedDraft<T> {
+    const storedKey = stored === null ? "" : JSON.stringify(stored);
+    const [confirmed, setConfirmed] = useState<{ key: string; values: T } | null>(null);
+    if (confirmed !== null && confirmed.key !== storedKey) setConfirmed(null);
+    const base = confirmed?.key === storedKey ? confirmed.values : stored;
+    const [draft, setDraft] = useState<Drafted<T>>({});
+    const latest = useRef({ base, storedKey });
+    latest.current = { base, storedKey };
+
+    const set = useCallback(
+        <K extends keyof T>(key: K, value: T[K] | ((current: T[K]) => T[K])): void => {
+            const over = latest.current.base?.[key];
+            setDraft((d) => {
+                const current = d[key]?.value ?? over;
+                const next =
+                    typeof value === "function"
+                        ? current === undefined
+                            ? undefined
+                            : value(current)
+                        : value;
+                return next === undefined ? d : { ...d, [key]: { value: next, over } };
+            });
+        },
+        [],
+    );
+    const settle = useCallback((sent: Partial<T>, saved: T | null): void => {
+        setDraft(
+            (d) =>
+                Object.fromEntries(
+                    Object.entries(d).filter(([key, entry]) => {
+                        const sentValue = sent[key as keyof T];
+                        return (
+                            sentValue === undefined ||
+                            !sameDraftValue((entry as { value: DraftValue }).value, sentValue)
+                        );
+                    }),
+                ) as Drafted<T>,
+        );
+        if (saved !== null) setConfirmed({ key: latest.current.storedKey, values: saved });
+    }, []);
+
+    // a value typed back to what was saved when it was typed is no edit, so the replica shows through
+    const edits = (Object.keys(draft) as (keyof T)[]).flatMap((key) => {
+        const entry = draft[key];
+        return entry === undefined || sameDraftValue(entry.value, entry.over)
+            ? []
+            : [[key, entry.value] as const];
+    });
+    const changes = Object.fromEntries(
+        edits.filter(([key, value]) => base === null || !sameDraftValue(value, base[key])),
+    ) as Partial<T>;
+    return {
+        values: base === null ? null : { ...base, ...Object.fromEntries(edits) },
+        base,
+        changes,
+        dirty: Object.keys(changes).length > 0,
+        set,
+        settle,
+    };
+}
+
 export type DraftRow<K extends string> = Record<K, string>;
 
 interface DraftList<K extends string> {

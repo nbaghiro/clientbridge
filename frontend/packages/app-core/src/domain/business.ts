@@ -3,7 +3,7 @@ import { useBusinessQuery as useQuery } from "../hooks";
 import { usePowerSync, useQuery as useGlobalQuery } from "@powersync/react";
 import { useCallback, useEffect, useState } from "react";
 
-import { type Load, useAsyncAction, useLoad } from "../hooks";
+import { type Load, useAsyncAction, useLoad, useSyncedDraft } from "../hooks";
 import { BUSINESS_CURRENCY, formatList, formatMoney, formatParts } from "../format";
 import { strings } from "../strings";
 import { type ApiLike, failedCode, failedFields, failureMessage } from "../api";
@@ -20,6 +20,7 @@ import { SUBJECT_ICON } from "../icons";
 import { type SubjectKind, useSubjectKind } from "./subjects";
 import { PROVINCE_LOCKED_SQL, taxSummary } from "./taxes";
 import { depositCents } from "./catalog";
+import { coverTarget, logoTarget, mediaUrl, useFileUpload } from "./files";
 
 interface BusinessRow {
     id: string;
@@ -145,21 +146,20 @@ export const PICKUP_FIELDS = (
     },
 }));
 
-interface Brand {
+type Brand = ProfileFields & {
     logo_file_id: string;
     cover_file_id: string;
     primary: string;
     tagline: string;
-    profile: ProfileFields;
     public_staff_ids: string[];
-}
+};
 
 const NO_BRAND: Brand = {
+    ...EMPTY_PROFILE,
     logo_file_id: "",
     cover_file_id: "",
     primary: "",
     tagline: "",
-    profile: EMPTY_PROFILE,
     public_staff_ids: [],
 };
 
@@ -168,11 +168,7 @@ function parseBrand(raw: string | null): Brand {
     try {
         const b = JSON.parse(raw) as Record<string, unknown>;
         return {
-            logo_file_id: typeof b.logo_file_id === "string" ? b.logo_file_id : "",
-            cover_file_id: typeof b.cover_file_id === "string" ? b.cover_file_id : "",
-            primary: typeof b.primary === "string" ? b.primary : "",
-            tagline: typeof b.tagline === "string" ? b.tagline : "",
-            profile: Object.fromEntries(
+            ...(Object.fromEntries(
                 PROFILE_KEYS.map((key) => [
                     key,
                     key === "gallery_urls" && Array.isArray(b[key])
@@ -183,7 +179,11 @@ function parseBrand(raw: string | null): Brand {
                           ? String(b[key])
                           : EMPTY_PROFILE[key],
                 ]),
-            ) as ProfileFields,
+            ) as ProfileFields),
+            logo_file_id: typeof b.logo_file_id === "string" ? b.logo_file_id : "",
+            cover_file_id: typeof b.cover_file_id === "string" ? b.cover_file_id : "",
+            primary: typeof b.primary === "string" ? b.primary : "",
+            tagline: typeof b.tagline === "string" ? b.tagline : "",
             public_staff_ids: Array.isArray(b.public_staff_ids)
                 ? b.public_staff_ids.filter((id): id is string => typeof id === "string")
                 : [],
@@ -307,8 +307,6 @@ export const BUSINESS_ADDRESS_FIELDS: {
     },
 ];
 
-type BusinessFieldErrors = Partial<Record<keyof BusinessFields, string>>;
-
 interface BusinessForm {
     fields: BusinessFields | null; // null until the synced business row loads
     /** The province's name, shown here and changed in Sales tax, since it sets the tax charged. */
@@ -318,7 +316,7 @@ interface BusinessForm {
     set: (key: keyof BusinessFields, value: string) => void;
     /** The slug differs from the saved one, so links and QR codes already shared will stop working. */
     slugChanged: boolean;
-    fieldErrors: BusinessFieldErrors;
+    fieldErrors: Partial<Record<keyof BusinessFields, string>>;
     dirty: boolean;
     busy: boolean;
     error: string | null;
@@ -350,35 +348,46 @@ const BUSINESS_FIELD_ERRORS: Partial<Record<keyof BusinessFields, () => string>>
     city: () => strings.business.fieldErrors.tooLong,
 };
 
+interface FieldErrors<K extends string> {
+    errors: Partial<Record<K, string>>;
+    clear: (key: K) => void;
+    reset: () => void;
+    /** Marks the fields a refusal named and returns the message for the whole form. */
+    explain: (e: unknown) => string;
+}
+
+function useFieldErrors<K extends string>(
+    messages: Partial<Record<K, () => string>>,
+    prefix = "",
+): FieldErrors<K> {
+    const [errors, setErrors] = useState<Partial<Record<K, string>>>({});
+    return {
+        errors,
+        clear: (key) => {
+            setErrors((current) => without(current, key));
+        },
+        reset: () => {
+            setErrors({});
+        },
+        explain: (e) => {
+            const refused = refusedFields(e, messages, prefix);
+            setErrors(refused);
+            return Object.keys(refused).length > 0
+                ? strings.business.checkFields
+                : failureMessage(e, strings.business.saveError);
+        },
+    };
+}
+
 /** Holds only what was edited over the synced row, and sends only that, so a stale form erases nothing. */
 export function useBusinessForm(api: ApiLike): BusinessForm {
     const row = useQuery<BusinessRow>(BUSINESS_SQL).data[0] ?? null;
     const locked = useQuery<{ province_locked: number }>(PROVINCE_LOCKED_SQL).data[0];
     const { busy, error, setError, run } = useAsyncAction();
-    const [draft, setDraft] = useState<Partial<BusinessFields>>({});
-    const [fieldErrors, setFieldErrors] = useState<BusinessFieldErrors>({});
+    const draft = useSyncedDraft(row === null ? null : businessFields(row));
+    const fieldErrors = useFieldErrors(BUSINESS_FIELD_ERRORS);
     const [saved, setSaved] = useState(false);
-    // What the last save returned, shown until that save syncs back, so old values don't flash.
-    const [confirmed, setConfirmed] = useState<BusinessFields | null>(null);
-    const rowKey = row === null ? "" : JSON.stringify(businessFields(row));
-    useEffect(() => {
-        setConfirmed(null);
-    }, [rowKey]);
-
-    const base = confirmed ?? (row === null ? null : businessFields(row));
-    const fields = base === null ? null : { ...base, ...draft };
-
-    const set = (key: keyof BusinessFields, value: string): void => {
-        setSaved(false);
-        setFieldErrors((errors) => without(errors, key));
-        const next = key === "slug" ? slugDraft(value) : value;
-        // Typed back to what is stored is no edit, so a later change from another device stays.
-        setDraft((d) => (next === base?.[key] ? without(d, key) : { ...d, [key]: next }));
-    };
-
-    const edited = (Object.keys(draft) as (keyof BusinessFields)[]).filter(
-        (key) => base !== null && draft[key] !== base[key],
-    );
+    const fields = draft.values;
 
     const submit = (): void => {
         if (fields === null) return;
@@ -391,45 +400,37 @@ export function useBusinessForm(api: ApiLike): BusinessForm {
             setError(strings.business.onboarding.slugRequired);
             return;
         }
-        const body = Object.fromEntries(
-            edited.map((key) => [key, key === "slug" ? slug : fields[key]]),
-        );
-        const sent = draft;
+        const sent = draft.changes;
+        const body = { ...sent, ...(sent.slug === undefined ? {} : { slug }) };
         let updated: BusinessRow | null = null;
-        const save = async (): Promise<void> => {
-            updated = await api.patch<BusinessRow>("/v1/business", body);
-        };
-        run(save, {
-            onSuccess: () => {
-                setFieldErrors({});
-                setDraft((d) =>
-                    Object.fromEntries(
-                        Object.entries(d).filter(
-                            ([key, value]) => value !== sent[key as keyof BusinessFields],
-                        ),
-                    ),
-                );
-                if (updated !== null) setConfirmed(businessFields(updated));
-                setSaved(true);
+        run(
+            async () => {
+                updated = await api.patch<BusinessRow>("/v1/business", body);
             },
-            errorMessage: (e) => {
-                const refused = refusedFields(e, BUSINESS_FIELD_ERRORS);
-                setFieldErrors(refused);
-                return Object.keys(refused).length > 0
-                    ? strings.business.checkFields
-                    : failureMessage(e, strings.business.saveError);
+            {
+                onSuccess: () => {
+                    fieldErrors.reset();
+                    draft.settle(sent, updated === null ? null : businessFields(updated));
+                    setSaved(true);
+                },
+                errorMessage: fieldErrors.explain,
             },
-        });
+        );
     };
 
     return {
         fields,
         province: PROVINCES.find((p) => p.code === row?.province)?.name ?? "",
         provinceLocked: locked?.province_locked === 1,
-        set,
-        slugChanged: fields !== null && row !== null && slugify(fields.slug) !== row.slug,
-        fieldErrors,
-        dirty: edited.length > 0,
+        set: (key, value) => {
+            setSaved(false);
+            fieldErrors.clear(key);
+            draft.set(key, key === "slug" ? slugDraft(value) : value);
+        },
+        slugChanged:
+            fields !== null && draft.base !== null && slugify(fields.slug) !== draft.base.slug,
+        fieldErrors: fieldErrors.errors,
+        dirty: draft.dirty,
         busy,
         error,
         saved,
@@ -964,16 +965,25 @@ const BRAND_FIELD_ERRORS: Partial<Record<BrandFieldKey, () => string>> = {
     pickup_capacity: () => strings.business.fieldErrors.pickupCapacity,
 };
 
+/** A brand picture: uploading one puts its file id in the draft, removing one clears it. */
+interface BrandImage {
+    src: (apiBase: string) => string | null;
+    upload: (body: Blob | Promise<Blob>) => void;
+    remove: () => void;
+    busy: boolean;
+    error: string | null;
+}
+
 export interface BrandForm {
     ready: boolean;
     businessId: string | null;
     name: string;
     slug: string;
     province: string | null;
-    logoFileId: string;
-    setLogoFileId: (id: string) => void;
-    coverFileId: string;
-    setCoverFileId: (id: string) => void;
+    logo: BrandImage;
+    cover: BrandImage;
+    /** A logo or cover is still on its way, so leaving or saving now would lose it. */
+    uploading: boolean;
     colour: string;
     setColour: (v: string) => void;
     tagline: string;
@@ -993,67 +1003,14 @@ export interface BrandForm {
 
 export const BRAND_SQL = "SELECT id, name, slug, province, brand FROM businesses LIMIT 1";
 
-interface BrandDraft {
-    logo_file_id?: string;
-    cover_file_id?: string;
-    primary?: string;
-    tagline?: string;
-    public_staff_ids?: string[];
-    profile?: Partial<ProfileFields>;
-}
-
-function drafted(stored: Brand, draft: BrandDraft): Brand {
-    return { ...stored, ...draft, profile: { ...stored.profile, ...draft.profile } };
-}
-
-function profileValue(key: ProfileKey, value: string): unknown {
-    if (key === "gallery_urls")
+function brandValue(key: string, value: string | string[]): unknown {
+    if (key === "logo_file_id" || key === "cover_file_id") return value === "" ? null : value;
+    if (key === "gallery_urls" && typeof value === "string")
         return value
             .split("\n")
             .map((url) => url.trim())
             .filter(Boolean);
     return key.startsWith("pickup_") ? Number(value) : value;
-}
-
-/** The brand keys the draft changes; the server merges them, so a change made elsewhere stays. */
-function brandChanges(stored: Brand, draft: BrandDraft): Record<string, unknown> {
-    const current = drafted(stored, draft);
-    const changes: Record<string, unknown> = Object.fromEntries(
-        PROFILE_KEYS.filter((key) => current.profile[key] !== stored.profile[key]).map((key) => [
-            key,
-            profileValue(key, current.profile[key]),
-        ]),
-    );
-    if (current.logo_file_id !== stored.logo_file_id)
-        changes.logo_file_id = current.logo_file_id || null;
-    if (current.cover_file_id !== stored.cover_file_id)
-        changes.cover_file_id = current.cover_file_id || null;
-    if (current.primary !== stored.primary) changes.primary = current.primary;
-    if (current.tagline !== stored.tagline) changes.tagline = current.tagline;
-    if (current.public_staff_ids.join() !== stored.public_staff_ids.join())
-        changes.public_staff_ids = current.public_staff_ids;
-    return changes;
-}
-
-function sameBrandValue(
-    a: string | string[] | undefined,
-    b: string | string[] | undefined,
-): boolean {
-    return Array.isArray(a) && Array.isArray(b) ? a.join() === b.join() : a === b;
-}
-
-/** The draft minus what `settled` holds: what was just saved, or a value typed back to the stored one. */
-function editsBeyond(draft: BrandDraft, settled: BrandDraft): BrandDraft {
-    const kept = (Object.keys(draft) as (keyof BrandDraft)[]).filter(
-        (key) => key !== "profile" && !sameBrandValue(draft[key], settled[key]),
-    );
-    const profile = Object.entries(draft.profile ?? {}).filter(
-        ([key, value]) => value !== settled.profile?.[key as ProfileKey],
-    );
-    return {
-        ...Object.fromEntries(kept.map((key) => [key, draft[key]])),
-        ...(profile.length > 0 ? { profile: Object.fromEntries(profile) } : {}),
-    };
 }
 
 /** Logo, colour and tagline for the booking page, saved to the business brand. */
@@ -1066,52 +1023,64 @@ export function useBrandForm(api: ApiLike): BrandForm {
         province: string | null;
         brand: string | null;
     }>(BRAND_SQL).data[0];
-    const raw = row?.brand ?? null;
-    // What the last save returned, shown until that save syncs back, so old values don't flash.
-    const [confirmed, setConfirmed] = useState<string | null>(null);
-    useEffect(() => {
-        setConfirmed(null);
-    }, [raw]);
-    const stored = parseBrand(confirmed ?? raw);
-    const [draft, setDraft] = useState<BrandDraft>({});
-    const [fieldErrors, setFieldErrors] = useState<BrandForm["fieldErrors"]>({});
+    const draft = useSyncedDraft(row === undefined ? null : parseBrand(row.brand));
+    const fieldErrors = useFieldErrors(BRAND_FIELD_ERRORS, "brand.");
     const [saved, setSaved] = useState(false);
     const { busy, error, run } = useAsyncAction();
-    const current = drafted(stored, draft);
-    // Functional, so an upload finishing later can't undo what was edited while it ran.
-    const edit = (next: (draft: BrandDraft) => BrandDraft, field?: BrandFieldKey): void => {
-        // Typed back to what is stored is no edit, so a later change from another device stays.
-        setDraft((d) => editsBeyond(next(d), stored));
+    const current = draft.values ?? NO_BRAND;
+    const edit = <K extends keyof Brand>(
+        key: K,
+        value: Brand[K] | ((current: Brand[K]) => Brand[K]),
+    ): void => {
+        draft.set(key, value);
         setSaved(false);
-        if (field !== undefined) setFieldErrors((errors) => without(errors, field));
+        if (key in BRAND_FIELD_ERRORS) fieldErrors.clear(key as BrandFieldKey);
     };
-    const changes = brandChanges(stored, draft);
+    const logoFiles = useFileUpload(api, (id) => {
+        edit("logo_file_id", id);
+    });
+    const coverFiles = useFileUpload(api, (id) => {
+        edit("cover_file_id", id);
+    });
+    const image = (
+        files: ReturnType<typeof useFileUpload>,
+        key: "logo_file_id" | "cover_file_id",
+        target: typeof logoTarget,
+    ): BrandImage => ({
+        src: (apiBase) => mediaUrl(apiBase, current[key] === "" ? null : current[key]),
+        upload: (body) => {
+            if (row !== undefined) files.upload(body, target(row.id));
+        },
+        remove: () => {
+            edit(key, "");
+        },
+        busy: files.busy,
+        error: files.error,
+    });
+    const uploading = logoFiles.busy || coverFiles.busy;
     return {
         ready: row !== undefined,
         businessId: row?.id ?? null,
         name: row?.name ?? "",
         slug: row?.slug ?? "",
         province: row?.province ?? null,
-        logoFileId: current.logo_file_id,
-        setLogoFileId: (id) => {
-            edit((d) => ({ ...d, logo_file_id: id }));
-        },
-        coverFileId: current.cover_file_id,
-        setCoverFileId: (id) => {
-            edit((d) => ({ ...d, cover_file_id: id }));
-        },
+        logo: image(logoFiles, "logo_file_id", logoTarget),
+        cover: image(coverFiles, "cover_file_id", coverTarget),
+        uploading,
         colour: current.primary || BRAND_COLOURS[1],
         setColour: (v) => {
-            edit((d) => ({ ...d, primary: v }));
+            edit("primary", v);
         },
         tagline: current.tagline,
         setTagline: (v) => {
-            edit((d) => ({ ...d, tagline: v }), "tagline");
+            edit("tagline", v);
         },
         taglineMax: TAGLINE_MAX,
-        profile: current.profile,
+        profile: Object.fromEntries(
+            PROFILE_KEYS.map((key) => [key, current[key]]),
+        ) as ProfileFields,
         setProfile: (key, value) => {
-            edit((d) => ({ ...d, profile: { ...d.profile, [key]: value } }), key);
+            edit(key, value);
         },
         publicTeam: team.map((person) => ({
             id: person.id,
@@ -1119,47 +1088,42 @@ export function useBrandForm(api: ApiLike): BrandForm {
             selected: current.public_staff_ids.includes(person.id),
         })),
         setPublicTeam: (id, selected) => {
-            edit((d) => {
-                const ids = d.public_staff_ids ?? stored.public_staff_ids;
-                return {
-                    ...d,
-                    public_staff_ids: selected
-                        ? [...new Set([...ids, id])]
-                        : ids.filter((value) => value !== id),
-                };
-            });
+            edit("public_staff_ids", (ids) =>
+                selected ? [...new Set([...ids, id])] : ids.filter((value) => value !== id),
+            );
         },
-        fieldErrors,
-        dirty: Object.keys(changes).length > 0,
+        fieldErrors: fieldErrors.errors,
+        dirty: draft.dirty,
         busy,
         error,
         saved,
         submit: () => {
-            const sent = draft;
-            let updated: { brand?: unknown } | null = null;
+            if (draft.values === null || uploading) return;
+            logoFiles.reset();
+            coverFiles.reset();
+            const sent = draft.changes;
             // the colour on show is the one saved, even when the owner kept the suggested swatch
             const brand = {
-                ...changes,
+                ...Object.fromEntries(
+                    Object.entries(sent).map(([key, value]) => [key, brandValue(key, value)]),
+                ),
                 ...(current.primary === "" ? { primary: BRAND_COLOURS[1] } : {}),
             };
+            let updated: { brand?: unknown } | null = null;
             run(
                 async () => {
                     updated = await api.patch<{ brand?: unknown }>("/v1/business", { brand });
                 },
                 {
-                    errorMessage: (e) => {
-                        const refused = refusedFields(e, BRAND_FIELD_ERRORS, "brand.");
-                        setFieldErrors(refused);
-                        return Object.keys(refused).length > 0
-                            ? strings.business.checkFields
-                            : failureMessage(e, strings.business.saveError);
-                    },
+                    errorMessage: fieldErrors.explain,
                     onSuccess: () => {
                         const answer = updated?.brand;
-                        if (answer !== undefined) setConfirmed(JSON.stringify(answer));
-                        setFieldErrors({});
+                        fieldErrors.reset();
+                        draft.settle(
+                            sent,
+                            answer === undefined ? null : parseBrand(JSON.stringify(answer)),
+                        );
                         setSaved(true);
-                        setDraft((d) => editsBeyond(d, sent));
                     },
                 },
             );

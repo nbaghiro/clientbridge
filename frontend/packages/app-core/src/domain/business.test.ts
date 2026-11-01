@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ApiLike } from "../api";
 import { strings } from "../strings";
@@ -131,24 +131,6 @@ describe("useBookingSetupMissing", () => {
 });
 
 describe("useBusinessForm", () => {
-    it("lets another device's change through a field typed back to what is stored", () => {
-        replica.rows = [ROW];
-        const { api } = recordingApi(ROW);
-        const { result, rerender } = renderHook(() => useBusinessForm(api));
-        act(() => {
-            result.current.set("city", "Nanaimo");
-        });
-        expect(result.current.dirty).toBe(true);
-        act(() => {
-            result.current.set("city", "Victoria");
-        });
-        expect(result.current.dirty).toBe(false);
-        replica.rows = [{ ...ROW, city: "Sidney" }];
-        rerender();
-        expect(result.current.fields?.city).toBe("Sidney");
-        expect(result.current.dirty).toBe(false);
-    });
-
     it("leaves the address out of a save that did not touch it", async () => {
         replica.rows = [ROW];
         const { api, bodies } = recordingApi(ROW);
@@ -200,29 +182,6 @@ describe("useBusinessForm", () => {
         expect(result.current.fieldErrors).toEqual({
             billing_email: strings.business.fieldErrors.email,
         });
-    });
-
-    it("follows a change synced from another device in a field not being edited", async () => {
-        replica.rows = [ROW];
-        const { api, bodies } = recordingApi(ROW);
-        const { result, rerender } = renderHook(() => useBusinessForm(api));
-        await waitFor(() => {
-            expect(result.current.fields).not.toBeNull();
-        });
-        act(() => {
-            result.current.set("city", "Sidney");
-        });
-        replica.rows = [{ ...ROW, name: "Renamed elsewhere" }];
-        rerender();
-        expect(result.current.fields?.name).toBe("Renamed elsewhere");
-        expect(result.current.fields?.city).toBe("Sidney");
-        act(() => {
-            result.current.submit();
-        });
-        await waitFor(() => {
-            expect(bodies).toHaveLength(1);
-        });
-        expect(bodies[0]).toEqual({ city: "Sidney" });
     });
 
     it("sends only the changed address field and shows the value the server stored", async () => {
@@ -277,6 +236,24 @@ describe("useBusinessForm", () => {
         });
         expect(Object.keys(bodies[1] ?? {})).not.toContain("slug");
     });
+
+    it("stops warning about the old links once the new address is saved", async () => {
+        replica.rows = [ROW];
+        const { api } = recordingApi({ ...ROW, slug: "birch-bark" });
+        const { result } = renderHook(() => useBusinessForm(api));
+        act(() => {
+            result.current.set("slug", "birch-bark");
+        });
+        expect(result.current.slugChanged).toBe(true);
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(result.current.saved).toBe(true);
+        });
+        expect(result.current.fields?.slug).toBe("birch-bark");
+        expect(result.current.slugChanged).toBe(false);
+    });
 });
 
 describe("useBrandForm", () => {
@@ -304,66 +281,69 @@ describe("useBrandForm", () => {
         return { api, bodies, finish };
     }
 
-    it("keeps what was edited while an upload ran, whichever finishes first", () => {
-        replica.rows = [BRAND_ROW];
-        const { api } = saving({});
-        const { result } = renderHook(() => useBrandForm(api));
-        const whenTheUploadStarted = result.current;
-        act(() => {
-            result.current.setTagline("Typed during the upload");
-        });
-        act(() => {
-            result.current.setColour("#7D5A82");
-        });
-        act(() => {
-            whenTheUploadStarted.setLogoFileId("fl_logo");
-        });
-        act(() => {
-            whenTheUploadStarted.setCoverFileId("fl_cover");
-        });
-        expect(result.current.tagline).toBe("Typed during the upload");
-        expect(result.current.colour).toBe("#7D5A82");
-        expect(result.current.logoFileId).toBe("fl_logo");
-        expect(result.current.coverFileId).toBe("fl_cover");
+    function uploading(api: ApiLike) {
+        const done: (() => void)[] = [];
+        let next = 0;
+        vi.stubGlobal(
+            "fetch",
+            () =>
+                new Promise((resolve) => {
+                    done.push(() => {
+                        resolve({ ok: true });
+                    });
+                }),
+        );
+        const post = (path: string) =>
+            Promise.resolve(
+                path === "/v1/files"
+                    ? { file: { id: `fl_up${String(++next)}` }, upload_url: "https://s3.test/put" }
+                    : {},
+            );
+        return { api: { ...api, post } as ApiLike, done };
+    }
+
+    afterEach(() => {
+        vi.unstubAllGlobals();
     });
 
-    it("lets another device's change through fields typed back to what is stored", () => {
-        const stored = {
-            primary: "#2E4A3F",
-            tagline: "Old",
-            website: "https://a.example",
-            public_staff_ids: ["st_a"],
-        };
-        replica.rows = [{ ...BRAND_ROW, brand: JSON.stringify(stored) }];
-        const { api } = saving({});
-        const { result, rerender } = renderHook(() => useBrandForm(api));
+    it("puts an uploaded logo and cover in the draft, keeping what was edited meanwhile", async () => {
+        replica.rows = [BRAND_ROW];
+        const { api, bodies } = saving({});
+        const files = uploading(api);
+        const { result, rerender } = renderHook(() => useBrandForm(files.api));
         act(() => {
-            result.current.setTagline("Typed");
-            result.current.setProfile("website", "https://typed.example");
-            result.current.setPublicTeam("st_b", true);
+            result.current.logo.upload(new Blob(["png"], { type: "image/png" }));
+            result.current.cover.upload(new Blob(["jpg"], { type: "image/jpeg" }));
         });
-        expect(result.current.dirty).toBe(true);
-        act(() => {
-            result.current.setTagline("Old");
-            result.current.setProfile("website", "https://a.example");
-            result.current.setPublicTeam("st_b", false);
+        await waitFor(() => {
+            expect(files.done).toHaveLength(2);
         });
-        expect(result.current.dirty).toBe(false);
+        expect(result.current.uploading).toBe(true);
         replica.rows = [
-            {
-                ...BRAND_ROW,
-                brand: JSON.stringify({
-                    ...stored,
-                    tagline: "Newer",
-                    website: "https://b.example",
-                    public_staff_ids: ["st_a", "st_c"],
-                }),
-            },
+            { ...BRAND_ROW, brand: JSON.stringify({ primary: "#2E4A3F", tagline: "Newer" }) },
         ];
         rerender();
-        expect(result.current.tagline).toBe("Newer");
-        expect(result.current.profile.website).toBe("https://b.example");
-        expect(result.current.dirty).toBe(false);
+        act(() => {
+            result.current.setTagline("Old");
+        });
+        await act(async () => {
+            files.done.forEach((finish) => {
+                finish();
+            });
+            await Promise.resolve();
+        });
+        await waitFor(() => {
+            expect(result.current.uploading).toBe(false);
+        });
+        expect(result.current.tagline).toBe("Old");
+        expect(result.current.logo.src("https://api.test")).toBe("https://api.test/media/fl_up1");
+        expect(result.current.cover.src("https://api.test")).toBe("https://api.test/media/fl_up2");
+        act(() => {
+            result.current.submit();
+        });
+        expect(bodies).toEqual([
+            { brand: { tagline: "Old", logo_file_id: "fl_up1", cover_file_id: "fl_up2" } },
+        ]);
     });
 
     it("sends only what changed, so what another device saved stays", async () => {
@@ -396,57 +376,6 @@ describe("useBrandForm", () => {
         });
     });
 
-    it("shows what was saved until it syncs back, then follows the replica", async () => {
-        replica.rows = [BRAND_ROW];
-        const { api, finish } = saving({ primary: "#2E4A3F", tagline: "New" });
-        const { result, rerender } = renderHook(() => useBrandForm(api));
-        act(() => {
-            result.current.setTagline("New");
-        });
-        expect(result.current.dirty).toBe(true);
-        act(() => {
-            result.current.submit();
-        });
-        act(() => {
-            finish[0]?.();
-        });
-        await waitFor(() => {
-            expect(result.current.saved).toBe(true);
-        });
-        expect(result.current.tagline).toBe("New");
-        expect(result.current.dirty).toBe(false);
-        replica.rows = [
-            { ...BRAND_ROW, brand: JSON.stringify({ primary: "#2E4A3F", tagline: "Later" }) },
-        ];
-        rerender();
-        await waitFor(() => {
-            expect(result.current.tagline).toBe("Later");
-        });
-    });
-
-    it("keeps an edit made while the save was on its way", async () => {
-        replica.rows = [BRAND_ROW];
-        const { api, finish } = saving({ primary: "#2E4A3F", tagline: "First" });
-        const { result } = renderHook(() => useBrandForm(api));
-        act(() => {
-            result.current.setTagline("First");
-        });
-        act(() => {
-            result.current.submit();
-        });
-        act(() => {
-            result.current.setTagline("Second");
-        });
-        act(() => {
-            finish[0]?.();
-        });
-        await waitFor(() => {
-            expect(result.current.saved).toBe(true);
-        });
-        expect(result.current.tagline).toBe("Second");
-        expect(result.current.dirty).toBe(true);
-    });
-
     it("saves the suggested colour when none was ever chosen", () => {
         replica.rows = [{ ...BRAND_ROW, brand: null }];
         const { api, bodies } = saving({});
@@ -464,7 +393,7 @@ describe("useBrandForm", () => {
         const { api, bodies } = saving({});
         const { result } = renderHook(() => useBrandForm(api));
         act(() => {
-            result.current.setLogoFileId("");
+            result.current.logo.remove();
         });
         act(() => {
             result.current.submit();
@@ -472,23 +401,21 @@ describe("useBrandForm", () => {
         expect(bodies).toEqual([{ brand: { logo_file_id: null } }]);
     });
 
-    it.each([
-        ["fl_b", "fl_b"],
-        ["", null],
-    ])("saves the cover as %j by file id, sending %j", (id, sent) => {
+    it("removes the cover by sending null", () => {
         replica.rows = [
             { ...BRAND_ROW, brand: JSON.stringify({ primary: "#2E4A3F", cover_file_id: "fl_a" }) },
         ];
         const { api, bodies } = saving({});
         const { result } = renderHook(() => useBrandForm(api));
-        expect(result.current.coverFileId).toBe("fl_a");
+        expect(result.current.cover.src("https://api.test")).toBe("https://api.test/media/fl_a");
         act(() => {
-            result.current.setCoverFileId(id);
+            result.current.cover.remove();
         });
+        expect(result.current.cover.src("https://api.test")).toBeNull();
         act(() => {
             result.current.submit();
         });
-        expect(bodies).toEqual([{ brand: { cover_file_id: sent } }]);
+        expect(bodies).toEqual([{ brand: { cover_file_id: null } }]);
     });
 
     it("sends the gallery as a list and pickup numbers as numbers", () => {

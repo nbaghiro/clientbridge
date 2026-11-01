@@ -6,10 +6,6 @@ import {
     bareUrl,
     bookingPageUrl,
     brandColourName,
-    mediaUrl,
-    coverTarget,
-    logoTarget,
-    useFileUpload,
     useAsyncAction,
     strings,
     useBookingPreview,
@@ -118,8 +114,6 @@ function BookingPreview({ brand, logo }: { brand: BrandForm; logo: string | null
 /** The draft lives only as long as the sheet, so closing it can't leak abandoned edits into a later save. */
 function BrandSheet({ onClose }: { onClose: () => void }) {
     const brand = useBrandForm(api);
-    const upload = useFileUpload(api, brand.setCoverFileId);
-    const logoUpload = useFileUpload(api, brand.setLogoFileId);
     const picker = useAsyncAction();
     const pickImage = (kind: "logo" | "cover"): void => {
         picker.run(
@@ -129,20 +123,16 @@ function BrandSheet({ onClose }: { onClose: () => void }) {
                     quality: 0.85,
                 });
                 const asset = result.assets?.[0];
-                if (!asset || !brand.businessId) return;
-                const target = kind === "logo" ? logoTarget : coverTarget;
-                const flow = kind === "logo" ? logoUpload : upload;
-                flow.upload(pickedPhoto(asset), target(brand.businessId));
+                if (asset) brand[kind].upload(pickedPhoto(asset));
             },
             { errorMessage: strings.common.fileUploadError },
         );
     };
 
-    const logo = brand.logoFileId === "" ? null : mediaUrl(apiBaseUrl, brand.logoFileId);
-    const cover = brand.coverFileId === "" ? null : mediaUrl(apiBaseUrl, brand.coverFileId);
-    const uploading = upload.busy || logoUpload.busy || picker.busy;
+    const logo = brand.logo.src(apiBaseUrl);
+    const cover = brand.cover.src(apiBaseUrl);
     const close = (): void => {
-        if (!brand.dirty && !uploading) {
+        if (!brand.dirty && !brand.uploading) {
             onClose();
             return;
         }
@@ -180,8 +170,8 @@ function BrandSheet({ onClose }: { onClose: () => void }) {
                             <Button
                                 size="sm"
                                 variant="outline"
-                                busy={logoUpload.busy || picker.busy}
-                                disabled={upload.busy || !brand.ready}
+                                busy={brand.logo.busy || picker.busy}
+                                disabled={brand.cover.busy || !brand.ready}
                                 onPress={() => {
                                     pickImage("logo");
                                 }}
@@ -191,13 +181,7 @@ function BrandSheet({ onClose }: { onClose: () => void }) {
                                     : strings.files.uploadLogo}
                             </Button>
                             {logo !== null ? (
-                                <Button
-                                    size="sm"
-                                    variant="link"
-                                    onPress={() => {
-                                        brand.setLogoFileId("");
-                                    }}
-                                >
+                                <Button size="sm" variant="link" onPress={brand.logo.remove}>
                                     {strings.files.removeLogo}
                                 </Button>
                             ) : null}
@@ -237,8 +221,8 @@ function BrandSheet({ onClose }: { onClose: () => void }) {
                                 style={{ alignSelf: "center" }}
                                 size="sm"
                                 variant="outline"
-                                busy={upload.busy || picker.busy}
-                                disabled={logoUpload.busy || !brand.ready}
+                                busy={brand.cover.busy || picker.busy}
+                                disabled={brand.logo.busy || !brand.ready}
                                 onPress={() => {
                                     pickImage("cover");
                                 }}
@@ -250,17 +234,15 @@ function BrandSheet({ onClose }: { onClose: () => void }) {
                                     style={{ alignSelf: "center" }}
                                     size="sm"
                                     variant="link"
-                                    onPress={() => {
-                                        brand.setCoverFileId("");
-                                    }}
+                                    onPress={brand.cover.remove}
                                 >
                                     {o.removeCover}
                                 </Button>
                             ) : null}
                         </View>
-                        {upload.error || logoUpload.error || picker.error ? (
+                        {brand.cover.error || brand.logo.error || picker.error ? (
                             <Notice tone="danger">
-                                {upload.error ?? logoUpload.error ?? picker.error}
+                                {brand.cover.error ?? brand.logo.error ?? picker.error}
                             </Notice>
                         ) : null}
                     </View>
@@ -335,12 +317,8 @@ function BrandSheet({ onClose }: { onClose: () => void }) {
                         size="lg"
                         full
                         busy={brand.busy}
-                        disabled={uploading}
-                        onPress={() => {
-                            upload.reset();
-                            logoUpload.reset();
-                            brand.submit();
-                        }}
+                        disabled={brand.uploading || picker.busy}
+                        onPress={brand.submit}
                     >
                         {brand.busy ? o.saving : o.save}
                     </Button>
