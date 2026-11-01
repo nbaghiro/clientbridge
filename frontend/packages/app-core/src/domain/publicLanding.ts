@@ -9,7 +9,6 @@ import type { createPublicBookingClient } from "./publicBooking";
 type BookingPage = Awaited<ReturnType<ReturnType<typeof createPublicBookingClient>["getServices"]>>;
 interface PublicProfile extends BookingPage {
     brand: PublicBrand;
-    cover_url: string | null;
     about: string | null;
     address: string | null;
     phone: string | null;

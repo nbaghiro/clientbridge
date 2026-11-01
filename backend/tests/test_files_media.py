@@ -108,8 +108,6 @@ async def test_cover_upload_is_public_and_used_by_customer_pages(
     assert (await unauth.get(f"/media/{file_id}", follow_redirects=False)).status_code == 302
     for path in ("/book/birchbark/services", "/book/birchbark/profile"):
         assert (await unauth.get(path)).json()["brand"]["cover_url"] == media_url(file_id)
-    profile = (await unauth.get("/book/birchbark/profile")).json()
-    assert profile["cover_url"] == media_url(file_id)
     removed = await as_owner.patch("/v1/business", json={"brand": {"cover_file_id": None}})
     assert removed.status_code == 200
     assert "cover_file_id" not in removed.json()["brand"]

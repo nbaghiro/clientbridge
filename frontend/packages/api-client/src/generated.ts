@@ -8787,8 +8787,6 @@ export interface components {
              * @description What a booking names besides the client; null asks for nothing
              */
             subject?: ("pet" | "student" | "property" | "site" | "vehicle") | null;
-            /** Cover Url */
-            cover_url?: string | null;
             /** About */
             about?: string | null;
             /** Address */

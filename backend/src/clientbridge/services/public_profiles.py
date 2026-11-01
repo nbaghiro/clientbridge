@@ -58,7 +58,6 @@ class PublicProfilesService:
         return PublicProfile(
             **page.model_dump(exclude={"staff"}),
             staff=[person for person in page.staff if person.id in brand.public_staff_ids],
-            cover_url=page.brand.cover_url,
             about=brand.about,
             address=brand.address,
             phone=brand.phone,
