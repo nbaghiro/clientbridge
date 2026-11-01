@@ -754,6 +754,33 @@ describe("useRecoveryForm", () => {
             expect([...resetStorage.items.values()]).toEqual(["se-1"]);
         });
 
+        it("notes a reset at its second factor without a session id, then with the one it upgrades to", async () => {
+            const resetStorage = storage();
+            const login = flow([node("lookup_secret", "lookup_secret")], null, "login");
+            const { identity, result } = await atCodeStep(
+                [accepted, { kind: "done", sessionToken: "upgraded" }],
+                { resetStorage },
+                (fake) => {
+                    fake.session.mockResolvedValue("second_factor");
+                    fake.whoami.mockResolvedValueOnce(null);
+                    fake.start.mockImplementation((kind) =>
+                        Promise.resolve(kind === "login" ? login : flow([], null, kind)),
+                    );
+                },
+            );
+            enterCode(result);
+            await waitFor(() => {
+                expect(result.current.step).toBe("mfa");
+            });
+            expect([...resetStorage.items.values()]).toEqual([""]);
+            enterCode(result, "backup-1");
+            await waitFor(() => {
+                expect(result.current.step).toBe("password");
+            });
+            expect(identity.whoami).toHaveBeenLastCalledWith("upgraded");
+            expect([...resetStorage.items.values()]).toEqual(["se-1"]);
+        });
+
         describe("and the next load", () => {
             function marked(sessionId: string) {
                 const note = storage();
@@ -784,6 +811,33 @@ describe("useRecoveryForm", () => {
                 identity.session.mockResolvedValue("second_factor");
                 await endAbandonedReset(identity, marked(""));
                 expect(identity.signOut).toHaveBeenCalledTimes(1);
+            });
+
+            it.each<[string, "active" | "second_factor"]>([
+                ["", "active"],
+                ["se-1", "second_factor"],
+            ])(
+                "leaves a session alone that a mark of %j can't be matched to (%s)",
+                async (mark, state) => {
+                    const identity = fakeIdentity([]);
+                    identity.session.mockResolvedValue(state);
+                    const note = marked(mark);
+                    await endAbandonedReset(identity, note);
+                    expect(identity.signOut).not.toHaveBeenCalled();
+                    expect(note.items.size).toBe(0);
+                },
+            );
+
+            it("asks nothing when storage is blocked", async () => {
+                const identity = fakeIdentity([]);
+                const blocked = {
+                    ...storage(),
+                    getItem: () => {
+                        throw new Error("SecurityError");
+                    },
+                };
+                await endAbandonedReset(identity, blocked);
+                expect(identity.session).not.toHaveBeenCalled();
             });
 
             it("asks nothing when no reset was left", async () => {
