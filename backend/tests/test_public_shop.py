@@ -1,6 +1,7 @@
 """The online shop (pay online, collect in person), booking add-ons, and invoicing a visit."""
 
 import uuid
+from datetime import date
 
 import httpx
 from sqlalchemy import func, select, update
@@ -46,6 +47,21 @@ async def _settle(api: httpx.AsyncClient, db: AsyncSession, order_id: str, event
         await db.execute(select(Payment.id).where(Payment.order_id == order_id))
     ).scalar_one()
     await settle(api, db, payment_id, event)
+
+
+async def test_shop_says_whether_tax_is_charged(api: httpx.AsyncClient, db: AsyncSession) -> None:
+    assert (await api.get(f"/book/{SLUG}/shop")).json()["charges_tax"] is True
+    await db.execute(update(Business).where(Business.id == BIZ).values(tax_registered=False))
+    await db.flush()
+    assert (await api.get(f"/book/{SLUG}/shop")).json()["charges_tax"] is False
+    future = date(2099, 1, 1)
+    await db.execute(
+        update(Business)
+        .where(Business.id == BIZ)
+        .values(tax_registered=True, tax_registered_on=future)
+    )
+    await db.flush()
+    assert (await api.get(f"/book/{SLUG}/shop")).json()["charges_tax"] is False
 
 
 async def test_shop_lists_online_products_without_cost_or_sku(

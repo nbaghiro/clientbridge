@@ -257,6 +257,7 @@ export async function fillDocumentLine(
     quantity: string,
     price: string,
     tax: "standard" | "federal_only" | "exempt",
+    federal: "GST" | "HST" = "GST",
 ): Promise<void> {
     const descriptions = editor.getByRole("textbox", {
         name: strings.billing.description,
@@ -281,7 +282,7 @@ export async function fillDocumentLine(
         .getByRole("combobox", { name: strings.billing.taxClass, exact: true })
         .nth(index)
         .click();
-    const label = tax === "exempt" ? strings.catalog.taxExempt : strings.catalog.taxOnly("GST");
+    const label = tax === "exempt" ? strings.catalog.taxExempt : strings.catalog.taxOnly(federal);
     await page.getByRole("option", { name: label, exact: true }).click();
 }
 
@@ -338,4 +339,41 @@ export async function expectDocumentTotal(dialog: Locator, cents: number): Promi
 
 export async function documentTexts(page: Page, client: DocumentClient): Promise<Text[]> {
     return textsTo(page.request, client.phone);
+}
+
+/** What each tax code owes after an invoice was issued, from its ledger legs. */
+export async function taxLegs(invoiceId: string): Promise<Record<string, number>> {
+    const rows = await select<{ code: string; cents: number }>`
+        SELECT a.code, -sum(e.amount_cents)::int AS cents
+        FROM entries e JOIN accounts a ON a.id = e.account_id
+        WHERE e.subject_type = 'invoice' AND e.subject_id = ${invoiceId} AND a.category = 'tax'
+        GROUP BY a.code`;
+    return Object.fromEntries(rows.map((row) => [row.code, row.cents]));
+}
+
+/** Registers the business for tax through Setup > Sales tax. */
+export async function registerForTax(page: Page, gst: string): Promise<void> {
+    await navigate(page, "/setup/taxes");
+    await page.getByText(strings.taxes.regYes, { exact: true }).click();
+    await page.getByRole("textbox", { name: new RegExp(`^${strings.taxes.gst}`) }).fill(gst);
+    await page.getByRole("button", { name: strings.taxes.save, exact: true }).click();
+    await expect(page.getByText(strings.taxes.saved, { exact: true })).toBeVisible();
+}
+
+/** Issues an open draft from its dialog and returns the sent invoice. */
+export async function sendDocument(
+    page: Page,
+    id: string,
+): Promise<DocumentRecord & { pay_token: string }> {
+    await page.getByRole("button", { name: strings.billing.sendInvoice, exact: true }).click();
+    const review = page.getByRole("dialog").filter({
+        has: page.getByRole("heading", { name: strings.previews.title, exact: true }),
+    });
+    const sent = page.waitForResponse(
+        (r) => r.url().endsWith(`/invoices/${id}/send`) && r.request().method() === "POST",
+    );
+    await review.getByRole("button", { name: strings.billing.sendInvoice, exact: true }).click();
+    const response = await sent;
+    expect(response.status(), await response.text()).toBe(200);
+    return (await response.json()) as DocumentRecord & { pay_token: string };
 }

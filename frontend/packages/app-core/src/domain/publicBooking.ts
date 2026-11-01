@@ -53,6 +53,7 @@ interface PublicService {
     currency: string;
     deposit_required: boolean;
     deposit_amount_cents: number;
+    taxable: boolean;
     image_url: string | null;
     kind: string;
     category: string | null;
@@ -84,6 +85,7 @@ interface PublicAddon {
     name: string;
     price_cents: number;
     currency: string;
+    taxable: boolean;
     image_url: string | null;
     description: string | null;
     in_stock: boolean;
@@ -112,6 +114,8 @@ interface PublicBookingPage {
     now: string | null;
     timezone: string;
     policy: PublicPolicy | null;
+    charges_tax: boolean;
+    tax_starts_on: string | null;
     subject: SubjectKind | null;
 }
 
@@ -869,6 +873,13 @@ export function usePublicBookingFlow(
         ? (page?.staff.find((x) => x.id === slot.staff_id) ?? null)
         : null;
 
+    const taxStart = page?.tax_starts_on ?? null;
+    const visitDay = slot === null ? null : dateKey(parseTimestamp(slot.starts_at), zone);
+    const visitIsTaxed =
+        page?.charges_tax === true &&
+        (service?.taxable === true || addonLines.some((l) => l.addon.taxable)) &&
+        (taxStart === null || (visitDay ?? today) >= taxStart);
+
     const totalLines: DocTotalLine[] = addonLines.map((l) => ({
         key: l.addon.id,
         label: l.quantity > 1 ? strings.common.quantityOf(l.quantity, l.addon.name) : l.addon.name,
@@ -1069,6 +1080,7 @@ export function usePublicBookingFlow(
             total: formatMoney(serviceCents + addonsCents, currency),
         },
         totalLines,
+        taxNote: visitIsTaxed ? s.taxNote : null,
         currency,
         programs: program ? programChoices(programs ?? [], zone) : null,
         programNote: program ? s.programNote : null,

@@ -2,7 +2,7 @@ from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 import httpx
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.errors import TooManyRequests
@@ -272,6 +272,19 @@ async def test_book_requires_contact(api: httpx.AsyncClient) -> None:
         "client": {"name": "No Contact"},
     }
     assert (await api.post(f"/book/{SLUG}", json=body)).status_code == 422
+
+
+async def test_page_says_when_tax_is_charged(api: httpx.AsyncClient, db: AsyncSession) -> None:
+    page = (await api.get(f"/book/{SLUG}/services")).json()
+    assert (page["charges_tax"], page["tax_starts_on"]) == (True, None)
+    future = date(2099, 1, 1)
+    await db.execute(update(Business).where(Business.id == BIZ).values(tax_registered_on=future))
+    await db.flush()
+    page = (await api.get(f"/book/{SLUG}/services")).json()
+    assert (page["charges_tax"], page["tax_starts_on"]) == (True, "2099-01-01")
+    await db.execute(update(Business).where(Business.id == BIZ).values(tax_registered=False))
+    await db.flush()
+    assert (await api.get(f"/book/{SLUG}/services")).json()["charges_tax"] is False
 
 
 async def test_book_deposit_required_returns_secret(

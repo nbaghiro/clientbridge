@@ -50,6 +50,7 @@ class PublicService(Mirror):
     currency: str
     deposit_required: bool
     deposit_amount_cents: int
+    taxable: bool = Field(description="False when the item's tax class is exempt")
     image_url: str | None = None
     kind: ItemKind = "service"
     category: str | None = None
@@ -79,6 +80,7 @@ class PublicAddon(Mirror):
     name: str
     price_cents: int
     currency: str
+    taxable: bool = Field(description="False when the item's tax class is exempt")
     image_url: str | None = None
     description: str | None = None
     in_stock: bool = True
@@ -118,6 +120,10 @@ class PublicBookingPage(BaseModel):
     now: datetime | None = Field(default=None, description="The business's clock, in its zone")
     timezone: str = Field(description="The business's IANA time zone, which its times are shown in")
     policy: PublicPolicy | None = None
+    charges_tax: bool = Field(description="Whether the business is registered to add sales tax")
+    tax_starts_on: date | None = Field(
+        default=None, description="The first day it adds tax, when registration starts later"
+    )
     subject: SubjectKind | None = Field(
         default=None, description="What a booking names besides the client; null asks for nothing"
     )
@@ -310,6 +316,7 @@ class PublicShopItem(Mirror):
     description: str | None
     price_cents: int
     currency: str
+    taxable: bool = Field(description="False when the item's tax class is exempt")
     image_url: str | None = None
     in_stock: bool = True
     category: str | None = None
@@ -321,6 +328,7 @@ class PublicShop(BaseModel):
     brand: PublicBrand
     items: list[PublicShopItem]
     stripe_account_id: str | None = None
+    charges_tax: bool = Field(description="Whether an order placed today is charged sales tax")
 
 
 class PublicShopLine(BaseModel):

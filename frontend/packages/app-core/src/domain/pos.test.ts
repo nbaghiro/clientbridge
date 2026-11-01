@@ -437,3 +437,25 @@ describe("the member discount", () => {
         expect(withMemberDiscount(line("product", member), true, null).discount).toBeNull();
     });
 });
+
+it("only says a tip carries no tax on a sale that charged tax", () => {
+    const totals = {
+        lineDiscountCents: 0,
+        saleDiscountCents: 0,
+        subtotalCents: 2000,
+        taxes: [] as { code: string; label: string; baseCents: number; cents: number }[],
+        taxCents: 0,
+        tipCents: 300,
+        totalCents: 2300,
+        depositCents: 0,
+        giftCardCents: 0,
+        dueCents: 2300,
+    } as unknown as Parameters<typeof saleTotalLines>[0];
+    const tip = (t: typeof totals) => saleTotalLines(t).find((r) => r.key === "tip");
+    expect(tip(totals)?.hint).toBeUndefined();
+    const taxed = {
+        ...totals,
+        taxes: [{ code: "GST", label: "GST 5%", baseCents: 2000, cents: 100 }],
+    };
+    expect(tip(taxed)?.hint).toBe(strings.pos.desk.tipNoTax);
+});

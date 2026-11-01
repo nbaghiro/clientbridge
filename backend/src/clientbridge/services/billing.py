@@ -1,7 +1,9 @@
+import logging
 import secrets
+from collections.abc import Sequence
 from datetime import date, datetime, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,11 +14,14 @@ from clientbridge.core.errors import Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.locale import locale_for, message, plural
 from clientbridge.core.scoping import scoped
+from clientbridge.core.zones import zone
 from clientbridge.models.billing import Estimate, EstimateStatus, Invoice, Line, Order
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item, TaxClass
 from clientbridge.models.clients import Client
+from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
+from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import Addon, Booking, Slot
 from clientbridge.schemas.billing import (
     EstimateCreate,
@@ -39,6 +44,7 @@ from clientbridge.services.lines import (
     discount_of,
     discount_total,
     fetch_lines,
+    fetch_lines_of,
     included,
     included_totals,
     line_out,
@@ -48,7 +54,14 @@ from clientbridge.services.lines import (
 )
 from clientbridge.services.notifications import Notifier, Outcome, queued_notifier
 from clientbridge.services.payments import close_settled_visit, sync_invoice
-from clientbridge.services.tax import tax_for_lines
+from clientbridge.services.tax import (
+    TaxSettings,
+    tax_for_lines,
+    tax_recently_started,
+    tax_settings,
+)
+
+_log = logging.getLogger(__name__)
 
 _DUE_DAYS = 30
 _VALID_DAYS = 14
@@ -106,6 +119,9 @@ class BillingService:
             raise Conflict("only a draft invoice can be edited")
 
         async def run(cmd: Command) -> InvoiceOut:
+            await self._lock(invoice)
+            if invoice.status != "draft":
+                raise Conflict("only a draft invoice can be edited")
             if data.notes is not None:
                 invoice.notes = data.notes
             if data.due_at is not None:
@@ -138,6 +154,9 @@ class BillingService:
             raise Conflict("a void invoice can't be sent")
 
         async def run(cmd: Command) -> InvoiceOut:
+            await self._lock(invoice)
+            if invoice.status == "void":
+                raise Conflict("a void invoice can't be sent")
             if invoice.status == "draft":
                 await issue_invoice(self.db, invoice, cmd)
             else:
@@ -250,6 +269,9 @@ class BillingService:
             raise Conflict("only a draft or sent estimate can be edited")
 
         async def run(cmd: Command) -> EstimateOut:
+            await self._lock(estimate)
+            if estimate.status not in ("draft", "sent"):
+                raise Conflict("only a draft or sent estimate can be edited")
             if data.notes is not None:
                 estimate.notes = data.notes
             if data.valid_until is not None:
@@ -282,6 +304,10 @@ class BillingService:
             raise Conflict(f"a {status} estimate can't be sent")
 
         async def run(cmd: Command) -> EstimateOut:
+            await self._lock(estimate)
+            locked = estimate_status(estimate, await self._today())
+            if locked in ("accepted", "declined", "expired"):
+                raise Conflict(f"a {locked} estimate can't be sent")
             if estimate.status == "draft":
                 await self._issue_estimate(estimate, cmd)
             else:
@@ -302,6 +328,7 @@ class BillingService:
         )
 
     async def _issue_estimate(self, estimate: Estimate, cmd: Command) -> None:
+        await self._apply_totals(estimate, await self._lines("estimate", estimate.id))
         estimate.number = await next_number(self.db, self.biz, Estimate)
         estimate.status = "sent"
         estimate.view_token = secrets.token_urlsafe(16)
@@ -469,7 +496,11 @@ class BillingService:
         )
 
     async def _apply_totals(self, parent: Invoice | Estimate, lines: list[Line]) -> None:
-        apply_totals(parent, included_totals(lines, await tax_for_lines(self.db, self.biz, lines)))
+        await retotal(self.db, self.biz, parent, lines)
+
+    async def _lock(self, document: Invoice | Estimate) -> None:
+        """Hold the row so re-pricing can't overwrite what this command fixes."""
+        await self.db.refresh(document, with_for_update=True)
 
     async def _replace_lines(
         self, parent: LineParent, document: Invoice | Estimate, inputs: list[LineInput]
@@ -598,12 +629,110 @@ async def draft_for_booking(db: AsyncSession, booking: Booking) -> tuple[Invoice
     db.add(invoice)
     await db.flush()
     lines = await replace_lines(db, booking.business_id, "invoice", invoice.id, inputs, invoice)
-    apply_totals(
-        invoice, included_totals(lines, await tax_for_lines(db, booking.business_id, lines))
-    )
+    await retotal(db, booking.business_id, invoice, lines)
     booking.invoice_id = invoice.id
     await db.flush()
     return invoice, lines
+
+
+async def retotal(
+    db: AsyncSession,
+    biz: str,
+    document: Invoice | Estimate | Order,
+    lines: list[Line],
+    settings: TaxSettings | None = None,
+) -> None:
+    tax = await tax_for_lines(db, biz, lines, settings)
+    apply_totals(document, included_totals(lines, tax))
+
+
+async def reprice_open_documents(
+    db: AsyncSession, biz: str, performed_by: str | None, at: datetime | None = None
+) -> None:
+    """Whatever hasn't fixed its tax follows the settings: drafts, open quotes, unpaid tickets."""
+    settings = await tax_settings(db, biz, at or clock.now())
+    await _reprice(db, biz, "invoice", Invoice, [Invoice.status == "draft"], settings, performed_by)
+    open_quote = [
+        Estimate.status.in_(("draft", "sent")),
+        Estimate.converted_invoice_id.is_(None),
+    ]
+    await _reprice(db, biz, "estimate", Estimate, open_quote, settings, performed_by)
+    await _reprice(db, biz, "order", Order, _unpaid_order(biz), settings, performed_by)
+
+
+def _unpaid_order(biz: str) -> list[ColumnElement[bool]]:
+    """Open tickets nothing was paid against; a live or settled payment keeps its amount."""
+    paying = scoped(Payment, biz).where(
+        Payment.order_id == Order.id, Payment.status.in_(("pending", "succeeded"))
+    )
+    gift_card = (
+        scoped(Entry, biz)
+        .join(Account, Account.id == Entry.account_id)
+        .where(
+            Entry.source_type == "order",
+            Entry.source_id == Order.id,
+            Account.category == "gift_card",
+        )
+    )
+    return [Order.status == "open", ~paying.exists(), ~gift_card.exists()]
+
+
+async def _reprice(
+    db: AsyncSession,
+    biz: str,
+    parent: LineParent,
+    model: type[Invoice] | type[Estimate] | type[Order],
+    conditions: Sequence[ColumnElement[bool]],
+    settings: TaxSettings,
+    performed_by: str | None,
+) -> None:
+    rows = await db.execute(
+        scoped(model, biz)
+        .where(*conditions)
+        .order_by(model.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    documents = list(rows.scalars().all())
+    lines = await fetch_lines_of(db, biz, parent, [document.id for document in documents])
+    for document in documents:
+        before = document.total_cents
+        await retotal(db, biz, document, lines.get(document.id, []), settings)
+        if document.total_cents != before:
+            db.add(
+                Audit(
+                    id=new_id("audit"),
+                    business_id=biz,
+                    performed_by=performed_by,
+                    action=f"{parent}.repriced",
+                    entity_type=parent,
+                    entity_id=document.id,
+                    changes={"old": before, "new": document.total_cents},
+                )
+            )
+
+
+async def run_reprice_open_documents(db: AsyncSession, now: datetime) -> int:
+    """At local midnight, for businesses whose registration date or rates just started."""
+    due = [
+        business.id
+        for business in await businesses_at_hour(db, now, 0)
+        if tax_recently_started(
+            business.province,
+            business.tax_registered_on,
+            now.astimezone(zone(business.timezone)).date(),
+        )
+    ]
+    repriced = 0
+    for business_id in due:
+        try:
+            await reprice_open_documents(db, business_id, None, now)
+            await db.commit()
+            repriced += 1
+        except Exception:
+            await db.rollback()
+            _log.exception("could not re-price open documents for %s", business_id)
+    return repriced
 
 
 async def issue_invoice(db: AsyncSession, invoice: Invoice, cmd: Command) -> None:

@@ -305,6 +305,7 @@ it("shows a failed availability load and retries without presenting it as an emp
                     currency: "CAD",
                     deposit_required: false,
                     deposit_amount_cents: 0,
+                    taxable: true,
                     image_url: null,
                     kind: "service",
                     category: null,
@@ -350,6 +351,7 @@ it("asks for extras before the time and looks for times long enough for them", a
         name: "Second mount",
         price_cents: 5000,
         currency: "CAD",
+        taxable: true,
         image_url: null,
         description: null,
         in_stock: true,
@@ -370,6 +372,7 @@ it("asks for extras before the time and looks for times long enough for them", a
                     currency: "CAD",
                     deposit_required: false,
                     deposit_amount_cents: 0,
+                    taxable: true,
                     image_url: null,
                     kind: "service",
                     category: null,
@@ -442,6 +445,7 @@ it.each(["slot_unavailable", "conflict"])("refreshes occupied times (%s)", async
                     currency: "CAD",
                     deposit_required: false,
                     deposit_amount_cents: 0,
+                    taxable: true,
                     image_url: null,
                     kind: "service",
                     category: null,
@@ -525,6 +529,7 @@ const managed = (extra: Record<string, unknown> = {}) => ({
         currency: "CAD",
         deposit_required: false,
         deposit_amount_cents: 0,
+        taxable: true,
         image_url: null,
         kind: "service",
         category: null,
@@ -723,5 +728,86 @@ describe("visitAddress", () => {
         expect(mapsUrl("880 Douglas St, Victoria")).toBe(
             "https://www.google.com/maps/search/?api=1&query=880%20Douglas%20St%2C%20Victoria",
         );
+    });
+});
+
+describe("the booking tax note", () => {
+    const page = (extra: Record<string, unknown>, taxable = true) => ({
+        getServices: vi.fn().mockResolvedValue({
+            business_name: "Demo",
+            brand: { logo_url: null, primary: null, tagline: null },
+            services: [
+                {
+                    id: "service",
+                    name: "Visit",
+                    description: null,
+                    duration_min: 60,
+                    price_cents: 1000,
+                    currency: "CAD",
+                    deposit_required: false,
+                    deposit_amount_cents: 0,
+                    taxable,
+                    image_url: null,
+                    kind: "service",
+                    category: null,
+                    color: null,
+                    staff_ids: [],
+                },
+            ],
+            staff: [],
+            addons: [],
+            stripe_account_id: null,
+            slug: "demo",
+            now: "2026-10-13T17:00:00Z",
+            timezone: "America/Vancouver",
+            policy: null,
+            charges_tax: true,
+            tax_starts_on: null,
+            subject: null,
+            ...extra,
+        }),
+        getDays: vi.fn().mockResolvedValue([]),
+        getSlots: vi.fn().mockResolvedValue([]),
+        book: vi.fn(),
+        joinWaitlist: vi.fn(),
+        getPrograms: vi.fn().mockResolvedValue([]),
+    });
+    const note = async (client: ReturnType<typeof page>): Promise<string | null> => {
+        const { result } = renderHook(() =>
+            usePublicBookingFlow(client, "demo", { itemId: "service" }),
+        );
+        await waitFor(() => {
+            expect(result.current.page).not.toBeNull();
+        });
+        return result.current.taxNote;
+    };
+
+    it("shows only for a taxable visit from a registered business", async () => {
+        expect(await note(page({}))).toBe(strings.publicBooking.taxNote);
+        expect(await note(page({ charges_tax: false }))).toBeNull();
+        expect(await note(page({}, false))).toBeNull();
+    });
+
+    it("follows the visit's day when registration starts later", async () => {
+        const client = page({ tax_starts_on: "2026-11-01" });
+        const opening = {
+            starts_at: "2026-11-02T17:00:00Z",
+            ends_at: "2026-11-02T18:00:00Z",
+            staff_id: "st",
+        };
+        client.getSlots.mockResolvedValue([opening]);
+        const { result } = renderHook(() =>
+            usePublicBookingFlow(client, "demo", {
+                itemId: "service",
+                startsAt: opening.starts_at,
+            }),
+        );
+        await waitFor(() => {
+            expect(result.current.taxNote).toBe(strings.publicBooking.taxNote);
+        });
+        expect(await note(page({ tax_starts_on: "2026-10-01" }))).toBe(
+            strings.publicBooking.taxNote,
+        );
+        expect(await note(page({ tax_starts_on: "2026-11-01" }))).toBeNull();
     });
 });

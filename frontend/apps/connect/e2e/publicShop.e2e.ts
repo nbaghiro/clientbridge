@@ -105,6 +105,56 @@ test(
     },
 );
 
+test("the shop says tax is added when the business charges it", async ({ page }) => {
+    const shop = strings.publicShop;
+    await page.goto(shopPage);
+    await page
+        .getByRole("button", { name: shop.addNamed("Oatmeal Soothe Shampoo (500ml)") })
+        .click();
+    await expect(page.locator("aside").getByText(shop.taxNote)).toBeVisible();
+});
+
+test("a business that doesn't charge tax never mentions it in the shop", async ({ page }) => {
+    const shop = strings.publicShop;
+    const card = page.getByRole("group", { name: "Oatmeal Soothe Shampoo (500ml)", exact: true });
+    const summary = page.locator("aside");
+    await page.route(`${api}/book/${slug}/shop`, (route) =>
+        rewrite(route, (body) => ({
+            ...body,
+            charges_tax: false,
+            stripe_account_id: "acct_e2e",
+        })),
+    );
+    await page.route(`${api}/book/${slug}/shop/orders`, (route) =>
+        route.fulfill({
+            json: {
+                order_id: "ord_01E2EUNTAXEDORDER",
+                order_token: null,
+                subtotal_cents: 2400,
+                tax_total_cents: 0,
+                total_cents: 2400,
+                currency: "CAD",
+                client_secret: "pi_e2e_untaxed_secret",
+                stripe_account_id: "acct_e2e",
+            },
+        }),
+    );
+    await page.goto(shopPage);
+    await card
+        .getByRole("button", { name: shop.addNamed("Oatmeal Soothe Shampoo (500ml)") })
+        .click();
+    await expect(summary.getByRole("button", { name: shop.checkout })).toBeVisible();
+    await expect(page.getByText(shop.taxNote)).toHaveCount(0);
+    await summary.getByRole("button", { name: shop.checkout, exact: true }).click();
+    await summary.getByRole("button", { name: shop.continue, exact: true }).click();
+    await page.getByLabel(shop.name, { exact: true }).fill("Avery Laurent");
+    await page.getByLabel(shop.phone, { exact: false }).fill("+16045550224");
+    await summary.getByRole("button", { name: shop.continuePay, exact: true }).click();
+    await expect(page.getByText(shop.payBodyNoTax("$24.00"))).toBeVisible();
+    await expect(page.getByText(shop.taxNote)).toHaveCount(0);
+    await expect(summary.getByText(shop.tax, { exact: true })).toHaveCount(0);
+});
+
 test("the shop adds from the grid, changes quantities and checks out in steps", async ({
     page,
 }) => {

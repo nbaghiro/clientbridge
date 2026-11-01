@@ -549,7 +549,7 @@ export function saleTotalLines(
             label: d.tip,
             cents: t.tipCents,
             kind: "subtotal",
-            hint: d.tipNoTax,
+            ...(t.taxes.length > 0 ? { hint: d.tipNoTax } : {}),
         });
     rows.push({
         key: "total",

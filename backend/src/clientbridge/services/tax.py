@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from fractions import Fraction
 from math import floor
@@ -183,6 +183,14 @@ def split_fixed(lines: Sequence[tuple[TaxLine, int]], rates: Sequence[TaxCompone
     return _total(results)
 
 
+def tax_recently_started(province: str | None, registered_on: date | None, day: date) -> bool:
+    """Whether registration or a rate began in the past week, so a missed nightly run catches up."""
+    since = day - timedelta(days=7)
+    if registered_on is not None and since <= registered_on <= day:
+        return True
+    return any(row.province == province and since <= row.valid_from <= day for row in RATES)
+
+
 async def supply_date(db: AsyncSession, business_id: str, at: datetime | None = None) -> date:
     """The business's calendar date at `at` (now when omitted): the date a supply is taxed on."""
     return (at or clock.now()).astimezone(await business_tz(db, business_id)).date()
@@ -261,9 +269,33 @@ async def tax_breakdown(
     )
 
 
-async def tax_for_lines(db: AsyncSession, business_id: str, lines: list[Line]) -> TaxResult:
+@dataclass(frozen=True)
+class TaxSettings:
+    """What a business charges at one instant, read once for many documents."""
+
+    rates: list[TaxComponent]
+    registered: bool
+
+
+async def tax_settings(db: AsyncSession, business_id: str, at: datetime) -> TaxSettings:
+    return TaxSettings(
+        await _components(db, business_id, at), await business_tax_registered(db, business_id, at)
+    )
+
+
+async def tax_for_lines(
+    db: AsyncSession, business_id: str, lines: list[Line], settings: TaxSettings | None = None
+) -> TaxResult:
     """Run the tax engine over a parent's lines at today's rates, writing each line's tax."""
-    result = await tax_breakdown(db, business_id, lines)
+    result = (
+        await tax_breakdown(db, business_id, lines)
+        if settings is None
+        else compute_tax(
+            [TaxLine(amount_cents=ln.amount_cents, tax_class=ln.tax_class) for ln in lines],
+            settings.rates,
+            registered=settings.registered,
+        )
+    )
     for ln, line_tax in zip(lines, result.lines, strict=True):
         ln.tax_amount_cents = line_tax.tax_cents
     return result

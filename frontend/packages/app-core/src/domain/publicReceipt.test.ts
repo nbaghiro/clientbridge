@@ -62,6 +62,13 @@ describe("publicReceiptTotals", () => {
         ]);
     });
 
+    it("only says a tip carries no tax when the receipt charged tax", () => {
+        const tip = (over: Parameters<typeof receipt>[0]) =>
+            publicReceiptTotals(receipt({ tip_cents: 500, ...over })).find((t) => t.key === "tip");
+        expect(tip({})?.hint).toBe(strings.publicReceipt.tipNoTax);
+        expect(tip({ taxes: [] })?.hint).toBeUndefined();
+    });
+
     it("leaves out a zero discount and a zero tip", () => {
         const totals = publicReceiptTotals(
             receipt({ discount_cents: 0, tip_cents: 0, taxes: [], payments: [] }),

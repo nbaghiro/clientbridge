@@ -310,6 +310,7 @@ interface PayLinkTip {
     available: boolean;
     title: string;
     note: string;
+    hint: string;
     key: string;
     options: { key: string; label: string; hint: string }[];
     choose: (key: string) => void;
@@ -346,7 +347,11 @@ function usePayLinkTip(invoice: PublicInvoice | null): PayLinkTip {
     return {
         available: base > 0,
         title: pp.tipTitle(names.length === 0 ? pp.tipTeam : formatList(names)),
-        note: pp.tipBase(formatMoney(base, currency)),
+        hint: invoice?.taxes.length === 0 ? pp.tipHintNoTax : pp.tipHint,
+        note:
+            invoice?.taxes.length === 0
+                ? pp.tipBaseNoTax(formatMoney(base, currency))
+                : pp.tipBase(formatMoney(base, currency)),
         key,
         options: [
             ...TIP_PERCENTS.map((n) => ({
