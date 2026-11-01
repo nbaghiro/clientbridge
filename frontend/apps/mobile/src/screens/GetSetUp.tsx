@@ -15,7 +15,8 @@ import {
 } from "@clientbridge/app-core";
 import { readableInk } from "@clientbridge/tokens";
 import { theme } from "@clientbridge/tokens/native";
-import { useRoute, type RouteProp } from "@react-navigation/native";
+import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import {
     Badge,
     Avatar,
@@ -38,7 +39,6 @@ import {
     SwatchPicker,
     TextField,
 } from "@clientbridge/ui";
-import { useState } from "react";
 import { launchImageLibraryAsync } from "expo-image-picker";
 import { Image, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 
@@ -326,9 +326,10 @@ function BrandSheet({ onClose }: { onClose: () => void }) {
 /** The Setup home on a phone: the checklist, the booking link and the brand sheet. */
 export function GetSetUpScreen() {
     const route = useRoute<RouteProp<RootStackParamList, "GetSetUp">>();
+    const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, "GetSetUp">>();
     const list = useSetupChecklist(api, pageUrl);
     const open = useOpenLink();
-    const [editing, setEditing] = useState(route.params?.brand === true);
+    const editing = route.params?.brand === true;
     const pct = list.done / list.total;
 
     if (list.load.state === "loading") {
@@ -404,8 +405,7 @@ export function GetSetUpScreen() {
                                     action: {
                                         label: t.action,
                                         onPress: () => {
-                                            if (t.target === "brand") setEditing(true);
-                                            else open(t.target);
+                                            open(t.target);
                                         },
                                     },
                                 }))}
@@ -441,7 +441,7 @@ export function GetSetUpScreen() {
                     variant="outline"
                     icon="image"
                     onPress={() => {
-                        setEditing(true);
+                        navigation.setParams({ brand: true });
                     }}
                 >
                     {o.brandTitle}
@@ -460,7 +460,7 @@ export function GetSetUpScreen() {
             {editing ? (
                 <BrandSheet
                     onClose={() => {
-                        setEditing(false);
+                        navigation.setParams({ brand: false });
                     }}
                 />
             ) : null}
