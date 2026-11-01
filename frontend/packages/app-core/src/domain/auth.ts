@@ -180,7 +180,23 @@ interface AuthOptions {
     webauthn?: WebAuthnLike;
 }
 
-interface AuthForm {
+interface SecondFactorStep {
+    mfaMethods: MfaMethod[];
+    mfaMethod: MfaMethod;
+    setMfaMethod: (m: MfaMethod) => void;
+}
+
+export interface SecondFactorForm extends SecondFactorStep {
+    code: string;
+    setCode: (v: string) => void;
+    fieldErrors: AuthFieldErrors;
+    error: string | null;
+    busy: boolean;
+    submit: () => void;
+    cancel: () => void;
+}
+
+interface AuthForm extends SecondFactorForm {
     mode: AuthMode;
     setMode: (m: "signin" | "signup") => void;
     name: string;
@@ -189,20 +205,10 @@ interface AuthForm {
     setEmail: (v: string) => void;
     password: string;
     setPassword: (v: string) => void;
-    code: string;
-    setCode: (v: string) => void;
     reveal: boolean;
     toggleReveal: () => void;
-    fieldErrors: AuthFieldErrors;
-    error: string | null;
     notice: string | null;
-    busy: boolean;
-    mfaMethods: MfaMethod[];
-    mfaMethod: MfaMethod;
-    setMfaMethod: (m: MfaMethod) => void;
-    submit: () => void;
     google: () => void;
-    cancel: () => void;
 }
 
 /** Sign in, sign up, and the second factor, over the auth service; mobile gets a token. */
@@ -220,10 +226,17 @@ export function useAuthForm(
     const [reveal, setReveal] = useState(false);
     const [fieldErrors, setFieldErrors] = useState<AuthFieldErrors>({});
     const [notice, setNotice] = useState<string | null>(null);
-    const [mfaMethod, setMfaMethod] = useState<MfaMethod>("totp");
     const [flow, setFlow] = useState<Flow | null>(null);
     const pending = useRef<string | undefined>(undefined);
     const { busy, error, setError, run } = useAsyncAction();
+    const mfa = useSecondFactor(identity, opts?.webauthn, {
+        flow,
+        code,
+        setCode,
+        setFieldErrors,
+        setError,
+    });
+    const { enter } = mfa;
 
     const hold = useCallback(
         (sessionToken: string | undefined): void => {
@@ -249,7 +262,7 @@ export function useAuthForm(
                 email: errs.fields.identifier ?? errs.fields["traits.email"],
                 name: errs.fields["traits.name"],
                 password: errs.fields.password,
-                code: errs.fields.totp_code ?? errs.fields.lookup_secret ?? errs.fields.code,
+                code: codeFieldError(errs.fields),
             });
             setError(errs.form);
             const info = next.messages.find((m) => m.type !== "error");
@@ -260,12 +273,11 @@ export function useAuthForm(
 
     const secondStep = useCallback(
         (next: Flow): void => {
-            setMfaMethod(mfaMethodsOf(next, opts?.webauthn)[0] ?? "totp");
+            enter(next);
             setModeState("mfa");
-            setCode("");
             show(next);
         },
-        [opts?.webauthn, show],
+        [enter, show],
     );
 
     const finish = useCallback(
@@ -364,18 +376,14 @@ export function useAuthForm(
         const current =
             flow ??
             (await identity.start("login", { secondFactor: true, sessionToken: pending.current }));
-        const body = await secondFactorBody(current, mfaMethod, code, opts?.webauthn);
-        if (body === null) {
-            setError(a.mfaKeyRefused);
-            return;
-        }
-        const step = await identity.submit(current, body, pending.current);
+        const step = await mfa.confirm(current, pending.current);
+        if (step === null) return;
         if (step.kind === "done") {
             await complete(step.sessionToken ?? pending.current);
             return;
         }
         await handle(step, () => undefined);
-        if (step.kind === "flow" && mfaMethod === "webauthn") setError(keyRefusal(step.flow));
+        mfa.refused(step);
     };
 
     const submit = (): void => {
@@ -387,7 +395,7 @@ export function useAuthForm(
             if (mode === "signup" && name.trim() === "") errs.name = a.nameRequired;
             if (mode === "signin" && password === "") errs.password = a.passwordRequired;
             if (mode === "signup" && password.length < 8) errs.password = a.passwordShort;
-        } else if (mfaMethod !== "webauthn" && code.trim() === "") errs.code = a.codeRequired;
+        } else if (mfa.codeMissing()) errs.code = a.codeRequired;
         setFieldErrors(errs);
         if (Object.keys(errs).length > 0) return;
         const work = mode === "mfa" ? secondFactor : credentials;
@@ -432,14 +440,7 @@ export function useAuthForm(
         error,
         notice,
         busy,
-        mfaMethods: mfaMethodsOf(flow, opts?.webauthn),
-        mfaMethod,
-        setMfaMethod: (m) => {
-            setMfaMethod(m);
-            setCode("");
-            setFieldErrors({});
-            setError(null);
-        },
+        ...mfa.view,
         submit,
         google,
         cancel: () => {
@@ -488,39 +489,75 @@ function keyRefusal(flow: Flow): string | null {
     return refused ? strings.auth.mfaKeyRefused : null;
 }
 
-export type SecondFactorForm = Pick<
-    AuthForm,
-    | "mfaMethods"
-    | "mfaMethod"
-    | "setMfaMethod"
-    | "code"
-    | "setCode"
-    | "fieldErrors"
-    | "error"
-    | "busy"
-    | "submit"
-    | "cancel"
->;
+function codeFieldError(fields: Record<string, string>): string | undefined {
+    return fields.totp_code ?? fields.lookup_secret ?? fields.code;
+}
 
-interface RecoveryForm {
+interface SecondFactorHost {
+    flow: Flow | null;
+    code: string;
+    setCode: (v: string) => void;
+    setFieldErrors: (errors: AuthFieldErrors) => void;
+    setError: (error: string | null) => void;
+}
+
+/** The second factor that sign-in and a reset both confirm, over the form that shows it. */
+function useSecondFactor(
+    identity: IdentityLike,
+    webauthn: WebAuthnLike | undefined,
+    host: SecondFactorHost,
+) {
+    const [mfaMethod, setMethod] = useState<MfaMethod>("totp");
+    const { code, setCode, setFieldErrors, setError } = host;
+
+    const enter = useCallback(
+        (next: Flow): void => {
+            setMethod(mfaMethodsOf(next, webauthn)[0] ?? "totp");
+            setCode("");
+        },
+        [setCode, webauthn],
+    );
+
+    const view: SecondFactorStep = {
+        mfaMethods: mfaMethodsOf(host.flow, webauthn),
+        mfaMethod,
+        setMfaMethod: (m) => {
+            setMethod(m);
+            setCode("");
+            setFieldErrors({});
+            setError(null);
+        },
+    };
+
+    return {
+        view,
+        enter,
+        /** A security key needs no code; every other method does. */
+        codeMissing: (): boolean => mfaMethod !== "webauthn" && code.trim() === "",
+        /** Null when the browser refused the security key, which is then the form's error. */
+        confirm: async (current: Flow, sessionToken?: string): Promise<FlowStep | null> => {
+            const body = await secondFactorBody(current, mfaMethod, code, webauthn);
+            if (body === null) {
+                setError(strings.auth.mfaKeyRefused);
+                return null;
+            }
+            return identity.submit(current, body, sessionToken);
+        },
+        refused: (step: FlowStep): void => {
+            if (step.kind === "flow" && mfaMethod === "webauthn") setError(keyRefusal(step.flow));
+        },
+    };
+}
+
+interface RecoveryForm extends SecondFactorForm {
     step: "email" | "code" | "mfa" | "password";
     email: string;
     setEmail: (v: string) => void;
-    code: string;
-    setCode: (v: string) => void;
     password: string;
     setPassword: (v: string) => void;
-    fieldErrors: AuthFieldErrors;
-    error: string | null;
     notice: string | null;
-    busy: boolean;
     cooldown: number;
-    mfaMethods: MfaMethod[];
-    mfaMethod: MfaMethod;
-    setMfaMethod: (m: MfaMethod) => void;
-    submit: () => void;
     resend: () => void;
-    cancel: () => void;
 }
 
 /** Email a code, enter it, confirm any second factor, then choose a new password; the user ends up signed in. */
@@ -544,10 +581,16 @@ export function useRecoveryForm(
     const [notice, setNotice] = useState<string | null>(null);
     const [cooldown, setCooldown] = useCooldown();
     const [flow, setFlow] = useState<Flow | null>(null);
-    const [mfaMethod, setMfaMethod] = useState<MfaMethod>("totp");
     const token = useRef<string | undefined>(undefined);
     const settingsId = useRef("");
     const { busy, error, setError, run } = useAsyncAction();
+    const mfa = useSecondFactor(identity, opts?.webauthn, {
+        flow,
+        code,
+        setCode,
+        setFieldErrors,
+        setError,
+    });
 
     const hold = (sessionToken: string | undefined): void => {
         token.current = sessionToken;
@@ -559,7 +602,7 @@ export function useRecoveryForm(
         const errs = flowErrors(next);
         setFieldErrors({
             email: errs.fields.email,
-            code: errs.fields.totp_code ?? errs.fields.lookup_secret ?? errs.fields.code,
+            code: codeFieldError(errs.fields),
             password: errs.fields.password,
         });
         setError(errs.form);
@@ -616,8 +659,7 @@ export function useRecoveryForm(
                     secondFactor: true,
                     sessionToken: token.current,
                 });
-                setMfaMethod(mfaMethodsOf(login, opts?.webauthn)[0] ?? "totp");
-                setCode("");
+                mfa.enter(login);
                 show(login);
                 setStep("mfa");
             } else await openPassword();
@@ -648,15 +690,11 @@ export function useRecoveryForm(
 
     const confirmSecondFactor = async (): Promise<void> => {
         if (!flow) return;
-        const body = await secondFactorBody(flow, mfaMethod, code, opts?.webauthn);
-        if (body === null) {
-            setError(a.mfaKeyRefused);
-            return;
-        }
-        const result = await identity.submit(flow, body, token.current);
+        const result = await mfa.confirm(flow, token.current);
+        if (result === null) return;
         if (result.kind === "flow") {
             show(result.flow);
-            if (mfaMethod === "webauthn") setError(keyRefusal(result.flow));
+            mfa.refused(result);
             return;
         }
         if (result.kind !== "done") {
@@ -693,8 +731,7 @@ export function useRecoveryForm(
         const errs: AuthFieldErrors = {};
         if (step === "email" && !EMAIL.test(email.trim())) errs.email = a.emailInvalid;
         if (step === "code" && code.trim() === "") errs.code = a.codeRequired;
-        if (step === "mfa" && mfaMethod !== "webauthn" && code.trim() === "")
-            errs.code = a.codeRequired;
+        if (step === "mfa" && mfa.codeMissing()) errs.code = a.codeRequired;
         if (step === "password" && password.length < 8) errs.password = a.passwordShort;
         setFieldErrors(errs);
         if (Object.keys(errs).length > 0) return;
@@ -726,14 +763,7 @@ export function useRecoveryForm(
         notice,
         busy,
         cooldown,
-        mfaMethods: mfaMethodsOf(flow, opts?.webauthn),
-        mfaMethod,
-        setMfaMethod: (m) => {
-            setMfaMethod(m);
-            setCode("");
-            setFieldErrors({});
-            setError(null);
-        },
+        ...mfa.view,
         submit,
         resend: () => {
             if (cooldown > 0) return;
