@@ -49,6 +49,8 @@ async function endSession(): Promise<void> {
     await identity.signOut().catch(() => undefined);
 }
 
+let loaded = false;
+
 const lifecycle = {
     validate: async (stale: () => boolean) => {
         const session = await checkSession(api.forBusiness(null), getUserId(), verifiedAt());
@@ -63,7 +65,11 @@ const lifecycle = {
         };
     },
     restore: async (stale: () => boolean) => {
-        await endAbandonedReset(identity, localStorage).catch(() => undefined);
+        // only at load: a restore another tab sets off would end that tab's reset in progress
+        if (!loaded) {
+            loaded = true;
+            await endAbandonedReset(identity, localStorage).catch(() => undefined);
+        }
         const session = sessionExpected()
             ? await checkSession(api.forBusiness(null), getUserId(), verifiedAt())
             : { state: "none" as const };
