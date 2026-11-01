@@ -22,14 +22,6 @@ afterEach(() => {
     vi.useRealTimers();
 });
 
-// the cooldown counts down one render at a time
-function endCooldown(): void {
-    for (let second = 0; second <= 30; second++)
-        act(() => {
-            vi.advanceTimersByTime(1000);
-        });
-}
-
 const refused = (status: number, code: string): Error =>
     Object.assign(new Error(code), { status, code });
 
@@ -624,7 +616,6 @@ describe("useRecoveryForm", () => {
 
     describe("when wrong codes used up the flow", () => {
         async function atUsedUpCode(steps: FlowStep[]) {
-            vi.useFakeTimers({ shouldAdvanceTime: true });
             const identity = fakeIdentity([
                 { kind: "flow", flow: sent },
                 { kind: "restart", tooOften: true },
@@ -650,6 +641,7 @@ describe("useRecoveryForm", () => {
             await waitFor(() => {
                 expect(result.current.error).toBe(strings.auth.codeTooOften);
             });
+            expect(result.current.cooldown).toBe(0);
             return { identity, signedIn, result };
         }
 
@@ -672,7 +664,6 @@ describe("useRecoveryForm", () => {
                 { kind: "flow", flow: sent },
                 { kind: "done", sessionToken: "recovered", next: { flow: "settings", id: "s-1" } },
             ]);
-            endCooldown();
             act(() => {
                 result.current.resend();
             });
@@ -1066,6 +1057,7 @@ describe("useVerificationForm", () => {
             expect(result.current.error).toBe(strings.auth.codeTooOften);
         });
         expect(result.current.verified).toBe(false);
+        expect(result.current.cooldown).toBe(0);
 
         const submitted = identity.submit.mock.calls.length;
         act(() => {

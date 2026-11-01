@@ -601,6 +601,7 @@ export function useRecoveryForm(
         }
         if (result.kind === "restart") {
             setFlow(null);
+            setCooldown(0);
             setError(result.tooOften ? a.codeTooOften : a.codeExpired);
             return;
         }
@@ -832,10 +833,11 @@ export function useVerificationForm(
                     return;
                 }
                 setFlow(null);
+                setCooldown(0);
                 setError(step.tooOften ? a.codeTooOften : a.codeExpired);
             }
         },
-        [identity, opts.devApi, sentTo, show, setError],
+        [identity, opts.devApi, sentTo, setCooldown, show, setError],
     );
 
     useEffect(() => {

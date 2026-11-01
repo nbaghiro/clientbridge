@@ -459,7 +459,7 @@ test("too many wrong codes at sign-up ask for a new one, and it confirms the ema
     await expect(page.getByText(a.codeTooOften, { exact: true })).toBeVisible();
 
     const again = page.getByRole("button", { name: a.resendCode, exact: true });
-    await expect(again).toBeEnabled({ timeout: 35_000 });
+    await expect(again).toBeEnabled();
     await again.click();
     await expect(page.getByText(a.codeTooOften, { exact: true })).toHaveCount(0);
     await page
@@ -492,7 +492,7 @@ test("too many wrong codes on a reset ask for a new one, and it resets the passw
     await expect(page.getByText(a.codeTooOften, { exact: true })).toBeVisible();
 
     const again = page.getByRole("button", { name: a.resendCode, exact: true });
-    await expect(again).toBeEnabled({ timeout: 35_000 });
+    await expect(again).toBeEnabled();
     await again.click();
     await expect(page.getByText(a.codeTooOften, { exact: true })).toHaveCount(0);
     await page
