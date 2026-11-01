@@ -1,8 +1,9 @@
 import re
 from datetime import date, datetime
+from typing import Annotated
 from urllib.parse import urlparse
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
 
 from clientbridge.core.mirrors import Mirror
 from clientbridge.core.phones import Phone
@@ -20,7 +21,9 @@ GST_HST_NUMBER = re.compile(r"^\d{9}RT\d{4}$")
 QST_NUMBER = re.compile(r"^\d{10}TQ\d{4}$")
 PST_NUMBER = re.compile(r"^(PST)?\d{4}\d{4}$")
 POSTAL_CODE = re.compile(r"^([A-Z][0-9][A-Z])([0-9][A-Z][0-9])$")
-BUSINESS_NAME_MAX = 100
+BusinessName = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)
+]
 
 
 def public_email(value: str | None) -> str | None:
@@ -38,30 +41,16 @@ def _optional_public_email(value: str | None, field: str) -> str | None:
     return value or None
 
 
-def _business_name(value: str) -> str:
-    trimmed = value.strip()
-    if not trimmed:
-        raise ValueError("a business name cannot be blank")
-    if len(trimmed) > BUSINESS_NAME_MAX:
-        raise ValueError(f"a business name is at most {BUSINESS_NAME_MAX} characters")
-    return trimmed
-
-
 class OnboardBody(Mirror):
     mirrors = Business
 
-    name: str
+    name: BusinessName
     slug: str
     province: ProvinceCode
     timezone: str | None = None
     subject: SubjectKind | None = Field(
         description="What bookings are for besides the client; null books only them"
     )
-
-    @field_validator("name")
-    @classmethod
-    def _check_name(cls, value: str) -> str:
-        return _business_name(value)
 
 
 class BusinessOut(Mirror):
@@ -161,7 +150,7 @@ class BusinessSettingsUpdate(Mirror):
 
     """Partial update of account fields; tax numbers accept an empty string to clear."""
 
-    name: str | None = None
+    name: BusinessName | None = None
     slug: str | None = Field(
         default=None, description="The public page's address; old links stop working"
     )
@@ -197,11 +186,6 @@ class BusinessSettingsUpdate(Mirror):
         default=None, description="The business's legal contact phone; empty clears"
     )
     brand: BrandInput | None = None
-
-    @field_validator("name")
-    @classmethod
-    def _check_name(cls, value: str | None) -> str | None:
-        return None if value is None else _business_name(value)
 
     @field_validator("unit", "street_number", "street_name", "city")
     @classmethod
