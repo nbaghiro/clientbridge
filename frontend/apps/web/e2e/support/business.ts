@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { strings } from "@clientbridge/app-core/public";
 import { type APIRequestContext, type Locator, type Page, expect } from "@playwright/test";
-import { runUrl } from "@clientbridge/config/e2e/run";
+import { runPort, runUrl } from "@clientbridge/config/e2e/run";
 import { freshPhone, mailedCode, newAccount } from "./auth";
 import { select } from "./db";
 
@@ -150,9 +150,7 @@ export async function storedBrand(id: string): Promise<Record<string, unknown>> 
 }
 
 export function connectUrl(host: string, path = ""): string {
-    const port = process.env.CONNECT_E2E_PORT;
-    if (!port) throw new Error("Public page checks need the local Connect server");
-    return `http://${host}.localhost:${port}/${path}`;
+    return `http://${host}.localhost:${String(runPort("CONNECT_E2E_PORT"))}/${path}`;
 }
 
 export interface BrandControls {
