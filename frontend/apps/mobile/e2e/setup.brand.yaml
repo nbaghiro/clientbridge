@@ -14,27 +14,39 @@ name: NATIVE-CFG-01 Photos picked on the phone upload, save and become the busin
 - extendedWaitUntil:
       visible: "Replace logo"
       timeout: 60000
-- tapOn: "Replace logo"
-- runFlow: helpers/pick-photo.yaml
-# the notice only appears once the server has confirmed the bytes and the logo changed
-- scrollUntilVisible:
-      element: "You have unsaved brand changes."
-      direction: DOWN
-      timeout: 60000
-- takeScreenshot: brand-logo-uploaded
+- runFlow:
+      file: helpers/pick-photo.yaml
+      env:
+          OPENS: "Replace logo"
+# the cover button stays disabled until the server has confirmed the logo's bytes
 - scrollUntilVisible:
       element: "Upload cover photo"
-      direction: UP
-- tapOn: "Upload cover photo"
-- runFlow: helpers/pick-photo.yaml
+      direction: DOWN
+- extendedWaitUntil:
+      visible:
+          text: "Upload cover photo"
+          enabled: true
+      timeout: 60000
+- takeScreenshot: brand-logo-uploaded
+- runFlow:
+      file: helpers/pick-photo.yaml
+      env:
+          OPENS: "Upload cover photo"
 # the label only changes once the server has confirmed the bytes
 - extendedWaitUntil:
       visible: "Replace cover photo"
       timeout: 60000
 - takeScreenshot: brand-cover-uploaded
-- scrollUntilVisible:
-      element: "Save brand"
-      direction: DOWN
+# along the sheet's edge, because on a small screen a swipe from the centre lands on a field and moves only its text
+- repeat:
+      times: 40
+      while:
+          notVisible: "Save brand"
+      commands:
+          - swipe:
+                start: "3%,80%"
+                end: "3%,20%"
+- assertVisible: "You have unsaved brand changes."
 - tapOn: "Save brand"
 - extendedWaitUntil:
       visible: "Saved. Your booking page uses it now."
