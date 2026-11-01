@@ -1,5 +1,6 @@
 import { createHmac, randomInt, randomUUID } from "node:crypto";
-import type { APIRequestContext, Page } from "@playwright/test";
+import { strings } from "@clientbridge/app-core/public";
+import { type APIRequestContext, type Page, expect } from "@playwright/test";
 import { demoPerson } from "@clientbridge/config/e2e/demo";
 import { demoId, runEmail, runUrl } from "@clientbridge/config/e2e/run";
 
@@ -28,6 +29,21 @@ export async function mailedCode(
         const code = /\b(\d{6})\b/.exec(text)?.[1];
         return code !== previous ? code : undefined;
     });
+}
+
+/** Sends a reset code to `email` from the reset screen and returns it, once it differs from `previous`. */
+export async function requestResetCode(
+    page: Page,
+    request: APIRequestContext,
+    email: string,
+    previous?: string,
+): Promise<string> {
+    const a = strings.auth;
+    await expect(page.getByRole("heading", { name: a.resetTitle })).toBeVisible();
+    await page.getByRole("textbox", { name: a.email, exact: true }).fill(email);
+    await page.getByRole("button", { name: a.sendCode, exact: true }).click();
+    await expect(page.getByRole("heading", { name: a.resetCodeTitle })).toBeVisible();
+    return mailedCode(request, email, "password reset", previous);
 }
 
 /** The code mailed for one verification flow, whichever other codes reached `email`. */

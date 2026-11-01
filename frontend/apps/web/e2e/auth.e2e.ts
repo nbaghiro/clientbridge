@@ -11,6 +11,7 @@ import {
     newAccount,
     ownerInvite,
     registerAccount,
+    requestResetCode,
     sessionActive,
     signedInEmail,
     totp,
@@ -151,12 +152,9 @@ test(
         await page.context().clearCookies();
         await page.goto("/login");
         await page.getByRole("button", { name: a.forgot, exact: true }).click();
-        await expect(page.getByRole("heading", { name: a.resetTitle })).toBeVisible();
-        await page.getByRole("textbox", { name: a.email, exact: true }).fill(account.email);
-        await page.getByRole("button", { name: a.sendCode, exact: true }).click();
         await page
             .getByLabel(a.code, { exact: true })
-            .fill(await mailedCode(request, account.email, "password reset"));
+            .fill(await requestResetCode(page, request, account.email));
         await page.getByRole("button", { name: a.checkCode, exact: true }).click();
         await expect(page.getByRole("heading", { name: a.resetPasswordTitle })).toBeVisible();
         await page.getByLabel(a.newPassword, { exact: true }).fill(`${account.password}-new`);
@@ -277,12 +275,9 @@ test("ID-E2E-03 recovery refuses the old session's next business action once the
         const recovering = await second.newPage();
         await recovering.goto("/login");
         await recovering.getByRole("button", { name: a.forgot, exact: true }).click();
-        await expect(recovering.getByRole("heading", { name: a.resetTitle })).toBeVisible();
-        await recovering.getByRole("textbox", { name: a.email, exact: true }).fill(account.email);
-        await recovering.getByRole("button", { name: a.sendCode, exact: true }).click();
         await recovering
             .getByLabel(a.code, { exact: true })
-            .fill(await mailedCode(request, account.email, "password reset"));
+            .fill(await requestResetCode(recovering, request, account.email));
         await recovering.getByRole("button", { name: a.checkCode, exact: true }).click();
         await recovering.getByLabel(a.newPassword, { exact: true }).fill(`${account.password}-new`);
         await recovering.getByRole("button", { name: a.savePassword, exact: true }).click();
@@ -367,20 +362,15 @@ test("a reset left half-finished by a reload can start again", async ({ page, re
     await page.context().clearCookies();
     await page.goto("/login");
     const reset = async (previous?: string): Promise<string> => {
-        await page.getByRole("textbox", { name: a.email, exact: true }).fill(account.email);
-        await page.getByRole("button", { name: a.sendCode, exact: true }).click();
-        await expect(page.getByRole("heading", { name: a.resetCodeTitle })).toBeVisible();
-        const code = await mailedCode(request, account.email, "password reset", previous);
+        const code = await requestResetCode(page, request, account.email, previous);
         await page.getByLabel(a.code, { exact: true }).fill(code);
         await page.getByRole("button", { name: a.checkCode, exact: true }).click();
         await expect(page.getByRole("heading", { name: a.resetPasswordTitle })).toBeVisible();
         return code;
     };
     await page.getByRole("button", { name: a.forgot, exact: true }).click();
-    await expect(page.getByRole("heading", { name: a.resetTitle })).toBeVisible();
     const first = await reset();
     await page.reload();
-    await expect(page.getByRole("heading", { name: a.resetTitle })).toBeVisible();
     await reset(first);
 });
 
@@ -393,12 +383,9 @@ test("a reset closed at its last step leaves nobody signed in on the next load",
     await registerAccount(request, account);
     await page.goto("/login");
     await page.getByRole("button", { name: a.forgot, exact: true }).click();
-    await expect(page.getByRole("heading", { name: a.resetTitle })).toBeVisible();
-    await page.getByRole("textbox", { name: a.email, exact: true }).fill(account.email);
-    await page.getByRole("button", { name: a.sendCode, exact: true }).click();
     await page
         .getByLabel(a.code, { exact: true })
-        .fill(await mailedCode(request, account.email, "password reset"));
+        .fill(await requestResetCode(page, request, account.email));
     await page.getByRole("button", { name: a.checkCode, exact: true }).click();
     await expect(page.getByRole("heading", { name: a.resetPasswordTitle })).toBeVisible();
     expect(await signedInEmail(page)).toBe(account.email);
@@ -499,11 +486,7 @@ test("too many wrong codes on a reset ask for a new one, and it resets the passw
     await registerAccount(request, account);
     await page.goto("/login");
     await page.getByRole("button", { name: a.forgot, exact: true }).click();
-    await expect(page.getByRole("heading", { name: a.resetTitle })).toBeVisible();
-    await page.getByRole("textbox", { name: a.email, exact: true }).fill(account.email);
-    await page.getByRole("button", { name: a.sendCode, exact: true }).click();
-    await expect(page.getByRole("heading", { name: a.resetCodeTitle })).toBeVisible();
-    const first = await mailedCode(request, account.email, "password reset");
+    const first = await requestResetCode(page, request, account.email);
     await useUpCode(page, otherCode(first), a.checkCode);
     await expect(page.getByText(a.codeTooOften, { exact: true })).toBeVisible();
 
@@ -538,12 +521,9 @@ test("a password reset on an account with a second factor confirms it, then save
     await page.context().clearCookies();
     await page.goto("/login");
     await page.getByRole("button", { name: a.forgot, exact: true }).click();
-    await expect(page.getByRole("heading", { name: a.resetTitle })).toBeVisible();
-    await page.getByRole("textbox", { name: a.email, exact: true }).fill(account.email);
-    await page.getByRole("button", { name: a.sendCode, exact: true }).click();
     await page
         .getByLabel(a.code, { exact: true })
-        .fill(await mailedCode(request, account.email, "password reset"));
+        .fill(await requestResetCode(page, request, account.email));
     await page.getByRole("button", { name: a.checkCode, exact: true }).click();
 
     await expect(page.getByRole("heading", { name: a.mfaTitle })).toBeVisible();
