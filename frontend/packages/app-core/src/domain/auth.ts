@@ -724,7 +724,7 @@ export function useRecoveryForm(
         setStep("password");
     };
 
-    // Ends the half-finished session too, or the auth service refuses to start another reset.
+    // Ends the reset's session as well, so it never outlives an unsaved password.
     const startOver = async (message: string | null): Promise<void> => {
         release(
             await identity.signOut(token.current).then(
@@ -862,9 +862,9 @@ export function useVerificationForm(
 ): VerificationForm {
     const a = strings.auth;
     const [flow, setFlow] = useState<Flow | null>(null);
-    const [devPassed, setDevPassed] = useState(false);
     const [code, setCode] = useState("");
     const [notice, setNotice] = useState<string | null>(null);
+    // Confirmed without this flow passing: the API took its test code, or the emailed link got there first.
     const [confirmed, setConfirmed] = useState(false);
     const [cooldown, setCooldown] = useCooldown();
     const { busy, error, setError, run } = useAsyncAction();
@@ -903,7 +903,7 @@ export function useVerificationForm(
                     );
                 if (accepted) {
                     setError(null);
-                    setDevPassed(true);
+                    setConfirmed(true);
                     return;
                 }
             }
@@ -954,7 +954,7 @@ export function useVerificationForm(
     }, []);
 
     return {
-        verified: confirmed || devPassed || flow?.state === "passed_challenge",
+        verified: confirmed || flow?.state === "passed_challenge",
         email: sentTo || nodeValue(flow, "email"),
         code,
         setCode,
