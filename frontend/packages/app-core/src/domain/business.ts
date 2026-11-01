@@ -977,7 +977,6 @@ interface BrandImage {
 
 export interface BrandForm {
     ready: boolean;
-    businessId: string | null;
     name: string;
     slug: string;
     province: string | null;
@@ -1061,7 +1060,6 @@ export function useBrandForm(api: ApiLike): BrandForm {
     const uploading = logoFiles.busy || coverFiles.busy;
     return {
         ready: row !== undefined,
-        businessId: row?.id ?? null,
         name: row?.name ?? "",
         slug: row?.slug ?? "",
         province: row?.province ?? null,
