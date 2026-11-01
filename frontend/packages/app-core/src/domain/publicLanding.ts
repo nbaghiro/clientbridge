@@ -117,25 +117,35 @@ export function usePublicProfile(client: PublicProfileClient, slug: string) {
     };
 }
 
-interface BusinessNavigationAvailability {
+interface LandingSections {
     booking: boolean;
-    shop: boolean;
     team: boolean;
+    contact: boolean;
+    /** Hours or contact details to list under "Plan your visit". */
     visit: boolean;
     policies: boolean;
 }
 
-/** Whether the page has hours or contact details to list under "Plan your visit". */
-export function hasVisitDetails(page: {
+/** Which sections a business page shows, for the page and its navigation alike. */
+export function landingSections(page: {
+    services: readonly unknown[];
+    staff: readonly unknown[];
+    policy: unknown;
     hours: readonly unknown[];
-    address?: string | null;
-    phone?: string | null;
-    email?: string | null;
-    website?: string | null;
-}): boolean {
-    return (
-        page.hours.length > 0 || [page.address, page.phone, page.email, page.website].some(Boolean)
-    );
+    address: string | null;
+    phone: string | null;
+    email: string | null;
+    website: string | null;
+}): LandingSections {
+    const contact = [page.address, page.phone, page.email, page.website].some(Boolean);
+    return {
+        booking: page.services.length > 0,
+        team: page.staff.length > 0,
+        contact,
+        visit: contact || page.hours.length > 0,
+        // rules for changing a booking mean nothing with nothing to book
+        policies: Boolean(page.policy) && page.services.length > 0,
+    };
 }
 
 const navigationCache = new WeakMap<
@@ -144,7 +154,7 @@ const navigationCache = new WeakMap<
         string,
         {
             expires: number;
-            value: Promise<BusinessNavigationAvailability>;
+            value: Promise<LandingSections & { shop: boolean }>;
         }
     >
 >();
@@ -165,12 +175,8 @@ export function usePublicBusinessNavigation(
             if (existing && existing.expires > Date.now()) return existing.value;
             const value = Promise.all([client.get(key), shop.getShop(key)])
                 .then(([profile, products]) => ({
-                    booking: profile.services.length > 0,
+                    ...landingSections(profile),
                     shop: products.items.length > 0,
-                    team: profile.staff.length > 0,
-                    visit: hasVisitDetails(profile),
-                    // rules for changing a booking mean nothing with nothing to book
-                    policies: Boolean(profile.policy) && profile.services.length > 0,
                 }))
                 .catch((error: unknown) => {
                     cache.delete(key);
@@ -186,6 +192,7 @@ export function usePublicBusinessNavigation(
             booking: false,
             shop: false,
             team: false,
+            contact: false,
             visit: false,
             policies: false,
         }
