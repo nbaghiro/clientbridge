@@ -7,8 +7,9 @@ export function pickedPhoto(asset: ImagePickerAsset): Promise<Blob> {
         request.onload = () => {
             resolve(request.response as Blob);
         };
+        // not a TypeError, which would read as being offline
         request.onerror = () => {
-            reject(new TypeError("the picked photo could not be read"));
+            reject(new Error("the picked photo could not be read"));
         };
         request.responseType = "blob";
         request.open("GET", asset.uri);
