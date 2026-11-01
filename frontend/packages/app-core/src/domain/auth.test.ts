@@ -84,8 +84,15 @@ describe("checkSession", () => {
         apiOf(() => Promise.reject(Object.assign(new Error(code), { status, code })));
 
     it("names the signed-in user", async () => {
-        const api = apiOf((() => Promise.resolve({ user_id: "us_1" })) as ApiLike["get"]);
+        const api = apiOf((() =>
+            Promise.resolve({ user_id: "us_1", email_verified: true })) as ApiLike["get"]);
         expect(await checkSession(api, null)).toMatchObject({ state: "user", userId: "us_1" });
+    });
+
+    it("holds a session whose email is not confirmed yet", async () => {
+        const api = apiOf((() =>
+            Promise.resolve({ user_id: "us_1", email_verified: false })) as ApiLike["get"]);
+        expect(await checkSession(api, "us_1")).toEqual({ state: "unverified" });
     });
 
     it("keeps a recently verified user through an outage, and nobody otherwise", async () => {
@@ -283,6 +290,34 @@ describe("useAuthForm", () => {
         });
     });
 
+    it("signs a new account in and hands its mailed verification flow to the app", async () => {
+        const identity = fakeIdentity([
+            { kind: "done", sessionToken: "tok", next: { flow: "verification", id: "v-1" } },
+        ]);
+        const signedIn = vi.fn();
+        const started = vi.fn();
+        const { result } = renderHook(() =>
+            useAuthForm(identity, signedIn, {
+                initialMode: "signup",
+                probe: false,
+                onVerificationStarted: started,
+            }),
+        );
+        act(() => {
+            result.current.setName("Pat");
+            result.current.setEmail("pat@test.ca");
+            result.current.setPassword("hunter22");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(signedIn).toHaveBeenCalledWith("tok");
+        });
+        expect(started).toHaveBeenCalledWith("v-1");
+        expect(result.current.mode).toBe("signup");
+    });
+
     describe("a session this browser still holds", () => {
         const leftover = refused(400, "session_already_available");
 
@@ -471,146 +506,6 @@ describe("useAuthForm", () => {
             expect(holdSession.mock.invocationCallOrder.at(-1)).toBeLessThan(
                 signedIn.mock.invocationCallOrder[0] ?? 0,
             );
-        });
-    });
-
-    describe("confirming the email after sign-up", () => {
-        const sent = flow([], "sent_email", "verification");
-
-        async function atVerify(steps: FlowStep[], confirmedElsewhere = false) {
-            vi.useFakeTimers({ shouldAdvanceTime: true });
-            const identity = fakeIdentity([
-                { kind: "done", sessionToken: "signup", next: { flow: "verification", id: "v-1" } },
-                ...steps,
-            ]);
-            identity.resume.mockResolvedValue(sent);
-            identity.whoami.mockResolvedValue({
-                id: "id-1",
-                email: "pat@test.ca",
-                verified: confirmedElsewhere,
-            });
-            const holdSession = vi.fn();
-            const signedIn = vi.fn();
-            const { result } = renderHook(() =>
-                useAuthForm(identity, signedIn, {
-                    initialMode: "signup",
-                    probe: false,
-                    holdSession,
-                }),
-            );
-            act(() => {
-                result.current.setName("Pat");
-                result.current.setEmail("pat@test.ca");
-                result.current.setPassword("hunter22");
-            });
-            act(() => {
-                result.current.submit();
-            });
-            await waitFor(() => {
-                expect(result.current.mode).toBe("verify");
-            });
-            act(() => {
-                result.current.setCode("000000");
-            });
-            act(() => {
-                result.current.submit();
-            });
-            return { identity, holdSession, signedIn, result };
-        }
-
-        it("asks for a new code when wrong ones used up the flow, then accepts it", async () => {
-            const { identity, signedIn, result } = await atVerify([
-                { kind: "restart", tooOften: true },
-                { kind: "flow", flow: sent },
-                { kind: "flow", flow: flow([], "passed_challenge", "verification") },
-            ]);
-            await waitFor(() => {
-                expect(result.current.error).toBe(strings.auth.codeTooOften);
-            });
-
-            const submitted = identity.submit.mock.calls.length;
-            act(() => {
-                result.current.setCode("123456");
-            });
-            act(() => {
-                result.current.submit();
-            });
-            expect(identity.submit).toHaveBeenCalledTimes(submitted);
-            expect(result.current.error).toBe(strings.auth.codeTooOften);
-
-            endCooldown();
-            act(() => {
-                result.current.resend();
-            });
-            await waitFor(() => {
-                expect(result.current.error).toBeNull();
-            });
-            expect(identity.start).toHaveBeenLastCalledWith("verification");
-            expect(identity.submit).toHaveBeenLastCalledWith(flow([], null, "verification"), {
-                method: "code",
-                email: "pat@test.ca",
-            });
-            expect(result.current.code).toBe("");
-            expect(result.current.cooldown).toBeGreaterThan(0);
-
-            act(() => {
-                result.current.setCode("123456");
-            });
-            act(() => {
-                result.current.submit();
-            });
-            await waitFor(() => {
-                expect(signedIn).toHaveBeenCalledWith("signup");
-            });
-        });
-
-        it("says the code expired when the flow did", async () => {
-            const { result } = await atVerify([{ kind: "restart" }]);
-            await waitFor(() => {
-                expect(result.current.error).toBe(strings.auth.codeExpired);
-            });
-        });
-
-        it("says the code expired when a browser's flow comes back replaced", async () => {
-            const replaced = {
-                ...flow([], "choose_method", "verification"),
-                messages: [{ id: 4070005, type: "error", text: "expired" }],
-            };
-            const { result } = await atVerify([{ kind: "flow", flow: replaced }]);
-            await waitFor(() => {
-                expect(result.current.error).toBe(strings.auth.flowMessages[4070005]);
-            });
-        });
-
-        it("carries on when the emailed link already confirmed it", async () => {
-            const { identity, signedIn, holdSession } = await atVerify(
-                [{ kind: "restart", tooOften: true }],
-                true,
-            );
-            await waitFor(() => {
-                expect(signedIn).toHaveBeenCalledWith("signup");
-            });
-            expect(identity.whoami).toHaveBeenCalledWith("signup");
-            expect(holdSession).toHaveBeenLastCalledWith(null);
-        });
-
-        it("starts a new flow when a resend finds the old one expired", async () => {
-            const { identity, result } = await atVerify([
-                { kind: "flow", flow: sent },
-                { kind: "restart" },
-                { kind: "flow", flow: sent },
-            ]);
-            await waitFor(() => {
-                expect(identity.submit).toHaveBeenCalledTimes(2);
-            });
-            endCooldown();
-            act(() => {
-                result.current.resend();
-            });
-            await waitFor(() => {
-                expect(identity.submit).toHaveBeenCalledTimes(4);
-            });
-            expect(identity.start).toHaveBeenLastCalledWith("verification");
         });
     });
 });
@@ -1243,6 +1138,42 @@ describe("useVerificationForm", () => {
         expect(result.current.error).toBeNull();
     });
 
+    it.each<[string, FlowStep, () => string]>([
+        ["the flow did", { kind: "restart" }, () => strings.auth.codeExpired],
+        [
+            "a browser's flow comes back replaced",
+            {
+                kind: "flow",
+                flow: {
+                    ...flow([], "choose_method", "verification"),
+                    messages: [{ id: 4070005, type: "error", text: "expired" }],
+                },
+            },
+            () => strings.auth.flowMessages[4070005],
+        ],
+    ])("says the code expired when %s", async (_when, step, message) => {
+        const identity = fakeIdentity([
+            { kind: "flow", flow: flow([], "sent_email", "verification") },
+            step,
+        ]);
+        const { result } = renderHook(() =>
+            useVerificationForm(identity, { email: "pat@test.ca" }),
+        );
+        await waitFor(() => {
+            expect(result.current.cooldown).toBeGreaterThan(0);
+        });
+        act(() => {
+            result.current.setCode("123456");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(result.current.error).toBe(message());
+        });
+        expect(result.current.verified).toBe(false);
+    });
+
     it("doesn't call this address confirmed because another verified account is signed in", async () => {
         const identity = fakeIdentity([
             { kind: "flow", flow: flow([], "sent_email", "verification") },
@@ -1263,6 +1194,56 @@ describe("useVerificationForm", () => {
         });
         await waitFor(() => {
             expect(result.current.error).toBe(strings.auth.codeExpired);
+        });
+        expect(result.current.verified).toBe(false);
+    });
+
+    it("accepts the API's development code when the auth service refuses it", async () => {
+        const identity = fakeIdentity([
+            { kind: "flow", flow: flow([], "sent_email", "verification") },
+        ]);
+        identity.resume.mockResolvedValue(flow([], "sent_email", "verification"));
+        const post = vi.fn<ApiLike["post"]>(() => Promise.resolve(undefined as never));
+        const devApi = { post } as unknown as ApiLike;
+        const { result } = renderHook(() =>
+            useVerificationForm(identity, { flowId: "v-1", devApi }),
+        );
+        await waitFor(() => {
+            expect(identity.resume).toHaveBeenCalled();
+        });
+        act(() => {
+            result.current.setCode("000000");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(result.current.verified).toBe(true);
+        });
+        expect(post).toHaveBeenCalledWith("/v1/me/verification", { code: "000000" });
+    });
+
+    it("stays unconfirmed when neither the auth service nor the API accepts the code", async () => {
+        const identity = fakeIdentity([
+            { kind: "flow", flow: flow([], "sent_email", "verification") },
+        ]);
+        identity.resume.mockResolvedValue(flow([], "sent_email", "verification"));
+        const post = vi.fn<ApiLike["post"]>(() => Promise.reject(new Error("invalid_code")));
+        const devApi = { post } as unknown as ApiLike;
+        const { result } = renderHook(() =>
+            useVerificationForm(identity, { flowId: "v-1", devApi }),
+        );
+        await waitFor(() => {
+            expect(identity.resume).toHaveBeenCalled();
+        });
+        act(() => {
+            result.current.setCode("111111");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(post).toHaveBeenCalled();
         });
         expect(result.current.verified).toBe(false);
     });

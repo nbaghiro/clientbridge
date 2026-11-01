@@ -236,7 +236,8 @@ test("ID-E2E-02 a wrong code then the mailed one confirms the email, and a secon
     const name = `${account.name}'s Beauty Studio`;
     await startSignUp(page, account);
     const mailed = await mailedCode(request, account.email, "verification");
-    await page.getByLabel(a.code, { exact: true }).fill(mailed === "000000" ? "000001" : "000000");
+    const wrong = otherCode(mailed);
+    await page.getByLabel(a.code, { exact: true }).fill(wrong);
     await page.getByRole("button", { name: a.verify, exact: true }).click();
     await expect(page.getByText(a.flowMessages[4070006], { exact: true })).toBeVisible();
     await page.getByLabel(a.code, { exact: true }).fill(mailed);
@@ -420,13 +421,17 @@ test("the credentials typed decide the account, whatever session the browser sti
 
     await abandonReset(first);
     await signInAs(typed.email, typed.password);
-    await expect(
-        page.getByRole("heading", { name: strings.business.onboarding.title }),
-    ).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole("heading", { name: a.verifyTitle })).toBeVisible({
+        timeout: 60_000,
+    });
     expect(await signedInEmail(page)).toBe(typed.email);
 });
 
 /** Six wrong tries end a code's flow; each waits for the auth service, since the message repeats. */
+function otherCode(code: string): string {
+    return code.replace(/\d$/, (digit) => String((Number(digit) + 1) % 10));
+}
+
 async function useUpCode(page: Page, wrong: string, submit: string): Promise<void> {
     for (let attempt = 0; attempt < 6; attempt++) {
         await page.getByLabel(a.code, { exact: true }).fill(wrong);
@@ -446,7 +451,7 @@ test("too many wrong codes at sign-up ask for a new one, and it confirms the ema
     const account = newAccount("too-often-signup");
     await startSignUp(page, account);
     const first = await mailedCode(request, account.email, "verification");
-    await useUpCode(page, first === "000000" ? "000001" : "000000", a.verify);
+    await useUpCode(page, otherCode(first), a.verify);
     await expect(page.getByText(a.codeTooOften, { exact: true })).toBeVisible();
 
     await page.getByLabel(a.code, { exact: true }).fill(first);
@@ -479,7 +484,7 @@ test("too many wrong codes on a reset ask for a new one, and it resets the passw
     await page.getByRole("button", { name: a.sendCode, exact: true }).click();
     await expect(page.getByRole("heading", { name: a.resetCodeTitle })).toBeVisible();
     const first = await mailedCode(request, account.email, "password reset");
-    await useUpCode(page, first === "000000" ? "000001" : "000000", a.checkCode);
+    await useUpCode(page, otherCode(first), a.checkCode);
     await expect(page.getByText(a.codeTooOften, { exact: true })).toBeVisible();
 
     await page.getByLabel(a.code, { exact: true }).fill(first);
@@ -711,9 +716,23 @@ async function startSignUp(
     await expect(page.getByRole("heading", { name: a.verifyTitle })).toBeVisible();
 }
 
-test("reloading while confirming the email keeps the new account signed in", async ({ page }) => {
-    await startSignUp(page, newAccount("reload"));
+test("a new account stays on the code step, through a reload, until its email is confirmed", async ({
+    page,
+    request,
+}) => {
+    const account = newAccount("reload");
+    await startSignUp(page, account);
+    await expect(page).toHaveURL(/\/verify\?flow=/);
+    const flowId = new URL(page.url()).searchParams.get("flow") ?? "";
     await page.reload();
+    await expect(page.getByRole("heading", { name: a.verifyTitle })).toBeVisible();
+    await expect(
+        page.getByRole("heading", { name: strings.business.onboarding.title }),
+    ).toHaveCount(0);
+    await page
+        .getByLabel(a.code, { exact: true })
+        .fill(await mailedCodeForFlow(request, account.email, flowId));
+    await page.getByRole("button", { name: a.verify, exact: true }).click();
     await expect(
         page.getByRole("heading", { name: strings.business.onboarding.title }),
     ).toBeVisible();
@@ -730,20 +749,14 @@ test("an account whose identity was recreated confirms its email instead of loop
     await page.goto("/signup");
     await expect(page.getByRole("heading", { name: a.signUpTitle })).toBeVisible();
     await startSignUp(page, account);
-    // A reload here finds a live session the API refuses (409) until the email is verified.
-    const sent = page.waitForRequest(
-        (r) => r.method() === "POST" && r.url().includes("/self-service/verification?flow="),
-    );
-    await page.reload();
-    await expect(page).toHaveURL(/\/verify$/);
-    await expect(page.getByText(a.verifyToContinue, { exact: true })).toBeVisible();
+    // The API refuses this live session (409) until the email is verified, so only the code step shows.
+    await expect(page).toHaveURL(/\/verify\?flow=/);
     await expect(page.getByRole("button", { name: strings.navigation.signOut })).toBeVisible();
-    const flowId = new URL((await sent).url()).searchParams.get("flow") ?? "";
+    const flowId = new URL(page.url()).searchParams.get("flow") ?? "";
     await page
         .getByLabel(a.code, { exact: true })
         .fill(await mailedCodeForFlow(request, account.email, flowId));
     await page.getByRole("button", { name: a.verify, exact: true }).click();
-    await page.getByRole("button", { name: a.continue, exact: true }).click();
     await expect(
         page
             .locator("aside")
@@ -751,7 +764,7 @@ test("an account whose identity was recreated confirms its email instead of loop
     ).toBeVisible({ timeout: 60_000 });
 });
 
-test("an invitee who skipped confirming the email verifies, then joins", async ({
+test("an invitee confirms the email first, then lands back on the invite and joins", async ({
     page,
     request,
 }) => {
@@ -763,16 +776,11 @@ test("an invitee who skipped confirming the email verifies, then joins", async (
         await expect(page).toHaveURL(/\/accept-invite$/);
         await page.getByRole("button", { name: s.inviteSignUp, exact: true }).click();
         await startSignUp(page, account);
-        const skipped = await mailedCode(request, account.email, "verification");
-        await page.getByRole("button", { name: a.skipForNow, exact: true }).click();
-        await page.getByRole("button", { name: s.inviteJoin, exact: true }).click();
-        await page.getByRole("button", { name: s.inviteVerify, exact: true }).click();
-        await expect(page.getByRole("heading", { name: a.verifyTitle })).toBeVisible();
         await page
             .getByLabel(a.code, { exact: true })
-            .fill(await mailedCode(request, account.email, "verification", skipped));
+            .fill(await mailedCode(request, account.email, "verification"));
         await page.getByRole("button", { name: a.verify, exact: true }).click();
-        await page.getByRole("button", { name: a.continue, exact: true }).click();
+        await expect(page).toHaveURL(/\/accept-invite$/);
         await page.getByRole("button", { name: s.inviteJoin, exact: true }).click();
         await expect(
             page
@@ -805,12 +813,8 @@ test("an invitee who verifies from the emailed link in a new tab lands back on t
             await route.fulfill({ status: 303, headers: { location: target.href } });
         });
         await tab.goto(await mailedVerificationLink(request, account.email));
-        await expect(tab).toHaveURL(/\/verify\?flow=/, { timeout: 15_000 });
-        await expect(tab.getByRole("button", { name: a.continue, exact: true })).toBeVisible({
-            timeout: 30_000,
-        });
-        await tab.getByRole("button", { name: a.continue, exact: true }).click();
-        await expect(tab).toHaveURL(/\/accept-invite$/);
+        // The tab shares the unconfirmed session, so the link confirms it and continues on its own.
+        await expect(tab).toHaveURL(/\/accept-invite$/, { timeout: 30_000 });
         await tab.getByRole("button", { name: s.inviteJoin, exact: true }).click();
         await expect(
             tab

@@ -670,9 +670,6 @@ interface OnboardingForm {
     taxSummary: string | null;
     busy: boolean;
     error: string | null;
-    needsVerification: boolean;
-    /** The email was confirmed in place, so the request to confirm it no longer applies. */
-    emailConfirmed: () => void;
     submit: () => void;
 }
 
@@ -688,13 +685,7 @@ export function useOnboardingForm(
     const [slugEdited, setSlugEdited] = useState(false);
     const [province, setProvince] = useState<ProvinceCode | null>(null);
     const [industry, setIndustry] = useState<Industry | null>(null);
-    // Stays true across retries so the verify step keeps one code instead of mailing a new one.
-    const [needsVerification, setNeedsVerification] = useState(false);
     const { busy, error, setError, run } = useAsyncAction();
-    // Stable, since the confirm step calls it from an effect: a new one would clear later errors.
-    const emailConfirmed = useCallback(() => {
-        setError(null);
-    }, [setError]);
 
     const setName = (v: string): void => {
         setNameState(v);
@@ -728,12 +719,10 @@ export function useOnboardingForm(
                 onCreated(await onboard(api, { name, slug: slugify(slug), province, industry }));
             },
             {
-                errorMessage: (e) => {
-                    if (failedCode(e) !== "email_unverified")
-                        return failureMessage(e, strings.business.onboarding.createError);
-                    setNeedsVerification(true);
-                    return strings.business.onboarding.verifyFirst;
-                },
+                errorMessage: (e) =>
+                    failedCode(e) === "email_unverified"
+                        ? strings.business.onboarding.verifyFirst
+                        : failureMessage(e, strings.business.onboarding.createError),
             },
         );
     };
@@ -757,8 +746,6 @@ export function useOnboardingForm(
             province === null ? null : taxSummary(province, dateKey(new Date(), NEW_BUSINESS_ZONE)),
         busy,
         error,
-        needsVerification,
-        emailConfirmed,
         submit,
     };
 }

@@ -13,6 +13,7 @@ import {
     newBusiness,
     patchBusiness,
     payLink,
+    signUp,
     storedBrand,
 } from "./support/business";
 import { payCash, ringCash, saleEvidence, stockProduct } from "./support/pos";
@@ -572,42 +573,27 @@ test("CFG-E2E-11 hiding the setup list hides Today's guide, and each Start lands
     await expect(guide).toHaveCount(0);
 });
 
-test("CFG-E2E-12 confirming the email from onboarding keeps what was typed and later errors", async ({
+test("CFG-E2E-12 a refused web address in onboarding says why and keeps what was typed", async ({
     page,
     request,
 }) => {
     test.setTimeout(240_000);
     const account = newAccount("keep-form");
-    await page.goto("/signup");
-    await page.getByLabel(a.name, { exact: true }).fill(account.name);
-    await page.getByRole("textbox", { name: a.email, exact: true }).fill(account.email);
-    await page.getByLabel(a.newPassword, { exact: true }).fill(account.password);
-    await page.getByRole("button", { name: a.createAccount, exact: true }).click();
-    await expect(page.getByRole("heading", { name: a.verifyTitle })).toBeVisible();
-    const first = await mailedCode(request, account.email, "verification");
-    await page.goto("/today");
-    const name = `${account.name} Keep`;
+    await signUp(page, request, account);
     await expect(page.getByRole("heading", { name: o.title })).toBeVisible({ timeout: 60_000 });
+    const name = `${account.name} Keep`;
     await page.getByLabel(o.businessName, { exact: true }).fill(name);
     await page.getByRole("combobox", { name: o.province }).click();
     await page.getByRole("option", { name: o.provinceAB, exact: true }).click();
     await page.getByRole("combobox", { name: o.industryLabel }).click();
     await page.getByRole("option", { name: o.industry("other"), exact: true }).click();
-    await page.getByRole("button", { name: o.createBusiness, exact: true }).click();
-    await expect(page.getByText(o.verifyFirst, { exact: true })).toBeVisible();
-
-    const code = await mailedCode(request, account.email, "verification", first);
-    await page.getByLabel(a.code, { exact: true }).fill(code);
-    await page.getByRole("button", { name: a.verify, exact: true }).click();
-    await expect(page.getByText(a.verifyDone, { exact: true })).toBeVisible();
-    await expect(page.getByText(o.verifyFirst, { exact: true })).toHaveCount(0);
-    await expect(page.getByLabel(o.businessName, { exact: true })).toHaveValue(name);
-    await expect(page.getByRole("combobox", { name: o.province })).toContainText(o.provinceAB);
 
     const address = page.getByLabel(o.webAddress, { exact: true });
     await address.fill("admin");
     await page.getByRole("button", { name: o.createBusiness, exact: true }).click();
     await expect(page.getByText(strings.api.slugReserved, { exact: true })).toBeVisible();
+    await expect(page.getByLabel(o.businessName, { exact: true })).toHaveValue(name);
+    await expect(page.getByRole("combobox", { name: o.province })).toContainText(o.provinceAB);
 
     await address.fill(`keep-${randomUUID().slice(0, 8)}`);
     await page.getByRole("button", { name: o.createBusiness, exact: true }).click();

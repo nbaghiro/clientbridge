@@ -20,6 +20,10 @@ class MeOut(BaseModel):
     second_factor: bool
 
 
+class DevVerificationIn(BaseModel):
+    code: str = Field(min_length=1, max_length=64)
+
+
 class AuthEmailIn(BaseModel):
     """One message from the auth service's courier, shaped by infra/auth/courier.jsonnet."""
 

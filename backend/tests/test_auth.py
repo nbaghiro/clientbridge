@@ -288,6 +288,64 @@ async def test_onboarding_needs_a_verified_email(
     assert me.json()["email_verified"] is False
 
 
+async def test_the_dev_code_confirms_the_email_so_onboarding_opens(
+    api: httpx.AsyncClient,
+    factory: Factory,
+    identities: FakeIdentityProvider,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(get_settings(), "dev_verification_code", "000000")
+    user = await factory.user()
+    headers = {
+        "X-Session-Token": await session_token(identities, factory.db, user.id, verified=False)
+    }
+    wrong = await api.post("/v1/me/verification", json={"code": "111111"}, headers=headers)
+    assert wrong.status_code == 422 and wrong.json()["error"] == "invalid_code"
+    for _ in range(2):
+        res = await api.post("/v1/me/verification", json={"code": "000000"}, headers=headers)
+        assert res.status_code == 204
+    me = await api.get("/v1/me", headers=headers)
+    assert me.json()["email_verified"] is True
+    res = await api.post(
+        "/v1/onboarding",
+        json={"name": "Dev Studio", "slug": "dev-studio", "province": "BC", "subject": None},
+        headers=headers,
+    )
+    assert res.status_code == 201
+
+
+@pytest.mark.parametrize(("env", "code"), [("dev", ""), ("staging", "000000"), ("prod", "000000")])
+async def test_the_dev_code_exists_only_in_development_when_set(
+    api: httpx.AsyncClient,
+    factory: Factory,
+    identities: FakeIdentityProvider,
+    monkeypatch: pytest.MonkeyPatch,
+    env: str,
+    code: str,
+) -> None:
+    monkeypatch.setattr(get_settings(), "dev_verification_code", code)
+    monkeypatch.setattr(get_settings(), "env", env)
+    user = await factory.user()
+    token = await session_token(identities, factory.db, user.id, verified=False)
+    res = await api.post(
+        "/v1/me/verification", json={"code": "000000"}, headers={"X-Session-Token": token}
+    )
+    assert res.status_code == 404
+    monkeypatch.setattr(get_settings(), "env", "dev")
+    me = await api.get("/v1/me", headers={"X-Session-Token": token})
+    assert me.json()["email_verified"] is False
+
+
+async def test_the_dev_code_needs_a_session(
+    api: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(get_settings(), "dev_verification_code", "000000")
+    res = await api.post("/v1/me/verification", json={"code": "000000"})
+    assert res.status_code == 401
+    empty = await api.post("/v1/me/verification", json={"code": ""})
+    assert empty.status_code in (401, 422)
+
+
 async def test_old_auth_endpoints_are_gone(api: httpx.AsyncClient, db: AsyncSession) -> None:
     for path in ("/auth/login", "/auth/register", "/auth/refresh", "/auth/accept-invite"):
         assert (await api.post(path, json={})).status_code == 404, path

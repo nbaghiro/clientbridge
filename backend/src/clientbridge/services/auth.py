@@ -1,5 +1,6 @@
 """The local profile behind each auth identity, created on its first authenticated request."""
 
+import hmac
 from datetime import timedelta
 
 from sqlalchemy import select
@@ -9,7 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import Executable
 
 from clientbridge.core import clock
-from clientbridge.core.errors import Conflict
+from clientbridge.core.config import get_settings
+from clientbridge.core.errors import Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.integrations.identity import Identity, IdentityProvider
 from clientbridge.models.business import User
@@ -49,6 +51,17 @@ class AuthService:
             user.email, user.name, user.last_seen_at = identity.email, name, now
             await self._commit()
         return user
+
+    async def verify_with_dev_code(
+        self, identity: Identity, code: str, identities: IdentityProvider
+    ) -> None:
+        settings = get_settings()
+        expected = settings.dev_verification_code if settings.env == "dev" else ""
+        if not expected:
+            raise NotFound("no development verification code is set")
+        if not hmac.compare_digest(code.encode(), expected.encode()):
+            raise Unprocessable("wrong verification code", code="invalid_code")
+        await identities.mark_verified(identity.id, identity.email)
 
     async def _relink(self, identity: Identity, identities: IdentityProvider) -> User | None:
         """The same person signing up again after their old identity was deleted keeps their row."""

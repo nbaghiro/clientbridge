@@ -1,6 +1,5 @@
 // @vitest-environment happy-dom
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { useEffect } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { ApiLike } from "../api";
@@ -553,25 +552,15 @@ describe("useOnboardingForm", () => {
         return { api: { post } as unknown as ApiLike, posted };
     }
 
-    it("keeps an error that comes after the email was confirmed", async () => {
+    it("says why the server refused the web address", async () => {
         const reserved = Object.assign(new Error("422"), { code: "slug_reserved" });
         const api = { post: () => Promise.reject(reserved) } as unknown as ApiLike;
-        const { result } = renderHook(() => {
-            const form = useOnboardingForm(api, vi.fn());
-            const { emailConfirmed } = form;
-            // what the confirm step runs, once its code is accepted
-            useEffect(() => {
-                emailConfirmed();
-            }, [emailConfirmed]);
-            return form;
-        });
-        const confirmed = result.current.emailConfirmed;
+        const { result } = renderHook(() => useOnboardingForm(api, vi.fn()));
         act(() => {
             result.current.setName("Birch Studio");
             result.current.setProvince("BC");
             result.current.setIndustry("petCare");
         });
-        expect(result.current.emailConfirmed).toBe(confirmed);
         act(() => {
             result.current.submit();
         });

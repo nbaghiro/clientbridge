@@ -3966,10 +3966,8 @@ interface Strings {
         readonly verifyTitle: string;
         readonly verifyBody: (email: string) => string;
         readonly verifyBodyAnyEmail: string;
-        readonly verifyToContinue: string;
         readonly verifyDone: string;
         readonly verify: string;
-        readonly skipForNow: string;
         readonly continue: string;
         readonly mfaTitle: string;
         readonly mfaSubtitle: string;
