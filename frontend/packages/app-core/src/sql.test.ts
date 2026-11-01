@@ -1983,9 +1983,13 @@ describe("app-core SQL against the replica schema", () => {
     });
 
     it("knows clients can book only with a service and hours", () => {
-        expect(run("BOOKING_READY_SQL")).toEqual([{ ready: 1 }]);
+        expect(pick(run("SETUP_PROGRESS_SQL"), "services", "hours")).toEqual([
+            { services: 1, hours: 1 },
+        ]);
         db.run("DELETE FROM hours");
-        expect(run("BOOKING_READY_SQL")).toEqual([{ ready: 0 }]);
+        expect(pick(run("SETUP_PROGRESS_SQL"), "services", "hours")).toEqual([
+            { services: 1, hours: 0 },
+        ]);
     });
 
     it("names members from their synced account and open invites by their email", () => {

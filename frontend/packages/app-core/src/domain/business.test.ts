@@ -11,7 +11,9 @@ import {
     useBrandForm,
     useBusinessForm,
     useOnboardingForm,
+    useSetupProgress,
 } from "./business";
+import { bookingPageUrl } from "../runtime";
 
 const replica = vi.hoisted(() => ({ rows: [] as unknown[] }));
 vi.mock("../hooks", async (importOriginal) => ({
@@ -119,14 +121,27 @@ describe("useBookingSetupMissing", () => {
 
     it.each([
         ["before the replica answers", [], owner, false],
-        ["when a service or hours are missing", [{ ready: 0 }], owner, true],
-        ["once clients can book", [{ ready: 1 }], owner, false],
-        ["to staff, who can't add them", [{ ready: 0 }], { staffId: "st_2", role: "staff" }, false],
-        ["before the viewer is known", [{ ready: 0 }], null, false],
+        ["when a service or hours are missing", [{ ...fresh, services: 1 }], owner, true],
+        ["once clients can book", [{ ...fresh, services: 1, hours: 1 }], owner, false],
+        ["to staff, who can't add them", [fresh], { staffId: "st_2", role: "staff" }, false],
+        ["before the viewer is known", [fresh], null, false],
     ])("%s", (_when, rows, viewer, missing) => {
         replica.rows = rows;
         const { result } = renderHook(() => useBookingSetupMissing(viewer));
         expect(result.current).toBe(missing);
+    });
+});
+
+describe("useSetupProgress", () => {
+    it("gives the booking link only once the page can take bookings", () => {
+        replica.rows = [{ ...fresh, services: 1 }];
+        const { result, rerender } = renderHook(() => useSetupProgress());
+        expect(result.current.bookingLink("https://book.test")).toBeNull();
+        replica.rows = [{ ...fresh, services: 1, hours: 1 }];
+        rerender();
+        expect(result.current.bookingLink("https://book.test")).toBe(
+            bookingPageUrl("https://book.test", "birch"),
+        );
     });
 });
 

@@ -1,5 +1,4 @@
 import {
-    bookingPageUrl,
     canManagePayments,
     firstRunLayout,
     formatMoney,
@@ -91,8 +90,7 @@ function OwnerToday({ bell, onSecretTap }: { bell: number; onSecretTap: () => vo
     const actions = useTodayActions(api);
     const openLink = useOpenLink();
     const setup = useSetupProgress();
-    const bookingLink =
-        setup.slug === null || !setup.live ? null : bookingPageUrl(bookUrl, setup.slug);
+    const bookingLink = setup.bookingLink(bookUrl);
     const loading = load.state === "loading";
     const layout = firstRunLayout(
         view.agenda.length,

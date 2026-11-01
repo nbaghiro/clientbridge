@@ -10,7 +10,7 @@ import { type ApiLike, failedCode, failedFields, failureMessage } from "../api";
 import { type Viewer, isManager } from "./auth";
 import type { ChoiceOption, Fact, SelectOption } from "../ui";
 import { durationLabel } from "./publicBooking";
-import { bareUrl, businessPageUrl } from "../runtime";
+import { bareUrl, bookingPageUrl, businessPageUrl } from "../runtime";
 import type { ShellTarget } from "./navigation";
 import { BRAND_COLOURS, useStaff, staffName } from "./staff";
 import { useReplicaLoad, useSyncStatus } from "./sync";
@@ -865,6 +865,8 @@ export interface SetupProgress {
     businessName: string;
     brandColor: string | null;
     slug: string | null;
+    /** The booking page's link once it can take bookings, else null. */
+    bookingLink: (bookUrl: string) => string | null;
     steps: SetupTask[];
     done: number;
     total: number;
@@ -878,17 +880,20 @@ function progressOf(row: SetupCounts | undefined): SetupProgress {
     const counts = row ?? NO_COUNTS;
     const steps = setupTasks(counts);
     const done = steps.filter((x) => x.done).length;
+    const live = counts.services > 0 && counts.hours > 0;
     return {
         businessName: counts.name ?? "",
         logoFileId: parseBrand(counts.brand).logo_file_id || null,
         brandColor: parseBrand(counts.brand).primary || null,
         slug: counts.slug,
+        bookingLink: (bookUrl) =>
+            counts.slug === null || !live ? null : bookingPageUrl(bookUrl, counts.slug),
         steps,
         done,
         total: steps.length,
         complete: row !== undefined && done === steps.length,
         dismissed: counts.dismissed_at !== null,
-        live: counts.services > 0 && counts.hours > 0,
+        live,
     };
 }
 
@@ -896,15 +901,10 @@ export function useSetupProgress(): SetupProgress {
     return progressOf(useQuery<SetupCounts>(SETUP_PROGRESS_SQL).data[0]);
 }
 
-export const BOOKING_READY_SQL = `
-SELECT
-    EXISTS (SELECT 1 FROM items WHERE active = 1 AND kind IN ('service', 'class'))
-    AND EXISTS (SELECT 1 FROM hours WHERE basis = 'recurring' AND available = 1) AS ready`;
-
 /** Whether an empty schedule should say what setup is missing: once known, to someone who can add it. */
 export function useBookingSetupMissing(viewer: Viewer | null): boolean {
-    const ready = useQuery<{ ready: number }>(BOOKING_READY_SQL).data[0]?.ready;
-    return ready === 0 && viewer !== null && isManager(viewer.role);
+    const row = useQuery<SetupCounts>(SETUP_PROGRESS_SQL).data[0];
+    return row !== undefined && !progressOf(row).live && viewer !== null && isManager(viewer.role);
 }
 
 const NO_COUNTS: SetupCounts = {
