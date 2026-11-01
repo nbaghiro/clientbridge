@@ -254,7 +254,9 @@ export interface IdentityLike {
     resume(kind: FlowKind, id: string, sessionToken?: string): Promise<Flow>;
     submit(flow: Flow, body: Record<string, unknown>, sessionToken?: string): Promise<FlowStep>;
     session(sessionToken?: string): Promise<"active" | "second_factor" | "none">;
-    whoami(sessionToken?: string): Promise<{ id: string; email: string; verified: boolean } | null>;
+    whoami(
+        sessionToken?: string,
+    ): Promise<{ id: string; sessionId: string; email: string; verified: boolean } | null>;
     exchange(flow: Flow, returnToCode: string): Promise<string>;
     signOut(sessionToken?: string): Promise<void>;
 }

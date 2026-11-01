@@ -44,6 +44,7 @@ type SessionState = "active" | "second_factor" | "none";
 
 interface SessionIdentity {
     id: string;
+    sessionId: string;
     email: string;
     verified: boolean;
 }
@@ -313,6 +314,7 @@ export function createIdentityClient(opts: IdentityOptions): IdentityClient {
             const addresses: unknown = identity.verifiable_addresses;
             return {
                 id: text(identity.id),
+                sessionId: text(json.id),
                 email: text(record(identity.traits).email),
                 verified:
                     Array.isArray(addresses) &&

@@ -2,6 +2,7 @@ import { type CSSProperties, type ReactNode, useState } from "react";
 import {
     BusinessZoneContext,
     checkSession,
+    endAbandonedReset,
     strings,
     useBusinessLoad,
     useBusinessSelection,
@@ -62,6 +63,7 @@ const lifecycle = {
         };
     },
     restore: async (stale: () => boolean) => {
+        await endAbandonedReset(identity, localStorage).catch(() => undefined);
         const session = sessionExpected()
             ? await checkSession(api.forBusiness(null), getUserId(), verifiedAt())
             : { state: "none" as const };

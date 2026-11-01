@@ -368,6 +368,7 @@ describe("identity client", () => {
         answer(false);
         expect(await identity.whoami("token")).toEqual({
             id: "id-1",
+            sessionId: "",
             email: "pat@test.ca",
             verified: false,
         });
@@ -418,6 +419,7 @@ describe("identity client", () => {
         );
         expect(await identity.whoami("tok")).toEqual({
             id: "id-1",
+            sessionId: "s",
             email: "pat@test.ca",
             verified: false,
         });

@@ -8,6 +8,7 @@ import { BusinessZoneContext } from "../datetime";
 import { strings } from "../strings";
 import {
     checkSession,
+    endAbandonedReset,
     passwordSaveOutcome,
     reauthMethods,
     useAuthForm,
@@ -56,7 +57,12 @@ function fakeIdentity(steps: FlowStep[]) {
         }),
         session: vi.fn<IdentityLike["session"]>(() => Promise.resolve("none")),
         whoami: vi.fn<IdentityLike["whoami"]>(() =>
-            Promise.resolve({ id: "id-1", email: "saved@test.ca", verified: false }),
+            Promise.resolve({
+                id: "id-1",
+                sessionId: "se-1",
+                email: "saved@test.ca",
+                verified: false,
+            }),
         ),
         exchange: vi.fn<IdentityLike["exchange"]>(() => Promise.resolve("exchanged-token")),
         signOut: vi.fn<IdentityLike["signOut"]>(() => Promise.resolve()),
@@ -798,6 +804,140 @@ describe("useRecoveryForm", () => {
         });
     });
 
+    describe("in a browser, which notes the reset's session for the next load", () => {
+        function storage() {
+            const items = new Map<string, string>();
+            return {
+                items,
+                getItem: (key: string) => items.get(key) ?? null,
+                setItem: (key: string, value: string) => {
+                    items.set(key, value);
+                },
+                removeItem: (key: string) => {
+                    items.delete(key);
+                },
+            };
+        }
+
+        async function atPasswordStep(steps: FlowStep[] = []) {
+            const resetStorage = storage();
+            const identity = fakeIdentity([
+                { kind: "flow", flow: sent },
+                { kind: "done", next: { flow: "settings", id: "s-1" } },
+                ...steps,
+            ]);
+            const signedIn = vi.fn();
+            const rendered = renderHook(() =>
+                useRecoveryForm(identity, signedIn, { resetStorage }),
+            );
+            const { result } = rendered;
+            act(() => {
+                result.current.setEmail("pat@test.ca");
+            });
+            act(() => {
+                result.current.submit();
+            });
+            await waitFor(() => {
+                expect(result.current.step).toBe("code");
+            });
+            act(() => {
+                result.current.setCode("123456");
+            });
+            act(() => {
+                result.current.submit();
+            });
+            await waitFor(() => {
+                expect(result.current.step).toBe("password");
+            });
+            return { identity, signedIn, resetStorage, ...rendered };
+        }
+
+        it("notes the session once the code is accepted, and forgets it once saved", async () => {
+            const { resetStorage, signedIn, result } = await atPasswordStep([
+                { kind: "flow", flow: flow([], "success") },
+            ]);
+            expect([...resetStorage.items.values()]).toEqual(["se-1"]);
+            act(() => {
+                result.current.setPassword("a-new-password");
+            });
+            act(() => {
+                result.current.submit();
+            });
+            await waitFor(() => {
+                expect(signedIn).toHaveBeenCalled();
+            });
+            expect(resetStorage.items.size).toBe(0);
+        });
+
+        it("forgets it once the session ends on closing", async () => {
+            const { identity, resetStorage, unmount } = await atPasswordStep();
+            unmount();
+            await waitFor(() => {
+                expect(resetStorage.items.size).toBe(0);
+            });
+            expect(identity.signOut).toHaveBeenCalledTimes(1);
+        });
+
+        it("keeps it for the next load when the session can't be ended now", async () => {
+            const { identity, resetStorage, result } = await atPasswordStep();
+            identity.signOut.mockRejectedValueOnce(new Error("offline"));
+            act(() => {
+                result.current.cancel();
+            });
+            await waitFor(() => {
+                expect(result.current.step).toBe("email");
+            });
+            expect([...resetStorage.items.values()]).toEqual(["se-1"]);
+        });
+
+        describe("and the next load", () => {
+            function marked(sessionId: string) {
+                const noted = storage();
+                noted.setItem("cb_reset_session", sessionId);
+                return noted;
+            }
+
+            it("ends the noted session", async () => {
+                const identity = fakeIdentity([]);
+                identity.session.mockResolvedValue("active");
+                const noted = marked("se-1");
+                await endAbandonedReset(identity, noted);
+                expect(identity.signOut).toHaveBeenCalledTimes(1);
+                expect(noted.items.size).toBe(0);
+            });
+
+            it("leaves a later sign-in alone", async () => {
+                const identity = fakeIdentity([]);
+                identity.session.mockResolvedValue("active");
+                const noted = marked("se-old");
+                await endAbandonedReset(identity, noted);
+                expect(identity.signOut).not.toHaveBeenCalled();
+                expect(noted.items.size).toBe(0);
+            });
+
+            it("ends a reset stopped at its second factor", async () => {
+                const identity = fakeIdentity([]);
+                identity.session.mockResolvedValue("second_factor");
+                await endAbandonedReset(identity, marked(""));
+                expect(identity.signOut).toHaveBeenCalledTimes(1);
+            });
+
+            it("asks nothing when no reset was left", async () => {
+                const identity = fakeIdentity([]);
+                await endAbandonedReset(identity, storage());
+                expect(identity.session).not.toHaveBeenCalled();
+            });
+
+            it("keeps the note while the auth service can't be reached", async () => {
+                const identity = fakeIdentity([]);
+                identity.session.mockRejectedValue(new TypeError("offline"));
+                const noted = marked("se-1");
+                await expect(endAbandonedReset(identity, noted)).rejects.toThrow();
+                expect(noted.items.size).toBe(1);
+            });
+        });
+    });
+
     it("starts over when the privileged window ran out, without signing in", async () => {
         const { identity, signedIn, result } = await toPasswordStep([{ kind: "reauth" }]);
         await waitFor(() => {
@@ -1130,7 +1270,12 @@ describe("useVerificationForm", () => {
             { kind: "flow", flow: flow([], "sent_email", "verification") },
             { kind: "restart", tooOften: true },
         ]);
-        identity.whoami.mockResolvedValue({ id: "id-1", email: "pat@test.ca", verified: true });
+        identity.whoami.mockResolvedValue({
+            id: "id-1",
+            sessionId: "se-1",
+            email: "pat@test.ca",
+            verified: true,
+        });
         const { result } = renderHook(() =>
             useVerificationForm(identity, { email: "pat@test.ca" }),
         );
@@ -1190,7 +1335,12 @@ describe("useVerificationForm", () => {
             { kind: "flow", flow: flow([], "sent_email", "verification") },
             { kind: "restart" },
         ]);
-        identity.whoami.mockResolvedValue({ id: "id-2", email: "other@test.ca", verified: true });
+        identity.whoami.mockResolvedValue({
+            id: "id-2",
+            sessionId: "se-2",
+            email: "other@test.ca",
+            verified: true,
+        });
         const { result } = renderHook(() =>
             useVerificationForm(identity, { email: "pat@test.ca" }),
         );
@@ -1479,8 +1629,8 @@ describe("useSecuritySettings", () => {
         identity.whoami.mockImplementation((sessionToken) =>
             Promise.resolve(
                 sessionToken === "exchanged-token"
-                    ? { id: "id-2", email: "other@test.ca", verified: true }
-                    : { id: "id-1", email: "saved@test.ca", verified: true },
+                    ? { id: "id-2", sessionId: "se-2", email: "other@test.ca", verified: true }
+                    : { id: "id-1", sessionId: "se-1", email: "saved@test.ca", verified: true },
             ),
         );
         act(() => {

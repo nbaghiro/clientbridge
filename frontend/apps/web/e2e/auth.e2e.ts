@@ -2,6 +2,7 @@ import { strings } from "@clientbridge/app-core/public";
 import { type Page, expect } from "@playwright/test";
 import { test } from "./support/session";
 import {
+    browserSession,
     deleteIdentity,
     mailedCode,
     mailedCodeForFlow,
@@ -383,6 +384,35 @@ test("a reset left half-finished by a reload can start again", async ({ page, re
     await reset(first);
 });
 
+test("a reset closed at its last step leaves nobody signed in on the next load", async ({
+    context,
+    page,
+    request,
+}) => {
+    const account = newAccount("reset-closed");
+    await registerAccount(request, account);
+    await page.goto("/login");
+    await page.getByRole("button", { name: a.forgot, exact: true }).click();
+    await expect(page.getByRole("heading", { name: a.resetTitle })).toBeVisible();
+    await page.getByRole("textbox", { name: a.email, exact: true }).fill(account.email);
+    await page.getByRole("button", { name: a.sendCode, exact: true }).click();
+    await page
+        .getByLabel(a.code, { exact: true })
+        .fill(await mailedCode(request, account.email, "password reset"));
+    await page.getByRole("button", { name: a.checkCode, exact: true }).click();
+    await expect(page.getByRole("heading", { name: a.resetPasswordTitle })).toBeVisible();
+    expect(await signedInEmail(page)).toBe(account.email);
+    await page.close();
+
+    const next = await context.newPage();
+    await next.goto("/");
+    await expect(next.getByRole("heading", { name: a.signInTitle })).toBeVisible();
+    await expect.poll(() => signedInEmail(next)).toBeNull();
+    await next.reload();
+    await expect(next.getByRole("heading", { name: a.signInTitle })).toBeVisible();
+    expect(await signedInEmail(next)).toBeNull();
+});
+
 test("the credentials typed decide the account, whatever session the browser still holds", async ({
     page,
     request,
@@ -391,22 +421,12 @@ test("the credentials typed decide the account, whatever session the browser sti
     const typed = newAccount("typed-other");
     await registerAccount(request, left);
     await registerAccount(request, typed);
-    // a reset abandoned at its last step leaves a full session the sign-in page knows nothing of
-    const abandonReset = async (previous?: string): Promise<string> => {
-        await page.goto("/login");
-        await page.getByRole("button", { name: a.forgot, exact: true }).click();
-        await expect(page.getByRole("heading", { name: a.resetTitle })).toBeVisible();
-        await page.getByRole("textbox", { name: a.email, exact: true }).fill(left.email);
-        await page.getByRole("button", { name: a.sendCode, exact: true }).click();
-        await expect(page.getByRole("heading", { name: a.resetCodeTitle })).toBeVisible();
-        const code = await mailedCode(request, left.email, "password reset", previous);
-        await page.getByLabel(a.code, { exact: true }).fill(code);
-        await page.getByRole("button", { name: a.checkCode, exact: true }).click();
-        await expect(page.getByRole("heading", { name: a.resetPasswordTitle })).toBeVisible();
+    // a full session the sign-in page knows nothing of, as another tab's sign-in leaves
+    const leaveSession = async (): Promise<void> => {
+        await browserSession(page, left.email, left.password);
         await page.goto("/login");
         await expect(page.getByRole("heading", { name: a.signInTitle })).toBeVisible();
         expect(await signedInEmail(page)).toBe(left.email);
-        return code;
     };
     const signInAs = async (email: string, password: string): Promise<void> => {
         await page.getByRole("textbox", { name: a.email, exact: true }).fill(email);
@@ -414,12 +434,12 @@ test("the credentials typed decide the account, whatever session the browser sti
         await page.getByRole("button", { name: a.signIn, exact: true }).click();
     };
 
-    const first = await abandonReset();
+    await leaveSession();
     await signInAs(left.email, "not-the-password");
     await expect(page.getByText(a.flowMessages[4000006], { exact: true })).toBeVisible();
     expect(await signedInEmail(page)).toBeNull();
 
-    await abandonReset(first);
+    await leaveSession();
     await signInAs(typed.email, typed.password);
     await expect(page.getByRole("heading", { name: a.verifyTitle })).toBeVisible({
         timeout: 60_000,

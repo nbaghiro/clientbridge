@@ -194,6 +194,24 @@ export async function registerAccount(
     if (!created.ok()) throw new Error(`registration failed: ${String(created.status())}`);
 }
 
+/** Signs `email` in on the browser's cookie behind the app's back, as another tab would. */
+export async function browserSession(page: Page, email: string, password: string): Promise<void> {
+    const request = page.context().request;
+    const headers = { Accept: "application/json" };
+    const flow = (await (
+        await request.get(`${AUTH}/self-service/login/browser`, { headers })
+    ).json()) as {
+        id: string;
+        ui: { nodes: { attributes: { name?: string; value?: unknown } }[] };
+    };
+    const csrf = flow.ui.nodes.find((n) => n.attributes.name === "csrf_token")?.attributes.value;
+    const login = await request.post(`${AUTH}/self-service/login?flow=${flow.id}`, {
+        headers,
+        data: { method: "password", identifier: email, password, csrf_token: csrf },
+    });
+    if (!login.ok()) throw new Error(`browser sign-in failed: ${String(login.status())}`);
+}
+
 /** Whose session the browser's cookie holds, or null. */
 export async function signedInEmail(page: Page): Promise<string | null> {
     const session = await page.context().request.get(`${AUTH}/sessions/whoami`);

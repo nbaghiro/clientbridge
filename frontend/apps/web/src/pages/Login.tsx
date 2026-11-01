@@ -468,6 +468,7 @@ function Recover({ onSuccess }: { onSuccess: () => void }) {
         },
         {
             defaultEmail: params.get("email") ?? "",
+            resetStorage: localStorage,
             ...(webauthn ? { webauthn } : {}),
             ...(params.get("flow") ? { flowId: params.get("flow") ?? "" } : {}),
         },

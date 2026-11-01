@@ -104,6 +104,48 @@ function useCooldown(): [number, (s: number) => void] {
     return [cooldown, setCooldown];
 }
 
+const RESET_KEY = "cb_reset_session";
+
+/** Where a browser notes an unsaved reset's session; a phone's token is lost with the app instead. */
+interface ResetStorage {
+    getItem: (key: string) => string | null;
+    setItem: (key: string, value: string) => void;
+    removeItem: (key: string) => void;
+}
+
+function noteReset(storage: ResetStorage | undefined, sessionId: string | null): void {
+    try {
+        if (sessionId === null) storage?.removeItem(RESET_KEY);
+        else storage?.setItem(RESET_KEY, sessionId);
+    } catch {
+        return;
+    }
+}
+
+/** At a browser's load, ends the session of a reset closed before its password was saved. */
+export async function endAbandonedReset(
+    identity: IdentityLike,
+    storage: ResetStorage,
+): Promise<void> {
+    let marked: string | null;
+    try {
+        marked = storage.getItem(RESET_KEY);
+    } catch {
+        return;
+    }
+    if (marked === null) return;
+    const state = await identity.session();
+    // An empty mark is a reset stopped at its second factor, whose session can't name itself yet.
+    const abandoned =
+        state === "second_factor"
+            ? marked === ""
+            : state === "active" &&
+              marked !== "" &&
+              (await identity.whoami())?.sessionId === marked;
+    if (abandoned) await identity.signOut();
+    noteReset(storage, null);
+}
+
 type SessionCheck =
     | { state: "user"; userId: string; verifiedAt: number }
     | { state: "none" }
@@ -550,6 +592,8 @@ export function useRecoveryForm(
         defaultEmail?: string;
         flowId?: string;
         webauthn?: WebAuthnLike;
+        /** Web: a closed tab can't end the reset's cookie session, so the next load does. */
+        resetStorage?: ResetStorage;
     },
 ): RecoveryForm {
     const a = strings.auth;
@@ -573,20 +617,31 @@ export function useRecoveryForm(
         setError,
     });
 
-    const hold = (sessionToken: string | undefined): void => {
+    const hold = async (sessionToken: string | undefined): Promise<void> => {
         token.current = sessionToken;
         holding.current = true;
+        if (!opts?.resetStorage) return;
+        const me = await identity.whoami(sessionToken).catch(() => null);
+        noteReset(opts.resetStorage, me?.sessionId ?? "");
     };
 
-    const release = (): void => {
+    /** `ended` is false when the session may outlive this form, so its mark stays for the next load. */
+    const release = (ended = true): void => {
         token.current = undefined;
         holding.current = false;
+        if (ended) noteReset(opts?.resetStorage, null);
     };
 
     // Leaving before the password is saved (a back gesture, say) ends the reset's session too.
     useEffect(
         () => () => {
-            if (holding.current) identity.signOut(token.current).catch(() => undefined);
+            if (!holding.current) return;
+            identity.signOut(token.current).then(
+                () => {
+                    noteReset(opts?.resetStorage, null);
+                },
+                () => undefined,
+            );
         },
         [],
     );
@@ -644,7 +699,7 @@ export function useRecoveryForm(
         }
         if (result.kind !== "done" || result.next?.flow !== "settings")
             throw new Error("recovery did not continue");
-        hold(result.sessionToken);
+        await hold(result.sessionToken);
         settingsId.current = result.next.id;
         try {
             // The code was right, but an account with a second factor must confirm it before saving.
@@ -671,8 +726,12 @@ export function useRecoveryForm(
 
     // Ends the half-finished session too, or the auth service refuses to start another reset.
     const startOver = async (message: string | null): Promise<void> => {
-        await identity.signOut(token.current).catch(() => undefined);
-        release();
+        release(
+            await identity.signOut(token.current).then(
+                () => true,
+                () => false,
+            ),
+        );
         setFlow(null);
         setCode("");
         setPassword("");
@@ -695,7 +754,7 @@ export function useRecoveryForm(
             await startOver(a.flowExpired);
             return;
         }
-        hold(result.sessionToken ?? token.current);
+        await hold(result.sessionToken ?? token.current);
         setCode("");
         // The factor is spent, so this step can't be retried.
         await openPassword().catch(() => startOver(a.unavailable));
