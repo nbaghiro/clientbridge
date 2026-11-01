@@ -6809,18 +6809,6 @@
     "business.getSetUp.unsaved": {
         "message": "[Ýöû ĥåṽé ûñšåṽéð ƀŕåñð çĥåñĝéš. one two three]"
     },
-    "business.getSetUp.discardTitle": {
-        "message": "[Çļöšé ŵîţĥöûţ šåṽîñĝ? one two]"
-    },
-    "business.getSetUp.discardBody": {
-        "message": "[Çĥåñĝéš šîñçé ţĥé ļåšţ šåṽé åŕé ļöšţ. one two three]"
-    },
-    "business.getSetUp.discard": {
-        "message": "[Çļöšé one]"
-    },
-    "business.getSetUp.keepEditing": {
-        "message": "[Ķééþ éðîţîñĝ one two]"
-    },
     "business.getSetUp.editBrand": {
         "message": "[Éðîţ ƀŕåñð one two]"
     },
@@ -6967,18 +6955,6 @@
     },
     "business.unsaved": {
         "message": "[Ýöû ĥåṽé ûñšåṽéð ƀûšîñéšš ðéţåîļš. one two three]"
-    },
-    "business.leaveTitle": {
-        "message": "[Ļéåṽé ŵîţĥöûţ šåṽîñĝ? one two]"
-    },
-    "business.leaveBody": {
-        "message": "[Çĥåñĝéš šîñçé ţĥé ļåšţ šåṽé åŕé ļöšţ. one two three]"
-    },
-    "business.leave": {
-        "message": "[Ļéåṽé one]"
-    },
-    "business.keepEditing": {
-        "message": "[Ķééþ éðîţîñĝ one two]"
     },
     "business.checkFields": {
         "message": "[Çĥéçķ ţĥé ƒîéļðš ɱåŕķéð ƀéļöŵ. one two three]"
@@ -12592,6 +12568,24 @@
     },
     "navigation.main": {
         "message": "[Ṁåîñ one]"
+    },
+    "navigation.leaveTitle": {
+        "message": "[Ļéåṽé ŵîţĥöûţ šåṽîñĝ? one two]"
+    },
+    "navigation.leave": {
+        "message": "[Ļéåṽé one]"
+    },
+    "navigation.closeTitle": {
+        "message": "[Çļöšé ŵîţĥöûţ šåṽîñĝ? one two]"
+    },
+    "navigation.close": {
+        "message": "[Çļöšé one]"
+    },
+    "navigation.unsavedLost": {
+        "message": "[Çĥåñĝéš šîñçé ţĥé ļåšţ šåṽé åŕé ļöšţ. one two three]"
+    },
+    "navigation.keepEditing": {
+        "message": "[Ķééþ éðîţîñĝ one two]"
     },
     "navigation.finishSetup": {
         "message": "[Ƒîñîšĥ šéţţîñĝ ûþ one two]"

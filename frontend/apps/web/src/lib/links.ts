@@ -1,4 +1,10 @@
-import { type ShellTarget, clearTasks, openTask, strings, taskFor } from "@clientbridge/app-core";
+import {
+    type ShellTarget,
+    clearTasks,
+    openTask,
+    taskFor,
+    unsavedConfirm,
+} from "@clientbridge/app-core";
 import { confirm } from "@clientbridge/ui";
 import { createContext, useCallback, useContext, useEffect, useRef } from "react";
 import { useBlocker, useLocation, useNavigate, useSearchParams } from "react-router-dom";
@@ -57,13 +63,7 @@ export function useLeaveGuard(dirty: boolean): void {
     );
     useEffect(() => {
         if (blocker.state !== "blocked") return;
-        confirm({
-            title: strings.business.leaveTitle,
-            message: strings.business.leaveBody,
-            confirmLabel: strings.business.leave,
-            cancelLabel: strings.business.keepEditing,
-            destructive: true,
-        })
+        confirm(unsavedConfirm("leave"))
             .then((ok) => {
                 if (ok) blocker.proceed();
                 else blocker.reset();

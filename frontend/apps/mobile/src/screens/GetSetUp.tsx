@@ -8,6 +8,7 @@ import {
     brandColourName,
     useAsyncAction,
     strings,
+    unsavedConfirm,
     useBookingPreview,
     useBrandForm,
     useSetupChecklist,
@@ -136,13 +137,7 @@ function BrandSheet({ onClose }: { onClose: () => void }) {
             onClose();
             return;
         }
-        confirm({
-            title: o.discardTitle,
-            message: o.discardBody,
-            confirmLabel: o.discard,
-            cancelLabel: o.keepEditing,
-            destructive: true,
-        })
+        confirm(unsavedConfirm("close"))
             .then((ok) => {
                 if (ok) onClose();
             })

@@ -4,6 +4,7 @@ import {
     pageDomain,
     strings,
     timeZoneOptions,
+    unsavedConfirm,
     useBusinessForm,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
@@ -25,13 +26,7 @@ export function Business({ footer }: { footer?: ReactNode }) {
     };
     const navigation = useNavigation();
     usePreventRemove(form.dirty, ({ data }) => {
-        confirm({
-            title: strings.business.leaveTitle,
-            message: strings.business.leaveBody,
-            confirmLabel: strings.business.leave,
-            cancelLabel: strings.business.keepEditing,
-            destructive: true,
-        })
+        confirm(unsavedConfirm("leave"))
             .then((ok) => {
                 if (ok) navigation.dispatch(data.action);
             })

@@ -2505,10 +2505,6 @@ interface Strings {
             readonly taglinePlaceholder: string;
             readonly save: string;
             readonly unsaved: string;
-            readonly discardTitle: string;
-            readonly discardBody: string;
-            readonly discard: string;
-            readonly keepEditing: string;
             readonly editBrand: string;
             readonly colourNames: {
                 readonly forest: string;
@@ -2562,10 +2558,6 @@ interface Strings {
         readonly saveError: string;
         readonly saveDetails: string;
         readonly unsaved: string;
-        readonly leaveTitle: string;
-        readonly leaveBody: string;
-        readonly leave: string;
-        readonly keepEditing: string;
         readonly checkFields: string;
         readonly fieldErrors: {
             readonly name: string;
@@ -4609,6 +4601,12 @@ interface Strings {
         readonly businessMenu: string;
         readonly accountMenu: string;
         readonly main: string;
+        readonly leaveTitle: string;
+        readonly leave: string;
+        readonly closeTitle: string;
+        readonly close: string;
+        readonly unsavedLost: string;
+        readonly keepEditing: string;
         readonly finishSetup: string;
         readonly setupProgress: (done: number, total: number) => string;
         readonly yourHours: string;

@@ -3,6 +3,7 @@ import { useSyncExternalStore } from "react";
 import { useBusinessQuery as useQuery } from "../hooks";
 
 import type { IconName } from "../icons";
+import type { ConfirmOptions } from "../ui";
 import { strings } from "../strings";
 import type { Viewer } from "./auth";
 import { type SetupProgress, useSetupProgress } from "./business";
@@ -546,5 +547,17 @@ export function useShellNav(viewer: Viewer | null): ShellNav {
         quickCreate: createActionsFor(role).filter((a) => QUICK_CREATE.includes(a.key)),
         setup,
         showSetup: manager && !setup.complete && !setup.dismissed,
+    };
+}
+
+/** Asks before unsaved edits are lost: leaving a page, or closing a sheet. */
+export function unsavedConfirm(by: "leave" | "close"): ConfirmOptions {
+    const n = strings.navigation;
+    return {
+        title: by === "leave" ? n.leaveTitle : n.closeTitle,
+        message: n.unsavedLost,
+        confirmLabel: by === "leave" ? n.leave : n.close,
+        cancelLabel: n.keepEditing,
+        destructive: true,
     };
 }

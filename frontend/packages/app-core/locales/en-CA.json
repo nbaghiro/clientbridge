@@ -7384,18 +7384,6 @@
     "business.getSetUp.unsaved": {
         "message": "You have unsaved brand changes."
     },
-    "business.getSetUp.discardTitle": {
-        "message": "Close without saving?"
-    },
-    "business.getSetUp.discardBody": {
-        "message": "Changes since the last save are lost."
-    },
-    "business.getSetUp.discard": {
-        "message": "Close"
-    },
-    "business.getSetUp.keepEditing": {
-        "message": "Keep editing"
-    },
     "business.getSetUp.editBrand": {
         "message": "Edit brand"
     },
@@ -7546,18 +7534,6 @@
     },
     "business.unsaved": {
         "message": "You have unsaved business details."
-    },
-    "business.leaveTitle": {
-        "message": "Leave without saving?"
-    },
-    "business.leaveBody": {
-        "message": "Changes since the last save are lost."
-    },
-    "business.leave": {
-        "message": "Leave"
-    },
-    "business.keepEditing": {
-        "message": "Keep editing"
     },
     "business.checkFields": {
         "message": "Check the fields marked below."
@@ -13518,6 +13494,24 @@
     },
     "navigation.main": {
         "message": "Main"
+    },
+    "navigation.leaveTitle": {
+        "message": "Leave without saving?"
+    },
+    "navigation.leave": {
+        "message": "Leave"
+    },
+    "navigation.closeTitle": {
+        "message": "Close without saving?"
+    },
+    "navigation.close": {
+        "message": "Close"
+    },
+    "navigation.unsavedLost": {
+        "message": "Changes since the last save are lost."
+    },
+    "navigation.keepEditing": {
+        "message": "Keep editing"
     },
     "navigation.finishSetup": {
         "message": "Finish setting up"

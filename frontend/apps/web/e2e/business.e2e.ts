@@ -23,6 +23,7 @@ const a = strings.auth;
 const o = strings.business.onboarding;
 const b = strings.business;
 const g = strings.business.getSetUp;
+const n = strings.navigation;
 const PLUM = "#7D5A82";
 
 test("ID-E2E-01 a Nova Scotia pet groomer's signup sets its zone, tax and subject on every device", async ({
@@ -398,8 +399,8 @@ test("CFG-E2E-08 slow uploads keep edits, each Save says what it saves, leaving 
         .getByRole("link", { name: strings.navigation.setupSections.team, exact: true });
     await setupLink.click();
     const leaving = page.getByRole("dialog");
-    await expect(leaving.getByText(b.leaveTitle, { exact: true })).toBeVisible();
-    await leaving.getByRole("button", { name: b.keepEditing, exact: true }).click();
+    await expect(leaving.getByText(n.leaveTitle, { exact: true })).toBeVisible();
+    await leaving.getByRole("button", { name: n.keepEditing, exact: true }).click();
     await expect(page).toHaveURL(/\/setup\/business/);
     await expect(brand.tagline).toHaveValue("Typed during the upload");
 
