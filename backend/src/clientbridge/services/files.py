@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core import clock
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.config import get_settings
+from clientbridge.core.deployment import UPLOAD_PREFIX
 from clientbridge.core.deps import Principal, assert_can_act_as, assert_role, is_manager
 from clientbridge.core.errors import Conflict, Forbidden, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
@@ -63,8 +64,7 @@ class FileService:
             await self._assert_person(data.parent_type, data.parent_id)
         if data.purpose in PICTURE_PURPOSES and data.content_type not in PICTURE_TYPES:
             raise Unprocessable("a picture is a PNG, JPEG or WebP", code="file_type_unsupported")
-        if data.size is not None and data.size > MAX_FILE_BYTES:
-            raise Unprocessable("a file can be up to 10 MB", code="file_too_large")
+        assert_size(data.size)
 
         async def run(cmd: Command) -> FileUpload:
             result = await mint_upload(
@@ -262,6 +262,12 @@ class FileService:
             raise NotFound(f"{data.parent_type} not found")
 
 
+def assert_size(size: int) -> None:
+    """Storage takes exactly the declared size, so this is the one place the cap is checked."""
+    if size > MAX_FILE_BYTES:
+        raise Unprocessable("a file can be up to 10 MB", code="file_too_large")
+
+
 async def mint_upload(
     db: AsyncSession,
     storage: FileStorage,
@@ -269,9 +275,9 @@ async def mint_upload(
     business_id: str,
     parent_type: str,
     parent_id: str,
+    size: int,
     purpose: str | None = None,
     content_type: str | None = None,
-    size: int | None = None,
 ) -> FileUpload:
     """Create a File row and its presigned upload URL, keyed by the resolved business."""
     file = File(
@@ -280,13 +286,13 @@ async def mint_upload(
         parent_type=parent_type,
         parent_id=parent_id,
         purpose=purpose,
-        s3_key=f"{business_id}/{new_id('file')}",
+        s3_key=f"{UPLOAD_PREFIX}{business_id}/{new_id('file')}",
         content_type=content_type,
         size=size,
     )
     db.add(file)
     await db.flush()
-    url = storage.presign_upload(file.s3_key, content_type or _DEFAULT_CONTENT_TYPE)
+    url = storage.presign_upload(file.s3_key, content_type or _DEFAULT_CONTENT_TYPE, size)
     return FileUpload(file=_file_out(file), upload_url=url)
 
 
@@ -299,26 +305,29 @@ def _picture_type(start: bytes) -> str | None:
 
 
 async def confirm_upload(file: File, storage: FileStorage) -> FileOut:
-    """Mark a file uploaded once its bytes are in storage, at its size and really a picture."""
+    """Copy the uploaded bytes where the upload URL can't reach, then check they are a picture."""
     if file.uploaded_at is None:
         stored = await asyncio.to_thread(storage.head, file.s3_key)
         if stored is None:
             raise Conflict("the file has not finished uploading", code="upload_missing")
-        if file.size is not None and stored != file.size:
+        if stored != file.size:
             raise Unprocessable("the uploaded file is not the size that was declared")
-        if stored > MAX_FILE_BYTES:
-            raise Unprocessable("a file can be up to 10 MB", code="file_too_large")
+        upload, key = file.s3_key, file.s3_key.removeprefix(UPLOAD_PREFIX)
+        declared = file.content_type or _DEFAULT_CONTENT_TYPE
+        await asyncio.to_thread(storage.promote, upload, key, declared)
         if file.content_type in PICTURE_TYPES:
             start = (
-                await asyncio.to_thread(storage.read_start, file.s3_key, _MAGIC_LENGTH)
-                if stored > 0
-                else b""
+                await asyncio.to_thread(storage.read_start, key, _MAGIC_LENGTH) if stored else b""
             )
             actual = _picture_type(start)
             if actual is None:
+                await asyncio.to_thread(storage.delete, key)
                 raise Unprocessable("the file is not a picture", code="file_type_unsupported")
-            # a phone's picker can re-encode a photo and keep the original's file type
+            if actual != declared:
+                # a phone's picker can re-encode a photo and keep the original's file type
+                await asyncio.to_thread(storage.promote, key, key, actual)
             file.content_type = actual
+        file.s3_key = key
         file.uploaded_at = clock.now()
     return _file_out(file)
 

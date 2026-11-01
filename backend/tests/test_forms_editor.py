@@ -132,7 +132,7 @@ async def test_upload_limits(api: httpx.AsyncClient, db: AsyncSession) -> None:
     good = await api.post(url, json={"content_type": "image/heic", "size": 9_000_000})
     assert good.status_code == 200
     too_big = await api.post(url, json={"content_type": "image/png", "size": 11 * 1024 * 1024})
-    assert too_big.status_code == 422
+    assert too_big.status_code == 422 and too_big.json()["error"] == "file_too_large"
     wrong = await api.post(url, json={"content_type": "application/zip", "size": 100})
     assert wrong.status_code == 422
     assert (await api.post(url, json={"content_type": "image/png"})).status_code == 422

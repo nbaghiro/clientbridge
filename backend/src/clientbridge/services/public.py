@@ -120,6 +120,7 @@ from clientbridge.services.catalog import assert_offers, deposit_cents, offers
 from clientbridge.services.clients import find_or_create_by_contact
 from clientbridge.services.deliveries import delivery_key
 from clientbridge.services.files import (
+    assert_size,
     confirm_upload,
     item_images,
     manage_photo_url,
@@ -1604,7 +1605,6 @@ def _strokes_out(raw: list[object] | None) -> list[list[tuple[float, float]]] | 
 
 
 FORM_UPLOAD_TYPES = frozenset({"application/pdf", "image/jpeg", "image/png", "image/heic"})
-FORM_UPLOAD_MAX_BYTES = 10 * 1024 * 1024
 
 
 class PublicFormService:
@@ -1646,8 +1646,7 @@ class PublicFormService:
         response, _, _ = await self._resolve(token)
         if data.content_type not in FORM_UPLOAD_TYPES:
             raise Unprocessable("attach a PDF, JPG, PNG or HEIC file")
-        if data.size is None or data.size > FORM_UPLOAD_MAX_BYTES:
-            raise Unprocessable("attach a file up to 10 MB")
+        assert_size(data.size)
         result = await mint_upload(
             self.db,
             storage,

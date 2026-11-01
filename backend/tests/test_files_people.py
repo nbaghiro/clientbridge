@@ -29,7 +29,8 @@ async def _upload(
     storage.stored[file["s3_key"]] = 4096
     done = await api.post(f"/v1/files/{file['id']}/complete")
     assert done.status_code == 200, done.text
-    return file
+    uploaded: dict[str, str] = done.json()
+    return uploaded
 
 
 async def _photos(db: AsyncSession, parent_id: str) -> list[str]:

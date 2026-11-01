@@ -5788,7 +5788,7 @@ export interface components {
             /** Content Type */
             content_type?: string | null;
             /** Size */
-            size?: number | null;
+            size: number;
         };
         /** FileLink */
         FileLink: {
@@ -8451,7 +8451,7 @@ export interface components {
             /** Content Type */
             content_type?: string | null;
             /** Size */
-            size?: number | null;
+            size: number;
         };
         /** PublicFileUpload */
         PublicFileUpload: {

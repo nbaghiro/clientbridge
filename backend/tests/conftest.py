@@ -263,9 +263,10 @@ class FakeFileStorage:
         self.downloads: list[str] = []
         self.stored: dict[str, int] = {}
         self.starts: dict[str, bytes] = {}
+        self.types: dict[str, str] = {}
         self.deleted: list[str] = []
 
-    def presign_upload(self, key: str, content_type: str) -> str:
+    def presign_upload(self, key: str, content_type: str, size: int) -> str:
         self.uploads.append((key, content_type))
         return f"https://files.test/{key}"
 
@@ -282,8 +283,14 @@ class FakeFileStorage:
         declared = dict(self.uploads).get(key, "")
         return _FILE_STARTS.get(declared, b"")[:length]
 
+    def promote(self, source: str, key: str, content_type: str) -> None:
+        self.stored[key] = self.stored[source]
+        self.starts[key] = self.read_start(source, 64)
+        self.types[key] = content_type
+
     def delete(self, key: str) -> None:
         self.stored.pop(key, None)
+        self.starts.pop(key, None)
         self.deleted.append(key)
 
 

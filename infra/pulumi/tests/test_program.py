@@ -1084,6 +1084,13 @@ def test_buckets_take_uploads_only_from_the_app_and_connect(cloud: Built) -> Non
         assert {dig(rule, "maxAgeSeconds") for rule in (upload, read)} == {3600}
 
 
+def test_buckets_expire_uploads_left_after_completion(cloud: Built) -> None:
+    for bucket in of_type(cloud, "gcp:storage/bucket:Bucket"):
+        rules = listed(dig(bucket.inputs, "lifecycleRules"))
+        conditions = [dig(rule, "condition") for rule in rules]
+        assert {"age": 1, "matchesPrefixes": ["uploads/"]} in conditions
+
+
 @pytest.fixture(scope="module")
 def staging_only() -> Built:
     return run("cloud", config_for("cloud"), Fakes())

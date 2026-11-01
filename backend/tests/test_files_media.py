@@ -25,6 +25,7 @@ async def _image(
             "parent_id": parent_id,
             "purpose": purpose,
             "content_type": "image/png",
+            "size": 1,
         },
     )
     if created.status_code == 201:
@@ -42,7 +43,8 @@ async def test_item_image_redirects_to_storage_and_shows_on_the_booking_page(
     file = res.json()["file"]
     media = await as_owner.get(f"/media/{file['id']}", follow_redirects=False)
     assert media.status_code == 302
-    assert media.headers["location"] == f"https://files.test/{file['s3_key']}"
+    key = file["s3_key"].removeprefix("uploads/")
+    assert media.headers["location"] == f"https://files.test/{key}"
     page = (await as_owner.get("/book/birchbark/services")).json()
     bath = next(s for s in page["services"] if s["id"] == "it_bath")
     assert bath["image_url"].endswith(f"/media/{file['id']}")
@@ -129,6 +131,7 @@ async def test_cover_must_be_an_uploaded_cover_of_this_business_404(
             "parent_id": BIZ,
             "purpose": "image",
             "content_type": "image/png",
+            "size": 1,
         },
     )
     other = await Factory(db).business()
@@ -163,7 +166,7 @@ async def test_cover_upload_cannot_target_another_business(
     assert (await _image(as_owner, storage, "business", other.id, "image")).status_code == 404
 
 
-def _logo(content_type: str | None, size: int | None = None) -> dict[str, object]:
+def _logo(content_type: str | None, size: int = 1024) -> dict[str, object]:
     return {
         "parent_type": "business",
         "parent_id": BIZ,
@@ -220,6 +223,7 @@ async def test_a_real_picture_takes_the_type_of_its_bytes(
     done = await as_owner.post(f"/v1/files/{file['id']}/complete")
     assert done.status_code == 200, done.text
     assert done.json()["content_type"] == actual
+    assert storage.types[done.json()["s3_key"]] == actual
     assert (await unauth.get(f"/media/{file['id']}", follow_redirects=False)).status_code == 302
 
 
@@ -267,16 +271,6 @@ async def test_a_file_declared_over_the_limit_is_refused(
     assert storage.uploads == []
     at_limit = await as_owner.post("/v1/files", json=_logo("image/png", MAX_FILE_BYTES))
     assert at_limit.status_code == 201, at_limit.text
-
-
-async def test_bytes_over_the_limit_are_refused_even_without_a_declared_size(
-    as_owner: httpx.AsyncClient, storage: FakeFileStorage
-) -> None:
-    file = (await as_owner.post("/v1/files", json=_logo("image/png"))).json()["file"]
-    storage.stored[file["s3_key"]] = MAX_FILE_BYTES + 1
-    res = await as_owner.post(f"/v1/files/{file['id']}/complete")
-    assert res.status_code == 422
-    assert res.json()["error"] == "file_too_large"
 
 
 async def test_a_public_file_stored_with_another_type_is_not_served(

@@ -71,10 +71,11 @@ async def test_staff_adds_a_photo_to_their_booking_and_reads_it_back(
     storage.stored[file["s3_key"]] = 2048
     done = await as_staff.post(f"/v1/files/{file['id']}/complete")
     assert done.status_code == 200, done.text
+    key = done.json()["s3_key"]
     link = await as_staff.get(f"/v1/files/{file['id']}/link")
     assert link.status_code == 200, link.text
-    assert link.json()["url"] == f"https://files.test/{file['s3_key']}"
-    assert storage.downloads == [file["s3_key"]]
+    assert link.json()["url"] == f"https://files.test/{key}"
+    assert storage.downloads == [key]
 
 
 async def test_owner_adds_a_photo_to_any_booking(

@@ -76,7 +76,7 @@ async def refresh_catalog() -> None:
                     continue
                 payload = (ASSETS / Path(image.s3_key).name).read_bytes()
                 response = await client.put(
-                    storage.presign_upload(image.s3_key, "image/jpeg"),
+                    storage.presign_upload(image.s3_key, "image/jpeg", len(payload)),
                     content=payload,
                     headers={"Content-Type": "image/jpeg"},
                 )

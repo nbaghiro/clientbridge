@@ -4,13 +4,14 @@ from dataclasses import dataclass
 
 import pulumi
 import pulumi_gcp as gcp
-from clientbridge.core.deployment import public_urls
+from clientbridge.core.deployment import UPLOAD_PREFIX, public_urls
 
 from environments import Environment
 
 ENDPOINT = "https://storage.googleapis.com"
 REGION = "auto"  # what Cloud Storage's S3 interoperability signs with
 NONCURRENT_DAYS = 30
+UPLOAD_DAYS = 1  # a completed upload is copied out, so whatever is left under the prefix is stray
 CORS_MAX_AGE_SECONDS = 3600
 
 
@@ -44,7 +45,11 @@ def create(project: str, region: str, env: Environment) -> Files:
                     "days_since_noncurrent_time": NONCURRENT_DAYS,
                     "with_state": "ARCHIVED",
                 },
-            }
+            },
+            {
+                "action": {"type": "Delete"},
+                "condition": {"age": UPLOAD_DAYS, "matches_prefixes": [UPLOAD_PREFIX]},
+            },
         ],
         cors=_cors_rules(env.base_domain),
         force_destroy=False,
