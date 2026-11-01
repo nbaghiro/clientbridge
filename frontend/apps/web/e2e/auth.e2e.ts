@@ -434,11 +434,11 @@ test("the credentials typed decide the account, whatever session the browser sti
     expect(await signedInEmail(page)).toBe(typed.email);
 });
 
-/** Six wrong tries end a code's flow; each waits for the auth service, since the message repeats. */
 function otherCode(code: string): string {
     return code.replace(/\d$/, (digit) => String((Number(digit) + 1) % 10));
 }
 
+/** Six wrong tries end a code's flow; each waits for the auth service, since the message repeats. */
 async function useUpCode(page: Page, wrong: string, submit: string): Promise<void> {
     for (let attempt = 0; attempt < 6; attempt++) {
         await page.getByLabel(a.code, { exact: true }).fill(wrong);
