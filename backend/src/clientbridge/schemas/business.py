@@ -83,12 +83,12 @@ class BusinessOut(Mirror):
 
 
 class BrandInput(BaseModel):
-    """The public brand; values are validated and trimmed so clients can apply them directly."""
+    """The stored public brand; values are validated and trimmed so clients can apply them."""
 
     logo_file_id: str | None = None
     cover_file_id: str | None = None
     primary: str | None = None
-    tagline: str | None = Field(default=None, max_length=120)
+    tagline: str | None = None
     about: str | None = Field(default=None, max_length=3000)
     address: str | None = Field(default=None, max_length=300)
     phone: str | None = Field(default=None, max_length=40)
@@ -145,6 +145,12 @@ class BrandInput(BaseModel):
         return (v or "").strip() or None
 
 
+class BrandUpdate(BrandInput):
+    """The brand as written; only writes cap the tagline, as a stored one may be longer."""
+
+    tagline: Annotated[str, StringConstraints(strip_whitespace=True, max_length=120)] | None = None
+
+
 class BusinessSettingsUpdate(Mirror):
     mirrors = Business
 
@@ -185,7 +191,7 @@ class BusinessSettingsUpdate(Mirror):
     legal_phone: Phone = Field(
         default=None, description="The business's legal contact phone; empty clears"
     )
-    brand: BrandInput | None = None
+    brand: BrandUpdate | None = None
 
     @field_validator("unit", "street_number", "street_name", "city")
     @classmethod

@@ -559,8 +559,23 @@ async def test_an_overlong_tagline_is_refused_and_names_the_field(
     res = await as_owner.patch("/v1/business", json={"brand": {"tagline": "x" * 121}})
     assert res.status_code == 422
     assert res.json()["detail"][0]["loc"] == ["body", "brand", "tagline"]
-    fits = await as_owner.patch("/v1/business", json={"brand": {"tagline": "x" * 120}})
+    padded = f"  {'x' * 120}  "
+    fits = await as_owner.patch("/v1/business", json={"brand": {"tagline": padded}})
     assert fits.status_code == 200, fits.text
+    assert fits.json()["brand"]["tagline"] == "x" * 120
+
+
+async def test_a_stored_tagline_over_the_cap_still_shows_on_the_public_pages(
+    unauth: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    business.brand = {**(business.brand or {}), "tagline": "x" * 200}
+    await db.flush()
+    for page in ("/book/birchbark/profile", "/book/birchbark/services"):
+        res = await unauth.get(page)
+        assert res.status_code == 200, res.text
+        assert res.json()["brand"]["tagline"] == "x" * 200
 
 
 @pytest.mark.parametrize(

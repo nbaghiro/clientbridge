@@ -4994,10 +4994,10 @@ export interface components {
             auto_complete?: boolean | null;
         };
         /**
-         * BrandInput
-         * @description The public brand; values are validated and trimmed so clients can apply them directly.
+         * BrandUpdate
+         * @description The brand as written; only writes cap the tagline, as a stored one may be longer.
          */
-        BrandInput: {
+        BrandUpdate: {
             /** Logo File Id */
             logo_file_id?: string | null;
             /** Cover File Id */
@@ -5214,7 +5214,7 @@ export interface components {
              * @description The business's legal contact phone; empty clears
              */
             legal_phone?: string | null;
-            brand?: components["schemas"]["BrandInput"] | null;
+            brand?: components["schemas"]["BrandUpdate"] | null;
         };
         /** CheckoutOut */
         CheckoutOut: {
