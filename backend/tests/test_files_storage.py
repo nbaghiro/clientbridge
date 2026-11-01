@@ -46,6 +46,7 @@ def test_a_promoted_copy_keeps_its_bytes_when_the_upload_is_put_again() -> None:
     httpx.put(url, content=b"later", headers={"Content-Type": "image/jpeg"}).raise_for_status()
     served = httpx.get(storage.presign_download(key))
     assert served.content == b"first" and served.headers["content-type"] == "image/png"
+    assert storage.read_start(key, 3) == b"fir"
     for each in (upload, key):
         storage.delete(each)
 
