@@ -7,8 +7,13 @@ function pixels(value: string | null): number {
     return value !== null && /^[\d.]+(px)?$/.test(value.trim()) ? parseFloat(value) : NaN;
 }
 
+interface Size {
+    width: number;
+    height: number;
+}
+
 // A viewBox outranks width and height, which may be missing or in units a canvas can't use.
-function drawnSize(svg: Element): { width: number; height: number } {
+function declaredSize(svg: Element): Size | null {
     const box = (svg.getAttribute("viewBox") ?? "")
         .trim()
         .split(/[\s,]+/)
@@ -16,7 +21,19 @@ function drawnSize(svg: Element): { width: number; height: number } {
     const [boxWidth = NaN, boxHeight = NaN] = box.slice(2);
     const width = boxWidth > 0 ? boxWidth : pixels(svg.getAttribute("width"));
     const height = boxHeight > 0 ? boxHeight : pixels(svg.getAttribute("height"));
-    return width > 0 && height > 0 ? { width, height } : { width: LOGO_PX, height: LOGO_PX };
+    return width > 0 && height > 0 ? { width, height } : null;
+}
+
+/** The size the browser gives the file itself, when the SVG doesn't declare one in pixels. */
+async function naturalSize(text: string): Promise<Size> {
+    const url = URL.createObjectURL(new Blob([text], { type: "image/svg+xml" }));
+    try {
+        const { naturalWidth: width, naturalHeight: height } = await loaded(url);
+        // Firefox reports no size for an SVG without its own
+        return width > 0 && height > 0 ? { width, height } : { width: LOGO_PX, height: LOGO_PX };
+    } finally {
+        URL.revokeObjectURL(url);
+    }
 }
 
 function loaded(url: string): Promise<HTMLImageElement> {
@@ -34,15 +51,17 @@ function loaded(url: string): Promise<HTMLImageElement> {
 
 /** Draws an SVG logo to a PNG, since storage holds no format that can carry script. */
 export async function pngFromSvg(file: File): Promise<Blob> {
-    const parsed = new DOMParser().parseFromString(await file.text(), "image/svg+xml");
+    const text = await file.text();
+    const parsed = new DOMParser().parseFromString(text, "image/svg+xml");
     const svg = parsed.documentElement;
     if (svg.localName !== "svg" || parsed.querySelector("parsererror") !== null)
         throw notAPicture();
-    const { width, height } = drawnSize(svg);
+    const { width, height } = declaredSize(svg) ?? (await naturalSize(text));
     const scale = LOGO_PX / Math.max(width, height);
     const canvas = document.createElement("canvas");
-    canvas.width = Math.round(width * scale);
-    canvas.height = Math.round(height * scale);
+    // a long wordmark still gets a pixel of height
+    canvas.width = Math.max(1, Math.round(width * scale));
+    canvas.height = Math.max(1, Math.round(height * scale));
     // Firefox draws nothing for an SVG without its own size.
     if (!svg.hasAttribute("viewBox"))
         svg.setAttribute("viewBox", `0 0 ${String(width)} ${String(height)}`);
