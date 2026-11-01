@@ -332,7 +332,12 @@ function BrandPanel({ brand }: { brand: BrandForm }) {
                             {logo !== null ? strings.files.replaceLogo : strings.files.uploadLogo}
                         </Button>
                         {logo !== null ? (
-                            <Button size="sm" variant="link" onPress={brand.logo.remove}>
+                            <Button
+                                size="sm"
+                                variant="link"
+                                disabled={brand.logo.busy}
+                                onPress={brand.logo.remove}
+                            >
                                 {strings.files.removeLogo}
                             </Button>
                         ) : null}
@@ -369,7 +374,12 @@ function BrandPanel({ brand }: { brand: BrandForm }) {
                                 {cover !== null ? o.replaceCover : o.uploadCover}
                             </Button>
                             {cover !== null ? (
-                                <Button size="sm" variant="link" onPress={brand.cover.remove}>
+                                <Button
+                                    size="sm"
+                                    variant="link"
+                                    disabled={brand.cover.busy}
+                                    onPress={brand.cover.remove}
+                                >
                                     {o.removeCover}
                                 </Button>
                             ) : null}

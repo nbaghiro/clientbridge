@@ -176,7 +176,12 @@ function BrandSheet({ onClose }: { onClose: () => void }) {
                                     : strings.files.uploadLogo}
                             </Button>
                             {logo !== null ? (
-                                <Button size="sm" variant="link" onPress={brand.logo.remove}>
+                                <Button
+                                    size="sm"
+                                    variant="link"
+                                    disabled={brand.logo.busy}
+                                    onPress={brand.logo.remove}
+                                >
                                     {strings.files.removeLogo}
                                 </Button>
                             ) : null}
@@ -229,6 +234,7 @@ function BrandSheet({ onClose }: { onClose: () => void }) {
                                     style={{ alignSelf: "center" }}
                                     size="sm"
                                     variant="link"
+                                    disabled={brand.cover.busy}
                                     onPress={brand.cover.remove}
                                 >
                                     {o.removeCover}
