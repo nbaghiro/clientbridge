@@ -215,6 +215,32 @@ async def test_stale_pending_uploads_are_pruned_with_their_bytes(
     assert storage.deleted == [f"{BIZ}/fl_stale"]
 
 
+async def test_a_refused_picture_drops_its_copy_and_its_upload_is_pruned(
+    as_owner: httpx.AsyncClient, db: AsyncSession, storage: FakeFileStorage
+) -> None:
+    image = await _pending(
+        as_owner,
+        {
+            "parent_type": "item",
+            "parent_id": "it_bath",
+            "purpose": "image",
+            "content_type": "image/png",
+            "size": 42,
+        },
+    )
+    upload = image["s3_key"]
+    storage.stored[upload], storage.starts[upload] = 42, b"<!doctype html>"
+    res = await as_owner.post(f"/v1/files/{image['id']}/complete")
+    assert res.status_code == 422
+    assert storage.deleted == [upload.removeprefix("uploads/")]
+    row = await db.get(File, image["id"])
+    assert row is not None and row.uploaded_at is None and row.s3_key == upload
+    row.created_at = clock.now() - timedelta(hours=25)
+    await db.flush()
+    await run_prune_pending_files(db, storage, clock.now())
+    assert upload in storage.deleted
+
+
 async def test_storage_network_call_runs_outside_the_request_event_loop(
     as_owner: httpx.AsyncClient,
     db: AsyncSession,
