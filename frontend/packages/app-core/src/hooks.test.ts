@@ -141,6 +141,21 @@ describe("useSyncedDraft", () => {
         expect(result.current.dirty).toBe(false);
     });
 
+    it("builds a change on what is shown once a value typed back lets the replica through", () => {
+        const { result, rerender } = draftOver(stored);
+        act(() => {
+            result.current.set("team", ["st_a", "st_b"]);
+        });
+        act(() => {
+            result.current.set("team", ["st_a"]);
+        });
+        rerender({ row: { city: "Victoria", team: ["st_a", "st_c"] } });
+        act(() => {
+            result.current.set("team", (team) => [...team, "st_d"]);
+        });
+        expect(result.current.changes).toEqual({ team: ["st_a", "st_c", "st_d"] });
+    });
+
     it("follows the replica in a field not being edited", () => {
         const { result, rerender } = draftOver(stored);
         act(() => {

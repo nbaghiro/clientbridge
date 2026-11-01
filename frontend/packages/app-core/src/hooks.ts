@@ -317,7 +317,11 @@ export function useSyncedDraft<T extends { [K in keyof T]: DraftValue }>(
         <K extends keyof T>(key: K, value: T[K] | ((current: T[K]) => T[K])): void => {
             const over = latest.current.base?.[key];
             setDraft((d) => {
-                const current = d[key]?.value ?? over;
+                const entry = d[key];
+                const current =
+                    entry === undefined || sameDraftValue(entry.value, entry.over)
+                        ? over
+                        : entry.value;
                 const next =
                     typeof value === "function"
                         ? current === undefined
