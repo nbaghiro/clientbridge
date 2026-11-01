@@ -1,8 +1,8 @@
 appId: ${APP_ID}
 ---
-# the system photo picker runs outside the app with no stable labels, so a photo is picked by where it sits
 - waitForAnimationToEnd:
       timeout: 5000
+# iOS's picker exposes no stable labels, so its photo is picked by where it sits
 - runFlow:
       when:
           platform: iOS
@@ -13,6 +13,8 @@ appId: ${APP_ID}
       when:
           platform: Android
       commands:
+          - tapOn: "Photo taken on.*"
+          # newer pickers ask to confirm the choice; older ones return straight away
           - tapOn:
-                point: "17%,61%"
-          - tapOn: "Done"
+                text: "Done"
+                optional: true

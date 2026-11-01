@@ -677,11 +677,11 @@ describe("useRecoveryForm", () => {
                 result.current.resend();
             });
             await waitFor(() => {
-                expect(result.current.error).toBeNull();
+                expect(result.current.code).toBe("");
             });
+            expect(result.current.error).toBeNull();
             expect(identity.start).toHaveBeenCalledTimes(2);
             expect(identity.start).toHaveBeenLastCalledWith("recovery");
-            expect(result.current.code).toBe("");
             act(() => {
                 result.current.setCode("123456");
             });
@@ -1106,12 +1106,12 @@ describe("useVerificationForm", () => {
             result.current.resend();
         });
         await waitFor(() => {
-            expect(result.current.error).toBeNull();
+            expect(identity.submit).toHaveBeenLastCalledWith(flow([], null, "verification"), {
+                method: "code",
+                email: "pat@test.ca",
+            });
         });
-        expect(identity.submit).toHaveBeenLastCalledWith(flow([], null, "verification"), {
-            method: "code",
-            email: "pat@test.ca",
-        });
+        expect(result.current.error).toBeNull();
     });
 
     it("shows the email as confirmed when its link got there first", async () => {
