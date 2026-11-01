@@ -19,6 +19,7 @@ import {
     dateKey,
     draftWindow,
     suggestedStart,
+    useBookingSetupMissing,
 } from "@clientbridge/app-core";
 import {
     Avatar,
@@ -64,6 +65,7 @@ const s = strings.bookings;
 export function Schedule() {
     const zone = useBusinessZone();
     const viewer = useViewer();
+    const setupMissing = useBookingSetupMissing(viewer);
     const mover = useMoveEvent(api);
     const board = useScheduleBoard(viewer, mover);
     const wide = useWide();
@@ -352,7 +354,11 @@ export function Schedule() {
                                                         variant="card"
                                                         icon="calendar"
                                                         message={s.emptyDayTitle}
-                                                        body={s.emptyDayWeb}
+                                                        body={
+                                                            setupMissing
+                                                                ? s.emptyDayNotReady
+                                                                : s.emptyDayWeb
+                                                        }
                                                     />
                                                 ) : (
                                                     <Empty

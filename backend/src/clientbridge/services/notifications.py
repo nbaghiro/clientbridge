@@ -13,6 +13,7 @@ from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.core.deps import Principal
 from clientbridge.core.email_layout import Action, EmailView, inline_images, render_html
+from clientbridge.core.errors import AppError
 from clientbridge.core.ids import new_id
 from clientbridge.core.locale import (
     currency_for,
@@ -25,6 +26,7 @@ from clientbridge.core.locale import (
     plural,
 )
 from clientbridge.core.phones import e164
+from clientbridge.core.ratelimit import allow_action, auth_email_limiter, release_action
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.expo import Push, PushSender
 from clientbridge.integrations.resend import Email, EmailSender
@@ -254,10 +256,24 @@ def auth_email_message(locale: str, email: AuthEmailIn) -> Notice:
 
 async def send_auth_email(email_sender: EmailSender, email: AuthEmailIn) -> None:
     """Words and sends an email the auth service handed over; a failure lets it retry."""
+    address = email.to.lower()
+    try:
+        allowed = await allow_action(address, "auth-email", auth_email_limiter)
+    except AppError:
+        allowed = True  # a Redis outage must not stop sign-ups and password resets
+    if not allowed:
+        # answered as sent, since a retry would only wait out the limit and mail a stale code
+        _log.warning("auth email dropped: its address is over the hourly limit")
+        return
     locale = locale_for()
-    await email_sender.send(
-        account_email(email.to, auth_email_message(locale, email), locale=locale)
-    )
+    try:
+        await email_sender.send(
+            account_email(email.to, auth_email_message(locale, email), locale=locale)
+        )
+    except Exception:
+        # the auth service retries, and an outage's retries mustn't use up the address's limit
+        await release_action(address, "auth-email", auth_email_limiter)
+        raise
 
 
 def invite_link(token: str) -> str:

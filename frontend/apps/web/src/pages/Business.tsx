@@ -6,6 +6,7 @@ import {
     type BrandForm,
     bareUrl,
     bookingPageUrl,
+    brandColourName,
     coverTarget,
     logoTarget,
     mediaUrl,
@@ -17,6 +18,7 @@ import {
     useBusinessForm,
     useFileUpload,
 } from "@clientbridge/app-core";
+import { readableInk } from "@clientbridge/tokens";
 import {
     Button,
     Checkbox,
@@ -32,30 +34,33 @@ import {
     SwatchPicker,
     TextField,
 } from "@clientbridge/ui";
-import { type CSSProperties, type ChangeEvent, useRef } from "react";
+import { type CSSProperties, type ChangeEvent, useRef, useState } from "react";
 
 import { config } from "../config";
 import { api, apiBaseUrl } from "../lib/api";
+import { useLeaveGuard } from "../lib/links";
+import { isSvg, pngFromSvg } from "../lib/svgLogo";
 
 const o = strings.business.getSetUp;
 const l = strings.business.legalAddress;
 
 export function Business() {
     const brand = useBrandForm(api);
+    const form = useBusinessForm(api);
+    useLeaveGuard(brand.dirty || form.dirty);
     return (
         <div className="space-y-6">
             <PageHeader
                 title={strings.navigation.setupSections.business}
                 subtitle={strings.business.subtitle}
             />
-            <ProfilePanel />
+            <ProfilePanel form={form} />
             <BrandPanel brand={brand} />
         </div>
     );
 }
 
-function ProfilePanel() {
-    const form = useBusinessForm(api);
+function ProfilePanel({ form }: { form: ReturnType<typeof useBusinessForm> }) {
     const fields = form.fields;
     const save = (): void => {
         form.submit();
@@ -80,8 +85,11 @@ function ProfilePanel() {
                     <>
                         {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
                         {form.saved ? <Notice tone="success">{strings.common.saved}</Notice> : null}
+                        {form.dirty ? (
+                            <Notice tone="info">{strings.business.unsaved}</Notice>
+                        ) : null}
                         <Button submit busy={form.busy}>
-                            {form.busy ? strings.common.saving : strings.common.save}
+                            {form.busy ? strings.common.saving : strings.business.saveDetails}
                         </Button>
                     </>
                 }
@@ -96,6 +104,8 @@ function ProfilePanel() {
                                 form.set(f.key, v);
                             }}
                             placeholder={f.placeholder}
+                            maxLength={f.maxLength}
+                            error={form.fieldErrors[f.key]}
                         />
                     ))}
                 </div>
@@ -131,9 +141,13 @@ function ProfilePanel() {
                                 form.set(f.key, v);
                             }}
                             placeholder={f.placeholder}
+                            error={form.fieldErrors[f.key]}
                         />
                     ))}
-                    <Field label={l.province} hint={l.provinceHint}>
+                    <Field
+                        label={l.province}
+                        hint={form.provinceLocked ? strings.taxes.provinceLocked : l.provinceHint}
+                    >
                         <p className="py-2 text-sm text-ink">{form.province}</p>
                     </Field>
                 </div>
@@ -162,13 +176,17 @@ function LogoMark({
     logo: string | null;
     size: number;
 }) {
-    if (logo !== null) {
+    const [failed, setFailed] = useState<string | null>(null);
+    if (logo !== null && logo !== failed) {
         return (
             <img
                 src={logo}
                 alt=""
                 style={{ width: size, height: size }}
                 className="rounded-lg bg-surface object-contain"
+                onError={() => {
+                    setFailed(logo);
+                }}
             />
         );
     }
@@ -187,6 +205,7 @@ function LogoMark({
 function BookingPreview({ brand, logo }: { brand: BrandForm; logo: string | null }) {
     const preview = useBookingPreview(4);
     const b = strings.publicBooking;
+    const ink = readableInk(brand.colour);
     return (
         <figure
             aria-label={o.preview}
@@ -207,14 +226,17 @@ function BookingPreview({ brand, logo }: { brand: BrandForm; logo: string | null
                 </span>
                 <span className="w-[42px]" />
             </div>
-            <header className="flex items-center gap-3 border-b border-line bg-surface px-4 py-3">
-                <LogoMark name={brand.name} colour={brand.colour} logo={logo} size={36} />
+            <header
+                style={{ backgroundColor: brand.colour, color: ink }}
+                className="flex items-center gap-3 px-4 py-3"
+            >
+                <span className="rounded-lg ring-2 ring-surface">
+                    <LogoMark name={brand.name} colour={brand.colour} logo={logo} size={36} />
+                </span>
                 <div className="min-w-0 flex-1">
-                    <p className="truncate font-display text-base font-bold text-ink">
-                        {brand.name}
-                    </p>
+                    <p className="truncate font-display text-base font-bold">{brand.name}</p>
                     {brand.tagline !== "" ? (
-                        <p className="truncate text-xs text-muted">{brand.tagline}</p>
+                        <p className="truncate text-xs opacity-80">{brand.tagline}</p>
                     ) : null}
                 </div>
             </header>
@@ -256,19 +278,21 @@ function BrandPanel({ brand }: { brand: BrandForm }) {
     const upload = useFileUpload(api, brand.setLogoFileId);
     const input = useRef<HTMLInputElement>(null);
     const coverInput = useRef<HTMLInputElement>(null);
-    const coverUpload = useFileUpload(api, (id) => {
-        brand.setProfile("cover_url", mediaUrl(apiBaseUrl, id) ?? "");
-    });
+    const coverUpload = useFileUpload(api, brand.setCoverFileId);
 
     const logo = brand.logoFileId === "" ? null : mediaUrl(apiBaseUrl, brand.logoFileId);
+    const cover = brand.coverFileId === "" ? null : mediaUrl(apiBaseUrl, brand.coverFileId);
     const onPick = (e: ChangeEvent<HTMLInputElement>): void => {
         const file = e.target.files?.[0];
         if (file === undefined || brand.businessId === null) return;
-        upload.upload(file, logoTarget(brand.businessId), file.type || "image/png", file.size);
+        upload.upload(isSvg(file) ? pngFromSvg(file) : file, logoTarget(brand.businessId));
         e.target.value = "";
     };
     return (
-        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <div
+            id="brand"
+            className="grid scroll-mt-6 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_420px]"
+        >
             <Panel
                 title={o.brandTitle}
                 subtitle={o.brandBody}
@@ -276,8 +300,13 @@ function BrandPanel({ brand }: { brand: BrandForm }) {
                     <>
                         {brand.error !== null ? <Notice tone="danger">{brand.error}</Notice> : null}
                         {brand.saved ? <Notice tone="success">{o.saved}</Notice> : null}
+                        {brand.dirty ? <Notice tone="info">{o.unsaved}</Notice> : null}
                         <Button
-                            onPress={brand.submit}
+                            onPress={() => {
+                                upload.reset();
+                                coverUpload.reset();
+                                brand.submit();
+                            }}
                             busy={brand.busy}
                             disabled={coverUpload.busy || upload.busy}
                         >
@@ -309,12 +338,24 @@ function BrandPanel({ brand }: { brand: BrandForm }) {
                             variant="outline"
                             icon="upload"
                             busy={upload.busy}
+                            disabled={!brand.ready}
                             onPress={() => {
                                 input.current?.click();
                             }}
                         >
                             {logo !== null ? strings.files.replaceLogo : strings.files.uploadLogo}
                         </Button>
+                        {logo !== null ? (
+                            <Button
+                                size="sm"
+                                variant="link"
+                                onPress={() => {
+                                    brand.setLogoFileId("");
+                                }}
+                            >
+                                {strings.files.removeLogo}
+                            </Button>
+                        ) : null}
                         <input
                             ref={input}
                             type="file"
@@ -329,12 +370,8 @@ function BrandPanel({ brand }: { brand: BrandForm }) {
                             className="aspect-[3/1] overflow-hidden rounded-lg"
                             style={{ backgroundColor: brand.colour }}
                         >
-                            {brand.profile.cover_url ? (
-                                <img
-                                    src={brand.profile.cover_url}
-                                    alt=""
-                                    className="h-full w-full object-cover"
-                                />
+                            {cover !== null ? (
+                                <img src={cover} alt="" className="h-full w-full object-cover" />
                             ) : null}
                         </div>
                         <div className="flex flex-wrap items-center gap-3">
@@ -342,18 +379,19 @@ function BrandPanel({ brand }: { brand: BrandForm }) {
                                 size="sm"
                                 variant="outline"
                                 busy={coverUpload.busy}
+                                disabled={!brand.ready}
                                 onPress={() => {
                                     coverInput.current?.click();
                                 }}
                             >
-                                {brand.profile.cover_url ? o.replaceCover : o.uploadCover}
+                                {cover !== null ? o.replaceCover : o.uploadCover}
                             </Button>
-                            {brand.profile.cover_url ? (
+                            {cover !== null ? (
                                 <Button
                                     size="sm"
                                     variant="link"
                                     onPress={() => {
-                                        brand.setProfile("cover_url", "");
+                                        brand.setCoverFileId("");
                                     }}
                                 >
                                     {o.removeCover}
@@ -368,12 +406,7 @@ function BrandPanel({ brand }: { brand: BrandForm }) {
                             onChange={(event) => {
                                 const file = event.target.files?.[0];
                                 if (file && brand.businessId)
-                                    coverUpload.upload(
-                                        file,
-                                        coverTarget(brand.businessId),
-                                        file.type,
-                                        file.size,
-                                    );
+                                    coverUpload.upload(file, coverTarget(brand.businessId));
                                 event.target.value = "";
                             }}
                         />
@@ -385,6 +418,7 @@ function BrandPanel({ brand }: { brand: BrandForm }) {
                         <SwatchPicker
                             label={o.colour}
                             colours={BRAND_COLOURS}
+                            colourLabel={brandColourName}
                             value={brand.colour}
                             onChange={brand.setColour}
                         />
@@ -394,7 +428,8 @@ function BrandPanel({ brand }: { brand: BrandForm }) {
                         value={brand.tagline}
                         onChange={brand.setTagline}
                         placeholder={o.taglinePlaceholder}
-                        maxLength={60}
+                        maxLength={brand.taglineMax}
+                        error={brand.fieldErrors.tagline}
                         optional
                     />
                     <SectionHead title={o.profileTitle} hint={o.profileHint} />
@@ -405,6 +440,8 @@ function BrandPanel({ brand }: { brand: BrandForm }) {
                                 multiline={field.multiline}
                                 className={field.multiline ? "sm:col-span-2" : undefined}
                                 label={field.label}
+                                maxLength={field.maxLength}
+                                error={brand.fieldErrors[field.key]}
                                 value={brand.profile[field.key]}
                                 onChange={(value) => {
                                     brand.setProfile(field.key, value);

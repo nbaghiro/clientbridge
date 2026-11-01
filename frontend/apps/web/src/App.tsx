@@ -8,7 +8,7 @@ import {
     useReplicaSession,
 } from "@clientbridge/app-core";
 import { PowerSyncContext } from "@powersync/react";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { createBrowserRouter, Navigate, Route, RouterProvider, Routes } from "react-router-dom";
 
 import { AppShell } from "./components/AppShell";
 import { DebugPanel } from "./components/DebugPanel";
@@ -93,11 +93,18 @@ const lifecycle = {
     },
 };
 
+// One catch-all route: the app keeps its own <Routes>, and a data router is what lets a page block leaving.
+const router = createBrowserRouter([{ path: "*", element: <Root /> }]);
+
 export function App() {
+    return <RouterProvider router={router} />;
+}
+
+function Root() {
     const { db, loading, failed, unverified, restore, discard, retry, reauthenticate } =
         useReplicaSession(lifecycle);
     return (
-        <BrowserRouter>
+        <>
             {loading ? (
                 <Splash />
             ) : unverified ? (
@@ -184,7 +191,7 @@ export function App() {
                 </Routes>
             )}
             <ConfirmHost />
-        </BrowserRouter>
+        </>
     );
 }
 

@@ -1,13 +1,14 @@
-import { type ShellTarget, clearTasks, openTask, taskFor } from "@clientbridge/app-core";
+import { type ShellTarget, clearTasks, openTask, strings, taskFor } from "@clientbridge/app-core";
+import { confirm } from "@clientbridge/ui";
 import { createContext, useCallback, useContext, useEffect, useRef } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useBlocker, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 // `new` opens a page's own create form and `open` one record; pages read both with useLinkIntent.
 const PATHS: Record<ShellTarget, string> = {
     today: "/today",
     schedule: "/schedule",
     booking: "/schedule",
-    hours: "/setup/team",
+    hours: "/setup/team#hours",
     sale: "/payments/sales",
     checkout: "/payments/sales",
     orders: "/payments/sales?view=board",
@@ -29,6 +30,7 @@ const PATHS: Record<ShellTarget, string> = {
     taxReturns: "/payments/tax",
     payouts: "/payments/payouts",
     business: "/setup/business",
+    brand: "/setup/business#brand",
     setup: "/setup/start",
     taxes: "/setup/taxes",
     team: "/setup/team",
@@ -45,6 +47,63 @@ export function linkPath(target: ShellTarget, refId: string | null = null): stri
     const join = base.includes("?") ? "&" : "?";
     if (refId !== null) return `${base}${join}open=${encodeURIComponent(refId)}`;
     return CREATES.has(target) ? `${base}${join}new=1` : base;
+}
+
+/** Asks before an in-app link or a reload throws away unsaved edits. */
+export function useLeaveGuard(dirty: boolean): void {
+    const blocker = useBlocker(
+        ({ currentLocation, nextLocation }) =>
+            dirty && currentLocation.pathname !== nextLocation.pathname,
+    );
+    useEffect(() => {
+        if (blocker.state !== "blocked") return;
+        confirm({
+            title: strings.business.leaveTitle,
+            message: strings.business.leaveBody,
+            confirmLabel: strings.business.leave,
+            cancelLabel: strings.business.keepEditing,
+            destructive: true,
+        })
+            .then((ok) => {
+                if (ok) blocker.proceed();
+                else blocker.reset();
+            })
+            .catch(() => {
+                blocker.reset();
+            });
+    }, [blocker]);
+    useEffect(() => {
+        if (!dirty) return;
+        const warn = (event: BeforeUnloadEvent): void => {
+            event.preventDefault();
+        };
+        window.addEventListener("beforeunload", warn);
+        return () => {
+            window.removeEventListener("beforeunload", warn);
+        };
+    }, [dirty]);
+}
+
+/** Lands on the section a link's hash names, staying on it while sections above it finish loading. */
+export function useScrollToHash(ready: boolean): void {
+    const { hash } = useLocation();
+    useEffect(() => {
+        const target = ready ? document.getElementById(hash.slice(1)) : null;
+        if (target === null) return;
+        const land = (): void => {
+            target.scrollIntoView();
+        };
+        land();
+        const settling = new ResizeObserver(land);
+        if (target.parentElement !== null) settling.observe(target.parentElement);
+        const stop = setTimeout(() => {
+            settling.disconnect();
+        }, 1500);
+        return () => {
+            clearTimeout(stop);
+            settling.disconnect();
+        };
+    }, [hash, ready]);
 }
 
 export interface ShellControls {

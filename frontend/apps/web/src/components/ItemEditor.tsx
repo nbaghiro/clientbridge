@@ -281,7 +281,7 @@ function PhotoField({ ed }: { ed: ProductEditor }) {
     const src = mediaUrl(apiBaseUrl, ed.photo.fileId);
     const onFile = (e: ChangeEvent<HTMLInputElement>): void => {
         const file = e.target.files?.[0];
-        if (file !== undefined) ed.photo.upload(file, file.type || "image/png", file.size);
+        if (file !== undefined) ed.photo.upload(file);
         e.target.value = "";
     };
     if (!ed.photo.canUpload) return <p className="text-sm text-muted">{s.photoAfterSave}</p>;

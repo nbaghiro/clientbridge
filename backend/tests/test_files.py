@@ -125,11 +125,23 @@ async def test_a_pending_image_is_neither_served_nor_usable_as_a_logo(
     as_owner: httpx.AsyncClient,
 ) -> None:
     image = await _pending(
-        as_owner, {"parent_type": "item", "parent_id": "it_bath", "purpose": "image"}
+        as_owner,
+        {
+            "parent_type": "item",
+            "parent_id": "it_bath",
+            "purpose": "image",
+            "content_type": "image/png",
+        },
     )
     assert (await as_owner.get(f"/media/{image['id']}", follow_redirects=False)).status_code == 404
     logo = await _pending(
-        as_owner, {"parent_type": "business", "parent_id": BIZ, "purpose": "logo"}
+        as_owner,
+        {
+            "parent_type": "business",
+            "parent_id": BIZ,
+            "purpose": "logo",
+            "content_type": "image/png",
+        },
     )
     res = await as_owner.patch("/v1/business", json={"brand": {"logo_file_id": logo["id"]}})
     assert res.status_code == 404

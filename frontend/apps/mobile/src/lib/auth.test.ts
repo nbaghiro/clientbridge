@@ -15,7 +15,50 @@ vi.mock("expo-secure-store", () => ({
 }));
 vi.mock("@clientbridge/app-core", () => ({ useCurrentViewer: () => null }));
 
-const { currentUserId, forgetSession, rememberUser, signIn } = await import("./auth");
+const { currentUserId, endHeldSession, forgetSession, holdSession, rememberUser, signIn } =
+    await import("./auth");
+
+describe("a sign-in the app was killed during", () => {
+    beforeEach(() => {
+        keychain.clear();
+    });
+
+    it("is ended at the next launch, once", async () => {
+        holdSession("half-finished");
+        const end = vi.fn(() => Promise.resolve());
+        await endHeldSession(end);
+        expect(end).toHaveBeenCalledWith("half-finished");
+        await endHeldSession(end);
+        expect(end).toHaveBeenCalledTimes(1);
+    });
+
+    it("leaves nothing to end once it finished", async () => {
+        holdSession("half-finished");
+        holdSession(null);
+        const end = vi.fn(() => Promise.resolve());
+        await endHeldSession(end);
+        expect(end).not.toHaveBeenCalled();
+    });
+
+    it("stays for the next launch while offline", async () => {
+        holdSession("half-finished");
+        await expect(endHeldSession(() => Promise.reject(new Error("offline")))).rejects.toThrow();
+        const end = vi.fn(() => Promise.resolve());
+        await endHeldSession(end);
+        expect(end).toHaveBeenCalledWith("half-finished");
+    });
+
+    it("keeps a newer sign-in's token while ending the old one", async () => {
+        holdSession("old");
+        await endHeldSession(() => {
+            holdSession("new");
+            return Promise.resolve();
+        });
+        const end = vi.fn(() => Promise.resolve());
+        await endHeldSession(end);
+        expect(end).toHaveBeenCalledWith("new");
+    });
+});
 
 describe("the signed-in user", () => {
     beforeEach(async () => {

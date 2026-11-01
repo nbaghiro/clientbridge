@@ -132,6 +132,8 @@ interface Strings {
         readonly earningMoved: string;
         readonly payNegative: string;
         readonly ownPay: string;
+        readonly fileTypeUnsupported: string;
+        readonly fileTooLarge: string;
     };
     readonly previews: {
         readonly title: string;
@@ -376,6 +378,7 @@ interface Strings {
         readonly sentTitle: (noun: string) => string;
         readonly sentBody: (who: string) => string;
         readonly startAnother: string;
+        readonly noClientsYet: string;
         readonly discardTitle: string;
         readonly discardBody: string;
         readonly discard: string;
@@ -1076,6 +1079,8 @@ interface Strings {
         readonly dash: string;
         readonly emptyDay: string;
         readonly emptyDayWeb: string;
+        readonly noServicesYet: string;
+        readonly emptyDayNotReady: string;
         readonly closedNote: (reason: string, count: number) => string;
         readonly needsMove: string;
         readonly nobodyWorking: string;
@@ -2152,6 +2157,7 @@ interface Strings {
         readonly newShort: string;
         readonly newMessageTitle: string;
         readonly clientLabel: string;
+        readonly noClientsYet: string;
         readonly chooseClient: string;
         readonly newMessagePlaceholder: string;
         readonly smsBlockedNew: string;
@@ -2493,10 +2499,26 @@ interface Strings {
             readonly brandBody: string;
             readonly logo: string;
             readonly logoHint: string;
+            readonly logoHintPhone: string;
             readonly colour: string;
             readonly tagline: string;
             readonly taglinePlaceholder: string;
             readonly save: string;
+            readonly unsaved: string;
+            readonly discardTitle: string;
+            readonly discardBody: string;
+            readonly discard: string;
+            readonly keepEditing: string;
+            readonly editBrand: string;
+            readonly colourNames: {
+                readonly forest: string;
+                readonly slate: string;
+                readonly teal: string;
+                readonly plum: string;
+                readonly terracotta: string;
+                readonly ochre: string;
+                readonly charcoal: string;
+            } & Labels;
             readonly saving: string;
             readonly saved: string;
             readonly preview: string;
@@ -2538,6 +2560,25 @@ interface Strings {
         } & Labels;
         readonly nameRequired: string;
         readonly saveError: string;
+        readonly saveDetails: string;
+        readonly unsaved: string;
+        readonly leaveTitle: string;
+        readonly leaveBody: string;
+        readonly leave: string;
+        readonly keepEditing: string;
+        readonly checkFields: string;
+        readonly fieldErrors: {
+            readonly name: string;
+            readonly email: string;
+            readonly postalCode: string;
+            readonly legalPhone: string;
+            readonly website: string;
+            readonly gallery: string;
+            readonly tooLong: string;
+            readonly pickupPrep: string;
+            readonly pickupHold: string;
+            readonly pickupCapacity: string;
+        } & Labels;
         readonly onboarding: {
             readonly provinceAB: string;
             readonly provinceBC: string;
@@ -2579,7 +2620,6 @@ interface Strings {
             readonly provinceRequired: string;
             readonly createError: string;
             readonly verifyFirst: string;
-            readonly verifyEmail: string;
         };
         readonly slugChanged: string;
     };
@@ -3531,6 +3571,7 @@ interface Strings {
         readonly guideDone: (steps: string) => string;
         readonly guideNothingToday: string;
         readonly quietTitle: string;
+        readonly quietBodyNotLive: string;
         readonly quietBody: string;
         readonly shareBookingPage: string;
         readonly shareLink: string;
@@ -3917,8 +3958,11 @@ interface Strings {
         readonly resendCode: string;
         readonly resendIn: (s: number) => string;
         readonly backToSignIn: string;
-        readonly resetError: string;
         readonly resendFailed: string;
+        readonly savePasswordFailed: string;
+        readonly codeTooOften: string;
+        readonly codeExpired: string;
+        readonly tooManyAttempts: string;
         readonly verifyTitle: string;
         readonly verifyBody: (email: string) => string;
         readonly verifyBodyAnyEmail: string;
@@ -3974,6 +4018,7 @@ interface Strings {
         readonly securityShowCodes: string;
         readonly securityNewCodes: string;
         readonly securityConfirmCodes: string;
+        readonly backupCodeUsed: (date: string) => string;
         readonly securityKeys: string;
         readonly securityKeysHint: string;
         readonly securityKeyName: string;
@@ -3986,6 +4031,8 @@ interface Strings {
         readonly securityReauthTitle: string;
         readonly securityReauthBody: string;
         readonly securityReauthOnWeb: string;
+        readonly resetMfaSubtitle: string;
+        readonly startOver: string;
         readonly providerError: string;
         readonly flowMessages: {
             readonly "1010003": string;
@@ -4004,8 +4051,11 @@ interface Strings {
             readonly "4000007": string;
             readonly "4000008": string;
             readonly "4000034": string;
+            readonly "4000039": string;
             readonly "4000012": string;
             readonly "4000016": string;
+            readonly "4060005": string;
+            readonly "4070005": string;
             readonly "4060006": string;
             readonly "4070006": string;
         } & Labels;
@@ -4699,6 +4749,7 @@ interface Strings {
         readonly hours: string;
         readonly hoursHint: string;
         readonly noServices: string;
+        readonly noServicesYet: string;
         readonly loadingOpenings: string;
         readonly openingsUnavailable: string;
         readonly noOpenings: string;
@@ -4715,6 +4766,7 @@ interface Strings {
     };
     readonly files: {
         readonly uploadLogo: string;
+        readonly removeLogo: string;
         readonly replaceLogo: string;
         readonly photo: string;
         readonly addPhoto: string;

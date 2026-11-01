@@ -2,7 +2,7 @@ import { historyStart } from "@clientbridge/sync";
 
 import { useBusinessQuery as useQuery } from "../hooks";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
     type ApiLike,
@@ -503,6 +503,8 @@ function useEarlierVisits(api: ApiLike, clientId: string): EarlierVisits | null 
     ).data;
 }
 
+const RECORD_ARRIVAL_MS = 3000;
+
 /** One client's record: facts, subjects, what is booked, notes and how they pay. */
 export function useClientRecord(
     api: ApiLike,
@@ -521,7 +523,20 @@ export function useClientRecord(
     const textsStopped = useTextsStopped(id);
     const zone = useBusinessZone();
     const row = client.data[0];
-    const load = useReplicaLoad([client, visits, subjects, notes], row === undefined);
+    const replica = useReplicaLoad([client, visits, subjects, notes], row === undefined);
+    // A record opened as soon as it was created reaches the replica a moment later.
+    const [arriving, setArriving] = useState(true);
+    useEffect(() => {
+        setArriving(true);
+        const timer = setTimeout(() => {
+            setArriving(false);
+        }, RECORD_ARRIVAL_MS);
+        return () => {
+            clearTimeout(timer);
+        };
+    }, [id]);
+    const load: Load =
+        arriving && replica.state === "empty" ? { ...replica, state: "loading" } : replica;
     const record = useMemo(() => {
         if (row === undefined) return null;
         const now = new Date();

@@ -58,6 +58,8 @@ export function useClientState(pollMs = 1500): ClientState {
     const status = useSyncStatus();
     const [queue, setQueue] = useState<ClientState["queue"]>(null);
     const [tables, setTables] = useState<TableCount[]>([]);
+    // lastSyncedAt is a new Date on every read, which as a dependency would query on every render
+    const syncedAt = status.lastSyncedAt?.getTime();
 
     const refresh = useCallback((): void => {
         db.get<OutboxCounts>(OUTBOX_SQL)
@@ -76,7 +78,7 @@ export function useClientState(pollMs = 1500): ClientState {
         return () => {
             clearInterval(id);
         };
-    }, [refresh, pollMs, status.lastSyncedAt]);
+    }, [refresh, pollMs, syncedAt]);
 
     return {
         status,

@@ -33,6 +33,11 @@ class RateLimiter:
         hits.append(now)
         return True
 
+    def release(self, key: str) -> None:
+        hits = self._hits.get(key)
+        if hits:
+            hits.pop()
+
     def _sweep(self, now: float) -> None:
         cutoff = now - self.window_s
         for key in [k for k, dq in self._hits.items() if not dq or dq[-1] <= cutoff]:
@@ -47,6 +52,7 @@ _public_contract_limiter = RateLimiter(limit=_PER_MINUTE, window_s=60.0)
 _public_booking_limiter = RateLimiter(limit=_PER_MINUTE, window_s=60.0)
 _public_invite_limiter = RateLimiter(limit=_PER_MINUTE, window_s=60.0)
 connect_refresh_limiter = RateLimiter(limit=6, window_s=60.0)
+auth_email_limiter = RateLimiter(limit=get_settings().auth_email_hourly_limit(), window_s=3600.0)
 
 
 def requester_ip(request: Request) -> str:
@@ -68,11 +74,15 @@ async def _allowed(request: Request, scope: str, limiter: RateLimiter) -> bool:
     return await allow_action(requester_ip(request), scope, limiter)
 
 
+def _action_key(address: str, scope: str) -> str:
+    return f"rate:{scope}:{hashlib.sha256(address.encode()).hexdigest()}"
+
+
 async def allow_action(address: str, scope: str, limiter: RateLimiter) -> bool:
     settings = get_settings()
     if settings.env == "dev":
         return limiter.check(address, time.monotonic())
-    key = f"rate:{scope}:{hashlib.sha256(address.encode()).hexdigest()}"
+    key = _action_key(address, scope)
     script = (
         "local n = redis.call('INCR', KEYS[1]); "
         "if n == 1 then redis.call('PEXPIRE', KEYS[1], ARGV[1]) end; return n"
@@ -87,6 +97,23 @@ async def allow_action(address: str, scope: str, limiter: RateLimiter) -> bool:
         return isinstance(count, int) and count <= limiter.limit
     except RedisError as error:
         raise AppError("request limiting is temporarily unavailable", status_code=503) from error
+
+
+async def release_action(address: str, scope: str, limiter: RateLimiter) -> None:
+    """Gives back what `allow_action` counted, for work that didn't happen."""
+    settings = get_settings()
+    if settings.env == "dev":
+        limiter.release(address)
+        return
+    # only while the window's key lives: decrementing a lapsed one would recreate it with no expiry
+    script = "if redis.call('EXISTS', KEYS[1]) == 1 then redis.call('DECR', KEYS[1]) end"
+    try:
+        async with Redis.from_url(
+            settings.redis_url, socket_connect_timeout=2, socket_timeout=2
+        ) as redis:
+            await redis.execute_command("EVAL", script, "1", _action_key(address, scope))
+    except RedisError:
+        return  # the count just lapses with its window
 
 
 async def public_pay_rate_limit(request: Request) -> None:

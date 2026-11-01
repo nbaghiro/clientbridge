@@ -10,6 +10,7 @@ import {
     type TeamMember,
     type TeamView,
     acceptInviteUrl,
+    brandColourName,
     memberRoleIntent,
     roleLabel,
     staffPaySummary,
@@ -52,7 +53,7 @@ import {
     Panel,
     SheetHeader,
 } from "@clientbridge/ui";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import { ScrollView, Share, StyleSheet, Text, View } from "react-native";
 
 import { api } from "../lib/api";
@@ -213,6 +214,7 @@ function ProfileSection({ member }: { member: TeamMember }) {
                 <SwatchPicker
                     label={t.colour}
                     colours={form.colours}
+                    colourLabel={brandColourName}
                     value={form.colour}
                     onChange={form.setColour}
                 />
@@ -508,7 +510,9 @@ function InviteLine({ invite, team }: { invite: TeamInvite; team: TeamView }) {
     );
 }
 
-export function Team({ footer }: { footer?: ReactNode }) {
+export function Team({ footer, showFooter = false }: { footer?: ReactNode; showFooter?: boolean }) {
+    const scroller = useRef<ScrollView>(null);
+    const scrolled = useRef(false);
     const photos = usePeoplePhotos();
     const viewer = useViewer();
     const team = useTeam(api, viewer);
@@ -524,7 +528,13 @@ export function Team({ footer }: { footer?: ReactNode }) {
 
     return (
         <View style={styles.screen}>
-            <ScrollView contentContainerStyle={styles.content}>
+            <ScrollView
+                ref={scroller}
+                contentContainerStyle={styles.content}
+                onScrollBeginDrag={() => {
+                    scrolled.current = true;
+                }}
+            >
                 <Text style={styles.sub}>{t.subtitle}</Text>
                 {team.canManage && team.load.hasData ? (
                     <View style={styles.gapSm}>
@@ -632,7 +642,14 @@ export function Team({ footer }: { footer?: ReactNode }) {
                         ) : null}
                     </>
                 ) : null}
-                {footer}
+                <View
+                    onLayout={(event) => {
+                        if (showFooter && !scrolled.current)
+                            scroller.current?.scrollTo({ y: event.nativeEvent.layout.y });
+                    }}
+                >
+                    {footer}
+                </View>
             </ScrollView>
             {open !== undefined ? (
                 <MemberSheet

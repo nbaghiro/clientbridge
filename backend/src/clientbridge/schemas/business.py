@@ -20,6 +20,7 @@ GST_HST_NUMBER = re.compile(r"^\d{9}RT\d{4}$")
 QST_NUMBER = re.compile(r"^\d{10}TQ\d{4}$")
 PST_NUMBER = re.compile(r"^(PST)?\d{4}\d{4}$")
 POSTAL_CODE = re.compile(r"^([A-Z][0-9][A-Z])([0-9][A-Z][0-9])$")
+BUSINESS_NAME_MAX = 100
 
 
 def public_email(value: str | None) -> str | None:
@@ -37,6 +38,15 @@ def _optional_public_email(value: str | None, field: str) -> str | None:
     return value or None
 
 
+def _business_name(value: str) -> str:
+    trimmed = value.strip()
+    if not trimmed:
+        raise ValueError("a business name cannot be blank")
+    if len(trimmed) > BUSINESS_NAME_MAX:
+        raise ValueError(f"a business name is at most {BUSINESS_NAME_MAX} characters")
+    return trimmed
+
+
 class OnboardBody(Mirror):
     mirrors = Business
 
@@ -47,6 +57,11 @@ class OnboardBody(Mirror):
     subject: SubjectKind | None = Field(
         description="What bookings are for besides the client; null books only them"
     )
+
+    @field_validator("name")
+    @classmethod
+    def _check_name(cls, value: str) -> str:
+        return _business_name(value)
 
 
 class BusinessOut(Mirror):
@@ -82,9 +97,9 @@ class BrandInput(BaseModel):
     """The public brand; values are validated and trimmed so clients can apply them directly."""
 
     logo_file_id: str | None = None
+    cover_file_id: str | None = None
     primary: str | None = None
-    tagline: str | None = None
-    cover_url: str | None = Field(default=None, max_length=2048)
+    tagline: str | None = Field(default=None, max_length=120)
     about: str | None = Field(default=None, max_length=3000)
     address: str | None = Field(default=None, max_length=300)
     phone: str | None = Field(default=None, max_length=40)
@@ -97,7 +112,7 @@ class BrandInput(BaseModel):
     pickup_capacity: int = Field(default=10, ge=1, le=100)
     public_staff_ids: list[str] = Field(default_factory=list, max_length=100)
 
-    @field_validator("cover_url", "website")
+    @field_validator("website")
     @classmethod
     def _check_public_url(cls, value: str | None) -> str | None:
         value = (value or "").strip()
@@ -182,6 +197,11 @@ class BusinessSettingsUpdate(Mirror):
         default=None, description="The business's legal contact phone; empty clears"
     )
     brand: BrandInput | None = None
+
+    @field_validator("name")
+    @classmethod
+    def _check_name(cls, value: str | None) -> str | None:
+        return None if value is None else _business_name(value)
 
     @field_validator("unit", "street_number", "street_name", "city")
     @classmethod

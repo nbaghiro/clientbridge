@@ -4,6 +4,7 @@ import type { ReactElement } from "react";
 import { NavLink, Navigate, useParams } from "react-router-dom";
 
 import { useRole } from "../lib/auth";
+import { useScrollToHash } from "../lib/links";
 
 import { GetSetUp } from "../components/GetSetUp";
 import { Business } from "./Business";
@@ -47,7 +48,9 @@ function sectionBody(key: SetupSectionKey, owner: boolean): ReactElement {
             return (
                 <div className="space-y-10">
                     <Team />
-                    <Hours />
+                    <div id="hours" className="scroll-mt-6">
+                        <Hours />
+                    </div>
                 </div>
             );
         case "gettingPaid":
@@ -72,6 +75,7 @@ export function Setup() {
     const sections = setupSectionsFor("web", role);
     const current = sections.find((s) => SETUP_SLUGS[s.key] === section);
     const first = sections[0];
+    useScrollToHash(role !== null);
     if (role === null || first === undefined) return null;
     if (current === undefined) return <Navigate to={`/setup/${SETUP_SLUGS[first.key]}`} replace />;
 

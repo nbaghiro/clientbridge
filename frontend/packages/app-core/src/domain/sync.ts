@@ -434,7 +434,6 @@ interface ReplicaSessionOptions {
     clearCredentials: () => Promise<void>;
     subscribe: (handler: () => void) => void;
     subscribeChanged?: (handler: () => void) => void;
-    onReady?: () => void;
 }
 
 function bounded<T>(work: Promise<T>): Promise<T> {
@@ -511,7 +510,6 @@ export function useReplicaSession(options: ReplicaSessionOptions) {
                 if (current === generation.current) {
                     setDb(next === "unverified" ? null : next);
                     setUnverified(next === "unverified");
-                    if (next && next !== "unverified") options.onReady?.();
                 }
             } catch (error) {
                 cancelled = true;

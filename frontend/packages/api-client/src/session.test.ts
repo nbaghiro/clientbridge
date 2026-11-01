@@ -264,6 +264,91 @@ describe("identity client", () => {
         expect((await identity.submit(flow, {})).kind).toBe("flow");
     });
 
+    describe("a flow that wrong codes used up", () => {
+        const identity = createIdentityClient({ baseUrl: "https://auth.test", mode: "native" });
+        const answer = (body: unknown, status: number) => {
+            vi.stubGlobal(
+                "fetch",
+                vi.fn(() => Promise.resolve(Response.json(body, { status }))),
+            );
+        };
+
+        it("reads a reset's bare error, which has no form to show", async () => {
+            answer(
+                {
+                    error: {
+                        code: 400,
+                        reason: "The request was submitted too often.",
+                        details: {
+                            continue_with: [{ action: "show_recovery_ui", flow: { id: "new" } }],
+                        },
+                    },
+                },
+                400,
+            );
+            expect(await identity.submit(flow, {})).toEqual({ kind: "restart", tooOften: true });
+        });
+
+        it("reads a confirmation's replaced flow", async () => {
+            answer({ error: { id: "self_service_flow_replaced" }, use_flow_id: "new" }, 410);
+            expect(await identity.submit(flow, {})).toEqual({ kind: "restart", tooOften: true });
+        });
+    });
+
+    it("refuses a bare error rather than showing an empty form", async () => {
+        const identity = createIdentityClient({ baseUrl: "https://auth.test", mode: "browser" });
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(() =>
+                Promise.resolve(
+                    Response.json({ error: { id: "session_already_available" } }, { status: 400 }),
+                ),
+            ),
+        );
+        await expect(identity.submit(flow, {})).rejects.toMatchObject({
+            status: 400,
+            code: "session_already_available",
+        });
+    });
+
+    it("says whether the session's email is verified", async () => {
+        const identity = createIdentityClient({ baseUrl: "https://auth.test", mode: "native" });
+        const answer = (verified: boolean) => {
+            vi.stubGlobal(
+                "fetch",
+                vi.fn(() =>
+                    Promise.resolve(
+                        Response.json({
+                            identity: {
+                                id: "id-1",
+                                traits: { email: "pat@test.ca" },
+                                verifiable_addresses: [{ value: "pat@test.ca", verified }],
+                            },
+                        }),
+                    ),
+                ),
+            );
+        };
+        answer(false);
+        expect(await identity.whoami("token")).toEqual({
+            id: "id-1",
+            email: "pat@test.ca",
+            verified: false,
+        });
+        answer(true);
+        expect((await identity.whoami("token"))?.verified).toBe(true);
+    });
+
+    it("carries the status of a rate limit, so the form can name it", async () => {
+        const identity = createIdentityClient({ baseUrl: "https://auth.test", mode: "native" });
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(() => Promise.resolve(new Response("too many requests", { status: 429 }))),
+        );
+        await expect(identity.submit(flow, {})).rejects.toMatchObject({ status: 429 });
+        await expect(identity.start("login")).rejects.toMatchObject({ status: 429 });
+    });
+
     it("tells a missing session from one that needs a second factor", async () => {
         const identity = createIdentityClient({ baseUrl: "https://auth.test", mode: "native" });
         vi.stubGlobal(
@@ -295,7 +380,11 @@ describe("identity client", () => {
                 ),
             ),
         );
-        expect(await identity.whoami("tok")).toEqual({ id: "id-1", email: "pat@test.ca" });
+        expect(await identity.whoami("tok")).toEqual({
+            id: "id-1",
+            email: "pat@test.ca",
+            verified: false,
+        });
         vi.stubGlobal(
             "fetch",
             vi.fn(() => Promise.resolve(Response.json({}, { status: 401 }))),

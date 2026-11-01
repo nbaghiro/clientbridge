@@ -1496,8 +1496,8 @@ def public_brand(business: Business) -> PublicBrand:
     return PublicBrand(
         public_slug=business.slug if business.status != "closed" else None,
         business_name=business.name,
-        cover_url=brand.cover_url,
-        logo_url=media_url(brand.logo_file_id) if brand.logo_file_id is not None else None,
+        cover_url=_photo_url(brand.cover_file_id),
+        logo_url=_photo_url(brand.logo_file_id),
         primary=brand.primary,
         tagline=brand.tagline,
     )

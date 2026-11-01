@@ -19,6 +19,7 @@ class FileStorage(Protocol):
     def presign_upload(self, key: str, content_type: str) -> str: ...
     def presign_download(self, key: str) -> str: ...
     def head(self, key: str) -> int | None: ...
+    def read_start(self, key: str, length: int) -> bytes: ...
     def delete(self, key: str) -> None: ...
 
 
@@ -71,6 +72,12 @@ class S3Storage:
                 return None
             raise
         return int(response["ContentLength"])
+
+    def read_start(self, key: str, length: int) -> bytes:
+        response = self._client.get_object(
+            Bucket=self._bucket, Key=key, Range=f"bytes=0-{length - 1}"
+        )
+        return bytes(response["Body"].read())
 
     def delete(self, key: str) -> None:
         self._client.delete_object(Bucket=self._bucket, Key=key)

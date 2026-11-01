@@ -1,5 +1,5 @@
 import { createHmac, randomInt, randomUUID } from "node:crypto";
-import type { APIRequestContext } from "@playwright/test";
+import type { APIRequestContext, Page } from "@playwright/test";
 import { demoPerson } from "@clientbridge/config/e2e/demo";
 import { demoId, runEmail, runUrl } from "@clientbridge/config/e2e/run";
 
@@ -174,6 +174,32 @@ export function totp(secret: string, at = Date.now()): string {
     const offset = (hmac[hmac.length - 1] ?? 0) & 0xf;
     const value = (hmac.readUInt32BE(offset) & 0x7fffffff) % 1_000_000;
     return value.toString().padStart(6, "0");
+}
+
+/** An account made over the native flows, so the test's browser holds nothing of it. */
+export async function registerAccount(
+    request: APIRequestContext,
+    account: { email: string; password: string; name: string },
+): Promise<void> {
+    const flow = (await (await request.get(`${AUTH}/self-service/registration/api`)).json()) as {
+        id: string;
+    };
+    const created = await request.post(`${AUTH}/self-service/registration?flow=${flow.id}`, {
+        data: {
+            method: "password",
+            traits: { email: account.email, name: account.name },
+            password: account.password,
+        },
+    });
+    if (!created.ok()) throw new Error(`registration failed: ${String(created.status())}`);
+}
+
+/** Whose session the browser's cookie holds, or null. */
+export async function signedInEmail(page: Page): Promise<string | null> {
+    const session = await page.context().request.get(`${AUTH}/sessions/whoami`);
+    if (!session.ok()) return null;
+    const { identity } = (await session.json()) as { identity: { traits: { email: string } } };
+    return identity.traits.email;
 }
 
 /** A session token from a native sign-in, as a second device (the mobile app) would hold. */

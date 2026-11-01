@@ -177,13 +177,12 @@ function DocForm({ kind, draft, clientId, onClose }: DocFormProps) {
                             label={s.client}
                             value={form.clientId}
                             error={form.clientError}
-                            options={[
-                                { key: "", label: s.chooseClient },
-                                ...clients.map((x) => ({
-                                    key: x.id,
-                                    label: x.name,
-                                })),
-                            ]}
+                            placeholder={s.chooseClient}
+                            emptyLabel={s.noClientsYet}
+                            options={clients.map((x) => ({
+                                key: x.id,
+                                label: x.name,
+                            }))}
                             onChange={form.setClientId}
                         />
                     )}

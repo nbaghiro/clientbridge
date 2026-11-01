@@ -1,20 +1,52 @@
 import {
+    BUSINESS_NAME_MAX,
     PROVINCES,
     pageDomain,
     industryOptions,
     strings,
     useOnboardingForm,
+    useVerificationForm,
 } from "@clientbridge/app-core";
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 
 import { Button, Lockup, Logo, Notice, Select, TextField } from "@clientbridge/ui";
 import { config } from "../config";
-import { api } from "../lib/api";
+import { api, identity } from "../lib/api";
+
+const a = strings.auth;
+
+/** Confirms the email in place, so what was typed into the form stays there. */
+function ConfirmEmail({ onVerified }: { onVerified: () => void }) {
+    const v = useVerificationForm(identity, {});
+    useEffect(() => {
+        if (v.verified) onVerified();
+    }, [v.verified, onVerified]);
+    if (v.verified) return <Notice tone="success">{a.verifyDone}</Notice>;
+    return (
+        <div className="flex flex-col gap-3 rounded-md border border-line bg-surface p-4">
+            {v.notice !== null ? <Notice tone="info">{v.notice}</Notice> : null}
+            <TextField
+                label={a.code}
+                value={v.code}
+                onChange={v.setCode}
+                onSubmit={v.submit}
+                placeholder={a.codePlaceholder}
+                autoComplete="one-time-code"
+                autoFocus
+            />
+            {v.error !== null ? <Notice tone="danger">{v.error}</Notice> : null}
+            <Button variant="outline" full onPress={v.submit} busy={v.busy}>
+                {a.verify}
+            </Button>
+            <Button variant="link" onPress={v.resend} disabled={v.cooldown > 0}>
+                {v.cooldown > 0 ? a.resendIn(v.cooldown) : a.resendCode}
+            </Button>
+        </div>
+    );
+}
 
 export function Onboarding({ onSignOut }: { onSignOut: () => void }) {
     const [submitted, setSubmitted] = useState(false);
-    const navigate = useNavigate();
     const form = useOnboardingForm(api, () => {
         setSubmitted(true);
     });
@@ -53,6 +85,7 @@ export function Onboarding({ onSignOut }: { onSignOut: () => void }) {
                         label={strings.business.onboarding.businessName}
                         value={form.name}
                         onChange={form.setName}
+                        maxLength={BUSINESS_NAME_MAX}
                         autoFocus
                         size="lg"
                     />
@@ -98,17 +131,7 @@ export function Onboarding({ onSignOut }: { onSignOut: () => void }) {
 
                     {form.error ? <Notice tone="danger">{form.error}</Notice> : null}
                     {form.needsVerification ? (
-                        <Button
-                            variant="outline"
-                            size="lg"
-                            full
-                            onPress={() => {
-                                const navigated = navigate("/verify");
-                                if (navigated) navigated.catch(() => undefined);
-                            }}
-                        >
-                            {strings.business.onboarding.verifyEmail}
-                        </Button>
+                        <ConfirmEmail onVerified={form.emailConfirmed} />
                     ) : null}
 
                     <Button submit size="lg" full busy={form.busy}>

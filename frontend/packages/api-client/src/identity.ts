@@ -37,13 +37,15 @@ export type FlowStep =
     | { kind: "flow"; flow: Flow }
     | { kind: "redirect"; url: string }
     | { kind: "reauth" }
-    | { kind: "restart" };
+    /** The flow can't go on; `tooOften` when wrong codes used up its attempts. */
+    | { kind: "restart"; tooOften?: boolean };
 
 type SessionState = "active" | "second_factor" | "none";
 
 interface SessionIdentity {
     id: string;
     email: string;
+    verified: boolean;
 }
 
 interface StartOptions {
@@ -158,6 +160,11 @@ function errorId(body: Json): string {
     return text(record(body.error).id);
 }
 
+function namesNewRecovery(body: Json): boolean {
+    const next = record(record(body.error).details).continue_with;
+    return Array.isArray(next) && next.some((each) => record(each).action === "show_recovery_ui");
+}
+
 /** Drives Kratos self-service flows: browser flows ride the session cookie, native flows a token. */
 export function createIdentityClient(opts: IdentityOptions): IdentityClient {
     const base = opts.baseUrl.replace(/\/+$/, "");
@@ -243,6 +250,7 @@ export function createIdentityClient(opts: IdentityOptions): IdentityClient {
             if (res.status === 422 && redirect) return { kind: "redirect", url: redirect };
             if (error === "session_refresh_required" || res.status === 401)
                 return { kind: "reauth" };
+            if (error === "self_service_flow_replaced") return { kind: "restart", tooOften: true };
             if (
                 res.status === 410 ||
                 error === "security_csrf_violation" ||
@@ -258,7 +266,10 @@ export function createIdentityClient(opts: IdentityOptions): IdentityClient {
             }
             const step = nextStep(json.continue_with);
             if (step.next?.flow === "settings") return { kind: "done", ...step };
-            return { kind: "flow", flow: parseFlow(flow.kind, json) };
+            if ("ui" in json) return { kind: "flow", flow: parseFlow(flow.kind, json) };
+            // The sixth wrong reset code gets a bare error that names a replacement flow, not a form.
+            if (namesNewRecovery(json)) return { kind: "restart", tooOften: true };
+            throw new IdentityError(res.status, error || "submit_failed");
         },
 
         async session(sessionToken) {
@@ -278,7 +289,14 @@ export function createIdentityClient(opts: IdentityOptions): IdentityClient {
             if (!res.ok)
                 throw new IdentityError(res.status, errorId(json) || "identity_unavailable");
             const identity = record(json.identity);
-            return { id: text(identity.id), email: text(record(identity.traits).email) };
+            const addresses: unknown = identity.verifiable_addresses;
+            return {
+                id: text(identity.id),
+                email: text(record(identity.traits).email),
+                verified:
+                    Array.isArray(addresses) &&
+                    addresses.some((address) => record(address).verified === true),
+            };
         },
 
         async exchange(flow, returnToCode) {

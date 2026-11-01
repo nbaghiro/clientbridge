@@ -307,6 +307,7 @@ export type ShellTarget =
     | "taxReturns"
     | "payouts"
     | "business"
+    | "brand"
     | "setup"
     | "taxes"
     | "team"

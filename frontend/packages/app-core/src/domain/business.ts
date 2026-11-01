@@ -1,14 +1,14 @@
 import { keepTabBusiness, selectReplicaBusiness, selectionQuery } from "@clientbridge/sync";
 import { useBusinessQuery as useQuery } from "../hooks";
 import { usePowerSync, useQuery as useGlobalQuery } from "@powersync/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { type Load, useAsyncAction, useLoad } from "../hooks";
 import { BUSINESS_CURRENCY, formatList, formatMoney, formatParts } from "../format";
 import { strings } from "../strings";
-import { type ApiLike, failedCode, failureMessage } from "../api";
+import { type ApiLike, failedCode, failedFields, failureMessage } from "../api";
+import { type Viewer, isManager } from "./auth";
 import type { ChoiceOption, Fact, SelectOption } from "../ui";
-import { mediaUrl } from "./files";
 import { durationLabel } from "./publicBooking";
 import { bareUrl, businessPageUrl } from "../runtime";
 import type { ShellTarget } from "./navigation";
@@ -18,7 +18,7 @@ import { SUPPORTED_ZONES, type SupportedZone } from "../zones";
 import { dateKey } from "../datetime";
 import { SUBJECT_ICON } from "../icons";
 import { type SubjectKind, useSubjectKind } from "./subjects";
-import { taxSummary } from "./taxes";
+import { PROVINCE_LOCKED_SQL, taxSummary } from "./taxes";
 import { depositCents } from "./catalog";
 
 interface BusinessRow {
@@ -40,14 +40,6 @@ interface BusinessRow {
 }
 
 type AddressKey = "unit" | "street_number" | "street_name" | "city" | "postal_code" | "legal_phone";
-const ADDRESS_KEYS: readonly AddressKey[] = [
-    "unit",
-    "street_number",
-    "street_name",
-    "city",
-    "postal_code",
-    "legal_phone",
-];
 type Located = Pick<BusinessFields, AddressKey>;
 type LocatedRow = Pick<BusinessRow, AddressKey>;
 
@@ -67,13 +59,35 @@ interface BusinessFields extends Record<AddressKey, string> {
     slug: string;
     timezone: string;
     billing_email: string;
-    logo_file_id: string;
-    primary: string;
-    tagline: string;
+}
+
+// schemas/business.BUSINESS_NAME_MAX
+export const BUSINESS_NAME_MAX = 100;
+const TAGLINE_MAX = 120;
+
+/** The requested fields a refusal named, with the message each one shows. */
+function refusedFields<K extends string>(
+    e: unknown,
+    messages: Partial<Record<K, () => string>>,
+    prefix = "",
+): Partial<Record<K, string>> {
+    const refused: Partial<Record<K, string>> = {};
+    for (const path of failedFields(e)) {
+        if (!path.startsWith(prefix)) continue;
+        const key = path.slice(prefix.length).split(".")[0] as K;
+        const message = messages[key];
+        if (message !== undefined) refused[key] = message();
+    }
+    return refused;
+}
+
+function without<K extends string, V>(from: Partial<Record<K, V>>, key: K): Partial<Record<K, V>> {
+    return Object.fromEntries(Object.entries(from).filter(([k]) => k !== key)) as Partial<
+        Record<K, V>
+    >;
 }
 
 const PROFILE_KEYS = [
-    "cover_url",
     "about",
     "address",
     "phone",
@@ -88,7 +102,6 @@ const PROFILE_KEYS = [
 type ProfileKey = (typeof PROFILE_KEYS)[number];
 type ProfileFields = Record<ProfileKey, string>;
 const EMPTY_PROFILE: ProfileFields = {
-    cover_url: "",
     about: "",
     address: "",
     phone: "",
@@ -101,6 +114,16 @@ const EMPTY_PROFILE: ProfileFields = {
     pickup_capacity: "10",
 };
 
+// schemas/business.BrandInput
+const PROFILE_MAX = {
+    about: 3000,
+    address: 300,
+    phone: 40,
+    email: 254,
+    website: 2048,
+    neighbourhood: 100,
+} as const;
+
 // The cover has its own upload control, and pickup settings live with the products.
 export const PUBLIC_PROFILE_FIELDS = (
     ["about", "address", "phone", "email", "website", "neighbourhood", "gallery_urls"] as const
@@ -110,6 +133,7 @@ export const PUBLIC_PROFILE_FIELDS = (
         return strings.business.getSetUp.profile[key];
     },
     multiline: key === "about" || key === "gallery_urls",
+    maxLength: key === "gallery_urls" ? undefined : PROFILE_MAX[key],
 }));
 
 export const PICKUP_FIELDS = (
@@ -123,6 +147,7 @@ export const PICKUP_FIELDS = (
 
 interface Brand {
     logo_file_id: string;
+    cover_file_id: string;
     primary: string;
     tagline: string;
     profile: ProfileFields;
@@ -131,6 +156,7 @@ interface Brand {
 
 const NO_BRAND: Brand = {
     logo_file_id: "",
+    cover_file_id: "",
     primary: "",
     tagline: "",
     profile: EMPTY_PROFILE,
@@ -143,6 +169,7 @@ function parseBrand(raw: string | null): Brand {
         const b = JSON.parse(raw) as Record<string, unknown>;
         return {
             logo_file_id: typeof b.logo_file_id === "string" ? b.logo_file_id : "",
+            cover_file_id: typeof b.cover_file_id === "string" ? b.cover_file_id : "",
             primary: typeof b.primary === "string" ? b.primary : "",
             tagline: typeof b.tagline === "string" ? b.tagline : "",
             profile: Object.fromEntries(
@@ -196,6 +223,7 @@ export const BUSINESS_TEXT_FIELDS: {
     key: keyof BusinessFields;
     label: string;
     placeholder: string;
+    maxLength?: number;
 }[] = [
     {
         key: "name",
@@ -205,6 +233,7 @@ export const BUSINESS_TEXT_FIELDS: {
         get placeholder() {
             return strings.business.namePlaceholder;
         },
+        maxLength: BUSINESS_NAME_MAX,
     },
     {
         key: "billing_email",
@@ -278,16 +307,19 @@ export const BUSINESS_ADDRESS_FIELDS: {
     },
 ];
 
+type BusinessFieldErrors = Partial<Record<keyof BusinessFields, string>>;
+
 interface BusinessForm {
     fields: BusinessFields | null; // null until the synced business row loads
     /** The province's name, shown here and changed in Sales tax, since it sets the tax charged. */
     province: string;
-    businessId: string | null;
-    /** The logo to preview: the uploaded file's media link, else a logo set by URL before uploads. */
-    logoSrc: (apiBase: string) => string | null;
+    /** A document has charged tax, so the province can no longer change. */
+    provinceLocked: boolean;
     set: (key: keyof BusinessFields, value: string) => void;
     /** The slug differs from the saved one, so links and QR codes already shared will stop working. */
     slugChanged: boolean;
+    fieldErrors: BusinessFieldErrors;
+    dirty: boolean;
     busy: boolean;
     error: string | null;
     saved: boolean;
@@ -297,38 +329,56 @@ interface BusinessForm {
 export const BUSINESS_SQL =
     "SELECT id, name, slug, timezone, billing_email, gst_hst_number, qst_number, province, unit, street_number, street_name, city, postal_code, legal_phone, brand FROM businesses LIMIT 1";
 
-/** The saved row flows back through sync, so the form shows the server's values on the next render. */
+function businessFields(row: BusinessRow): BusinessFields {
+    return {
+        name: row.name,
+        slug: row.slug,
+        timezone: row.timezone,
+        billing_email: row.billing_email ?? "",
+        ...located(row),
+    };
+}
+
+const BUSINESS_FIELD_ERRORS: Partial<Record<keyof BusinessFields, () => string>> = {
+    name: () => strings.business.fieldErrors.name,
+    billing_email: () => strings.business.fieldErrors.email,
+    postal_code: () => strings.business.fieldErrors.postalCode,
+    legal_phone: () => strings.business.fieldErrors.legalPhone,
+    unit: () => strings.business.fieldErrors.tooLong,
+    street_number: () => strings.business.fieldErrors.tooLong,
+    street_name: () => strings.business.fieldErrors.tooLong,
+    city: () => strings.business.fieldErrors.tooLong,
+};
+
+/** Holds only what was edited over the synced row, and sends only that, so a stale form erases nothing. */
 export function useBusinessForm(api: ApiLike): BusinessForm {
     const row = useQuery<BusinessRow>(BUSINESS_SQL).data[0] ?? null;
+    const locked = useQuery<{ province_locked: number }>(PROVINCE_LOCKED_SQL).data[0];
     const { busy, error, setError, run } = useAsyncAction();
-    const [fields, setFields] = useState<BusinessFields | null>(null);
+    const [draft, setDraft] = useState<Partial<BusinessFields>>({});
+    const [fieldErrors, setFieldErrors] = useState<BusinessFieldErrors>({});
     const [saved, setSaved] = useState(false);
-    const loadedBrand = useRef<Brand>(NO_BRAND);
-    const loadedAddress = useRef<Located | null>(null);
-
+    // What the last save returned, shown until that save syncs back, so old values don't flash.
+    const [confirmed, setConfirmed] = useState<BusinessFields | null>(null);
+    const rowKey = row === null ? "" : JSON.stringify(businessFields(row));
     useEffect(() => {
-        if (row !== null && fields === null) {
-            const brand = parseBrand(row.brand);
-            loadedBrand.current = brand;
-            loadedAddress.current = located(row);
-            setFields({
-                name: row.name,
-                slug: row.slug,
-                timezone: row.timezone,
-                billing_email: row.billing_email ?? "",
-                logo_file_id: brand.logo_file_id,
-                primary: brand.primary,
-                tagline: brand.tagline,
-                ...loadedAddress.current,
-            });
-        }
-    }, [row, fields]);
+        setConfirmed(null);
+    }, [rowKey]);
+
+    const base = confirmed ?? (row === null ? null : businessFields(row));
+    const fields = base === null ? null : { ...base, ...draft };
 
     const set = (key: keyof BusinessFields, value: string): void => {
         setSaved(false);
-        const typed = key === "slug" ? slugDraft(value) : value;
-        setFields((f) => (f === null ? f : { ...f, [key]: typed }));
+        setFieldErrors((errors) => without(errors, key));
+        const next = key === "slug" ? slugDraft(value) : value;
+        // Typed back to what is stored is no edit, so a later change from another device stays.
+        setDraft((d) => (next === base?.[key] ? without(d, key) : { ...d, [key]: next }));
     };
+
+    const edited = (Object.keys(draft) as (keyof BusinessFields)[]).filter(
+        (key) => base !== null && draft[key] !== base[key],
+    );
 
     const submit = (): void => {
         if (fields === null) return;
@@ -336,59 +386,50 @@ export function useBusinessForm(api: ApiLike): BusinessForm {
             setError(strings.business.nameRequired);
             return;
         }
-        const { logo_file_id, primary, tagline, name, timezone, billing_email } = fields;
         const slug = slugify(fields.slug);
         if (slug.length === 0) {
             setError(strings.business.onboarding.slugRequired);
             return;
         }
-        // Send `brand` and address fields only when they changed, so a stale form cannot erase them.
-        const b = loadedBrand.current;
-        const brandChanged =
-            logo_file_id !== b.logo_file_id || primary !== b.primary || tagline !== b.tagline;
-        const brand = { logo_file_id: logo_file_id || null, primary, tagline };
-        const address = loadedAddress.current;
-        const moved = ADDRESS_KEYS.filter((key) => fields[key] !== address?.[key]);
-        const body = {
-            name,
-            timezone,
-            billing_email,
-            ...(slug !== row?.slug ? { slug } : {}),
-            ...Object.fromEntries(moved.map((key) => [key, fields[key]])),
-            ...(brandChanged ? { brand } : {}),
-        };
-        let updated: LocatedRow | null = null;
+        const body = Object.fromEntries(
+            edited.map((key) => [key, key === "slug" ? slug : fields[key]]),
+        );
+        const sent = draft;
+        let updated: BusinessRow | null = null;
         const save = async (): Promise<void> => {
-            updated = await api.patch<LocatedRow>("/v1/business", body);
+            updated = await api.patch<BusinessRow>("/v1/business", body);
         };
         run(save, {
             onSuccess: () => {
-                loadedBrand.current = { ...b, logo_file_id, primary, tagline }; // now what's on the server
-                if (updated !== null) {
-                    const saved = located(updated);
-                    loadedAddress.current = saved;
-                    setFields((f) => (f === null ? f : { ...f, ...saved }));
-                }
+                setFieldErrors({});
+                setDraft((d) =>
+                    Object.fromEntries(
+                        Object.entries(d).filter(
+                            ([key, value]) => value !== sent[key as keyof BusinessFields],
+                        ),
+                    ),
+                );
+                if (updated !== null) setConfirmed(businessFields(updated));
                 setSaved(true);
             },
-            errorMessage: (e) => failureMessage(e, strings.business.saveError),
+            errorMessage: (e) => {
+                const refused = refusedFields(e, BUSINESS_FIELD_ERRORS);
+                setFieldErrors(refused);
+                return Object.keys(refused).length > 0
+                    ? strings.business.checkFields
+                    : failureMessage(e, strings.business.saveError);
+            },
         });
     };
 
-    const logoSrc = (apiBase: string): string | null =>
-        fields !== null && fields.logo_file_id !== ""
-            ? mediaUrl(apiBase, fields.logo_file_id)
-            : null;
-
-    const province = PROVINCES.find((p) => p.code === row?.province)?.name ?? "";
-
     return {
         fields,
-        province,
-        businessId: row?.id ?? null,
-        logoSrc,
+        province: PROVINCES.find((p) => p.code === row?.province)?.name ?? "",
+        provinceLocked: locked?.province_locked === 1,
         set,
         slugChanged: fields !== null && row !== null && slugify(fields.slug) !== row.slug,
+        fieldErrors,
+        dirty: edited.length > 0,
         busy,
         error,
         saved,
@@ -630,6 +671,8 @@ interface OnboardingForm {
     busy: boolean;
     error: string | null;
     needsVerification: boolean;
+    /** The email was confirmed in place, so the request to confirm it no longer applies. */
+    emailConfirmed: () => void;
     submit: () => void;
 }
 
@@ -648,6 +691,10 @@ export function useOnboardingForm(
     // Stays true across retries so the verify step keeps one code instead of mailing a new one.
     const [needsVerification, setNeedsVerification] = useState(false);
     const { busy, error, setError, run } = useAsyncAction();
+    // Stable, since the confirm step calls it from an effect: a new one would clear later errors.
+    const emailConfirmed = useCallback(() => {
+        setError(null);
+    }, [setError]);
 
     const setName = (v: string): void => {
         setNameState(v);
@@ -697,7 +744,10 @@ export function useOnboardingForm(
         slug,
         setSlug,
         province,
-        setProvince,
+        setProvince: (v) => {
+            setProvince(v);
+            setError(null);
+        },
         industry,
         setIndustry: (v) => {
             setIndustry(v);
@@ -708,6 +758,7 @@ export function useOnboardingForm(
         busy,
         error,
         needsVerification,
+        emailConfirmed,
         submit,
     };
 }
@@ -759,6 +810,7 @@ interface SetupTask {
 export function setupTasks(c: SetupCounts): SetupTask[] {
     const o = strings.business.getSetUp;
     const brand = parseBrand(c.brand);
+    const branded = brand.primary !== "" || brand.logo_file_id !== "";
     const province = PROVINCES.find((p) => p.code === c.province)?.name ?? null;
     const invites = c.invites === null ? [] : c.invites.split(", ");
     return [
@@ -792,8 +844,9 @@ export function setupTasks(c: SetupCounts): SetupTask[] {
         {
             key: "brand",
             ...o.tasks.brand,
-            done: brand.primary !== "" || brand.logo_file_id !== "",
-            target: "business",
+            ...(branded ? { action: o.editBrand } : {}),
+            done: branded,
+            target: "brand",
         },
         {
             key: "stripe",
@@ -829,6 +882,8 @@ export interface SetupProgress {
     total: number;
     complete: boolean;
     dismissed: boolean;
+    /** A service and hours exist, so the booking page can take bookings. */
+    live: boolean;
 }
 
 function progressOf(row: SetupCounts | undefined): SetupProgress {
@@ -845,11 +900,23 @@ function progressOf(row: SetupCounts | undefined): SetupProgress {
         total: steps.length,
         complete: row !== undefined && done === steps.length,
         dismissed: counts.dismissed_at !== null,
+        live: counts.services > 0 && counts.hours > 0,
     };
 }
 
 export function useSetupProgress(): SetupProgress {
     return progressOf(useQuery<SetupCounts>(SETUP_PROGRESS_SQL).data[0]);
+}
+
+export const BOOKING_READY_SQL = `
+SELECT
+    EXISTS (SELECT 1 FROM items WHERE active = 1 AND kind IN ('service', 'class'))
+    AND EXISTS (SELECT 1 FROM hours WHERE basis = 'recurring' AND available = 1) AS ready`;
+
+/** Whether an empty schedule should say what setup is missing: once known, to someone who can add it. */
+export function useBookingSetupMissing(viewer: Viewer | null): boolean {
+    const ready = useQuery<{ ready: number }>(BOOKING_READY_SQL).data[0]?.ready;
+    return ready === 0 && viewer !== null && isManager(viewer.role);
 }
 
 const NO_COUNTS: SetupCounts = {
@@ -870,7 +937,6 @@ const NO_COUNTS: SetupCounts = {
 
 interface SetupChecklist extends SetupProgress {
     load: Load;
-    live: boolean;
     pageUrl: string;
     setHidden: (hidden: boolean) => void;
     hideError: string | null;
@@ -885,7 +951,6 @@ export function useSetupChecklist(api: ApiLike, pageUrl: string): SetupChecklist
     return {
         ...progressOf(query.data[0]),
         load,
-        live: c.services > 0 && c.hours > 0,
         pageUrl: c.slug === null ? "" : bareUrl(businessPageUrl(pageUrl, c.slug)),
         setHidden: (hidden) => {
             run(() => api.patch("/v1/business", { setup_dismissed: hidden }), {
@@ -896,6 +961,22 @@ export function useSetupChecklist(api: ApiLike, pageUrl: string): SetupChecklist
     };
 }
 
+type BrandFieldKey = ProfileKey | "tagline";
+
+const BRAND_FIELD_ERRORS: Partial<Record<BrandFieldKey, () => string>> = {
+    tagline: () => strings.business.fieldErrors.tooLong,
+    about: () => strings.business.fieldErrors.tooLong,
+    address: () => strings.business.fieldErrors.tooLong,
+    neighbourhood: () => strings.business.fieldErrors.tooLong,
+    phone: () => strings.business.fieldErrors.tooLong,
+    email: () => strings.business.fieldErrors.email,
+    website: () => strings.business.fieldErrors.website,
+    gallery_urls: () => strings.business.fieldErrors.gallery,
+    pickup_prep_minutes: () => strings.business.fieldErrors.pickupPrep,
+    pickup_hold_days: () => strings.business.fieldErrors.pickupHold,
+    pickup_capacity: () => strings.business.fieldErrors.pickupCapacity,
+};
+
 export interface BrandForm {
     ready: boolean;
     businessId: string | null;
@@ -904,14 +985,19 @@ export interface BrandForm {
     province: string | null;
     logoFileId: string;
     setLogoFileId: (id: string) => void;
+    coverFileId: string;
+    setCoverFileId: (id: string) => void;
     colour: string;
     setColour: (v: string) => void;
     tagline: string;
     setTagline: (v: string) => void;
+    taglineMax: number;
     profile: ProfileFields;
     setProfile: (key: ProfileKey, value: string) => void;
     publicTeam: { id: string; name: string; selected: boolean }[];
     setPublicTeam: (id: string, selected: boolean) => void;
+    fieldErrors: Partial<Record<BrandFieldKey, string>>;
+    dirty: boolean;
     busy: boolean;
     error: string | null;
     saved: boolean;
@@ -919,6 +1005,69 @@ export interface BrandForm {
 }
 
 export const BRAND_SQL = "SELECT id, name, slug, province, brand FROM businesses LIMIT 1";
+
+interface BrandDraft {
+    logo_file_id?: string;
+    cover_file_id?: string;
+    primary?: string;
+    tagline?: string;
+    public_staff_ids?: string[];
+    profile?: Partial<ProfileFields>;
+}
+
+function drafted(stored: Brand, draft: BrandDraft): Brand {
+    return { ...stored, ...draft, profile: { ...stored.profile, ...draft.profile } };
+}
+
+function profileValue(key: ProfileKey, value: string): unknown {
+    if (key === "gallery_urls")
+        return value
+            .split("\n")
+            .map((url) => url.trim())
+            .filter(Boolean);
+    return key.startsWith("pickup_") ? Number(value) : value;
+}
+
+/** The brand keys the draft changes; the server merges them, so a change made elsewhere stays. */
+function brandChanges(stored: Brand, draft: BrandDraft): Record<string, unknown> {
+    const current = drafted(stored, draft);
+    const changes: Record<string, unknown> = Object.fromEntries(
+        PROFILE_KEYS.filter((key) => current.profile[key] !== stored.profile[key]).map((key) => [
+            key,
+            profileValue(key, current.profile[key]),
+        ]),
+    );
+    if (current.logo_file_id !== stored.logo_file_id)
+        changes.logo_file_id = current.logo_file_id || null;
+    if (current.cover_file_id !== stored.cover_file_id)
+        changes.cover_file_id = current.cover_file_id || null;
+    if (current.primary !== stored.primary) changes.primary = current.primary;
+    if (current.tagline !== stored.tagline) changes.tagline = current.tagline;
+    if (current.public_staff_ids.join() !== stored.public_staff_ids.join())
+        changes.public_staff_ids = current.public_staff_ids;
+    return changes;
+}
+
+function sameBrandValue(
+    a: string | string[] | undefined,
+    b: string | string[] | undefined,
+): boolean {
+    return Array.isArray(a) && Array.isArray(b) ? a.join() === b.join() : a === b;
+}
+
+/** The draft minus what `settled` holds: what was just saved, or a value typed back to the stored one. */
+function editsBeyond(draft: BrandDraft, settled: BrandDraft): BrandDraft {
+    const kept = (Object.keys(draft) as (keyof BrandDraft)[]).filter(
+        (key) => key !== "profile" && !sameBrandValue(draft[key], settled[key]),
+    );
+    const profile = Object.entries(draft.profile ?? {}).filter(
+        ([key, value]) => value !== settled.profile?.[key as ProfileKey],
+    );
+    return {
+        ...Object.fromEntries(kept.map((key) => [key, draft[key]])),
+        ...(profile.length > 0 ? { profile: Object.fromEntries(profile) } : {}),
+    };
+}
 
 /** Logo, colour and tagline for the booking page, saved to the business brand. */
 export function useBrandForm(api: ApiLike): BrandForm {
@@ -930,15 +1079,26 @@ export function useBrandForm(api: ApiLike): BrandForm {
         province: string | null;
         brand: string | null;
     }>(BRAND_SQL).data[0];
-    const stored = parseBrand(row?.brand ?? null);
-    const [draft, setDraft] = useState<Brand | null>(null);
+    const raw = row?.brand ?? null;
+    // What the last save returned, shown until that save syncs back, so old values don't flash.
+    const [confirmed, setConfirmed] = useState<string | null>(null);
+    useEffect(() => {
+        setConfirmed(null);
+    }, [raw]);
+    const stored = parseBrand(confirmed ?? raw);
+    const [draft, setDraft] = useState<BrandDraft>({});
+    const [fieldErrors, setFieldErrors] = useState<BrandForm["fieldErrors"]>({});
     const [saved, setSaved] = useState(false);
     const { busy, error, run } = useAsyncAction();
-    const current = draft ?? stored;
-    const edit = (patch: Partial<Brand>): void => {
-        setDraft({ ...current, ...patch });
+    const current = drafted(stored, draft);
+    // Functional, so an upload finishing later can't undo what was edited while it ran.
+    const edit = (next: (draft: BrandDraft) => BrandDraft, field?: BrandFieldKey): void => {
+        // Typed back to what is stored is no edit, so a later change from another device stays.
+        setDraft((d) => editsBeyond(next(d), stored));
         setSaved(false);
+        if (field !== undefined) setFieldErrors((errors) => without(errors, field));
     };
+    const changes = brandChanges(stored, draft);
     return {
         ready: row !== undefined,
         businessId: row?.id ?? null,
@@ -947,19 +1107,24 @@ export function useBrandForm(api: ApiLike): BrandForm {
         province: row?.province ?? null,
         logoFileId: current.logo_file_id,
         setLogoFileId: (id) => {
-            edit({ logo_file_id: id });
+            edit((d) => ({ ...d, logo_file_id: id }));
+        },
+        coverFileId: current.cover_file_id,
+        setCoverFileId: (id) => {
+            edit((d) => ({ ...d, cover_file_id: id }));
         },
         colour: current.primary || BRAND_COLOURS[1],
         setColour: (v) => {
-            edit({ primary: v });
+            edit((d) => ({ ...d, primary: v }));
         },
         tagline: current.tagline,
         setTagline: (v) => {
-            edit({ tagline: v });
+            edit((d) => ({ ...d, tagline: v }), "tagline");
         },
+        taglineMax: TAGLINE_MAX,
         profile: current.profile,
         setProfile: (key, value) => {
-            edit({ profile: { ...current.profile, [key]: value } });
+            edit((d) => ({ ...d, profile: { ...d.profile, [key]: value } }), key);
         },
         publicTeam: team.map((person) => ({
             id: person.id,
@@ -967,44 +1132,67 @@ export function useBrandForm(api: ApiLike): BrandForm {
             selected: current.public_staff_ids.includes(person.id),
         })),
         setPublicTeam: (id, selected) => {
-            edit({
-                public_staff_ids: selected
-                    ? [...new Set([...current.public_staff_ids, id])]
-                    : current.public_staff_ids.filter((value) => value !== id),
+            edit((d) => {
+                const ids = d.public_staff_ids ?? stored.public_staff_ids;
+                return {
+                    ...d,
+                    public_staff_ids: selected
+                        ? [...new Set([...ids, id])]
+                        : ids.filter((value) => value !== id),
+                };
             });
         },
+        fieldErrors,
+        dirty: Object.keys(changes).length > 0,
         busy,
         error,
         saved,
         submit: () => {
+            const sent = draft;
+            let updated: { brand?: unknown } | null = null;
+            // the colour on show is the one saved, even when the owner kept the suggested swatch
+            const brand = {
+                ...changes,
+                ...(current.primary === "" ? { primary: BRAND_COLOURS[1] } : {}),
+            };
             run(
-                () =>
-                    api.patch("/v1/business", {
-                        brand: {
-                            ...current.profile,
-                            gallery_urls: current.profile.gallery_urls
-                                .split("\n")
-                                .map((url) => url.trim())
-                                .filter(Boolean),
-                            pickup_prep_minutes: Number(current.profile.pickup_prep_minutes),
-                            pickup_hold_days: Number(current.profile.pickup_hold_days),
-                            pickup_capacity: Number(current.profile.pickup_capacity),
-                            public_staff_ids: current.public_staff_ids,
-                            logo_file_id: current.logo_file_id || null,
-                            primary: current.primary || BRAND_COLOURS[1],
-                            tagline: current.tagline,
-                        },
-                    }),
+                async () => {
+                    updated = await api.patch<{ brand?: unknown }>("/v1/business", { brand });
+                },
                 {
-                    errorMessage: strings.business.saveError,
+                    errorMessage: (e) => {
+                        const refused = refusedFields(e, BRAND_FIELD_ERRORS, "brand.");
+                        setFieldErrors(refused);
+                        return Object.keys(refused).length > 0
+                            ? strings.business.checkFields
+                            : failureMessage(e, strings.business.saveError);
+                    },
                     onSuccess: () => {
+                        const answer = updated?.brand;
+                        if (answer !== undefined) setConfirmed(JSON.stringify(answer));
+                        setFieldErrors({});
                         setSaved(true);
-                        setDraft(null);
+                        setDraft((d) => editsBeyond(d, sent));
                     },
                 },
             );
         },
     };
+}
+
+/** The name a screen reader says for a brand swatch. */
+export function brandColourName(colour: string): string {
+    const names = strings.business.getSetUp.colourNames;
+    const named: Record<string, string> = {
+        "#2E4A3F": names.forest,
+        "#3F5E80": names.slate,
+        "#2E6670": names.teal,
+        "#7D5A82": names.plum,
+        "#A95C43": names.terracotta,
+        "#86621E": names.ochre,
+        "#3A4654": names.charcoal,
+    };
+    return named[colour] ?? colour;
 }
 
 export const BOOKING_PREVIEW_SQL = `

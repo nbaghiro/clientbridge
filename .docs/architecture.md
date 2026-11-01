@@ -435,7 +435,7 @@ build + permanent maintenance.)
 
 ### Attachments
 
-`POST /v1/files` creates a pending row and a presigned upload URL. After the upload, `POST /v1/files/{id}/complete` (or the public form's `/upload/{file_id}/complete`) checks the object's size in storage and sets `uploaded_at`. A missing object returns 409 `upload_missing`, and a different size returns 422. Readers ignore rows without `uploaded_at`: public media, item images, the logo, form answers and the replica queries. `prune_pending_files` removes pending rows older than 24 hours together with their objects. File metadata syncs, but bytes do not; an image that cannot load falls back to its initial.
+`POST /v1/files` creates a pending row and a presigned upload URL. A logo, image or photo must declare PNG, JPEG or WebP (422 `file_type_unsupported`), because SVG can carry script and an HTML file would be a web page on our link; the web app draws an SVG logo to a PNG in the browser before uploading it, and `/media` serves nothing else. No file may exceed 10 MB (422 `file_too_large`). After the upload, `POST /v1/files/{id}/complete` (or the public form's `/upload/{file_id}/complete`) checks the object's size in storage and that a picture's first bytes really are one of those types (`file_type_unsupported`), records the type they show, since a phone's picker can re-encode a photo and keep the original's file type, and sets `uploaded_at`. A missing object returns 409 `upload_missing`, and a different size returns 422. Readers ignore rows without `uploaded_at`: public media, item images, the logo, form answers and the replica queries. `prune_pending_files` removes pending rows older than 24 hours together with their objects. File metadata syncs, but bytes do not; an image that cannot load falls back to its initial.
 
 ### Device storage
 
@@ -522,8 +522,15 @@ a non-2xx reply makes it retry.
   `/sessions/whoami` at `AUTH_INTERNAL_URL` and the admin API at `AUTH_ADMIN_URL`, both inside the
   cluster. `scripts.verify_kratos` runs the pinned Kratos with that environment and the Kratos contract
   against it.
-- **Not built in** — Kratos OSS has no login lockout; production rate-limits the auth service's
-  `/auth/self-service/*` paths at the proxy (CB-1). The admin API must stay on the private network.
+- **Rate limits** — Kratos OSS has no login lockout, so Cloud Armor throttles the auth service's
+  `/auth/self-service/*` paths per address at the gateway (`gateway.auth_limits`, CB-1) and answers 429:
+  10 POSTs a minute to recovery and verification, 30 to login and registration, 120 requests a minute to
+  anything else. Guessing spread over many addresses is not stopped. A browser can't read that 429 across
+  origins, so it shows `auth.unavailable`; a phone shows `auth.tooManyAttempts`. `send_auth_email` also
+  caps auth mail at 10 an hour per recipient, whoever asks for it, and answers the courier as if the rest
+  were sent; a send that fails gives its count back, so the courier's retries during an outage don't use
+  up the cap, and a Redis outage lifts the cap rather than stopping sign-ups and resets.
+- **Not built in** — the admin API must stay on the private network.
 
 ## Authorization & visibility
 
@@ -603,7 +610,7 @@ Business logos and catalog item images are `files` rows (`parent_type` business/
 uploaded by an owner or admin. `GET /media/{file_id}` serves only those two kinds, by redirecting to a
 short-lived presigned S3 URL, so they have stable links for the public pages and the apps. Only files whose
 upload was completed are served. Every other
-file stays behind auth. The brand stores `logo_file_id`; `public_brand` turns it into the media URL.
+file stays behind auth. The brand stores `logo_file_id` and `cover_file_id`; `public_brand` turns them into media URLs, so a change of API address never leaves a stale link.
 
 Job photos are `files` rows on a booking (`parent_type` booking, `purpose` photo, image types only). The
 member on the booking or a manager can add one, and `GET /v1/files/{id}/link` returns a presigned download

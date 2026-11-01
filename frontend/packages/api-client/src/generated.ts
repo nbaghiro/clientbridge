@@ -4983,12 +4983,12 @@ export interface components {
         BrandInput: {
             /** Logo File Id */
             logo_file_id?: string | null;
+            /** Cover File Id */
+            cover_file_id?: string | null;
             /** Primary */
             primary?: string | null;
             /** Tagline */
             tagline?: string | null;
-            /** Cover Url */
-            cover_url?: string | null;
             /** About */
             about?: string | null;
             /** Address */

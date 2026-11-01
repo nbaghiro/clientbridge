@@ -76,7 +76,7 @@ async def test_brand_rejects_invalid_values(as_owner: httpx.AsyncClient) -> None
         await as_owner.patch("/v1/business", json={"brand": {"primary": "red"}})
     ).status_code == 422
     assert (
-        await as_owner.patch("/v1/business", json={"brand": {"cover_url": "javascript:alert(1)"}})
+        await as_owner.patch("/v1/business", json={"brand": {"website": "javascript:alert(1)"}})
     ).status_code == 422
 
 
@@ -533,3 +533,75 @@ async def test_a_stripe_failure_leaves_the_new_slug_saved(
     monkeypatch.setattr(gateway, "update_account_url", unavailable)
     assert (await as_owner.patch("/v1/business", json={"slug": "birch-two"})).status_code == 200
     assert await db.scalar(select(Business.slug).where(Business.id == BIZ)) == "birch-two"
+
+
+@pytest.mark.parametrize("name", ["", "   ", "x" * 101])
+async def test_a_blank_or_overlong_name_is_refused_and_names_the_field(
+    as_owner: httpx.AsyncClient, db: AsyncSession, name: str
+) -> None:
+    res = await as_owner.patch("/v1/business", json={"name": name})
+    assert res.status_code == 422
+    assert res.json()["error"] == "invalid_request"
+    assert res.json()["detail"][0]["loc"] == ["body", "name"]
+    business = await db.get(Business, BIZ)
+    assert business is not None and business.name.strip() == business.name != name
+
+
+async def test_a_name_is_saved_trimmed(as_owner: httpx.AsyncClient) -> None:
+    res = await as_owner.patch("/v1/business", json={"name": "  Birch Bark  "})
+    assert res.status_code == 200, res.text
+    assert res.json()["name"] == "Birch Bark"
+
+
+async def test_an_overlong_tagline_is_refused_and_names_the_field(
+    as_owner: httpx.AsyncClient,
+) -> None:
+    res = await as_owner.patch("/v1/business", json={"brand": {"tagline": "x" * 121}})
+    assert res.status_code == 422
+    assert res.json()["detail"][0]["loc"] == ["body", "brand", "tagline"]
+    fits = await as_owner.patch("/v1/business", json={"brand": {"tagline": "x" * 120}})
+    assert fits.status_code == 200, fits.text
+
+
+@pytest.mark.parametrize(
+    ("body", "loc"),
+    [
+        ({"billing_email": "nope"}, ["body", "billing_email"]),
+        ({"postal_code": "12345"}, ["body", "postal_code"]),
+        ({"legal_phone": "12"}, ["body", "legal_phone"]),
+        ({"brand": {"website": "not a link"}}, ["body", "brand", "website"]),
+        ({"brand": {"email": "nope"}}, ["body", "brand", "email"]),
+        ({"brand": {"gallery_urls": ["javascript:alert(1)"]}}, ["body", "brand", "gallery_urls"]),
+        ({"brand": {"pickup_capacity": 0}}, ["body", "brand", "pickup_capacity"]),
+    ],
+)
+async def test_a_refused_setting_names_its_field_so_the_form_can_explain_it(
+    as_owner: httpx.AsyncClient, body: dict[str, object], loc: list[str]
+) -> None:
+    res = await as_owner.patch("/v1/business", json=body)
+    assert res.status_code == 422
+    assert res.json()["error"] == "invalid_request"
+    assert res.json()["detail"][0]["loc"] == loc
+
+
+async def test_saving_one_brand_key_keeps_the_others_set_elsewhere(
+    as_owner: httpx.AsyncClient,
+) -> None:
+    await as_owner.patch(
+        "/v1/business", json={"brand": {"primary": "#3F5E80", "website": "https://a.example"}}
+    )
+    res = await as_owner.patch("/v1/business", json={"brand": {"tagline": "Kept apart"}})
+    assert res.status_code == 200, res.text
+    brand = res.json()["brand"]
+    assert brand["primary"] == "#3F5E80" and brand["website"] == "https://a.example"
+    assert brand["tagline"] == "Kept apart"
+
+
+async def test_removing_the_logo_clears_it_from_the_public_pages(
+    as_owner: httpx.AsyncClient, unauth: httpx.AsyncClient
+) -> None:
+    assert (await unauth.get("/book/birchbark/services")).json()["brand"]["logo_url"] is not None
+    res = await as_owner.patch("/v1/business", json={"brand": {"logo_file_id": None}})
+    assert res.status_code == 200, res.text
+    assert "logo_file_id" not in res.json()["brand"]
+    assert (await unauth.get("/book/birchbark/services")).json()["brand"]["logo_url"] is None

@@ -108,16 +108,20 @@ async def test_staff_cannot_photograph_or_read_another_members_booking_403(
 
 
 @pytest.mark.parametrize(
-    "extra",
-    [{"purpose": "attachment"}, {"purpose": None}, {"content_type": "application/pdf"}],
+    ("extra", "code"),
+    [
+        ({"purpose": "attachment"}, "invalid_request"),
+        ({"purpose": None}, "invalid_request"),
+        ({"content_type": "application/pdf"}, "file_type_unsupported"),
+    ],
 )
 async def test_a_booking_takes_only_photos_422(
-    as_owner: httpx.AsyncClient, db: AsyncSession, extra: dict[str, object]
+    as_owner: httpx.AsyncClient, db: AsyncSession, extra: dict[str, object], code: str
 ) -> None:
     bid = await _booking(db, "st_owner")
     res = await as_owner.post("/v1/files", json=_photo(bid, **extra))
     assert res.status_code == 422
-    assert res.json()["error"] == "invalid_request"
+    assert res.json()["error"] == code
 
 
 async def test_unknown_deleted_or_foreign_booking_404(

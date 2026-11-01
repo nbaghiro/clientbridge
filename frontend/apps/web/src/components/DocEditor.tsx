@@ -481,6 +481,7 @@ function ClientPicker({
             value={value}
             error={error}
             placeholder={s.chooseClient}
+            emptyLabel={s.noClientsYet}
             options={clients.map((x) => ({
                 key: x.id,
                 label: x.name,

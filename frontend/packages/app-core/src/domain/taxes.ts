@@ -176,14 +176,19 @@ export function filingPeriod(
 }
 
 // services/business.has_issued_tax: a taxed line on an issued document, or any tax ledger leg
-export const TAX_SETTINGS_SQL = `
-SELECT province, tax_registered, tax_registered_on, gst_hst_number, pst_number, filing_frequency,
+const PROVINCE_LOCKED = `
        EXISTS (SELECT 1 FROM lines l WHERE l.tax_amount_cents > 0 AND (
                    l.invoice_id IN (SELECT id FROM invoices WHERE status <> 'draft')
                    OR l.estimate_id IN (SELECT id FROM estimates WHERE status <> 'draft')
                    OR l.order_id IN (SELECT id FROM orders WHERE status <> 'void')))
        OR EXISTS (SELECT 1 FROM entries e JOIN accounts a ON a.id = e.account_id
-                  WHERE a.category = 'tax') AS province_locked
+                  WHERE a.category = 'tax') AS province_locked`;
+
+export const PROVINCE_LOCKED_SQL = `SELECT ${PROVINCE_LOCKED}`;
+
+export const TAX_SETTINGS_SQL = `
+SELECT province, tax_registered, tax_registered_on, gst_hst_number, pst_number, filing_frequency,
+       ${PROVINCE_LOCKED}
 FROM businesses LIMIT 1`;
 
 interface TaxSettingsRow {
@@ -222,6 +227,8 @@ export interface TaxSettingsForm {
     // the province picked to replace the current one, changed only after the screen confirms it
     nextProvince: ProvinceCode | null;
     setNextProvince: (code: ProvinceCode) => void;
+    /** Goes back to the saved province when a pick isn't confirmed. */
+    cancelProvince: () => void;
     nextProvinceName: string;
     // once a document has charged tax the province is fixed, as the server enforces
     provinceLocked: boolean;
@@ -341,6 +348,9 @@ export function useTaxSettingsForm(
         },
         nextProvince,
         setNextProvince,
+        cancelProvince: () => {
+            setNextProvince(null);
+        },
         nextProvinceName: picked === null ? "" : provinceName(picked),
         provinceLocked: row?.province_locked === 1,
         provinceChanged:

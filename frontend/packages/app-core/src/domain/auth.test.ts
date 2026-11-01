@@ -1,9 +1,10 @@
 // @vitest-environment happy-dom
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
-import { StrictMode } from "react";
+import { type ReactNode, StrictMode, createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ApiLike, Flow, FlowNode, FlowStep, IdentityLike, WebAuthnLike } from "../api";
+import { BusinessZoneContext } from "../datetime";
 import { strings } from "../strings";
 import {
     checkSession,
@@ -16,7 +17,21 @@ import {
 } from "./auth";
 
 // unmount each hook, so a ticking timer cannot render after the file's DOM is torn down
-afterEach(cleanup);
+afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+});
+
+// the cooldown counts down one render at a time
+function endCooldown(): void {
+    for (let second = 0; second <= 30; second++)
+        act(() => {
+            vi.advanceTimersByTime(1000);
+        });
+}
+
+const refused = (status: number, code: string): Error =>
+    Object.assign(new Error(code), { status, code });
 
 const node = (group: string, name: string, value: unknown = ""): FlowNode => ({
     group,
@@ -49,7 +64,7 @@ function fakeIdentity(steps: FlowStep[]) {
         }),
         session: vi.fn<IdentityLike["session"]>(() => Promise.resolve("none")),
         whoami: vi.fn<IdentityLike["whoami"]>(() =>
-            Promise.resolve({ id: "id-1", email: "saved@test.ca" }),
+            Promise.resolve({ id: "id-1", email: "saved@test.ca", verified: false }),
         ),
         exchange: vi.fn<IdentityLike["exchange"]>(() => Promise.resolve("exchanged-token")),
         signOut: vi.fn<IdentityLike["signOut"]>(() => Promise.resolve()),
@@ -268,17 +283,127 @@ describe("useAuthForm", () => {
         });
     });
 
-    it("treats a session the auth service already holds as signed in", async () => {
-        const identity = fakeIdentity([]);
-        identity.session.mockResolvedValueOnce("none").mockResolvedValueOnce("active");
-        identity.start.mockRejectedValue(
-            Object.assign(new Error("refused"), { code: "session_already_available" }),
-        );
-        const signedIn = vi.fn();
-        const { result } = renderHook(() => useAuthForm(identity, signedIn));
-        await waitFor(() => {
-            expect(identity.session).toHaveBeenCalledTimes(1);
+    describe("a session this browser still holds", () => {
+        const leftover = refused(400, "session_already_available");
+
+        async function typeAndSubmit(steps: FlowStep[]) {
+            const identity = fakeIdentity(steps);
+            identity.session.mockResolvedValueOnce("none").mockResolvedValue("active");
+            identity.start.mockRejectedValueOnce(leftover);
+            const signedIn = vi.fn();
+            const { result } = renderHook(() => useAuthForm(identity, signedIn));
+            await waitFor(() => {
+                expect(identity.session).toHaveBeenCalledTimes(1);
+            });
+            act(() => {
+                result.current.setEmail("pat@test.ca");
+                result.current.setPassword("hunter22");
+            });
+            act(() => {
+                result.current.submit();
+            });
+            return { identity, signedIn, result };
+        }
+
+        it("ends it and signs in as whoever's credentials were typed", async () => {
+            const { identity, signedIn } = await typeAndSubmit([{ kind: "done" }]);
+            await waitFor(() => {
+                expect(signedIn).toHaveBeenCalled();
+            });
+            expect(identity.signOut).toHaveBeenCalledTimes(1);
+            expect(identity.submit.mock.calls[0]?.[1]).toMatchObject({
+                method: "password",
+                identifier: "pat@test.ca",
+                password: "hunter22",
+            });
         });
+
+        it("never lets a wrong password in on it", async () => {
+            const wrong = {
+                ...flow([], null, "login"),
+                messages: [{ id: 4000006, type: "error", text: "invalid" }],
+            };
+            const { identity, signedIn, result } = await typeAndSubmit([
+                { kind: "flow", flow: wrong },
+            ]);
+            await waitFor(() => {
+                expect(result.current.error).toBe(strings.auth.flowMessages[4000006]);
+            });
+            expect(identity.signOut).toHaveBeenCalledTimes(1);
+            expect(signedIn).not.toHaveBeenCalled();
+        });
+
+        it("shows a failure when it can't be ended, without signing in", async () => {
+            const identity = fakeIdentity([]);
+            identity.start.mockRejectedValue(leftover);
+            const signedIn = vi.fn();
+            const { result } = renderHook(() => useAuthForm(identity, signedIn, { probe: false }));
+            act(() => {
+                result.current.setEmail("pat@test.ca");
+                result.current.setPassword("hunter22");
+            });
+            act(() => {
+                result.current.submit();
+            });
+            await waitFor(() => {
+                expect(result.current.error).toBe(strings.auth.unavailable);
+            });
+            expect(signedIn).not.toHaveBeenCalled();
+        });
+
+        it("starts a new flow when another tab signed in after this form's flow began", async () => {
+            const wrong = {
+                ...flow([], null, "login"),
+                messages: [{ id: 4000006, type: "error", text: "invalid" }],
+            };
+            const identity = fakeIdentity([{ kind: "flow", flow: wrong }, { kind: "done" }]);
+            const signedIn = vi.fn();
+            const { result } = renderHook(() => useAuthForm(identity, signedIn, { probe: false }));
+            act(() => {
+                result.current.setEmail("pat@test.ca");
+                result.current.setPassword("wrong-password");
+            });
+            act(() => {
+                result.current.submit();
+            });
+            await waitFor(() => {
+                expect(result.current.error).toBe(strings.auth.flowMessages[4000006]);
+            });
+            identity.submit.mockRejectedValueOnce(leftover);
+            act(() => {
+                result.current.setPassword("hunter22");
+            });
+            act(() => {
+                result.current.submit();
+            });
+            await waitFor(() => {
+                expect(signedIn).toHaveBeenCalled();
+            });
+            expect(identity.signOut).toHaveBeenCalledTimes(1);
+            expect(identity.start).toHaveBeenCalledTimes(2);
+        });
+
+        it("ends it for Google too", async () => {
+            const identity = fakeIdentity([{ kind: "redirect", url: "https://google.test" }]);
+            identity.start.mockRejectedValueOnce(leftover);
+            const openUrl = vi.fn(() => Promise.resolve(null));
+            const { result } = renderHook(() =>
+                useAuthForm(identity, vi.fn(), { probe: false, openUrl }),
+            );
+            act(() => {
+                result.current.google();
+            });
+            await waitFor(() => {
+                expect(openUrl).toHaveBeenCalledWith("https://google.test");
+            });
+            expect(identity.signOut).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    it("names a rate limit, which a phone can read", async () => {
+        const identity = fakeIdentity([]);
+        identity.submit.mockRejectedValueOnce(refused(429, "submit_failed"));
+        const { result } = renderHook(() => useAuthForm(identity, vi.fn(), { probe: false }));
         act(() => {
             result.current.setEmail("pat@test.ca");
             result.current.setPassword("hunter22");
@@ -287,9 +412,206 @@ describe("useAuthForm", () => {
             result.current.submit();
         });
         await waitFor(() => {
-            expect(signedIn).toHaveBeenCalled();
+            expect(result.current.error).toBe(strings.auth.tooManyAttempts);
         });
-        expect(result.current.error).toBeNull();
+    });
+
+    describe("the second step on a phone", () => {
+        const login = flow([node("totp", "totp_code")], null, "login");
+
+        async function atSecondStep(steps: FlowStep[] = []) {
+            const identity = fakeIdentity([{ kind: "done", sessionToken: "half" }, ...steps]);
+            identity.session.mockResolvedValue("second_factor");
+            identity.start.mockImplementation(() => Promise.resolve(login));
+            const holdSession = vi.fn();
+            const signedIn = vi.fn();
+            const { result } = renderHook(() =>
+                useAuthForm(identity, signedIn, { holdSession, probe: false }),
+            );
+            act(() => {
+                result.current.setEmail("pat@test.ca");
+                result.current.setPassword("hunter22");
+            });
+            act(() => {
+                result.current.submit();
+            });
+            await waitFor(() => {
+                expect(result.current.mode).toBe("mfa");
+            });
+            return { identity, holdSession, signedIn, result };
+        }
+
+        it("ends the half-finished session on the server when the user backs out", async () => {
+            const { identity, holdSession, result } = await atSecondStep();
+            expect(holdSession).toHaveBeenLastCalledWith("half");
+            act(() => {
+                result.current.cancel();
+            });
+            await waitFor(() => {
+                expect(result.current.mode).toBe("signin");
+            });
+            expect(identity.signOut).toHaveBeenCalledWith("half");
+            expect(holdSession).toHaveBeenLastCalledWith(null);
+        });
+
+        it("lets go of the held token once signed in, before the app stores it", async () => {
+            const { holdSession, signedIn, result } = await atSecondStep([
+                { kind: "done", sessionToken: "full" },
+            ]);
+            act(() => {
+                result.current.setCode("123456");
+            });
+            act(() => {
+                result.current.submit();
+            });
+            await waitFor(() => {
+                expect(signedIn).toHaveBeenCalledWith("full");
+            });
+            expect(holdSession).toHaveBeenLastCalledWith(null);
+            expect(holdSession.mock.invocationCallOrder.at(-1)).toBeLessThan(
+                signedIn.mock.invocationCallOrder[0] ?? 0,
+            );
+        });
+    });
+
+    describe("confirming the email after sign-up", () => {
+        const sent = flow([], "sent_email", "verification");
+
+        async function atVerify(steps: FlowStep[], confirmedElsewhere = false) {
+            vi.useFakeTimers({ shouldAdvanceTime: true });
+            const identity = fakeIdentity([
+                { kind: "done", sessionToken: "signup", next: { flow: "verification", id: "v-1" } },
+                ...steps,
+            ]);
+            identity.resume.mockResolvedValue(sent);
+            identity.whoami.mockResolvedValue({
+                id: "id-1",
+                email: "pat@test.ca",
+                verified: confirmedElsewhere,
+            });
+            const holdSession = vi.fn();
+            const signedIn = vi.fn();
+            const { result } = renderHook(() =>
+                useAuthForm(identity, signedIn, {
+                    initialMode: "signup",
+                    probe: false,
+                    holdSession,
+                }),
+            );
+            act(() => {
+                result.current.setName("Pat");
+                result.current.setEmail("pat@test.ca");
+                result.current.setPassword("hunter22");
+            });
+            act(() => {
+                result.current.submit();
+            });
+            await waitFor(() => {
+                expect(result.current.mode).toBe("verify");
+            });
+            act(() => {
+                result.current.setCode("000000");
+            });
+            act(() => {
+                result.current.submit();
+            });
+            return { identity, holdSession, signedIn, result };
+        }
+
+        it("asks for a new code when wrong ones used up the flow, then accepts it", async () => {
+            const { identity, signedIn, result } = await atVerify([
+                { kind: "restart", tooOften: true },
+                { kind: "flow", flow: sent },
+                { kind: "flow", flow: flow([], "passed_challenge", "verification") },
+            ]);
+            await waitFor(() => {
+                expect(result.current.error).toBe(strings.auth.codeTooOften);
+            });
+
+            const submitted = identity.submit.mock.calls.length;
+            act(() => {
+                result.current.setCode("123456");
+            });
+            act(() => {
+                result.current.submit();
+            });
+            expect(identity.submit).toHaveBeenCalledTimes(submitted);
+            expect(result.current.error).toBe(strings.auth.codeTooOften);
+
+            endCooldown();
+            act(() => {
+                result.current.resend();
+            });
+            await waitFor(() => {
+                expect(result.current.error).toBeNull();
+            });
+            expect(identity.start).toHaveBeenLastCalledWith("verification");
+            expect(identity.submit).toHaveBeenLastCalledWith(flow([], null, "verification"), {
+                method: "code",
+                email: "pat@test.ca",
+            });
+            expect(result.current.code).toBe("");
+            expect(result.current.cooldown).toBeGreaterThan(0);
+
+            act(() => {
+                result.current.setCode("123456");
+            });
+            act(() => {
+                result.current.submit();
+            });
+            await waitFor(() => {
+                expect(signedIn).toHaveBeenCalledWith("signup");
+            });
+        });
+
+        it("says the code expired when the flow did", async () => {
+            const { result } = await atVerify([{ kind: "restart" }]);
+            await waitFor(() => {
+                expect(result.current.error).toBe(strings.auth.codeExpired);
+            });
+        });
+
+        it("says the code expired when a browser's flow comes back replaced", async () => {
+            const replaced = {
+                ...flow([], "choose_method", "verification"),
+                messages: [{ id: 4070005, type: "error", text: "expired" }],
+            };
+            const { result } = await atVerify([{ kind: "flow", flow: replaced }]);
+            await waitFor(() => {
+                expect(result.current.error).toBe(strings.auth.flowMessages[4070005]);
+            });
+        });
+
+        it("carries on when the emailed link already confirmed it", async () => {
+            const { identity, signedIn, holdSession } = await atVerify(
+                [{ kind: "restart", tooOften: true }],
+                true,
+            );
+            await waitFor(() => {
+                expect(signedIn).toHaveBeenCalledWith("signup");
+            });
+            expect(identity.whoami).toHaveBeenCalledWith("signup");
+            expect(holdSession).toHaveBeenLastCalledWith(null);
+        });
+
+        it("starts a new flow when a resend finds the old one expired", async () => {
+            const { identity, result } = await atVerify([
+                { kind: "flow", flow: sent },
+                { kind: "restart" },
+                { kind: "flow", flow: sent },
+            ]);
+            await waitFor(() => {
+                expect(identity.submit).toHaveBeenCalledTimes(2);
+            });
+            endCooldown();
+            act(() => {
+                result.current.resend();
+            });
+            await waitFor(() => {
+                expect(identity.submit).toHaveBeenCalledTimes(4);
+            });
+            expect(identity.start).toHaveBeenLastCalledWith("verification");
+        });
     });
 });
 
@@ -345,13 +667,457 @@ describe("useRecoveryForm", () => {
         );
     });
 
+    it("says a new password can't match the current one", async () => {
+        const password = node("password", "password");
+        password.messages = [{ id: 4000039, type: "error", text: "must be different" }];
+        const { result } = await toPasswordStep([
+            { kind: "flow", flow: flow([password], "show_form") },
+        ]);
+        await waitFor(() => {
+            expect(result.current.fieldErrors.password).toBe(strings.auth.flowMessages[4000039]);
+        });
+        expect(result.current.step).toBe("password");
+    });
+
+    it("doesn't blame the code when the new password can't be saved", async () => {
+        const { result } = await toPasswordStep([]);
+        await waitFor(() => {
+            expect(result.current.error).toBe(strings.auth.savePasswordFailed);
+        });
+        expect(result.current.step).toBe("password");
+    });
+
+    it("doesn't mention a code when the first one can't be sent", async () => {
+        const identity = fakeIdentity([]);
+        identity.start.mockRejectedValueOnce(new TypeError("offline"));
+        const { result } = renderHook(() => useRecoveryForm(identity, vi.fn()));
+        act(() => {
+            result.current.setEmail("pat@test.ca");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(result.current.error).toBe(strings.auth.resendFailed);
+        });
+        expect(result.current.step).toBe("email");
+    });
+
+    it("names a rate limit on the code step", async () => {
+        const identity = fakeIdentity([{ kind: "flow", flow: sent }]);
+        const { result } = renderHook(() => useRecoveryForm(identity, vi.fn()));
+        act(() => {
+            result.current.setEmail("pat@test.ca");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(result.current.step).toBe("code");
+        });
+        identity.submit.mockRejectedValueOnce(refused(429, "submit_failed"));
+        act(() => {
+            result.current.setCode("123456");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(result.current.error).toBe(strings.auth.tooManyAttempts);
+        });
+    });
+
+    describe("when wrong codes used up the flow", () => {
+        async function atUsedUpCode(steps: FlowStep[]) {
+            vi.useFakeTimers({ shouldAdvanceTime: true });
+            const identity = fakeIdentity([
+                { kind: "flow", flow: sent },
+                { kind: "restart", tooOften: true },
+                ...steps,
+            ]);
+            const signedIn = vi.fn();
+            const { result } = renderHook(() => useRecoveryForm(identity, signedIn));
+            act(() => {
+                result.current.setEmail("pat@test.ca");
+            });
+            act(() => {
+                result.current.submit();
+            });
+            await waitFor(() => {
+                expect(result.current.step).toBe("code");
+            });
+            act(() => {
+                result.current.setCode("000000");
+            });
+            act(() => {
+                result.current.submit();
+            });
+            await waitFor(() => {
+                expect(result.current.error).toBe(strings.auth.codeTooOften);
+            });
+            return { identity, signedIn, result };
+        }
+
+        it("keeps its message up, and sends nothing more, until a new code is asked for", async () => {
+            const { identity, result } = await atUsedUpCode([]);
+            const submitted = identity.submit.mock.calls.length;
+            act(() => {
+                result.current.setCode("123456");
+            });
+            act(() => {
+                result.current.submit();
+            });
+            expect(identity.submit).toHaveBeenCalledTimes(submitted);
+            expect(result.current.error).toBe(strings.auth.codeTooOften);
+            expect(result.current.step).toBe("code");
+        });
+
+        it("sends a new code on a new flow, and that code works", async () => {
+            const { identity, result } = await atUsedUpCode([
+                { kind: "flow", flow: sent },
+                { kind: "done", sessionToken: "recovered", next: { flow: "settings", id: "s-1" } },
+            ]);
+            endCooldown();
+            act(() => {
+                result.current.resend();
+            });
+            await waitFor(() => {
+                expect(result.current.error).toBeNull();
+            });
+            expect(identity.start).toHaveBeenCalledTimes(2);
+            expect(identity.start).toHaveBeenLastCalledWith("recovery");
+            expect(result.current.code).toBe("");
+            act(() => {
+                result.current.setCode("123456");
+            });
+            act(() => {
+                result.current.submit();
+            });
+            await waitFor(() => {
+                expect(result.current.step).toBe("password");
+            });
+        });
+    });
+
+    it("says the code expired when the flow did", async () => {
+        const identity = fakeIdentity([{ kind: "flow", flow: sent }, { kind: "restart" }]);
+        const { result } = renderHook(() => useRecoveryForm(identity, vi.fn()));
+        act(() => {
+            result.current.setEmail("pat@test.ca");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(result.current.step).toBe("code");
+        });
+        act(() => {
+            result.current.setCode("123456");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(result.current.error).toBe(strings.auth.codeExpired);
+        });
+    });
+
+    it("says the code expired when a browser's flow comes back replaced", async () => {
+        const replaced = {
+            ...flow([], "choose_method", "recovery"),
+            messages: [{ id: 4060005, type: "error", text: "expired" }],
+        };
+        const identity = fakeIdentity([
+            { kind: "flow", flow: sent },
+            { kind: "flow", flow: replaced },
+        ]);
+        const { result } = renderHook(() => useRecoveryForm(identity, vi.fn()));
+        act(() => {
+            result.current.setEmail("pat@test.ca");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(result.current.step).toBe("code");
+        });
+        act(() => {
+            result.current.setCode("123456");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(result.current.error).toBe(strings.auth.flowMessages[4060005]);
+        });
+        expect(result.current.step).toBe("code");
+    });
+
+    it("holds the reset's session token on a phone until it is finished or abandoned", async () => {
+        const holdSession = vi.fn();
+        const identity = fakeIdentity([
+            { kind: "flow", flow: sent },
+            { kind: "done", sessionToken: "recovered", next: { flow: "settings", id: "s-1" } },
+            { kind: "flow", flow: flow([], "success") },
+        ]);
+        const signedIn = vi.fn();
+        const { result } = renderHook(() => useRecoveryForm(identity, signedIn, { holdSession }));
+        act(() => {
+            result.current.setEmail("pat@test.ca");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(result.current.step).toBe("code");
+        });
+        act(() => {
+            result.current.setCode("123456");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(result.current.step).toBe("password");
+        });
+        expect(holdSession).toHaveBeenLastCalledWith("recovered");
+        act(() => {
+            result.current.setPassword("a-new-password");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(signedIn).toHaveBeenCalledWith("recovered");
+        });
+        expect(holdSession).toHaveBeenLastCalledWith(null);
+    });
+
     it("starts over when the privileged window ran out, without signing in", async () => {
-        const { signedIn, result } = await toPasswordStep([{ kind: "reauth" }]);
+        const { identity, signedIn, result } = await toPasswordStep([{ kind: "reauth" }]);
         await waitFor(() => {
             expect(result.current.step).toBe("email");
         });
         expect(result.current.error).toBe(strings.auth.flowExpired);
+        expect(identity.signOut).toHaveBeenCalledWith("recovered");
         expect(signedIn).not.toHaveBeenCalled();
+    });
+
+    describe("an account with a second factor", () => {
+        const login = flow([node("lookup_secret", "lookup_secret")], null, "login");
+
+        async function toSecondFactor(steps: FlowStep[]) {
+            const identity = fakeIdentity([
+                { kind: "flow", flow: sent },
+                { kind: "done", sessionToken: "recovered", next: { flow: "settings", id: "s-1" } },
+                ...steps,
+            ]);
+            identity.session.mockResolvedValue("second_factor");
+            identity.start.mockImplementation((kind) =>
+                Promise.resolve(kind === "login" ? login : flow([], null, kind)),
+            );
+            const signedIn = vi.fn();
+            const { result } = renderHook(() => useRecoveryForm(identity, signedIn));
+            act(() => {
+                result.current.setEmail("pat@test.ca");
+            });
+            act(() => {
+                result.current.submit();
+            });
+            await waitFor(() => {
+                expect(result.current.step).toBe("code");
+            });
+            act(() => {
+                result.current.setCode("123456");
+            });
+            act(() => {
+                result.current.submit();
+            });
+            await waitFor(() => {
+                expect(result.current.step).toBe("mfa");
+            });
+            return { identity, signedIn, result };
+        }
+
+        it("treats the accepted code as right and offers the account's methods", async () => {
+            const { identity, result } = await toSecondFactor([]);
+            expect(result.current.error).toBeNull();
+            expect(result.current.code).toBe("");
+            expect(result.current.mfaMethods).toEqual(["lookup_secret"]);
+            expect(result.current.mfaMethod).toBe("lookup_secret");
+            expect(identity.session).toHaveBeenCalledWith("recovered");
+            expect(identity.resume).not.toHaveBeenCalled();
+            expect(identity.start).toHaveBeenLastCalledWith("login", {
+                secondFactor: true,
+                sessionToken: "recovered",
+            });
+        });
+
+        it("reaches the password step on the session the second factor hands back", async () => {
+            const { identity, signedIn, result } = await toSecondFactor([
+                { kind: "done", sessionToken: "upgraded" },
+                { kind: "flow", flow: flow([], "success") },
+            ]);
+            act(() => {
+                result.current.setCode("backup-1");
+            });
+            act(() => {
+                result.current.submit();
+            });
+            await waitFor(() => {
+                expect(result.current.step).toBe("password");
+            });
+            expect(identity.submit).toHaveBeenLastCalledWith(
+                login,
+                { method: "lookup_secret", lookup_secret: "backup-1" },
+                "recovered",
+            );
+            expect(identity.resume).toHaveBeenLastCalledWith("settings", "s-1", "upgraded");
+            expect(signedIn).not.toHaveBeenCalled();
+            act(() => {
+                result.current.setPassword("a-new-password");
+            });
+            act(() => {
+                result.current.submit();
+            });
+            await waitFor(() => {
+                expect(signedIn).toHaveBeenCalledWith("upgraded");
+            });
+        });
+
+        it("stays on the second factor when its code is refused", async () => {
+            const wrong = {
+                ...login,
+                messages: [{ id: 4000016, type: "error", text: "invalid" }],
+            };
+            const { result } = await toSecondFactor([{ kind: "flow", flow: wrong }]);
+            act(() => {
+                result.current.setCode("nope");
+            });
+            act(() => {
+                result.current.submit();
+            });
+            await waitFor(() => {
+                expect(result.current.error).toBe(strings.auth.flowMessages[4000016]);
+            });
+            expect(result.current.step).toBe("mfa");
+        });
+
+        it("asks for a code before submitting one", async () => {
+            const { identity, result } = await toSecondFactor([]);
+            const submitted = identity.submit.mock.calls.length;
+            act(() => {
+                result.current.submit();
+            });
+            expect(result.current.fieldErrors.code).toBe(strings.auth.codeRequired);
+            expect(identity.submit).toHaveBeenCalledTimes(submitted);
+        });
+
+        it("ends the half-finished session when the user backs out", async () => {
+            const { identity, signedIn, result } = await toSecondFactor([]);
+            act(() => {
+                result.current.cancel();
+            });
+            await waitFor(() => {
+                expect(result.current.step).toBe("email");
+            });
+            expect(identity.signOut).toHaveBeenCalledWith("recovered");
+            expect(signedIn).not.toHaveBeenCalled();
+        });
+
+        it("starts over when the password step won't open after the factor is spent", async () => {
+            const { identity, signedIn, result } = await toSecondFactor([
+                { kind: "done", sessionToken: "upgraded" },
+            ]);
+            identity.resume.mockRejectedValueOnce(new Error("offline"));
+            act(() => {
+                result.current.setCode("backup-1");
+            });
+            act(() => {
+                result.current.submit();
+            });
+            await waitFor(() => {
+                expect(result.current.step).toBe("email");
+            });
+            expect(result.current.error).toBe(strings.auth.unavailable);
+            expect(identity.signOut).toHaveBeenCalledWith("upgraded");
+            expect(signedIn).not.toHaveBeenCalled();
+        });
+
+        it("still starts over when the sign-out fails", async () => {
+            const { identity, result } = await toSecondFactor([]);
+            identity.signOut.mockRejectedValueOnce(new Error("offline"));
+            act(() => {
+                result.current.cancel();
+            });
+            await waitFor(() => {
+                expect(result.current.step).toBe("email");
+            });
+            expect(result.current.error).toBeNull();
+        });
+
+        it("starts over when the second-factor flow expired", async () => {
+            const { identity, result } = await toSecondFactor([{ kind: "restart" }]);
+            act(() => {
+                result.current.setCode("backup-1");
+            });
+            act(() => {
+                result.current.submit();
+            });
+            await waitFor(() => {
+                expect(result.current.step).toBe("email");
+            });
+            expect(result.current.error).toBe(strings.auth.flowExpired);
+            expect(identity.signOut).toHaveBeenCalledWith("recovered");
+        });
+    });
+
+    it("starts over rather than blaming the code when a later step fails", async () => {
+        const identity = fakeIdentity([
+            { kind: "flow", flow: sent },
+            { kind: "done", sessionToken: "recovered", next: { flow: "settings", id: "s-1" } },
+        ]);
+        identity.resume.mockRejectedValueOnce(new Error("offline"));
+        const { result } = renderHook(() => useRecoveryForm(identity, vi.fn()));
+        act(() => {
+            result.current.setEmail("pat@test.ca");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(result.current.step).toBe("code");
+        });
+        act(() => {
+            result.current.setCode("123456");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(result.current.step).toBe("email");
+        });
+        expect(result.current.error).toBe(strings.auth.unavailable);
+        expect(identity.signOut).toHaveBeenCalledWith("recovered");
+    });
+
+    it("ends a half-finished reset's session when a new reset is refused", async () => {
+        const identity = fakeIdentity([{ kind: "flow", flow: sent }]);
+        identity.start.mockRejectedValueOnce(
+            Object.assign(new Error("session"), { code: "session_already_available" }),
+        );
+        const { result } = renderHook(() => useRecoveryForm(identity, vi.fn()));
+        act(() => {
+            result.current.setEmail("pat@test.ca");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(result.current.step).toBe("code");
+        });
+        expect(identity.signOut).toHaveBeenCalledTimes(1);
+        expect(identity.start).toHaveBeenCalledTimes(2);
     });
 });
 
@@ -384,6 +1150,123 @@ describe("useVerificationForm", () => {
         });
     });
 
+    it("asks for a new code when wrong ones used up the flow", async () => {
+        const identity = fakeIdentity([
+            { kind: "flow", flow: flow([], "sent_email", "verification") },
+            { kind: "restart", tooOften: true },
+        ]);
+        const { result } = renderHook(() =>
+            useVerificationForm(identity, { email: "pat@test.ca" }),
+        );
+        await waitFor(() => {
+            expect(result.current.cooldown).toBeGreaterThan(0);
+        });
+        act(() => {
+            result.current.setCode("000000");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(result.current.error).toBe(strings.auth.codeTooOften);
+        });
+        expect(result.current.verified).toBe(false);
+
+        const submitted = identity.submit.mock.calls.length;
+        act(() => {
+            result.current.setCode("123456");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        expect(identity.submit).toHaveBeenCalledTimes(submitted);
+        expect(result.current.error).toBe(strings.auth.codeTooOften);
+    });
+
+    it("sends a new code to the linked flow's address once wrong ones used it up", async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+        const sent = flow([node("code", "email", "pat@test.ca")], "sent_email", "verification");
+        const identity = fakeIdentity([
+            { kind: "restart", tooOften: true },
+            { kind: "flow", flow: sent },
+        ]);
+        identity.resume.mockResolvedValue(sent);
+        const { result } = renderHook(() => useVerificationForm(identity, { flowId: "v-1" }));
+        await waitFor(() => {
+            expect(identity.resume).toHaveBeenCalled();
+        });
+        await act(async () => {
+            await Promise.resolve();
+        });
+        act(() => {
+            result.current.setCode("000000");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(result.current.error).toBe(strings.auth.codeTooOften);
+        });
+        act(() => {
+            result.current.resend();
+        });
+        await waitFor(() => {
+            expect(result.current.error).toBeNull();
+        });
+        expect(identity.submit).toHaveBeenLastCalledWith(flow([], null, "verification"), {
+            method: "code",
+            email: "pat@test.ca",
+        });
+    });
+
+    it("shows the email as confirmed when its link got there first", async () => {
+        const identity = fakeIdentity([
+            { kind: "flow", flow: flow([], "sent_email", "verification") },
+            { kind: "restart", tooOften: true },
+        ]);
+        identity.whoami.mockResolvedValue({ id: "id-1", email: "pat@test.ca", verified: true });
+        const { result } = renderHook(() =>
+            useVerificationForm(identity, { email: "pat@test.ca" }),
+        );
+        await waitFor(() => {
+            expect(result.current.cooldown).toBeGreaterThan(0);
+        });
+        act(() => {
+            result.current.setCode("123456");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(result.current.verified).toBe(true);
+        });
+        expect(result.current.error).toBeNull();
+    });
+
+    it("doesn't call this address confirmed because another verified account is signed in", async () => {
+        const identity = fakeIdentity([
+            { kind: "flow", flow: flow([], "sent_email", "verification") },
+            { kind: "restart" },
+        ]);
+        identity.whoami.mockResolvedValue({ id: "id-2", email: "other@test.ca", verified: true });
+        const { result } = renderHook(() =>
+            useVerificationForm(identity, { email: "pat@test.ca" }),
+        );
+        await waitFor(() => {
+            expect(result.current.cooldown).toBeGreaterThan(0);
+        });
+        act(() => {
+            result.current.setCode("123456");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(result.current.error).toBe(strings.auth.codeExpired);
+        });
+        expect(result.current.verified).toBe(false);
+    });
+
     it("sends one code and holds resends during the cooldown", async () => {
         const identity = fakeIdentity([
             { kind: "flow", flow: flow([], "sent_email", "verification") },
@@ -406,6 +1289,8 @@ describe("useSecuritySettings", () => {
         [node("profile", "traits.email", "saved@test.ca"), node("profile", "traits.name", "Pat")],
         "show_form",
     );
+    const wrapper = ({ children }: { children: ReactNode }) =>
+        createElement(BusinessZoneContext.Provider, { value: "America/Vancouver" }, children);
 
     function render(
         steps: FlowStep[],
@@ -416,9 +1301,40 @@ describe("useSecuritySettings", () => {
         identity.start.mockImplementation((kind) =>
             Promise.resolve(kind === "settings" ? settings : refresh),
         );
-        const hook = renderHook(() => useSecuritySettings(identity, opts));
+        const hook = renderHook(() => useSecuritySettings(identity, opts), { wrapper });
         return { identity, ...hook };
     }
+
+    it("words a used backup code itself, on the business's day", async () => {
+        const codes = node("lookup_secret", "lookup_secret_codes");
+        codes.context = {
+            secrets: [
+                {
+                    id: 1050014,
+                    text: "Secret was used at 2026-10-31 02:34:15 +0000 UTC",
+                    context: { used_at: "2026-10-31T02:34:15Z" },
+                },
+                {
+                    id: 1050014,
+                    text: "Secret was used at 2026-10-31 03:00:00 +0000 UTC",
+                    context: { used_at: "2026-10-31T03:00:00Z" },
+                },
+                { id: 1050009, text: "abcd1234", context: { secret: "abcd1234" } },
+            ],
+        };
+        const identity = fakeIdentity([]);
+        identity.start.mockResolvedValue(flow([codes], "show_form"));
+        const { result } = renderHook(() => useSecuritySettings(identity), { wrapper });
+        await waitFor(() => {
+            expect(result.current.ready).toBe(true);
+        });
+        const used = strings.auth.backupCodeUsed("Oct 30, 2026");
+        expect(result.current.backupCodes.codes).toEqual([
+            { key: "used-0", label: used, used: true },
+            { key: "used-1", label: used, used: true },
+            { key: "abcd1234", label: "abcd1234", used: false },
+        ]);
+    });
 
     it("asks for a key's name before prompting for the key, and clears the ask once one is typed", async () => {
         const register = vi.fn<WebAuthnLike["register"]>(() => Promise.resolve("credential"));
@@ -428,10 +1344,12 @@ describe("useSecuritySettings", () => {
                 flow([node("webauthn", "webauthn_register_trigger", "{}")], null, kind),
             ),
         );
-        const { result } = renderHook(() =>
-            useSecuritySettings(identity, {
-                webauthn: { register, login: vi.fn<WebAuthnLike["login"]>() },
-            }),
+        const { result } = renderHook(
+            () =>
+                useSecuritySettings(identity, {
+                    webauthn: { register, login: vi.fn<WebAuthnLike["login"]>() },
+                }),
+            { wrapper },
         );
         await waitFor(() => {
             expect(result.current.ready).toBe(true);
@@ -459,7 +1377,10 @@ describe("useSecuritySettings", () => {
             secret.text = `SECRET${String(minted)}`;
             return Promise.resolve(flow([secret], "show_form", kind));
         });
-        const { result } = renderHook(() => useSecuritySettings(identity), { wrapper: StrictMode });
+        const { result } = renderHook(() => useSecuritySettings(identity), {
+            wrapper: ({ children }: { children: ReactNode }) =>
+                createElement(StrictMode, null, wrapper({ children })),
+        });
         await waitFor(() => {
             expect(result.current.totp.secret).not.toBeNull();
         });
@@ -566,8 +1487,8 @@ describe("useSecuritySettings", () => {
         identity.whoami.mockImplementation((sessionToken) =>
             Promise.resolve(
                 sessionToken === "exchanged-token"
-                    ? { id: "id-2", email: "other@test.ca" }
-                    : { id: "id-1", email: "saved@test.ca" },
+                    ? { id: "id-2", email: "other@test.ca", verified: true }
+                    : { id: "id-1", email: "saved@test.ca", verified: true },
             ),
         );
         act(() => {

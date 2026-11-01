@@ -122,7 +122,21 @@ interface BusinessNavigationAvailability {
     booking: boolean;
     shop: boolean;
     team: boolean;
+    visit: boolean;
     policies: boolean;
+}
+
+/** Whether the page has hours or contact details to list under "Plan your visit". */
+export function hasVisitDetails(page: {
+    hours: readonly unknown[];
+    address?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    website?: string | null;
+}): boolean {
+    return (
+        page.hours.length > 0 || [page.address, page.phone, page.email, page.website].some(Boolean)
+    );
 }
 
 const navigationCache = new WeakMap<
@@ -155,7 +169,9 @@ export function usePublicBusinessNavigation(
                     booking: profile.services.length > 0,
                     shop: products.items.length > 0,
                     team: profile.staff.length > 0,
-                    policies: Boolean(profile.policy),
+                    visit: hasVisitDetails(profile),
+                    // rules for changing a booking mean nothing with nothing to book
+                    policies: Boolean(profile.policy) && profile.services.length > 0,
                 }))
                 .catch((error: unknown) => {
                     cache.delete(key);
@@ -171,6 +187,7 @@ export function usePublicBusinessNavigation(
             booking: false,
             shop: false,
             team: false,
+            visit: false,
             policies: false,
         }
     );

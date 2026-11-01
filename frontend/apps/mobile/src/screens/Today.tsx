@@ -69,12 +69,13 @@ export function TodayScreen() {
             ) : (
                 <StaffToday bell={notifications.unread} onSecretTap={onSecretTap} />
             )}
-            <DebugOverlay
-                visible={debugOpen}
-                onClose={() => {
-                    setDebugOpen(false);
-                }}
-            />
+            {debugOpen ? (
+                <DebugOverlay
+                    onClose={() => {
+                        setDebugOpen(false);
+                    }}
+                />
+            ) : null}
         </SafeAreaView>
     );
 }
@@ -90,7 +91,8 @@ function OwnerToday({ bell, onSecretTap }: { bell: number; onSecretTap: () => vo
     const actions = useTodayActions(api);
     const openLink = useOpenLink();
     const setup = useSetupProgress();
-    const bookingLink = setup.slug === null ? null : bookingPageUrl(bookUrl, setup.slug);
+    const bookingLink =
+        setup.slug === null || !setup.live ? null : bookingPageUrl(bookUrl, setup.slug);
     const loading = load.state === "loading";
     const layout = firstRunLayout(
         view.agenda.length,

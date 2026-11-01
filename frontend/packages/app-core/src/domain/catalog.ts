@@ -1015,7 +1015,7 @@ interface ProductPhoto {
     busy: boolean;
     error: string | null;
     uploaded: boolean;
-    upload: (body: Blob, contentType: string, sizeBytes?: number) => void;
+    upload: (body: Blob | Promise<Blob>) => void;
 }
 
 export interface ProductEditor extends Taxed {
@@ -1065,14 +1065,9 @@ export function useProductEditor(
             busy: files.busy,
             error: files.error,
             uploaded: files.fileId !== null,
-            upload: (body, contentType, sizeBytes) => {
+            upload: (body) => {
                 if (item === null) return;
-                files.upload(
-                    body,
-                    { parentType: "item", parentId: item.id, purpose: "image" },
-                    contentType,
-                    sizeBytes,
-                );
+                files.upload(body, { parentType: "item", parentId: item.id, purpose: "image" });
             },
         },
     };

@@ -1,6 +1,47 @@
-import { describe, expect, it } from "vitest";
+// @vitest-environment happy-dom
+import type { CommonPowerSyncDatabase } from "@powersync/common";
+import { PowerSyncContext } from "@powersync/react";
+import { act, cleanup, renderHook } from "@testing-library/react";
+import { type ReactNode, createElement } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { debugFacts } from "./debug";
+import { debugFacts, useClientState } from "./debug";
+
+afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+});
+
+describe("useClientState", () => {
+    it("polls on its interval, though every read of lastSyncedAt is a new Date", async () => {
+        vi.useFakeTimers();
+        const get = vi.fn(() => Promise.resolve({ waiting: 0 }));
+        const getAll = vi.fn(() => Promise.resolve([]));
+        const db = {
+            currentStatus: {
+                get lastSyncedAt() {
+                    return new Date(1_800_000_000_000);
+                },
+            },
+            registerListener: () => () => undefined,
+            get,
+            getAll,
+        } as unknown as CommonPowerSyncDatabase;
+        const wrapper = ({ children }: { children: ReactNode }) =>
+            createElement(PowerSyncContext.Provider, { value: db }, children);
+        renderHook(() => useClientState(1500), { wrapper });
+        for (let settle = 0; settle < 20; settle++)
+            await act(async () => {
+                await Promise.resolve();
+            });
+        expect(get).toHaveBeenCalledTimes(1);
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(1500);
+        });
+        expect(get).toHaveBeenCalledTimes(2);
+        expect(getAll).toHaveBeenCalledTimes(2);
+    });
+});
 
 const NOW = new Date(2026, 9, 20, 16, 40, 30).getTime();
 const idle = {

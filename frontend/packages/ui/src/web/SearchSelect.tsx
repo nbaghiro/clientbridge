@@ -16,6 +16,7 @@ import { OptionLead, OptionList, matches } from "./Select";
 const PAGE = 10;
 
 export function SearchSelect<K extends string>({
+    emptyLabel,
     label,
     name,
     hint,
@@ -146,6 +147,7 @@ export function SearchSelect<K extends string>({
                       className="z-50 flex flex-col overflow-hidden rounded-lg border border-line bg-surface text-ink shadow-pop"
                   >
                       <OptionList
+                          emptyLabel={emptyLabel}
                           ref={list}
                           id={id}
                           listId={listId}

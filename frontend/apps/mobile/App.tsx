@@ -1,6 +1,6 @@
 import { NavigationBar } from "expo-navigation-bar";
 import { StatusBar } from "expo-status-bar";
-import { type ReactElement, type ReactNode, useCallback } from "react";
+import { type ReactElement, type ReactNode, useCallback, useEffect } from "react";
 import {
     checkSession,
     strings,
@@ -34,7 +34,7 @@ import { Splash, revealApp } from "./src/components/Splash";
 import { ShellBanners, TabBar } from "./src/components/TabBar";
 import { TaskHost } from "./src/components/TaskHost";
 import { api, identity, onSignedOut, selectBusiness } from "./src/lib/api";
-import { clearSession, getSession, rememberUser, signIn } from "./src/lib/auth";
+import { clearSession, endHeldSession, getSession, rememberUser, signIn } from "./src/lib/auth";
 import { stripePublishableKey } from "./src/lib/config";
 import { isTablet } from "./src/lib/device";
 import { connectPowerSync, replica, signOut } from "./src/lib/powersync";
@@ -69,6 +69,7 @@ import { SecurityScreen } from "./src/screens/Security";
 configureStripe(stripePublishableKey);
 // transport failures already show in the shell's sync banner; the dev overlay only repeats them
 LogBox.ignoreLogs([/^\[PowerSync\]: Sync error/]);
+endHeldSession((sessionToken) => identity.signOut(sessionToken)).catch(() => undefined);
 
 const Tab = createBottomTabNavigator<TabParamList>();
 const RootStack = createNativeStackNavigator<RootStackParamList>();
@@ -168,9 +169,6 @@ const lifecycle = {
     },
     subscribe: onSignedOut,
     clearCredentials: endSession,
-    onReady: () => {
-        registerForPush().catch(() => undefined);
-    },
 };
 
 function Root() {
@@ -239,6 +237,10 @@ function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
     const business = useBusinessLoad();
     // A newer server zone table rerenders every formatted time once.
     const zones = useServerZones(api);
+    useEffect(() => {
+        // Not before a business exists, when nothing yet explains why it would notify anyone.
+        if (business.ready) registerForPush().catch(() => undefined);
+    }, [business.ready]);
     if (!business.ready) {
         if (business.state === "empty") return <OnboardingScreen onSignOut={onSignOut} />;
         return (

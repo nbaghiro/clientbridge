@@ -14,7 +14,7 @@ export interface ApiLike {
     delete<T>(path: string, opts?: PostOptions): Promise<T>;
 }
 
-const field = (e: unknown, name: "status" | "code" | "detail"): unknown =>
+const field = (e: unknown, name: "status" | "code" | "detail" | "loc"): unknown =>
     e !== null && typeof e === "object" && name in e ? (e as Record<string, unknown>)[name] : null;
 
 /** The HTTP status of a refused request; the message shown comes from the catalog. */
@@ -38,6 +38,16 @@ export function failedDetail(e: unknown): FailureDetail {
     return detail !== null && typeof detail === "object" && !Array.isArray(detail)
         ? (detail as FailureDetail)
         : {};
+}
+
+/** The request fields a validation refusal named, as paths such as "brand.website". */
+export function failedFields(e: unknown): string[] {
+    const detail = field(e, "detail");
+    if (failedCode(e) !== "invalid_request" || !Array.isArray(detail)) return [];
+    return detail.flatMap((entry: unknown) => {
+        const loc = field(entry, "loc");
+        return Array.isArray(loc) && loc[0] === "body" ? [loc.slice(1).join(".")] : [];
+    });
 }
 
 /** A refused public request, read the same way as a staff one: status, code and detail, never the text. */
@@ -142,6 +152,8 @@ const FAILURES: Record<string, (detail: FailureDetail) => string> = {
     unsupported_currency: () => strings.api.unsupportedCurrency,
     sku_taken: () => strings.api.skuTaken,
     invoice_has_payments: () => strings.api.invoiceHasPayments,
+    file_type_unsupported: () => strings.api.fileTypeUnsupported,
+    file_too_large: () => strings.api.fileTooLarge,
 };
 
 /** The catalog message for a failure the server named, else the action's own message. */
@@ -225,7 +237,8 @@ export type FlowStep =
     | { kind: "flow"; flow: Flow }
     | { kind: "redirect"; url: string }
     | { kind: "reauth" }
-    | { kind: "restart" };
+    /** The flow can't go on; `tooOften` when wrong codes used up its attempts. */
+    | { kind: "restart"; tooOften?: boolean };
 
 // The slice of the auth service client the auth hooks drive (web: browser flows; mobile: native flows).
 export interface IdentityLike {
@@ -241,7 +254,7 @@ export interface IdentityLike {
     resume(kind: FlowKind, id: string, sessionToken?: string): Promise<Flow>;
     submit(flow: Flow, body: Record<string, unknown>, sessionToken?: string): Promise<FlowStep>;
     session(sessionToken?: string): Promise<"active" | "second_factor" | "none">;
-    whoami(sessionToken?: string): Promise<{ id: string; email: string } | null>;
+    whoami(sessionToken?: string): Promise<{ id: string; email: string; verified: boolean } | null>;
     exchange(flow: Flow, returnToCode: string): Promise<string>;
     signOut(sessionToken?: string): Promise<void>;
 }

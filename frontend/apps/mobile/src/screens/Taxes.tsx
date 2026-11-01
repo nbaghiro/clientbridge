@@ -141,6 +141,7 @@ export function TaxesScreen() {
                                 })
                                     .then((ok) => {
                                         if (ok) form.changeProvince();
+                                        else form.cancelProvince();
                                     })
                                     .catch(() => undefined);
                             }}

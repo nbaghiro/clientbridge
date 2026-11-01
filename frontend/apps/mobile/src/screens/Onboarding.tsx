@@ -1,4 +1,5 @@
 import {
+    BUSINESS_NAME_MAX,
     PROVINCES,
     pageDomain,
     industryOptions,
@@ -8,20 +9,10 @@ import {
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import {
-    Button,
-    Choice,
-    Field,
-    Lockup,
-    Logo,
-    Notice,
-    Panel,
-    Select,
-    TextField,
-} from "@clientbridge/ui";
+import { Button, Lockup, Logo, Notice, Panel, Select, TextField } from "@clientbridge/ui";
 
 import { api, identity } from "../lib/api";
 import { pageUrl } from "../lib/config";
@@ -30,8 +21,11 @@ const c = theme.colors;
 const a = strings.auth;
 
 /** Onboarding needs a confirmed email; this sends a code to the account's address. */
-function VerifyEmail() {
+function VerifyEmail({ onVerified }: { onVerified: () => void }) {
     const v = useVerificationForm(identity, {});
+    useEffect(() => {
+        if (v.verified) onVerified();
+    }, [v.verified, onVerified]);
     if (v.verified) return <Notice tone="success">{a.verifyDone}</Notice>;
     return (
         <View style={styles.verify}>
@@ -97,6 +91,7 @@ export function OnboardingScreen({ onSignOut }: { onSignOut: () => void }) {
                         label={strings.business.onboarding.businessName}
                         value={form.name}
                         onChange={form.setName}
+                        maxLength={BUSINESS_NAME_MAX}
                         size="lg"
                         surface="surface"
                     />
@@ -110,14 +105,15 @@ export function OnboardingScreen({ onSignOut }: { onSignOut: () => void }) {
                         size="lg"
                         surface="surface"
                     />
-                    <Field label={strings.business.onboarding.province}>
-                        <Choice
-                            label={strings.business.onboarding.province}
-                            options={PROVINCES.map((p) => ({ key: p.code, label: p.code }))}
-                            value={form.province}
-                            onChange={form.setProvince}
-                        />
-                    </Field>
+                    <Select
+                        label={strings.business.onboarding.province}
+                        value={form.province ?? undefined}
+                        placeholder={strings.business.onboarding.provincePlaceholder}
+                        options={PROVINCES.map((p) => ({ key: p.code, label: p.name }))}
+                        onChange={form.setProvince}
+                        size="lg"
+                        surface="surface"
+                    />
                     {form.taxSummary !== null ? (
                         <Panel style={styles.tax}>
                             <Text style={styles.taxTitle}>
@@ -144,7 +140,9 @@ export function OnboardingScreen({ onSignOut }: { onSignOut: () => void }) {
                     />
 
                     {form.error ? <Notice tone="danger">{form.error}</Notice> : null}
-                    {form.needsVerification ? <VerifyEmail /> : null}
+                    {form.needsVerification ? (
+                        <VerifyEmail onVerified={form.emailConfirmed} />
+                    ) : null}
 
                     <View style={styles.submitGap}>
                         <Button size="lg" full onPress={form.submit} busy={form.busy}>

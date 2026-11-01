@@ -159,7 +159,7 @@ export function SecurityScreen() {
                 <View style={styles.stack}>
                     {s.backupCodes.codes !== null ? (
                         <Text selectable style={styles.mono}>
-                            {s.backupCodes.codes.join("   ")}
+                            {s.backupCodes.codes.map((code) => code.label).join("   ")}
                         </Text>
                     ) : null}
                     {s.backupCodes.unconfirmed ? (

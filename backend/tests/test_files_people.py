@@ -144,16 +144,20 @@ async def test_staff_cannot_set_or_clear_another_members_photo_403(
 
 
 @pytest.mark.parametrize(
-    "extra",
-    [{"purpose": "attachment"}, {"purpose": None}, {"content_type": "application/pdf"}],
+    ("extra", "code"),
+    [
+        ({"purpose": "attachment"}, "invalid_request"),
+        ({"purpose": None}, "invalid_request"),
+        ({"content_type": "application/pdf"}, "file_type_unsupported"),
+    ],
 )
 async def test_a_person_takes_only_an_image_photo_422(
-    as_owner: httpx.AsyncClient, extra: dict[str, object]
+    as_owner: httpx.AsyncClient, extra: dict[str, object], code: str
 ) -> None:
     for parent_type, parent_id in (("client", "cl_amelie"), ("user", OWNER_USER)):
         res = await as_owner.post("/v1/files", json=_photo(parent_type, parent_id, **extra))
         assert res.status_code == 422
-        assert res.json()["error"] == "invalid_request"
+        assert res.json()["error"] == code
 
 
 async def test_only_people_photos_are_cleared_this_way_422(as_owner: httpx.AsyncClient) -> None:

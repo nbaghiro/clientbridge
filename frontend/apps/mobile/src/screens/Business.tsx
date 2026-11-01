@@ -7,9 +7,10 @@ import {
     useBusinessForm,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
+import { useNavigation, usePreventRemove } from "@react-navigation/native";
 import type { ReactNode } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Button, Loading, Notice, Panel, Select, TextField } from "@clientbridge/ui";
+import { Button, confirm, Loading, Notice, Panel, Select, TextField } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
 import { pageUrl } from "../lib/config";
@@ -22,6 +23,20 @@ export function Business({ footer }: { footer?: ReactNode }) {
     const save = (): void => {
         form.submit();
     };
+    const navigation = useNavigation();
+    usePreventRemove(form.dirty, ({ data }) => {
+        confirm({
+            title: strings.business.leaveTitle,
+            message: strings.business.leaveBody,
+            confirmLabel: strings.business.leave,
+            cancelLabel: strings.business.keepEditing,
+            destructive: true,
+        })
+            .then((ok) => {
+                if (ok) navigation.dispatch(data.action);
+            })
+            .catch(() => undefined);
+    });
 
     if (fields === null) {
         return <Loading />;
@@ -49,6 +64,8 @@ export function Business({ footer }: { footer?: ReactNode }) {
                             form.set(f.key, v);
                         }}
                         placeholder={f.placeholder}
+                        maxLength={f.maxLength}
+                        error={form.fieldErrors[f.key]}
                         size="lg"
                         surface="surface"
                     />
@@ -94,12 +111,17 @@ export function Business({ footer }: { footer?: ReactNode }) {
                                         form.set(f.key, v);
                                     }}
                                     placeholder={f.placeholder}
+                                    error={form.fieldErrors[f.key]}
                                     size="lg"
                                 />
                             ))}
                             <TextField
                                 label={strings.business.legalAddress.province}
-                                hint={strings.business.legalAddress.provinceHint}
+                                hint={
+                                    form.provinceLocked
+                                        ? strings.taxes.provinceLocked
+                                        : strings.business.legalAddress.provinceHint
+                                }
                                 value={form.province}
                                 disabled
                                 size="lg"
@@ -110,10 +132,11 @@ export function Business({ footer }: { footer?: ReactNode }) {
 
                 {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
                 {form.saved ? <Notice tone="success">{strings.common.saved}</Notice> : null}
+                {form.dirty ? <Notice tone="info">{strings.business.unsaved}</Notice> : null}
 
                 <View style={styles.submitGap}>
                     <Button size="lg" full onPress={save} busy={form.busy}>
-                        {strings.common.save}
+                        {form.busy ? strings.common.saving : strings.business.saveDetails}
                     </Button>
                 </View>
                 {footer}

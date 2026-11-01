@@ -238,3 +238,30 @@ async def test_onboard_without_a_known_subject_kind_422(
     body = {"name": "K", "slug": "kind-missing", "province": "ON", **subject}
     res = await api.post("/v1/onboarding", json=body)
     assert res.status_code == 422
+
+
+@pytest.mark.parametrize("name", ["", "   ", "x" * 101])
+async def test_onboard_refuses_a_blank_or_overlong_name(
+    api: httpx.AsyncClient, factory: Factory, identities: FakeIdentityProvider, name: str
+) -> None:
+    user = await factory.user()
+    await _auth(api, factory, identities, user.id)
+    res = await api.post(
+        "/v1/onboarding",
+        json={"name": name, "slug": "blank-name", "province": "ON", "subject": None},
+    )
+    assert res.status_code == 422
+    assert res.json()["detail"][0]["loc"] == ["body", "name"]
+
+
+async def test_onboard_saves_a_trimmed_name(
+    api: httpx.AsyncClient, factory: Factory, identities: FakeIdentityProvider
+) -> None:
+    user = await factory.user()
+    await _auth(api, factory, identities, user.id)
+    res = await api.post(
+        "/v1/onboarding",
+        json={"name": "  Acme  ", "slug": "acme-trim", "province": "ON", "subject": None},
+    )
+    assert res.status_code == 201, res.text
+    assert res.json()["name"] == "Acme"
