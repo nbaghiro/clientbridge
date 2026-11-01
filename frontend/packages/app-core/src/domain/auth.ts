@@ -607,6 +607,7 @@ export function useRecoveryForm(
     const [flow, setFlow] = useState<Flow | null>(null);
     const token = useRef<string | undefined>(undefined);
     const holding = useRef(false);
+    const closed = useRef(false);
     const settingsId = useRef("");
     const { busy, error, setError, run } = useAsyncAction();
     const mfa = useSecondFactor(identity, opts?.webauthn, {
@@ -617,9 +618,23 @@ export function useRecoveryForm(
         setError,
     });
 
+    const endHeld = (): void => {
+        identity.signOut(token.current).then(
+            () => {
+                noteReset(opts?.resetStorage, null);
+            },
+            () => undefined,
+        );
+    };
+
     const hold = async (sessionToken: string | undefined): Promise<void> => {
         token.current = sessionToken;
         holding.current = true;
+        // A code accepted after the screen closed gets a session nobody is left to end.
+        if (closed.current) {
+            endHeld();
+            return;
+        }
         if (!opts?.resetStorage) return;
         const me = await identity.whoami(sessionToken).catch(() => null);
         noteReset(opts.resetStorage, me?.sessionId ?? "");
@@ -633,18 +648,13 @@ export function useRecoveryForm(
     };
 
     // Leaving before the password is saved (a back gesture, say) ends the reset's session too.
-    useEffect(
-        () => () => {
-            if (!holding.current) return;
-            identity.signOut(token.current).then(
-                () => {
-                    noteReset(opts?.resetStorage, null);
-                },
-                () => undefined,
-            );
-        },
-        [],
-    );
+    useEffect(() => {
+        closed.current = false;
+        return () => {
+            closed.current = true;
+            if (holding.current) endHeld();
+        };
+    }, []);
 
     const show = (next: Flow): void => {
         setFlow(next);
@@ -767,7 +777,8 @@ export function useRecoveryForm(
         if (outcome === "saved") {
             const saved = token.current;
             release();
-            await onSignedIn(saved);
+            // Closing the screen mid-save already ended this session.
+            if (!closed.current) await onSignedIn(saved);
             return;
         }
         if (outcome === "retry" && result.kind === "flow") {

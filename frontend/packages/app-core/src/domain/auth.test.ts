@@ -660,6 +660,39 @@ describe("useRecoveryForm", () => {
             expect(identity.signOut).not.toHaveBeenCalled();
         });
 
+        it("ends a session whose code is accepted only after it closed", async () => {
+            const { identity, result, unmount } = await atCodeStep([]);
+            let accept: (step: FlowStep) => void = () => undefined;
+            identity.submit.mockReturnValueOnce(
+                new Promise((resolve) => {
+                    accept = resolve;
+                }),
+            );
+            enterCode(result);
+            unmount();
+            expect(identity.signOut).not.toHaveBeenCalled();
+            accept(accepted);
+            await waitFor(() => {
+                expect(identity.signOut).toHaveBeenCalledWith("recovered");
+            });
+        });
+
+        it("signs nobody in when it closes while the password saves", async () => {
+            const { identity, signedIn, result, unmount } = await atPasswordStep();
+            let save: (step: FlowStep) => void = () => undefined;
+            identity.submit.mockReturnValueOnce(
+                new Promise((resolve) => {
+                    save = resolve;
+                }),
+            );
+            savePassword(result);
+            unmount();
+            expect(identity.signOut).toHaveBeenCalledWith("recovered");
+            save({ kind: "flow", flow: flow([], "success") });
+            await act(() => Promise.resolve());
+            expect(signedIn).not.toHaveBeenCalled();
+        });
+
         it("ends nothing when no code was accepted yet", () => {
             const identity = fakeIdentity([]);
             const { unmount } = renderHook(() => useRecoveryForm(identity, vi.fn()));
