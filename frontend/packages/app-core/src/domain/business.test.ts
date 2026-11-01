@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ApiLike } from "../api";
 import { strings } from "../strings";
 import {
+    brandColourName,
     industryOptions,
     setupTasks,
     useBookingSetupMissing,
@@ -130,6 +131,11 @@ describe("useBookingSetupMissing", () => {
         const { result } = renderHook(() => useBookingSetupMissing(viewer));
         expect(result.current).toBe(missing);
     });
+});
+
+it("names a brand swatch from the palette, and an unknown colour by its value", () => {
+    expect(brandColourName("#2E4A3F")).toBe(strings.business.getSetUp.colourNames.forest);
+    expect(brandColourName("#123456")).toBe("#123456");
 });
 
 describe("useSetupProgress", () => {

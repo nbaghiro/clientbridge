@@ -21,6 +21,17 @@ export function cssVar(key: ColorKey): string {
 export const ON_DATA = "#FFFFFF";
 export const SHADOW = "#14191E";
 
+// The colours a business brand or a team member can take, by the name a screen reader says.
+export const BRAND_PALETTE = {
+    forest: "#2E4A3F",
+    slate: "#3F5E80",
+    teal: "#2E6670",
+    plum: "#7D5A82",
+    terracotta: "#A95C43",
+    ochre: "#86621E",
+    charcoal: "#3A4654",
+} as const;
+
 // Black or white, whichever reads on a brand colour (the WCAG contrast crossover).
 export function readableInk(color: string): "#000000" | "#ffffff" {
     const hex = color.slice(1);

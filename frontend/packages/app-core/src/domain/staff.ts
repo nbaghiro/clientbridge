@@ -1,3 +1,4 @@
+import { BRAND_PALETTE } from "@clientbridge/tokens";
 import { isManager } from "./auth";
 import { personMedia, usePeoplePhotos } from "./files";
 import { afterReview } from "./previews";
@@ -22,15 +23,7 @@ import {
     sendAttempt,
 } from "../api";
 
-export const BRAND_COLOURS = [
-    "#2E4A3F",
-    "#3F5E80",
-    "#2E6670",
-    "#7D5A82",
-    "#A95C43",
-    "#86621E",
-    "#3A4654",
-] as const;
+export const BRAND_COLOURS = Object.values(BRAND_PALETTE);
 
 export type MemberRole = "owner" | "admin" | "staff" | "contractor";
 

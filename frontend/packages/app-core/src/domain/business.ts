@@ -12,7 +12,8 @@ import type { ChoiceOption, Fact, SelectOption } from "../ui";
 import { durationLabel } from "./publicBooking";
 import { bareUrl, bookingPageUrl, businessPageUrl } from "../runtime";
 import type { ShellTarget } from "./navigation";
-import { BRAND_COLOURS, useStaff, staffName } from "./staff";
+import { BRAND_PALETTE } from "@clientbridge/tokens";
+import { useStaff, staffName } from "./staff";
 import { useReplicaLoad, useSyncStatus } from "./sync";
 import { SUPPORTED_ZONES, type SupportedZone } from "../zones";
 import { dateKey } from "../datetime";
@@ -1067,7 +1068,7 @@ export function useBrandForm(api: ApiLike): BrandForm {
         logo: image(logoFiles, "logo_file_id", logoTarget),
         cover: image(coverFiles, "cover_file_id", coverTarget),
         uploading,
-        colour: current.primary || BRAND_COLOURS[1],
+        colour: current.primary || BRAND_PALETTE.slate,
         setColour: (v) => {
             edit("primary", v);
         },
@@ -1107,7 +1108,7 @@ export function useBrandForm(api: ApiLike): BrandForm {
                 ...Object.fromEntries(
                     Object.entries(sent).map(([key, value]) => [key, brandValue(key, value)]),
                 ),
-                ...(current.primary === "" ? { primary: BRAND_COLOURS[1] } : {}),
+                ...(current.primary === "" ? { primary: BRAND_PALETTE.slate } : {}),
             };
             let updated: { brand?: unknown } | null = null;
             run(
@@ -1133,17 +1134,10 @@ export function useBrandForm(api: ApiLike): BrandForm {
 
 /** The name a screen reader says for a brand swatch. */
 export function brandColourName(colour: string): string {
-    const names = strings.business.getSetUp.colourNames;
-    const named: Record<string, string> = {
-        "#2E4A3F": names.forest,
-        "#3F5E80": names.slate,
-        "#2E6670": names.teal,
-        "#7D5A82": names.plum,
-        "#A95C43": names.terracotta,
-        "#86621E": names.ochre,
-        "#3A4654": names.charcoal,
-    };
-    return named[colour] ?? colour;
+    const name = (Object.keys(BRAND_PALETTE) as (keyof typeof BRAND_PALETTE)[]).find(
+        (key) => BRAND_PALETTE[key] === colour,
+    );
+    return name === undefined ? colour : strings.business.getSetUp.colourNames[name];
 }
 
 export const BOOKING_PREVIEW_SQL = `
