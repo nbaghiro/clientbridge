@@ -742,9 +742,7 @@ function TipBlock({ sale }: { sale: SaleTicket }) {
         <section className="space-y-3" aria-label={d.tipSection}>
             <Heading>{d.tipSection}</Heading>
             <TipChips sale={sale} />
-            <p className="text-xs text-muted">
-                {sale.tipNote}
-            </p>
+            <p className="text-xs text-muted">{sale.tipNote}</p>
             {tip > 0 ? (
                 <div className="space-y-2 rounded-md border border-line bg-bg p-3">
                     <Choice

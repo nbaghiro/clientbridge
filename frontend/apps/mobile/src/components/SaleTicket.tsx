@@ -341,9 +341,7 @@ function TipBlock({ sale }: { sale: SaleTicket }) {
                     }}
                 />
             ) : null}
-            <Text style={styles.note}>
-                {sale.tipNote}
-            </Text>
+            <Text style={styles.note}>{sale.tipNote}</Text>
             {tip > 0 ? (
                 <View style={styles.stack}>
                     <Choice

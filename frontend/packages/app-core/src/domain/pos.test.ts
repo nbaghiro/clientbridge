@@ -307,7 +307,7 @@ describe("useTerminalConnection", () => {
     });
 });
 
-describe("canceling a sale's checkout", () => {
+describe("a sale resumed from a held ticket", () => {
     const wrapper = ({ children }: { children: ReactNode }) =>
         createElement(BusinessZoneContext.Provider, { value: ZONE }, children);
     const held: OrderOut = {
@@ -415,7 +415,9 @@ describe("canceling a sale's checkout", () => {
         act(() => {
             result.current.resume(held, []);
         });
-        expect(result.current.tipNote).toBe(strings.pos.desk.tipOnNoTax(formatMoney(1000, BUSINESS_CURRENCY)));
+        expect(result.current.tipNote).toBe(
+            strings.pos.desk.tipOnNoTax(formatMoney(1000, BUSINESS_CURRENCY)),
+        );
     });
 });
 
