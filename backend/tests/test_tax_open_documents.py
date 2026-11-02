@@ -1,23 +1,26 @@
 """Drafts and unaccepted estimates follow the tax settings; issued documents never do."""
 
+import asyncio
 from datetime import UTC, date, datetime
 
 import httpx
 import pytest
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
+from clientbridge.core.db import SessionLocal
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Estimate, Invoice, Line, Order
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import GiftCard, Item
 from clientbridge.models.ledger import Account, Entry
+from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Audit
 from clientbridge.services import billing, ledger
 from clientbridge.services.billing import run_reprice_open_documents
 from clientbridge.services.ledger import Leg
-from tests.conftest import BIZ, Factory
+from tests.conftest import BIZ, OWNER_USER, Factory
 from tests.helpers import client_id, enable_payments, key, ok
 
 SHAMPOO = {"description": "Shampoo", "item_id": "it_shampoo", "unit_amount_cents": 2400}
@@ -177,6 +180,7 @@ async def test_a_slug_conflict_with_a_tax_change_is_a_conflict_and_changes_nothi
         "/v1/business", json={"slug": taken, "tax_registered": False}, headers=key()
     )
     assert res.status_code == 409 and res.json()["error"] == "slug_taken"
+    assert (await db.get_one(Business, BIZ, populate_existing=True)).tax_registered
 
 
 async def test_public_pages_say_which_items_are_taxable(
@@ -236,9 +240,7 @@ async def test_a_ticket_with_a_live_or_settled_payment_keeps_its_amount(
     assert (await db.get_one(Order, str(settled["id"]), populate_existing=True)).total_cents == 2688
 
 
-async def test_a_ticket_with_a_gift_card_applied_keeps_its_amount(
-    as_owner: httpx.AsyncClient, db: AsyncSession
-) -> None:
+async def _gift_card(db: AsyncSession) -> GiftCard:
     card = GiftCard(id=new_id("gift_card"), business_id=BIZ, code="TAXHOLD1", initial_cents=1000)
     card.status = "active"
     db.add(card)
@@ -251,15 +253,32 @@ async def test_a_ticket_with_a_gift_card_applied_keeps_its_amount(
         legs=[Leg("business", BIZ, "stripe", 1000), Leg("gift_card", card.id, "gift_card", -1000)],
         subject=("gift_card", card.id),
     )
+    return card
+
+
+async def test_a_ticket_with_a_gift_card_applied_keeps_its_amount(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    card = await _gift_card(db)
     held = await _held_ticket(as_owner)
-    ok(
-        await as_owner.post(
-            f"/v1/orders/{held['id']}/gift-card", json={"code": card.code}, headers=key()
-        )
-    )
+    path = f"/v1/orders/{held['id']}/gift-card"
+    ok(await as_owner.post(path, json={"code": card.code}, headers=key()))
     ok(await as_owner.patch("/v1/business", json={"tax_registered": False}, headers=key()))
     order = await db.get_one(Order, str(held["id"]), populate_existing=True)
     assert order.total_cents == 2688
+
+
+async def test_a_ticket_whose_gift_card_came_off_follows_the_settings_again(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    card = await _gift_card(db)
+    held = await _held_ticket(as_owner)
+    path = f"/v1/orders/{held['id']}/gift-card"
+    ok(await as_owner.post(path, json={"code": card.code}, headers=key()))
+    ok(await as_owner.patch(f"/v1/orders/{held['id']}", json={"lines": [SHAMPOO]}))
+    ok(await as_owner.patch("/v1/business", json={"tax_registered": False}, headers=key()))
+    order = await db.get_one(Order, str(held["id"]), populate_existing=True)
+    assert order.total_cents == 2400
 
 
 async def test_a_held_ticket_is_charged_at_the_settings_in_force_when_it_is_paid(
@@ -358,30 +377,116 @@ async def test_the_nightly_job_catches_up_on_a_date_it_missed(
     assert await _total(db, Invoice, draft) == 2688
 
 
-async def test_one_failure_doesnt_stop_the_nightly_job_for_other_businesses(
-    as_owner: httpx.AsyncClient,
-    db: AsyncSession,
-    factory: Factory,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    other = await factory.business()
-    other.timezone = "America/Vancouver"
-    other.tax_registered_on = date(2026, 10, 20)
-    await db.execute(
-        update(Business).where(Business.id == BIZ).values(tax_registered_on=date(2026, 10, 20))
+async def _stale_ticket(db: AsyncSession, biz: str) -> str:
+    order = Order(id=new_id("order"), business_id=biz, staff_id="st_owner", total_cents=1)
+    db.add(order)
+    await db.flush()
+    db.add(
+        Line(
+            id=new_id("line"),
+            business_id=biz,
+            order_id=order.id,
+            description="Shampoo",
+            unit_amount_cents=2400,
+            amount_cents=2400,
+        )
     )
     await db.flush()
-    other_id, seen = other.id, []
+    return order.id
+
+
+async def test_one_failure_doesnt_stop_the_nightly_job_for_other_businesses(
+    db: AsyncSession, factory: Factory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    first, failing, last = [await factory.business() for _ in range(3)]
+    tickets: dict[str, str] = {}
+    for business in (first, failing, last):
+        business.tax_registered = True
+        business.tax_registered_on = date(2026, 10, 20)
+        tickets[business.id] = await _stale_ticket(db, business.id)
     real = billing.reprice_open_documents
+
+    async def at_midnight(session: AsyncSession, now: datetime, hour: int) -> list[Business]:
+        return [first, failing, last]
 
     async def flaky(
         session: AsyncSession, biz: str, performed_by: str | None, at: datetime | None = None
     ) -> None:
-        seen.append(biz)
-        if biz == BIZ:
+        if biz == failing.id:
             raise RuntimeError("boom")
         await real(session, biz, performed_by, at)
 
+    monkeypatch.setattr(billing, "businesses_at_hour", at_midnight)
     monkeypatch.setattr(billing, "reprice_open_documents", flaky)
-    await run_reprice_open_documents(db, MIDNIGHT_OCT_20_VANCOUVER)
-    assert BIZ in seen and other_id in seen
+    assert await run_reprice_open_documents(db, MIDNIGHT_OCT_20_VANCOUVER) == 2
+    totals = {
+        biz: (await db.get_one(Order, order_id, populate_existing=True)).total_cents
+        for biz, order_id in tickets.items()
+    }
+    assert totals == {first.id: 2688, failing.id: 1, last.id: 2688}
+
+
+async def test_a_tax_change_leaves_other_businesses_documents_alone(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    other = await factory.business()
+    other.tax_registered = True
+    ticket = await _stale_ticket(db, other.id)
+    ok(await as_owner.patch("/v1/business", json={"tax_registered": False}, headers=key()))
+    assert (await db.get_one(Order, ticket, populate_existing=True)).total_cents == 1
+
+
+async def test_a_card_charge_prices_the_ticket_at_the_settings_in_force(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await enable_payments(db)
+    held = await _held_ticket(as_owner)
+    await db.execute(update(Business).where(Business.id == BIZ).values(tax_registered=False))
+    await db.flush()
+    ok(await as_owner.post(f"/v1/orders/{held['id']}/pay", json={}))
+    payment = (await db.execute(select(Payment).where(Payment.order_id == held["id"]))).scalar_one()
+    assert payment.amount_cents == 2400
+
+
+async def test_a_payment_started_while_a_reprice_waits_keeps_the_ticket_amount() -> None:
+    async with SessionLocal() as setup:
+        order_id = await _stale_ticket(setup, BIZ)
+        await setup.commit()
+    locked = asyncio.Event()
+
+    async def charge() -> None:
+        async with SessionLocal() as session:
+            await session.execute(select(Order.id).where(Order.id == order_id).with_for_update())
+            locked.set()
+            await asyncio.sleep(0.2)
+            session.add(
+                Payment(
+                    id=new_id("payment"),
+                    business_id=BIZ,
+                    order_id=order_id,
+                    kind="payment",
+                    amount_cents=1,
+                    method="card",
+                    provider="stripe",
+                    status="pending",
+                )
+            )
+            await session.commit()
+
+    async def reprice() -> None:
+        await asyncio.wait_for(locked.wait(), 5)
+        async with SessionLocal() as session:
+            await billing.reprice_ticket(session, BIZ, order_id, OWNER_USER)
+            await session.commit()
+
+    try:
+        await asyncio.gather(charge(), reprice())
+        async with SessionLocal() as check:
+            assert (await check.get_one(Order, order_id)).total_cents == 1
+    finally:
+        async with SessionLocal() as cleanup:
+            await cleanup.execute(delete(Audit).where(Audit.entity_id == order_id))
+            await cleanup.execute(delete(Payment).where(Payment.order_id == order_id))
+            await cleanup.execute(delete(Line).where(Line.order_id == order_id))
+            await cleanup.execute(delete(Order).where(Order.id == order_id))
+            await cleanup.commit()

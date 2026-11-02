@@ -19,7 +19,6 @@ from clientbridge.models.billing import Estimate, EstimateStatus, Invoice, Line,
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item, TaxClass
 from clientbridge.models.clients import Client
-from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import Addon, Booking, Slot
@@ -672,16 +671,7 @@ def _unpaid_order(biz: str) -> list[ColumnElement[bool]]:
     paying = scoped(Payment, biz).where(
         Payment.order_id == Order.id, Payment.status.in_(("pending", "succeeded"))
     )
-    gift_card = (
-        scoped(Entry, biz)
-        .join(Account, Account.id == Entry.account_id)
-        .where(
-            Entry.source_type == "order",
-            Entry.source_id == Order.id,
-            Account.category == "gift_card",
-        )
-    )
-    return [Order.status == "open", ~paying.exists(), ~gift_card.exists()]
+    return [Order.status == "open", ~paying.exists(), ledger.gift_card_applied_expr(Order.id) == 0]
 
 
 async def _reprice(
@@ -700,7 +690,16 @@ async def _reprice(
         .with_for_update()
         .execution_options(populate_existing=True)
     )
-    documents = list(rows.scalars().all())
+    locked = list(rows.scalars().all())
+    # a lock wait doesn't refresh the snapshot, so a payment committed meanwhile needs a new read
+    still = set(
+        (
+            await db.execute(
+                select(model.id).where(model.id.in_([d.id for d in locked]), *conditions)
+            )
+        ).scalars()
+    )
+    documents = [document for document in locked if document.id in still]
     lines = await fetch_lines_of(db, biz, parent, [document.id for document in documents])
     for document in documents:
         before = document.total_cents

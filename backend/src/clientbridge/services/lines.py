@@ -226,6 +226,7 @@ async def fetch_lines_of(
         .add_columns(parent_fk(parent))
         .where(parent_fk(parent).in_(parent_ids))
         .order_by(Line.position, Line.id)
+        .execution_options(populate_existing=True)
     )
     lines: dict[str, list[Line]] = {}
     for line, parent_id in rows.tuples():

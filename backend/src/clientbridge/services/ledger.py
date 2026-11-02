@@ -487,7 +487,7 @@ async def order_deposit_applied(db: AsyncSession, order: Order) -> int:
     return int((await db.execute(select(_deposit_applied_expr(order.id)))).scalar_one())
 
 
-def _gift_card_applied_expr(order_id: _Id) -> ColumnElement[int]:
+def gift_card_applied_expr(order_id: _Id) -> ColumnElement[int]:
     """Gift card balance redeemed against a sale, net of the reversal a refund or void posts."""
     return (
         select(func.coalesce(func.sum(Entry.amount_cents), 0))
@@ -502,14 +502,14 @@ def _gift_card_applied_expr(order_id: _Id) -> ColumnElement[int]:
 
 
 async def order_gift_card_applied(db: AsyncSession, order: Order) -> int:
-    return int((await db.execute(select(_gift_card_applied_expr(order.id)))).scalar_one())
+    return int((await db.execute(select(gift_card_applied_expr(order.id)))).scalar_one())
 
 
 def order_status_expr() -> ColumnElement[str]:
     """An order stores only open/void; whether it is paid or refunded comes from the ledger."""
     return _order_status(
         _collected_expr("order", Order.id),
-        _deposit_applied_expr(Order.id) + _gift_card_applied_expr(Order.id),
+        _deposit_applied_expr(Order.id) + gift_card_applied_expr(Order.id),
         _refunded_expr("order", Order.id),
     )
 
@@ -1326,7 +1326,7 @@ async def _redemption_tax(db: AsyncSession, biz: str, order_id: str, amount: int
     order, _, tax = await _order_tax(db, biz, order_id, clock.now())
     if order is None or order.total_cents <= 0:
         return _without(tax, tax.by_jurisdiction)
-    applied = int(await db.scalar(select(_gift_card_applied_expr(order_id))) or 0)
+    applied = int(await db.scalar(select(gift_card_applied_expr(order_id))) or 0)
     covered = min(order.total_cents, applied + amount)
     # shares of the running total, so redemptions that cover the sale book exactly its tax
     through = {
