@@ -154,6 +154,9 @@
     "api.phoneTaken": {
         "message": "Another client already has this phone number. Each number belongs to one client."
     },
+    "api.clientArchived": {
+        "message": "This client is archived. Restore them from their record first."
+    },
     "api.slotUnavailable": {
         "message": "That time is no longer open. Pick another time."
     },
@@ -5406,6 +5409,10 @@
     "clients.record.visits": {
         "message": "Visits"
     },
+    "clients.record.yourVisits": {
+        "message": "Your visits",
+        "description": "Staff only see their own visits with a client, so the count is theirs"
+    },
     "clients.record.balance": {
         "message": "Balance due"
     },
@@ -5415,8 +5422,16 @@
     "clients.record.upcoming": {
         "message": "Upcoming"
     },
+    "clients.record.yourUpcoming": {
+        "message": "Your upcoming visits",
+        "description": "Staff only see their own visits with a client"
+    },
     "clients.record.lastVisit": {
         "message": "Last visit {when}",
+        "args": ["when"]
+    },
+    "clients.record.yourLastVisit": {
+        "message": "Your last visit {when}",
         "args": ["when"]
     },
     "clients.record.notes": {
@@ -5501,6 +5516,10 @@
     "clients.record.colNext": {
         "message": "Next visit"
     },
+    "clients.record.colYourNext": {
+        "message": "Your next visit",
+        "description": "Staff only see their own visits with a client"
+    },
     "clients.record.colBalance": {
         "message": "Balance"
     },
@@ -5555,6 +5574,10 @@
     },
     "clients.edit.nameRequired": {
         "message": "Enter the client's name."
+    },
+    "clients.edit.nameTooLong": {
+        "message": "Keep the name to {max, number} characters or fewer.",
+        "args": ["max"]
     },
     "clients.edit.contactRequired": {
         "message": "Add a phone number so you can reach them."
@@ -5721,11 +5744,23 @@
     "subjects.visits": {
         "message": "Visits"
     },
+    "subjects.yourVisits": {
+        "message": "Your visits",
+        "description": "Staff only see their own visits with a client"
+    },
     "subjects.lastVisit": {
         "message": "Last visit"
     },
+    "subjects.yourLastVisit": {
+        "message": "Your last visit",
+        "description": "Staff only see their own visits with a client"
+    },
     "subjects.nextVisit": {
         "message": "Next visit"
+    },
+    "subjects.yourNextVisit": {
+        "message": "Your next visit",
+        "description": "Staff only see their own visits with a client"
     },
     "subjects.nothingBooked": {
         "message": "Nothing booked"
@@ -6365,6 +6400,9 @@
     "clients.wallet.onlyManagers": {
         "message": "Only owners and admins can add or remove payment methods."
     },
+    "clients.wallet.archived": {
+        "message": "This client is archived. Restore them to add a card or bank account, sell a package or start a subscription."
+    },
     "clients.tidy.select": {
         "message": "Select"
     },
@@ -6674,6 +6712,10 @@
     },
     "messaging.nextVisit": {
         "message": "Next visit"
+    },
+    "messaging.yourNextVisit": {
+        "message": "Your next visit",
+        "description": "Staff only see their own visits with a client"
     },
     "messaging.nothingBooked": {
         "message": "Nothing booked"
@@ -12319,6 +12361,10 @@
     },
     "publicBooking.nameRequired": {
         "message": "Add your name."
+    },
+    "publicBooking.nameTooLong": {
+        "message": "Keep your name to {max, number} characters or fewer.",
+        "args": ["max"]
     },
     "publicBooking.contactRequired": {
         "message": "Add your mobile number."

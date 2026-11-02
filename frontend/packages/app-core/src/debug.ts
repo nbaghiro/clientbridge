@@ -70,13 +70,15 @@ export function useClientState(pollMs = 1500): ClientState {
             .catch(() => undefined); // before the first sync the tables may not exist yet — ignore
     }, [db]);
 
+    // a Date is new on every read, so a dependency on it would refresh after every render
+    const syncedAt = status.lastSyncedAt?.getTime();
     useEffect(() => {
         refresh();
         const id = setInterval(refresh, pollMs);
         return () => {
             clearInterval(id);
         };
-    }, [refresh, pollMs, status.lastSyncedAt]);
+    }, [refresh, pollMs, syncedAt]);
 
     return {
         status,

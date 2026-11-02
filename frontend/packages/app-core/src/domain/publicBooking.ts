@@ -39,7 +39,7 @@ import {
     writePublicDraft,
     usePublicResource,
 } from "./publicResource";
-import type { SubjectKind } from "./subjects";
+import { NAME_MAX, nameTooLong, type SubjectKind } from "./subjects";
 
 const s = strings.publicBooking;
 const m = strings.publicManage;
@@ -529,7 +529,12 @@ export function detailErrors(
     existingSubject: boolean,
 ): Record<"name" | "contact" | "subject" | "address", string | null> {
     return {
-        name: d.name.trim() === "" ? s.nameRequired : null,
+        name:
+            d.name.trim() === ""
+                ? s.nameRequired
+                : nameTooLong(d.name)
+                  ? s.nameTooLong(NAME_MAX)
+                  : null,
         contact:
             d.phone.trim() === ""
                 ? s.contactRequired

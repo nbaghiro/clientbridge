@@ -6,10 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
 from clientbridge.models.catalog import Item
+from clientbridge.models.clients import Client
 from clientbridge.models.messaging import Delivery
 from clientbridge.models.scheduling import Booking, BookingStatus, Slot
 from tests.conftest import BIZ, Factory, FakeJobs
-from tests.helpers import key, queued_subjects
+from tests.helpers import key, new_client, queued_subjects
 
 SLUG = "birchbark"
 CLASS = "Puppy Socialization (group)"
@@ -117,6 +118,22 @@ async def test_joining_the_waitlist_online_puts_the_client_in_line(
     view = (await api.get(f"/manage/{first['manage_token']}")).json()
     assert view["status"] == "waitlisted" and view["waitlist_position"] == 1
     assert view["can_cancel"] is True and view["can_move"] is False
+
+
+async def test_an_archived_client_who_joins_the_waitlist_is_restored(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _session(db)
+    client_id = await new_client(db, phone="+16045550264")
+    client = await db.get(Client, client_id)
+    assert client is not None
+    client.status, client.archived_at = "inactive", SIGNED_UP
+    await db.flush()
+    joined = await _join(api, "Back Again", "+16045550264")
+    row = await db.get(Booking, str(joined["booking_id"]))
+    assert row is not None and row.client_id == client_id
+    await db.refresh(client)
+    assert (client.status, client.archived_at) == ("active", None)
 
 
 async def test_a_seat_canceled_online_goes_to_the_first_person_waiting(

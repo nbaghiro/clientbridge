@@ -89,7 +89,7 @@ from clientbridge.schemas.bookings import (
 from clientbridge.services import ledger
 from clientbridge.services.business import business_tz, load_staff, staff_name, staff_names
 from clientbridge.services.catalog import assert_offers, deposit_cents, load_item
-from clientbridge.services.clients import load_client
+from clientbridge.services.clients import assert_client_active, load_client
 from clientbridge.services.consents import stopped_clients
 from clientbridge.services.deliveries import delivery_key
 from clientbridge.services.lines import crew_ids, crew_note, fetch_lines
@@ -797,7 +797,7 @@ class BookingService:
         item = await self._item(data.item_id)
         if item.duration_min is None or item.duration_min <= 0:
             raise AppError("that service has no duration and can't be booked", status_code=422)
-        await self._client(data.client_id)
+        client = await self._client(data.client_id)
         await self._staff(data.staff_id)
         if data.subject_id is not None:
             await assert_subject(self.db, self.biz, data.subject_id, data.client_id)
@@ -808,6 +808,7 @@ class BookingService:
         )
 
         async def run(cmd: Command) -> BookingOut:
+            await assert_client_active(self.db, client)
             if data.estimate_id is not None:
                 await self._assert_estimate_unbooked(data.estimate_id)
             booking, slot = await create_booking_core(
@@ -2227,7 +2228,7 @@ class RecurrenceService:
             raise Unprocessable(_SERVICE_ONLY, code="series_service_only")
         if item.duration_min is None or item.duration_min <= 0:
             raise AppError("that service has no duration and can't be booked", status_code=422)
-        await load_client(self.db, self.biz, data.client_id)
+        client = await load_client(self.db, self.biz, data.client_id)
         await load_staff(self.db, self.biz, data.staff_id)
 
         if data.subject_id is not None:
@@ -2253,6 +2254,7 @@ class RecurrenceService:
         handled = {e.date: e for e in data.exceptions}
 
         async def run(cmd: Command) -> RecurrenceOut:
+            await assert_client_active(self.db, client)
             recurrence = Recurrence(
                 id=new_id("recurrence"),
                 business_id=self.biz,
@@ -2636,7 +2638,7 @@ class ClassService:
     ) -> RosterEntry:
         slot = await self._session(slot_id)
         assert_can_act_as(self.principal, slot.staff_id)
-        await load_client(self.db, self.biz, data.client_id)
+        client = await load_client(self.db, self.biz, data.client_id)
         if data.subject_id is not None:
             await self._subject(data.subject_id, data.client_id)
         if slot.starts_at < clock.now() - timedelta(hours=12):
@@ -2646,6 +2648,7 @@ class ClassService:
         item = await load_item(self.db, self.biz, slot.item_id, require_active=False)
 
         async def run(cmd: Command) -> RosterEntry:
+            await assert_client_active(self.db, client)
             await lock_staff(self.db, self.biz, slot.staff_id)
             if await has_seat(self.db, self.biz, slot.id, data.client_id, data.subject_id):
                 raise Conflict(ALREADY_IN_CLASS)

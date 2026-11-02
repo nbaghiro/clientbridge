@@ -54,7 +54,7 @@ import {
     useCatalogItems,
 } from "./catalog";
 import { type Checkout, useCheckout } from "./checkout";
-import { type ClientRow, filterClients, useClients } from "./clients";
+import { type ClientRow, clientMatches, useClients } from "./clients";
 import {
     type Photo,
     bookingPhotoTarget,
@@ -2247,18 +2247,12 @@ export function useBookingComposer(
     const staff = useActiveStaff().byId;
     const length = item?.duration_min ?? 60;
     const end = new Date(start.getTime() + length * MIN);
-    const q = query.trim().toLowerCase();
     const subjectsOf = (id: string): SubjectOption[] =>
         kind === null ? [] : allSubjects.filter((p) => p.client_id === id);
-    const matchingClientIds = new Set(filterClients(clients, q).map((c) => c.id));
     const matches = clients
         .filter((c) => c.status === "active")
         .map((c) => ({ client: c, subjects: subjectsOf(c.id).map((p) => p.name) }))
-        .filter(
-            (x) =>
-                matchingClientIds.has(x.client.id) ||
-                x.subjects.some((v) => v.toLowerCase().includes(q)),
-        )
+        .filter((x) => clientMatches({ ...x.client, subjects: x.subjects.join(" ") }, query))
         .slice(0, 6);
     const now = new Date();
     const rooms = useResources();

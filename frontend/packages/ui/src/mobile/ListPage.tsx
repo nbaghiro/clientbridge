@@ -108,6 +108,7 @@ export function ListPage<T, K extends string = string>({
             <FlatList
                 data={state === undefined ? rows : []}
                 keyExtractor={rowKey}
+                keyboardShouldPersistTaps="handled"
                 contentContainerStyle={styles.list}
                 ListHeaderComponent={
                     banner !== undefined || head !== undefined ? (

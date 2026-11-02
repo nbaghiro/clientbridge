@@ -690,6 +690,13 @@ describe("detailErrors", () => {
         subjectAddress: "",
     };
 
+    it("keeps a name within what the booking page accepts", () => {
+        expect(detailErrors({ ...filled, name: "R".repeat(200) }, null, false).name).toBeNull();
+        expect(detailErrors({ ...filled, name: "R".repeat(201) }, null, false).name).toBe(
+            s.nameTooLong(200),
+        );
+    });
+
     it("asks for the subject only when the business books one", () => {
         expect(detailErrors(filled, null, false).subject).toBeNull();
         expect(detailErrors(filled, "pet", false).subject).toBe(s.subjectRequired("pet"));

@@ -43,6 +43,7 @@ from clientbridge.services.business import (
     merchant_account,
     postal_address,
 )
+from clientbridge.services.clients import assert_client_active
 from clientbridge.services.deliveries import delivery_key
 from clientbridge.services.inventory import assert_parent_stock
 from clientbridge.services.lines import (
@@ -81,10 +82,11 @@ class OrderService:
 
     async def create_order(self, data: OrderCreate, idempotency_key: str | None = None) -> OrderOut:
         # POS is staff-operated front-desk work — any authenticated principal may ring a sale.
-        if data.client_id is not None:
-            await self._client(data.client_id)
+        client = None if data.client_id is None else await self._client(data.client_id)
 
         async def run(cmd: Command) -> OrderOut:
+            if client is not None:
+                await assert_client_active(self.db, client)
             order = Order(
                 id=new_id("order"),
                 business_id=self.biz,
@@ -119,10 +121,11 @@ class OrderService:
             raise Conflict("only an open order can be edited")
         if await self._has_active_payment(order_id):
             raise Conflict("can't edit an order after checkout has started")
-        if data.client_id is not None:
-            await self._client(data.client_id)
+        client = None if data.client_id is None else await self._client(data.client_id)
 
         async def run(cmd: Command) -> OrderOut:
+            if client is not None and client.id != order.client_id:
+                await assert_client_active(self.db, client)
             await self.db.execute(select(Order.id).where(Order.id == order_id).with_for_update())
             if await self._has_active_payment(order_id):
                 raise Conflict("can't edit an order after checkout has started")

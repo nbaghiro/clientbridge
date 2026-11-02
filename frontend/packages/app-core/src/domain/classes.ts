@@ -17,6 +17,7 @@ import { type Load, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { Intent } from "../ui";
 import { slotOverlapSql } from "./bookings";
+import { clientMatches, parseTags } from "./clients";
 import { useConsents } from "./broadcasts";
 import { segmentNote, textLengthError } from "./messaging";
 import { afterReview } from "./previews";
@@ -83,13 +84,15 @@ ORDER BY b.created_at, b.id`;
 
 // One row per client and subject, so siblings can each take a seat.
 export const CLASS_CLIENTS_SQL = `
-SELECT c.id, c.name, sj.id AS subject_id, sj.name AS subject_name
+SELECT c.id, c.name, c.phone, c.tags, sj.id AS subject_id, sj.name AS subject_name
 FROM clients c LEFT JOIN subjects sj ON sj.client_id = c.id AND sj.deleted_at IS NULL
 WHERE c.status = 'active' ORDER BY c.name COLLATE NOCASE, sj.name COLLATE NOCASE`;
 
 export interface SeatCandidate {
     id: string;
     name: string;
+    phone: string | null;
+    tags: string | null;
     subject_id: string | null;
     subject_name: string | null;
 }
@@ -116,8 +119,7 @@ export function seatMatches(
     seated: ReadonlySet<string>,
     booksSubjects: boolean,
 ): SeatMatch[] {
-    const t = query.trim().toLowerCase();
-    if (t === "") return [];
+    if (query.trim() === "") return [];
     const seen = new Set<string>();
     const out: SeatMatch[] = [];
     for (const c of candidates) {
@@ -126,7 +128,8 @@ export function seatMatches(
         if (seen.has(key) || seated.has(key)) continue;
         seen.add(key);
         const subjectName = booksSubjects ? (c.subject_name ?? "") : "";
-        if (![c.name, subjectName].some((v) => v.toLowerCase().includes(t))) continue;
+        const client = { ...c, subjects: subjectName, tags: parseTags(c.tags) };
+        if (!clientMatches(client, query)) continue;
         out.push({
             key,
             clientId: c.id,

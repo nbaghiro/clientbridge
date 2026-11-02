@@ -13,8 +13,25 @@ const data = {
             name: "Marcus Bennett",
             phone: "+12505550202",
             status: "active",
+            tags: '["vip"]',
+            subject_names: '["Archie","Côté"]',
         },
-        { id: "cl_2", name: "Olivia Martin", phone: null, status: "archived" },
+        {
+            id: "cl_2",
+            name: "Olivia Martin",
+            phone: null,
+            status: "archived",
+            tags: null,
+            subject_names: null,
+        },
+        {
+            id: "cl_3",
+            name: "Émile Côté",
+            phone: "+15145550199",
+            status: "active",
+            tags: null,
+            subject_names: null,
+        },
     ],
     bookings: [
         {
@@ -62,6 +79,28 @@ describe("searchHits", () => {
         expect(searchHits("250-555-0202", data, now, ZONE).clients.map((h) => h.id)).toEqual([
             "cl_1",
         ]);
+    });
+
+    it("finds a phone with or without its country code", () => {
+        for (const q of ["12505550202", "+1 250 555 0202", "1-250-555-0202", "(250) 555-0202"])
+            expect(searchHits(q, data, now, ZONE).clients.map((h) => h.id)).toEqual(["cl_1"]);
+        expect(searchHits("0202", data, now, ZONE).clients.map((h) => h.id)).toEqual(["cl_1"]);
+        expect(searchHits("02", data, now, ZONE).clients).toEqual([]);
+    });
+
+    it("finds a client by pet or tag, shows the pet on the row and offers no new client", () => {
+        const hits = searchHits("archie", data, now, ZONE);
+        expect(hits.clients.map((h) => h.id)).toEqual(["cl_1"]);
+        expect(hits.clients[0]?.detail).toContain("Archie");
+        expect(hits.actions.map((h) => h.id)).not.toContain("add-client");
+        expect(searchHits("VIP", data, now, ZONE).clients.map((h) => h.id)).toEqual(["cl_1"]);
+    });
+
+    it("ignores accents in either direction", () => {
+        for (const q of ["emile", "EMILE", "Émile", "cote"])
+            expect(searchHits(q, data, now, ZONE).clients.map((h) => h.id)).toContain("cl_3");
+        const invoices = data.invoices.map((i) => ({ ...i, client_name: "Éa" }));
+        expect(searchHits("ea", { ...data, invoices }, now, ZONE).invoices).toHaveLength(1);
     });
 
     it("finds bookings by client, service or staff, and invoices by number", () => {

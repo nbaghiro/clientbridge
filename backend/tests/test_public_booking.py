@@ -274,6 +274,17 @@ async def test_book_requires_contact(api: httpx.AsyncClient) -> None:
     assert (await api.post(f"/book/{SLUG}", json=body)).status_code == 422
 
 
+async def test_book_refuses_a_blank_or_overlong_name(api: httpx.AsyncClient) -> None:
+    for name in ("   ", "Z" * 201):
+        body = {
+            "item_id": GROOM_SM,
+            "staff_id": ST_OWNER,
+            "starts_at": "2027-03-02T18:50:00Z",
+            "client": {"name": name, "phone": "+16045550393"},
+        }
+        assert (await api.post(f"/book/{SLUG}", json=body)).status_code == 422
+
+
 async def test_book_deposit_required_returns_secret(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:

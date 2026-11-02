@@ -9,6 +9,7 @@ import {
     nextVisitLabel,
     strings,
     useClientDirectory,
+    useClientLifecycle,
     useClientRecord,
     useClientSelection,
     formatParts,
@@ -184,7 +185,10 @@ function ClientList() {
                                           },
                                       ],
                                       active: dir.segment,
-                                      onSelect: dir.setSegment,
+                                      onSelect: (segment) => {
+                                          sel.clear();
+                                          dir.setSegment(segment);
+                                      },
                                   }
                                 : undefined
                         }
@@ -229,7 +233,13 @@ function ClientList() {
                                     {kind !== null ? (
                                         <span>{strings.subjects.many(kind)}</span>
                                     ) : null}
-                                    <span>{selecting ? r.colTags : r.colNext}</span>
+                                    <span>
+                                        {selecting
+                                            ? r.colTags
+                                            : manager
+                                              ? r.colNext
+                                              : r.colYourNext}
+                                    </span>
                                     {manager && !selecting ? (
                                         <span className="text-right">{r.colBalance}</span>
                                     ) : null}
@@ -346,6 +356,7 @@ function ClientList() {
                 <SelectionBar
                     sel={sel}
                     manager={manager}
+                    archivable={dir.segment === "active"}
                     onMerge={() => {
                         const [a, b] = sel.selected.map((id) => dir.all.find((c) => c.id === id));
                         if (a !== undefined && b !== undefined) setDialog({ kind: "merge", a, b });
@@ -367,10 +378,12 @@ function ClientList() {
 function SelectionBar({
     sel,
     manager,
+    archivable,
     onMerge,
 }: {
     sel: ClientSelection;
     manager: boolean;
+    archivable: boolean;
     onMerge: () => void;
 }) {
     const [tagging, setTagging] = useState(false);
@@ -411,14 +424,16 @@ function SelectionBar({
                         >
                             {t.mergeSelected}
                         </Button>
-                        <Button
-                            variant="quiet"
-                            icon="box"
-                            busy={sel.archiving}
-                            onPress={askArchive}
-                        >
-                            {t.archive}
-                        </Button>
+                        {archivable ? (
+                            <Button
+                                variant="quiet"
+                                icon="box"
+                                busy={sel.archiving}
+                                onPress={askArchive}
+                            >
+                                {t.archive}
+                            </Button>
+                        ) : null}
                     </>
                 ) : null}
                 <span className="mx-1 h-6 w-px bg-line" />
@@ -538,6 +553,7 @@ function ClientPage({ clientId, view }: { clientId: string; view: View }) {
     const manager = canManagePayments(useRole());
     const { load, record } = useClientRecord(api, clientId, viewer?.staffId ?? null);
     const open = useOpenLink();
+    const lifecycle = useClientLifecycle(api, clientId);
     const c = record?.client;
 
     return (
@@ -579,24 +595,37 @@ function ClientPage({ clientId, view }: { clientId: string; view: View }) {
                                 ])}
                             </p>
                         </div>
-                        <div className="flex gap-2">
-                            <Button
-                                variant="outline"
-                                onPress={() => {
-                                    open("message", c.id);
-                                }}
-                            >
-                                {r.message}
-                            </Button>
-                            <Button
-                                onPress={() => {
-                                    openTask({ kind: "booking", clientId: c.id });
-                                }}
-                            >
-                                {r.book}
-                            </Button>
-                        </div>
+                        {c.archived ? (
+                            manager ? (
+                                <Button busy={lifecycle.busy} onPress={lifecycle.restore}>
+                                    {strings.clients.edit.restore}
+                                </Button>
+                            ) : null
+                        ) : (
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="outline"
+                                    onPress={() => {
+                                        open("message", c.id);
+                                    }}
+                                >
+                                    {r.message}
+                                </Button>
+                                <Button
+                                    onPress={() => {
+                                        openTask({ kind: "booking", clientId: c.id });
+                                    }}
+                                >
+                                    {r.book}
+                                </Button>
+                            </div>
+                        )}
                     </header>
+                    {lifecycle.error !== null ? (
+                        <Notice className="mt-3" tone="danger">
+                            {lifecycle.error}
+                        </Notice>
+                    ) : null}
                     <div className="mt-6">
                         {view === "history" && record !== null ? (
                             <ClientHistory

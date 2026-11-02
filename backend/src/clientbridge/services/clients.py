@@ -107,7 +107,7 @@ class ClientService:
                 id=client_id,
                 business_id=self.biz,
                 created_by=self.principal.user_id,
-                name=data.name.strip(),
+                name=data.name,
                 phone=data.phone,
                 tags=clean_tags(data.tags),
                 custom_fields=data.custom_fields,
@@ -189,6 +189,8 @@ class ClientService:
         client = await load_client(self.db, self.biz, client_id)
 
         async def run(cmd: Command) -> ClientOut:
+            await hold_client(self.db, client.id)
+            await self.db.refresh(client)
             if (client.archived_at is not None) != archived:
                 client.status = "inactive" if archived else "active"
                 client.archived_at = clock.now() if archived else None
@@ -236,6 +238,9 @@ class ClientService:
 
         async def run(cmd: Command) -> BulkResult:
             now = clock.now()
+            for client in sorted(clients, key=lambda c: c.id):
+                await hold_client(self.db, client.id)
+                await self.db.refresh(client)
             for client in clients:
                 if client.archived_at is None:
                     client.status = "inactive"
@@ -393,6 +398,43 @@ class ClientService:
         kept.created_at = min(kept.created_at, gone.created_at)
         await self.db.flush()
         await self.db.delete(gone)
+
+
+async def hold_client(db: AsyncSession, client_id: str, *, shared: bool = False) -> None:
+    """Archive and restore take a client alone; new work shares it, so neither lands mid-way."""
+    lock = func.pg_advisory_xact_lock_shared if shared else func.pg_advisory_xact_lock
+    await db.execute(select(lock(func.hashtextextended(f"client:{client_id}", 0))))
+
+
+async def assert_client_active(db: AsyncSession, client: Client) -> None:
+    """New work needs a live record, read after any archive in flight has committed."""
+    await hold_client(db, client.id, shared=True)
+    status = await db.scalar(
+        scoped(Client, client.business_id, soft_delete=True)
+        .with_only_columns(Client.status)
+        .where(Client.id == client.id)
+    )
+    if status is None:
+        raise NotFound("client not found")
+    if status != "active":
+        raise Conflict("restore this client before starting new work", code="client_archived")
+
+
+async def welcome_back(
+    db: AsyncSession, gateway: PaymentGateway, cmd: Command, client: Client
+) -> None:
+    """A client who books or orders on their own is restored as a manager would restore them."""
+    if client.status == "active":
+        return
+    await hold_client(db, client.id)
+    await db.refresh(client)
+    if client.archived_at is None:
+        return
+    client.status = "active"
+    client.archived_at = None
+    await db.flush()
+    cmd.record("client.restore", entity_type="client", entity_id=client.id)
+    await keep_memberships(db, gateway, cmd, client.business_id, client.id)
 
 
 async def load_client(db: AsyncSession, biz: str, client_id: str) -> Client:

@@ -214,7 +214,7 @@ function PackageLine({ pkg }: { pkg: PackageRow }) {
     );
 }
 
-function Plans({ clientId }: { clientId: string }) {
+function Plans({ clientId, archived }: { clientId: string; archived: boolean }) {
     const subs = useClientSubscriptions(clientId);
     const packages = useClientPackages(clientId);
     const [selling, setSelling] = useState<"package" | "subscription" | null>(null);
@@ -226,15 +226,17 @@ function Plans({ clientId }: { clientId: string }) {
             <DetailSection
                 title={strings.clients.subscriptions}
                 action={
-                    <Button
-                        size="sm"
-                        variant="link"
-                        onPress={() => {
-                            setSelling("subscription");
-                        }}
-                    >
-                        {strings.clients.startSubscriptionLink}
-                    </Button>
+                    archived ? undefined : (
+                        <Button
+                            size="sm"
+                            variant="link"
+                            onPress={() => {
+                                setSelling("subscription");
+                            }}
+                        >
+                            {strings.clients.startSubscriptionLink}
+                        </Button>
+                    )
                 }
             >
                 {subs.length === 0 ? (
@@ -250,15 +252,17 @@ function Plans({ clientId }: { clientId: string }) {
             <DetailSection
                 title={strings.clients.packages}
                 action={
-                    <Button
-                        size="sm"
-                        variant="link"
-                        onPress={() => {
-                            setSelling("package");
-                        }}
-                    >
-                        {strings.clients.sellPackageLink}
-                    </Button>
+                    archived ? undefined : (
+                        <Button
+                            size="sm"
+                            variant="link"
+                            onPress={() => {
+                                setSelling("package");
+                            }}
+                        >
+                            {strings.clients.sellPackageLink}
+                        </Button>
+                    )
                 }
             >
                 {packages.length === 0 ? (
@@ -306,6 +310,7 @@ export function ClientWallet({ clientId }: { clientId: string }) {
                     {s.expiringBanner(wallet.expiring.label)}
                 </Notice>
             ) : null}
+            {wallet.archived ? <Notice tone="info">{s.archived}</Notice> : null}
             <DetailSection title={s.title}>
                 <p className="text-xs text-muted">{s.subtitle}</p>
                 {wallet.methods.length === 0 ? (
@@ -317,11 +322,11 @@ export function ClientWallet({ clientId }: { clientId: string }) {
                         ))}
                     </ul>
                 )}
-                <PaymentMethodForm flow={add} allowBank />
+                {wallet.archived ? null : <PaymentMethodForm flow={add} allowBank />}
                 <p className="text-xs text-muted">{s.defaultHint}</p>
                 {wallet.error !== null ? <Notice tone="danger">{wallet.error}</Notice> : null}
             </DetailSection>
-            <Plans clientId={clientId} />
+            <Plans clientId={clientId} archived={wallet.archived} />
         </>
     );
 }

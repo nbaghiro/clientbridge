@@ -31,6 +31,7 @@ from clientbridge.schemas.orders import VisitReceipt
 from clientbridge.services import ledger
 from clientbridge.services.bookings import apply_deposit, hold_estimate, is_program, unapply_deposit
 from clientbridge.services.business import business_tz, businesses_at_hour
+from clientbridge.services.clients import assert_client_active
 from clientbridge.services.deliveries import delivery_key
 from clientbridge.services.ledger import invoice_status_expr
 from clientbridge.services.lines import (
@@ -63,9 +64,10 @@ class BillingService:
 
     async def create_invoice(self, data: InvoiceCreate, idempotency_key: str | None) -> InvoiceOut:
         self._assert_admin()
-        await self._client(data.client_id)
+        client = await self._client(data.client_id)
 
         async def run(cmd: Command) -> InvoiceOut:
+            await assert_client_active(self.db, client)
             invoice = Invoice(
                 id=new_id("invoice"),
                 business_id=self.biz,
@@ -208,9 +210,10 @@ class BillingService:
         self, data: EstimateCreate, idempotency_key: str | None
     ) -> EstimateOut:
         self._assert_admin()
-        await self._client(data.client_id)
+        client = await self._client(data.client_id)
 
         async def run(cmd: Command) -> EstimateOut:
+            await assert_client_active(self.db, client)
             estimate = Estimate(
                 id=new_id("estimate"),
                 business_id=self.biz,
@@ -324,9 +327,10 @@ class BillingService:
         estimate = await self._estimate(estimate_id)
         if estimate_status(estimate, await self._today()) not in ("sent", "accepted"):
             raise Conflict("only a sent or accepted estimate can be converted")
-        await self._client(estimate.client_id)
+        client = await self._client(estimate.client_id)
 
         async def run(cmd: Command) -> InvoiceOut:
+            await assert_client_active(self.db, client)
             invoiced, booked = await hold_estimate(self.db, self.biz, estimate.id)
             if invoiced is not None:
                 raise Conflict("this estimate was already converted")

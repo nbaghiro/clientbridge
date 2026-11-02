@@ -15,6 +15,7 @@ import {
     subjectSummary,
     subjectTemperament,
     useSubjectForm,
+    nameTooLong,
 } from "./subjects";
 
 const business = vi.hoisted(() => ({ subject: "student" }));
@@ -393,5 +394,14 @@ describe("the vehicle form", () => {
                 attributes: { make: "Subaru", year: 2021, plate: "CB 4411", size: "suv" },
             },
         ]);
+    });
+});
+
+describe("nameTooLong", () => {
+    it("counts characters as the server does, after trimming", () => {
+        expect(nameTooLong(` ${"a".repeat(200)} `)).toBe(false);
+        expect(nameTooLong("a".repeat(201))).toBe(true);
+        expect(nameTooLong("🐶".repeat(200))).toBe(false);
+        expect(nameTooLong("🐶".repeat(201))).toBe(true);
     });
 });

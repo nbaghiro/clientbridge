@@ -313,6 +313,18 @@ async def test_review_requests_ask_each_client_once(
     assert await run_review_requests(db, notifier, REVIEWS_AT + timedelta(days=1)) == 0
 
 
+async def test_review_requests_skip_clients_a_manager_archived(
+    db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
+) -> None:
+    await configure_google_review_profile(db)
+    cid = await new_client(db, phone="+16045550254")
+    client = await db.get(Client, cid)
+    assert client is not None
+    client.status, client.archived_at = "inactive", NOW
+    await _completed_booking(db, cid, completed_at=NOW)
+    assert await run_review_requests(db, _notifier(email, sms, push), REVIEWS_AT) == 0
+
+
 async def test_review_requests_skip_businesses_that_turned_them_off(
     db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
 ) -> None:

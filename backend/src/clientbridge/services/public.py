@@ -117,7 +117,7 @@ from clientbridge.services.bookings import (
 )
 from clientbridge.services.business import business_tz, local_today, staff_names
 from clientbridge.services.catalog import assert_offers, deposit_cents, offers
-from clientbridge.services.clients import find_or_create_by_contact
+from clientbridge.services.clients import find_or_create_by_contact, welcome_back
 from clientbridge.services.deliveries import delivery_key
 from clientbridge.services.files import (
     confirm_upload,
@@ -397,7 +397,7 @@ class PublicBookingService:
             staff_id = await self._staff_for(
                 business, item, data.staff_id, data.starts_at, visit_minutes(item, extra)
             )
-            client, subject_id = await self._booker(business, data)
+            client, subject_id = await self._booker(cmd, business, data)
             first_visit = not await _has_booked(self.db, business.id, client.id)
             booking, _ = await create_booking_core(
                 self.db,
@@ -477,7 +477,7 @@ class PublicBookingService:
         )
         if program is None or not days or days[0].starts_at != data.starts_at:
             raise Conflict(_UNOFFERED, code="slot_unavailable")
-        client, subject_id = await self._booker(business, data)
+        client, subject_id = await self._booker(cmd, business, data)
         first_visit = not await _has_booked(self.db, business.id, client.id)
         bookings = await enrol(
             self.db,
@@ -544,7 +544,7 @@ class PublicBookingService:
             if not await seats_closed(self.db, slot.id):
                 raise Conflict("that class has a seat open; book it instead", code="class_open")
             addons = await self._addons(business, item, data)
-            client, subject_id = await self._booker(business, data)
+            client, subject_id = await self._booker(cmd, business, data)
             if await has_seat(self.db, business.id, slot.id, client.id, subject_id):
                 raise Conflict(ALREADY_IN_CLASS)
             deposit = deposit_cents(item) if item.deposit_type != "none" else 0
@@ -600,7 +600,7 @@ class PublicBookingService:
         )
 
     async def _booker(
-        self, business: Business, data: PublicBookingCreate
+        self, cmd: Command, business: Business, data: PublicBookingCreate
     ) -> tuple[Client, str | None]:
         """The client booking, found or filed, and the subject the visit is for."""
         _assert_subject_fields(business, data)
@@ -614,6 +614,7 @@ class PublicBookingService:
             if data.returning_token is not None
             else await self._find_or_create_client(business.id, data.client)
         )
+        await welcome_back(self.db, self.gateway, cmd, client)
         subject_id = (
             await returning.subject(client, chosen)
             if chosen is not None
@@ -2436,6 +2437,7 @@ class PublicShopService:
                 phone=data.client.phone,
                 source="online_shop",
             )
+            await welcome_back(self.db, self.gateway, cmd, client)
             order = Order(
                 id=new_id("order"),
                 business_id=business.id,

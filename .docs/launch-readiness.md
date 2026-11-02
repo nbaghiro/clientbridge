@@ -28,7 +28,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 1. Get set up | Stripe payments setup | [CB-5](https://linear.app/clientbridgeca/issue/CB-5) | Partly automated |
 | 1. Get set up | Plan billing: trial, purchase, seats and read-only | [CB-6](https://linear.app/clientbridgeca/issue/CB-6) | Partly automated |
 | 1. Get set up | Sales tax by province | [CB-7](https://linear.app/clientbridgeca/issue/CB-7) | Partly automated |
-| 2. Clients and catalog | Client records: add, edit and search | [CB-8](https://linear.app/clientbridgeca/issue/CB-8) | Partly automated |
+| 2. Clients and catalog | Client records: add, edit and search | [CB-8](https://linear.app/clientbridgeca/issue/CB-8) | Automated |
 | 2. Clients and catalog | Client subjects: who or what is booked | [CB-9](https://linear.app/clientbridgeca/issue/CB-9) | Partly automated |
 | 2. Clients and catalog | Client notes, photos and history | [CB-10](https://linear.app/clientbridgeca/issue/CB-10) | Partly automated |
 | 2. Clients and catalog | Client tags and duplicate merge | [CB-11](https://linear.app/clientbridgeca/issue/CB-11) | Partly automated |
@@ -452,31 +452,31 @@ The business loads its clients, what they book for, and the services and product
 
 1. Add a client on a phone.
    **Expect:** they appear on web within seconds; a phone number another client already has is refused, with a button to open that client.
-2. Find them by phone number in the web directory and the command palette.
-   **Expect:** both find them.
+2. Find them by phone number, with and without the country code, and by name without accents or by pet, in the web directory, the command palette and mobile Search.
+   **Expect:** each finds them.
 3. Edit their name on web.
    **Expect:** the phone shows the change.
 4. Archive them.
-   **Expect:** gone from search and booking pickers; their invoices remain; restore brings them back.
+   **Expect:** gone from search and booking pickers; their invoices remain; their record offers Restore instead of Book, Message and Invoice, and the server refuses new work for them; restore brings them back.
 5. Archive two clients in bulk, then restore one.
    **Expect:** each ends in the state chosen.
 6. As owner, then as staff, open a client.
-   **Expect:** lifetime value shows only for the owner and admin.
+   **Expect:** lifetime value shows only for the owner and admin; staff see only their own visits, labelled Your visits, Your upcoming visits and Your next visit.
 
 **Done when:** A client record reads the same on web, iPhone and Android after every change.
 
 **Automated by**
 
 * `CRM-E2E-01 (web)`
+* `CRM-E2E-09 (web)`
 * `CRM-E2E-15 (web)`
+* `CRM-E2E-16 (web)`
+* `CRM-E2E-17 (web)`
 * `NATIVE-CRM-01 (native-ios, native-android)`
+* `NATIVE-CRM-03 (native-ios, native-android)`
 * `CRM-E2E-06 (journeys)`
 * `FLOW-04-A (journeys)`
 * `mobile: clients.record.yaml (walk, unregistered)`
-
-**To automate**
-
-* `CRM-E2E-09` in `apps/web/e2e/clients.e2e.ts`: Directory and command palette search by name, phone and subject, and staff without lifetime value (CRM-E18).
 
 **Depends on:** Nothing
 

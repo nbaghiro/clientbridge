@@ -4,7 +4,13 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ApiLike } from "../api";
 import { strings } from "../strings";
-import { type ClientRow, filterClients, useNoteComposer, visitPill } from "./clients";
+import {
+    type ClientRow,
+    clientMatches,
+    filterClients,
+    useNoteComposer,
+    visitPill,
+} from "./clients";
 import { zonedDate } from "../datetime";
 
 const ZONE = "America/Vancouver";
@@ -29,6 +35,20 @@ describe("filterClients", () => {
         expect(filterClients(ROWS, "604555").map((c) => c.id)).toEqual(["cl_ann"]);
         expect(filterClients(ROWS, "2505550202").map((c) => c.id)).toEqual(["cl_cara"]);
         expect(filterClients(ROWS, "zzz")).toEqual([]);
+    });
+
+    it("matches any phone format and ignores accents, as the directory does", () => {
+        const rows = [...ROWS, client("cl_emile", "Émile Côté", "+15145550199")];
+        for (const q of ["(250) 555-0202", "+1 250 555 0202", "12505550202"])
+            expect(filterClients(rows, q).map((c) => c.id)).toEqual(["cl_cara"]);
+        expect(filterClients(rows, "emile cote").map((c) => c.id)).toEqual(["cl_emile"]);
+    });
+
+    it("finds an accented tag typed with or without its accent", () => {
+        const regular = { name: "Ann", phone: null, tags: ["Café regular"] };
+        expect(clientMatches(regular, "café")).toBe(true);
+        expect(clientMatches(regular, "CAFE")).toBe(true);
+        expect(clientMatches(regular, "tea")).toBe(false);
     });
 });
 

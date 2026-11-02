@@ -1,6 +1,7 @@
 import {
     type SubjectCard,
     type SubjectRow,
+    canManagePayments,
     formatDate,
     relativeDay,
     strings,
@@ -26,6 +27,7 @@ import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { api } from "../lib/api";
+import { useRole } from "../lib/auth";
 
 import type { RootStackParamList } from "../navigation";
 import { PhotoGrid } from "../components/BookingSheet";
@@ -36,6 +38,7 @@ const sj = strings.subjects;
 
 function SubjectCardView({ card, onPress }: { card: SubjectCard; onPress: () => void }) {
     const zone = useBusinessZone();
+    const manager = canManagePayments(useRole());
     const photos = useSubjectPhotos(api, card.subject.id);
     const alerts = card.alerts.filter((a) => a.key !== "temp");
     return (
@@ -107,9 +110,9 @@ function SubjectCardView({ card, onPress }: { card: SubjectCard; onPress: () => 
                 </View>
             ) : null}
             <View style={styles.stats}>
-                <Stat label={sj.visits} value={String(card.visits)} />
+                <Stat label={manager ? sj.visits : sj.yourVisits} value={String(card.visits)} />
                 <Stat
-                    label={sj.lastVisit}
+                    label={manager ? sj.lastVisit : sj.yourLastVisit}
                     value={
                         card.lastVisit === null
                             ? strings.clients.dash
@@ -117,7 +120,7 @@ function SubjectCardView({ card, onPress }: { card: SubjectCard; onPress: () => 
                     }
                 />
                 <Stat
-                    label={sj.nextVisit}
+                    label={manager ? sj.nextVisit : sj.yourNextVisit}
                     value={card.next === null ? sj.nothingBooked : relativeDay(card.next, zone)}
                 />
             </View>
