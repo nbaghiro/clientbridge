@@ -448,7 +448,9 @@ async def test_a_card_charge_prices_the_ticket_at_the_settings_in_force(
     assert payment.amount_cents == 2400
 
 
-async def test_a_payment_started_while_a_reprice_waits_keeps_the_ticket_amount() -> None:
+async def test_a_payment_started_while_a_reprice_waits_keeps_the_ticket_amount(
+    db: AsyncSession,
+) -> None:
     async with SessionLocal() as setup:
         order_id = await _stale_ticket(setup, BIZ)
         await setup.commit()

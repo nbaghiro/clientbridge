@@ -47,9 +47,9 @@ async def test_sale_paid_after_registration_change_books_the_tax_it_charged(
         201,
     ).json()
     assert (sale["tax_total_cents"], sale["total_cents"]) == (288, 2688)
-    await _small_supplier(db)
     await enable_payments(db)
     pay = ok(await as_owner.post(f"/v1/orders/{sale['id']}/pay", json={})).json()
+    await _small_supplier(db)
     await settle(as_owner, db, pay["payment_id"], "evt_issued_sale")
     assert await _tax_legs(db, f"payment:{pay['payment_id']}") == {"GST": 120, "PST": 168}
     line = (await db.execute(select(Line).where(Line.order_id == sale["id"]))).scalar_one()
