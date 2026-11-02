@@ -1320,7 +1320,9 @@ class BookingService:
             raise Conflict("no deposit due")
         business = await self._business()
         if not business.stripe_charges_enabled or business.stripe_account_id is None:
-            raise Conflict("set up card payments in Setup before taking payments")
+            raise Conflict(
+                "set up card payments in Setup before taking payments", code="card_payments_off"
+            )
         account_id = business.stripe_account_id
         client = await self._client(booking.client_id)
         amount = booking.deposit_amount_cents

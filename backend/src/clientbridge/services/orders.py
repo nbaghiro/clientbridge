@@ -474,7 +474,9 @@ class OrderService:
             or not business.stripe_charges_enabled
             or business.stripe_account_id is None
         ):
-            raise Conflict("set up card payments in Setup before taking payment")
+            raise Conflict(
+                "set up card payments in Setup before taking payment", code="card_payments_off"
+            )
         return business.stripe_account_id
 
     async def connection_token(self) -> ConnectionTokenOut:
@@ -483,7 +485,7 @@ class OrderService:
         ).scalar_one_or_none()
         account_id = merchant_account(business) if business is not None else None
         if business is None or account_id is None:
-            raise Conflict("set up card payments in Setup first")
+            raise Conflict("set up card payments in Setup first", code="card_payments_off")
         # The row lock serializes the first Terminal Location mint.
         if business.stripe_terminal_location_id is None:
             business.stripe_terminal_location_id = await self.gateway.create_terminal_location(

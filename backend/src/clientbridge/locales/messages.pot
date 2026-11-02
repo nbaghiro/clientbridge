@@ -88,6 +88,39 @@ msgstr ""
 msgid "dispute.push"
 msgstr ""
 
+msgid "dispute_email.action"
+msgstr ""
+
+msgid "dispute_email.due"
+msgstr ""
+
+msgid "dispute_email.heading"
+msgstr ""
+
+msgid "dispute_email.how"
+msgstr ""
+
+msgid "dispute_email.lead"
+msgstr ""
+
+msgid "dispute_email.subject"
+msgstr ""
+
+msgid "dispute_inquiry_email.due"
+msgstr ""
+
+msgid "dispute_inquiry_email.heading"
+msgstr ""
+
+msgid "dispute_inquiry_email.how"
+msgstr ""
+
+msgid "dispute_inquiry_email.lead"
+msgstr ""
+
+msgid "dispute_inquiry_email.subject"
+msgstr ""
+
 msgid "email.footer.account"
 msgstr ""
 
@@ -104,6 +137,9 @@ msgid "email.kind.estimate"
 msgstr ""
 
 msgid "email.kind.order"
+msgstr ""
+
+msgid "email.kind.payment"
 msgstr ""
 
 msgid "email.kind.plan"
@@ -188,6 +224,9 @@ msgid "login_code.note"
 msgstr ""
 
 msgid "login_code.subject"
+msgstr ""
+
+msgid "money_alert.body"
 msgstr ""
 
 msgid "online_order.body"
@@ -299,6 +338,21 @@ msgid "refund.failed_push"
 msgstr ""
 
 msgid "refund_failed.body"
+msgstr ""
+
+msgid "refund_failed_email.action"
+msgstr ""
+
+msgid "refund_failed_email.heading"
+msgstr ""
+
+msgid "refund_failed_email.how"
+msgstr ""
+
+msgid "refund_failed_email.lead"
+msgstr ""
+
+msgid "refund_failed_email.subject"
 msgstr ""
 
 msgid "registration_code.body"

@@ -4,7 +4,7 @@ from typing import cast
 import pytest
 import stripe
 
-from clientbridge.core.errors import Conflict, NotFound, PaymentsNotConfigured
+from clientbridge.core.errors import AppError, Conflict, NotFound, PaymentsNotConfigured
 from clientbridge.integrations import stripe as stripe_module
 from clientbridge.integrations.stripe import (
     PlanItem,
@@ -85,6 +85,36 @@ async def test_canceling_an_intent_the_account_doesnt_have_is_a_conflict(
     monkeypatch.setattr(stripe.PaymentIntent, "retrieve_async", _raises(_missing("intent")))
     with pytest.raises(Conflict):
         await gateway.cancel_payment_intent("acct_x", payment_intent_id="pi_gone")
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        stripe.APIConnectionError("timed out"),
+        stripe.RateLimitError("too many"),
+        stripe.PermissionError("revoked"),
+    ],
+)
+async def test_a_cancel_stripe_cant_answer_is_an_app_error(
+    gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch, failure: stripe.StripeError
+) -> None:
+    monkeypatch.setattr(stripe.PaymentIntent, "cancel_async", _raises(failure))
+    with pytest.raises(AppError) as refused:
+        await gateway.cancel_payment_intent("acct_x", payment_intent_id="pi_x")
+    assert refused.value.code == "payment_provider_error"
+
+
+async def test_a_cancel_whose_recheck_times_out_is_an_app_error(
+    gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    unexpected = stripe.InvalidRequestError("unexpected state", None)
+    monkeypatch.setattr(stripe.PaymentIntent, "cancel_async", _raises(unexpected))
+    monkeypatch.setattr(
+        stripe.PaymentIntent, "retrieve_async", _raises(stripe.APIConnectionError("timed out"))
+    )
+    with pytest.raises(AppError) as refused:
+        await gateway.cancel_payment_intent("acct_x", payment_intent_id="pi_x")
+    assert refused.value.code == "payment_provider_error"
 
 
 async def test_charge_of_a_card_from_another_account_is_a_conflict(

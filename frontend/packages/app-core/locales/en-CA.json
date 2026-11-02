@@ -222,6 +222,9 @@
     "api.cardPaymentsUnavailable": {
         "message": "This business can't take card payments online yet."
     },
+    "api.cardPaymentsOff": {
+        "message": "Card payments are off for this business. Open Getting paid in Setup to see what Stripe needs."
+    },
     "api.staffHasFutureWork": {
         "message": "This member still has upcoming visits. Choose whether to move or cancel them."
     },

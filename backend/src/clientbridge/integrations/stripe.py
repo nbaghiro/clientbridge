@@ -670,6 +670,7 @@ class PaymentGateway(Protocol):
         metadata: dict[str, str],
         application_fee_percent: float,
         idempotency_key: str | None = None,
+        card: bool = True,
     ) -> SubscriptionResult: ...
     async def cancel_subscription(
         self, account_id: str, *, subscription_id: str, at_period_end: bool = False
@@ -1413,17 +1414,25 @@ class StripeGateway:
         metadata: dict[str, str],
         application_fee_percent: float,
         idempotency_key: str | None = None,
+        card: bool = True,
     ) -> SubscriptionResult:
-        # Stripe copies this onto every invoice, so each renewal knows how its price was taxed
-        sub = await stripe.Subscription.create_async(
-            customer=customer_id,
-            items=[{"price": price_id}],
-            default_payment_method=payment_method_id,
-            metadata=metadata,
-            application_fee_percent=application_fee_percent,
-            stripe_account=account_id,
-            idempotency_key=idempotency_key,
-        )
+        try:
+            # Stripe copies this onto every invoice, so each renewal knows how its price was taxed
+            sub = await stripe.Subscription.create_async(
+                customer=customer_id,
+                items=[{"price": price_id}],
+                default_payment_method=payment_method_id,
+                metadata=metadata,
+                application_fee_percent=application_fee_percent,
+                # a card's first period is paid on the spot or nothing starts; a debit settles later
+                payment_behavior="error_if_incomplete" if card else "allow_incomplete",
+                stripe_account=account_id,
+                idempotency_key=idempotency_key,
+            )
+        except stripe.CardError as exc:
+            if exc.code == "authentication_required":
+                raise PaymentActionRequired("this card requires authentication") from exc
+            raise CardDeclined("the card was declined") from exc
         return SubscriptionResult(
             id=str(sub.id),
             status=str(sub.status),
@@ -1499,6 +1508,17 @@ class StripeGateway:
 
     @_keyed
     async def cancel_payment_intent(self, account_id: str, *, payment_intent_id: str) -> None:
+        try:
+            await self._cancel_intent(account_id, payment_intent_id)
+        except stripe.StripeError as exc:
+            # a timeout, rate limit or revoked account: the jobs that cancel skip this one and go on
+            raise AppError(
+                "the payment provider couldn't cancel this payment",
+                code="payment_provider_error",
+                status_code=502,
+            ) from exc
+
+    async def _cancel_intent(self, account_id: str, payment_intent_id: str) -> None:
         try:
             await stripe.PaymentIntent.cancel_async(payment_intent_id, stripe_account=account_id)
         except stripe.InvalidRequestError as exc:

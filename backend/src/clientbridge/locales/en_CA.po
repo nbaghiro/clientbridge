@@ -76,14 +76,65 @@ msgstr "{service} · {client}"
 msgid "datetime.day_at_time"
 msgstr "{day} at {time}"
 
+msgid "dispute_email.action"
+msgstr "Open disputes"
+
+msgid "dispute_email.due"
+msgstr "Send your evidence from Payments by {when}. If none arrives by then, the bank decides for the client."
+
+msgid "dispute_email.heading"
+msgstr "A payment was disputed"
+
+msgid "dispute_email.how"
+msgstr "Send your evidence from Payments as soon as you can. If none arrives by the bank's deadline, it decides for the client."
+
+msgid "dispute_email.lead"
+msgstr "A client's bank opened a dispute on a {amount} card payment. Stripe has taken the amount and its dispute fee from your balance while the dispute is open."
+
+msgid "dispute_email.subject"
+msgstr "A client disputed a {amount} payment"
+
+msgid "dispute_inquiry_email.due"
+msgstr "Answer it from Payments by {when} so it doesn't become a dispute."
+
+msgid "dispute_inquiry_email.heading"
+msgstr "A bank asked about a payment"
+
+msgid "dispute_inquiry_email.how"
+msgstr "Answer it from Payments soon so it doesn't become a dispute."
+
+msgid "dispute_inquiry_email.lead"
+msgstr "A client's bank asked about a {amount} card payment. No money has moved yet."
+
+msgid "dispute_inquiry_email.subject"
+msgstr "A client's bank asked about a {amount} payment"
+
 msgid "dispute.inquiry_push"
 msgstr "A client's bank asked about a {amount} payment. Answer it in Payments before the deadline so it doesn't become a dispute."
 
 msgid "dispute.push"
 msgstr "Payment disputed: {amount}. Review the dispute details."
 
+msgid "money_alert.body"
+msgstr "{lead} {how} {link}"
+
 msgid "refund.failed_push"
 msgstr "A refund of {amount} didn't go through. Check the payment and return the money another way."
+
+msgid "refund_failed_email.action"
+msgstr "Open payments"
+
+msgid "refund_failed_email.heading"
+msgstr "A refund didn't go through"
+
+msgid "refund_failed_email.how"
+msgstr "Refund it again from Payments, or return the money another way."
+
+msgid "refund_failed_email.lead"
+msgstr "A refund of {amount} was returned or canceled, so the client hasn't got the money back."
+
+msgid "refund_failed_email.subject"
+msgstr "A {amount} refund didn't go through"
 
 msgid "email.footer.account"
 msgstr "You're getting this email because this address was used to sign up or sign in on Clientbridge."
@@ -102,6 +153,9 @@ msgstr "Estimate"
 
 msgid "email.kind.order"
 msgstr "Order"
+
+msgid "email.kind.payment"
+msgstr "Payment"
 
 msgid "email.kind.plan"
 msgstr "Plan"

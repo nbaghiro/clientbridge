@@ -434,7 +434,9 @@ class PaymentService:
         if data.payment_method_id is None:
             raise Unprocessable("choose the saved card to charge")
         if not business.stripe_charges_enabled or business.stripe_account_id is None:
-            raise Conflict("set up card payments in Setup before taking payments")
+            raise Conflict(
+                "set up card payments in Setup before taking payments", code="card_payments_off"
+            )
         account_id = business.stripe_account_id
         client = await self._client(invoice.client_id)
         pm_ref = await self._saved_method_ref(data.payment_method_id, invoice.client_id)
@@ -485,7 +487,9 @@ class PaymentService:
         business = await self._business()
         account_id = merchant_account(business)
         if account_id is None or not business.stripe_charges_enabled:
-            raise Conflict("set up card payments in Setup before saving cards")
+            raise Conflict(
+                "set up card payments in Setup before saving cards", code="card_payments_off"
+            )
         client = await self._client(client_id)
 
         async def run(cmd: Command) -> SetupIntentOut:
@@ -513,7 +517,9 @@ class PaymentService:
         client = await self._client(client_id)
         account_id = merchant_account(business)
         if account_id is None or not business.stripe_charges_enabled:
-            raise Conflict("set up payments before requesting bank authorization")
+            raise Conflict(
+                "set up payments before requesting bank authorization", code="card_payments_off"
+            )
         await self.gateway.ensure_pad_capability(account_id)
 
         async def run(cmd: Command) -> PaymentSetupLinkOut:
@@ -3885,9 +3891,19 @@ async def queue_payment_outcome(db: AsyncSession, outcome: WebhookOutcome) -> No
     await notify_payment_outcome(queued_notifier(db, target.business_id, outcome.key), db, outcome)
 
 
+# still owed however late: a gift card's code, and the alerts that need the owner to act
+_OWED_NOTICES = (
+    "gift_card_issued",
+    "payment_disputed",
+    "dispute_inquiry",
+    "refund_failed",
+    "refund_stalled",
+)
+
+
 def _still_news(outcome: WebhookOutcome, occurred_at: datetime | None) -> bool:
-    """A notice about something a day old reads as noise; an issued gift card is still owed."""
-    return outcome.notify == "gift_card_issued" or (
+    """A notice about something a day old reads as noise, unless it is still owed."""
+    return outcome.notify in _OWED_NOTICES or (
         occurred_at is None or occurred_at >= clock.now() - timedelta(days=1)
     )
 
@@ -3895,7 +3911,7 @@ def _still_news(outcome: WebhookOutcome, occurred_at: datetime | None) -> bool:
 async def _notify_recovery(
     db: AsyncSession, outcome: WebhookOutcome, occurred_at: datetime | None
 ) -> None:
-    undated = occurred_at is None and outcome.notify != "gift_card_issued"
+    undated = occurred_at is None and outcome.notify not in _OWED_NOTICES
     if not undated and _still_news(outcome, occurred_at):
         await queue_payment_outcome(db, outcome)
 

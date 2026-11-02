@@ -197,6 +197,9 @@
     "api.cardPaymentsUnavailable": {
         "message": "[Ţĥîš ƀûšîñéšš çåñ'ţ ţåķé çåŕð þåýɱéñţš öñļîñé ýéţ. one two three four]"
     },
+    "api.cardPaymentsOff": {
+        "message": "[Çåŕð þåýɱéñţš åŕé öƒƒ ƒöŕ ţĥîš ƀûšîñéšš. Öþéñ Ĝéţţîñĝ þåîð îñ Šéţûþ ţö šéé ŵĥåţ Šţŕîþé ñééðš. one two three four five six]"
+    },
     "api.staffHasFutureWork": {
         "message": "[Ţĥîš ɱéɱƀéŕ šţîļļ ĥåš ûþçöɱîñĝ ṽîšîţš. Çĥööšé ŵĥéţĥéŕ ţö ɱöṽé öŕ çåñçéļ ţĥéɱ. one two three four five]"
     },

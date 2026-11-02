@@ -17,7 +17,13 @@ from clientbridge.models.platform import Audit, Device, Webhook
 from clientbridge.services import ledger
 from clientbridge.services.business import kyc_status
 from clientbridge.services.payments import record_failed_delivery
-from tests.conftest import FakePaymentGateway, FakePushSender
+from tests.conftest import (
+    OWNER_USER,
+    STAFF_USER,
+    FakeEmailSender,
+    FakePaymentGateway,
+    FakePushSender,
+)
 from tests.helpers import client_id, column, enable_payments, sent_invoice
 
 BIZ = "bz_birchbark"
@@ -264,8 +270,8 @@ async def test_refund_created_records_a_dashboard_refund(
     assert refund.provider_ref == "re_dash_1" and refund.status == "succeeded"
 
 
-async def test_charge_dispute_alerts_staff(
-    api: httpx.AsyncClient, db: AsyncSession, push: FakePushSender
+async def test_charge_dispute_alerts_the_owners_by_push_and_email(
+    api: httpx.AsyncClient, db: AsyncSession, push: FakePushSender, email: FakeEmailSender
 ) -> None:
     cid = await client_id(db)
     await enable_payments(db, "acct_d")
@@ -284,21 +290,47 @@ async def test_charge_dispute_alerts_staff(
             paid_at=clock.now(),
         )
     )
-    db.add(
-        Device(id="dvt_test", business_id=BIZ, user_id="us_dev", token="ExpoTok", platform="ios")
+    db.add_all(
+        [
+            Device(
+                id="dvt_test", business_id=BIZ, user_id=OWNER_USER, token="OwnerTok", platform="ios"
+            ),
+            Device(
+                id="dvt_staff",
+                business_id=BIZ,
+                user_id=STAFF_USER,
+                token="StaffTok",
+                platform="ios",
+            ),
+        ]
     )
     await db.flush()
+    await db.execute(
+        update(Business).where(Business.id == BIZ).values(billing_email="owner@birchbark.ca")
+    )
+    due = int(datetime(2026, 10, 20, 12, tzinfo=UTC).timestamp())
+    dispute = {
+        "id": "dp_1",
+        "payment_intent": "pi_disp",
+        "amount": 8000,
+        "status": "needs_response",
+        "evidence_details": {"due_by": due},
+    }
     body = json.dumps(
         {
             "id": "evt_disp",
             "type": "charge.dispute.created",
             "account": "acct_d",
-            "data": {"object": {"id": "dp_1", "payment_intent": "pi_disp", "amount": 8000}},
+            "data": {"object": dispute},
         }
     )
     res = await api.post("/webhooks/stripe", content=body, headers={"Stripe-Signature": "good"})
     assert res.status_code == 200
-    assert any("disput" in p.body.lower() for p in push.sent)  # the business's staff were alerted
+    alerts = [p for p in push.sent if "disput" in p.body.lower()]
+    assert [p.tokens for p in alerts] == [["OwnerTok"]]  # owners and admins, not every member
+    mail = [e for e in email.sent if "disputed" in e.subject]
+    assert [e.to for e in mail] == ["owner@birchbark.ca"]
+    assert "October 20" in mail[0].body and "/payments/refunds" in mail[0].body
 
 
 async def test_bad_signature_rejected(api: httpx.AsyncClient) -> None:
@@ -525,6 +557,21 @@ async def test_a_raising_handler_leaves_a_failed_row_the_retry_then_processes(
     assert await column(db, "webhooks", "evt_flaky", "payload") is None
     status = (await db.execute(select(Payment.status).where(Payment.id == pay_id))).scalar_one()
     assert status == "succeeded"
+
+
+async def test_a_dispute_stripe_delivers_days_late_still_alerts(
+    api: httpx.AsyncClient, db: AsyncSession, push: FakePushSender
+) -> None:
+    await _succeeded_payment(db, "pi_late")
+    db.add(Device(id="dvt_late", business_id=BIZ, user_id=OWNER_USER, token="Tok", platform="ios"))
+    await db.flush()
+    event = json.loads(
+        _dispute_event("evt_late", "charge.dispute.created", "pi_late", "needs_response")
+    )
+    event["created"] = int((clock.now() - timedelta(days=3)).timestamp())
+    res = await api.post("/webhooks/stripe", content=json.dumps(event), headers=GOOD)
+    assert res.status_code == 200
+    assert [p.body.startswith("Payment disputed") for p in push.sent] == [True]
 
 
 async def test_an_inquiry_that_escalates_books_the_dispute(

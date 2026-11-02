@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.config import get_settings
-from clientbridge.core.deps import Principal
+from clientbridge.core.deps import Principal, is_manager
 from clientbridge.core.email_layout import Action, EmailView, inline_images, render_html
 from clientbridge.core.errors import AppError
 from clientbridge.core.ids import new_id
@@ -414,6 +414,70 @@ def refund_failed_alert_text(locale: str, amount: str) -> str:
 def dispute_inquiry_alert_text(locale: str, amount: str) -> str:
     """Staff push body when a client's bank asks about a charge before any chargeback."""
     return message(locale, "dispute.inquiry_push", amount=amount)
+
+
+def refunds_link() -> str:
+    """Payments > Refunds in the web app, where refunds and disputes are handled."""
+    return f"{get_settings().web_base_url}/payments/refunds"
+
+
+def _money_alert(
+    locale: str, subject: str, heading: str, lead: str, how: str, action: str, link: str
+) -> Notice:
+    return Notice(
+        subject,
+        message(locale, "money_alert.body", lead=lead, how=how, link=link),
+        _view(
+            message(locale, "email.kind.payment"),
+            heading,
+            lead,
+            how,
+            action=Action(action, link),
+        ),
+    )
+
+
+def dispute_email(locale: str, amount: str, respond_by: str | None, link: str) -> Notice:
+    """Owner mail when a charge is disputed, with the date the evidence is due."""
+    return _money_alert(
+        locale,
+        message(locale, "dispute_email.subject", amount=amount),
+        message(locale, "dispute_email.heading"),
+        message(locale, "dispute_email.lead", amount=amount),
+        message(locale, "dispute_email.due", when=respond_by)
+        if respond_by
+        else message(locale, "dispute_email.how"),
+        message(locale, "dispute_email.action"),
+        link,
+    )
+
+
+def dispute_inquiry_email(locale: str, amount: str, respond_by: str | None, link: str) -> Notice:
+    """Owner mail when a client's bank asks about a charge before any chargeback."""
+    return _money_alert(
+        locale,
+        message(locale, "dispute_inquiry_email.subject", amount=amount),
+        message(locale, "dispute_inquiry_email.heading"),
+        message(locale, "dispute_inquiry_email.lead", amount=amount),
+        message(locale, "dispute_inquiry_email.due", when=respond_by)
+        if respond_by
+        else message(locale, "dispute_inquiry_email.how"),
+        message(locale, "dispute_email.action"),
+        link,
+    )
+
+
+def refund_failed_email(locale: str, amount: str, link: str) -> Notice:
+    """Owner mail when a refund bounced or was canceled, so the client still has to be paid."""
+    return _money_alert(
+        locale,
+        message(locale, "refund_failed_email.subject", amount=amount),
+        message(locale, "refund_failed_email.heading"),
+        message(locale, "refund_failed_email.lead", amount=amount),
+        message(locale, "refund_failed_email.how"),
+        message(locale, "refund_failed_email.action"),
+        link,
+    )
 
 
 def invoice_sent_message(
@@ -968,11 +1032,12 @@ class Notifier:
             return
         locale = locale_for(business=business)
         amount = format_money(locale, payment.amount_cents, payment.currency)
-        await self._alert_staff(
+        await self._alert_managers(
             db,
             business,
             refund_failed_alert_text(locale, amount),
             {"type": "payment", "payment_id": payment.parent_payment_id or payment.id},
+            refund_failed_email(locale, amount, refunds_link()),
         )
         if client_told and payment.refund_notify:
             notice = refund_failed_message(locale, amount, business.name)
@@ -992,20 +1057,14 @@ class Notifier:
         await self._to_client(db, payment.client_id, notice)
 
     async def on_payment_disputed(self, db: AsyncSession, payment_id: str) -> None:
-        """Alert the provider's staff that a charge was disputed — they must respond in Stripe."""
-        payment = await db.get(Payment, payment_id)
-        if payment is None:
-            return
-        business = await db.get(Business, payment.business_id)
-        if business is None:
-            return
-        locale = locale_for(business=business)
-        amount = format_money(locale, payment.amount_cents, payment.currency)
-        await self._alert_staff(
-            db, business, dispute_alert_text(locale, amount), {"type": "dispute"}
-        )
+        """Alert the owners that a charge was disputed and when their evidence is due."""
+        await self._dispute_alert(db, payment_id, inquiry=False)
 
     async def on_dispute_inquiry(self, db: AsyncSession, payment_id: str) -> None:
+        """Alert the owners that a client's bank asked about a charge, before any chargeback."""
+        await self._dispute_alert(db, payment_id, inquiry=True)
+
+    async def _dispute_alert(self, db: AsyncSession, payment_id: str, *, inquiry: bool) -> None:
         payment = await db.get(Payment, payment_id)
         if payment is None:
             return
@@ -1014,9 +1073,19 @@ class Notifier:
             return
         locale = locale_for(business=business)
         amount = format_money(locale, payment.amount_cents, payment.currency)
-        await self._alert_staff(
-            db, business, dispute_inquiry_alert_text(locale, amount), {"type": "dispute"}
-        )
+        due = payment.dispute_respond_by
+        when = format_day_and_time(locale, due, business.timezone) if due else None
+        if inquiry:
+            push, mail = (
+                dispute_inquiry_alert_text(locale, amount),
+                dispute_inquiry_email(locale, amount, when, refunds_link()),
+            )
+        else:
+            push, mail = (
+                dispute_alert_text(locale, amount),
+                dispute_email(locale, amount, when, refunds_link()),
+            )
+        await self._alert_managers(db, business, push, {"type": "dispute"}, mail)
 
     async def on_inbound_message(self, db: AsyncSession, message_id: str) -> None:
         """Alert the business's staff devices to a client's text or Connect message."""
@@ -1354,6 +1423,37 @@ class Notifier:
         business = await db.get(Business, client.business_id)
         sms = Sms(to=number, body=notice, from_number=business.sms_number if business else None)
         return Outcome.DELIVERED if await self._safe(self.sms.send(sms)) else Outcome.FAILED
+
+    async def _alert_managers(
+        self,
+        db: AsyncSession,
+        business: Business,
+        body: str,
+        data: dict[str, str],
+        mail: Notice,
+    ) -> None:
+        """Money alerts: push to the owners' and admins' phones and mail the owner's address."""
+        members = (
+            await db.execute(
+                scoped(Staff, business.id)
+                .with_only_columns(Staff.user_id, Staff.role)
+                .where(Staff.status == "active")
+            )
+        ).all()
+        managers = [user_id for user_id, role in members if is_manager(role)]
+        rows = (
+            (await db.execute(scoped(Device, business.id).where(Device.user_id.in_(managers))))
+            .scalars()
+            .all()
+        )
+        tokens = [r.token for r in rows]
+        if tokens:
+            await self._safe(
+                self.push.send(Push(tokens=tokens, title=business.name, body=body, data=data))
+            )
+        to = await _owner_address(db, business)
+        if to:
+            await self._safe(self.email.send(business_email(business, to, mail)))
 
     async def _alert_staff(
         self, db: AsyncSession, business: Business, body: str, data: dict[str, str]

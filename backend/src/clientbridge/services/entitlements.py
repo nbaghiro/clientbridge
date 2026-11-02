@@ -63,7 +63,9 @@ def _charge_account(business: Business, data: GiftCardPurchase | PackagePurchase
             raise Unprocessable("a sale is paid in cash or by card, not both")
         return None
     if not business.stripe_charges_enabled or business.stripe_account_id is None:
-        raise Conflict("set up card payments in Setup before taking payments")
+        raise Conflict(
+            "set up card payments in Setup before taking payments", code="card_payments_off"
+        )
     return business.stripe_account_id
 
 
@@ -623,8 +625,11 @@ class SubscriptionService:
         self._assert_admin()
         business = await self._business()
         account_id = merchant_account(business)
-        if account_id is None:
-            raise Conflict("set up card payments in Setup before creating subscriptions")
+        if account_id is None or not business.stripe_charges_enabled:
+            raise Conflict(
+                "set up card payments in Setup before creating subscriptions",
+                code="card_payments_off",
+            )
         client = await self._client(data.client_id)
         item = await self._item(data.item_id)
         if item.kind != "subscription":
@@ -673,6 +678,7 @@ class SubscriptionService:
                 metadata=subscription_terms(item, data.client_id),
                 application_fee_percent=subscription_fee_percent(pm.method),
                 idempotency_key=f"sub_{self.biz}_{idempotency_key}",
+                card=pm.method == "card",
             )
             row = Subscription(
                 id=new_id("subscription"),

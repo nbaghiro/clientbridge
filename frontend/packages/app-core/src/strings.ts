@@ -81,6 +81,7 @@ interface Strings {
         readonly checkoutPaid: string;
         readonly depositInProgress: string;
         readonly cardPaymentsUnavailable: string;
+        readonly cardPaymentsOff: string;
         readonly staffHasFutureWork: string;
         readonly broadcastAddressMissing: string;
         readonly broadcastContactMissing: string;

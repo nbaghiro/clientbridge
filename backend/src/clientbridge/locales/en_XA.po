@@ -88,6 +88,39 @@ msgstr "[Å çļîéñţ'š ƀåñķ åšķéð åƀöûţ å {amount} þåýɱ�
 msgid "dispute.push"
 msgstr "[Þåýɱéñţ ðîšþûţéð: {amount}. Ŕéṽîéŵ ţĥé ðîšþûţé ðéţåîļš.~~~~~~~~~~~~~~~~~]"
 
+msgid "dispute_email.action"
+msgstr "[Öþéñ ðîšþûţéš~~~~~]"
+
+msgid "dispute_email.due"
+msgstr "[Šéñð ýöûŕ éṽîðéñçé ƒŕöɱ Þåýɱéñţš ƀý {when}. Îƒ ñöñé åŕŕîṽéš ƀý ţĥéñ, ţĥé ƀåñķ ðéçîðéš ƒöŕ ţĥé çļîéñţ.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "dispute_email.heading"
+msgstr "[Å þåýɱéñţ ŵåš ðîšþûţéð~~~~~~~~]"
+
+msgid "dispute_email.how"
+msgstr "[Šéñð ýöûŕ éṽîðéñçé ƒŕöɱ Þåýɱéñţš åš šööñ åš ýöû çåñ. Îƒ ñöñé åŕŕîṽéš ƀý ţĥé ƀåñķ'š ðéåðļîñé, îţ ðéçîðéš ƒöŕ ţĥé çļîéñţ.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "dispute_email.lead"
+msgstr "[Å çļîéñţ'š ƀåñķ öþéñéð å ðîšþûţé öñ å {amount} çåŕð þåýɱéñţ. Šţŕîþé ĥåš ţåķéñ ţĥé åɱöûñţ åñð îţš ðîšþûţé ƒéé ƒŕöɱ ýöûŕ ƀåļåñçé ŵĥîļé ţĥé ðîšþûţé îš öþéñ.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "dispute_email.subject"
+msgstr "[Å çļîéñţ ðîšþûţéð å {amount} þåýɱéñţ~~~~~~~~~~]"
+
+msgid "dispute_inquiry_email.due"
+msgstr "[Åñšŵéŕ îţ ƒŕöɱ Þåýɱéñţš ƀý {when} šö îţ ðöéšñ'ţ ƀéçöɱé å ðîšþûţé.~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "dispute_inquiry_email.heading"
+msgstr "[Å ƀåñķ åšķéð åƀöûţ å þåýɱéñţ~~~~~~~~~~]"
+
+msgid "dispute_inquiry_email.how"
+msgstr "[Åñšŵéŕ îţ ƒŕöɱ Þåýɱéñţš šööñ šö îţ ðöéšñ'ţ ƀéçöɱé å ðîšþûţé.~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "dispute_inquiry_email.lead"
+msgstr "[Å çļîéñţ'š ƀåñķ åšķéð åƀöûţ å {amount} çåŕð þåýɱéñţ. Ñö ɱöñéý ĥåš ɱöṽéð ýéţ.~~~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "dispute_inquiry_email.subject"
+msgstr "[Å çļîéñţ'š ƀåñķ åšķéð åƀöûţ å {amount} þåýɱéñţ~~~~~~~~~~~~~~]"
+
 msgid "email.footer.account"
 msgstr "[Ýöû'ŕé ĝéţţîñĝ ţĥîš éɱåîļ ƀéçåûšé ţĥîš åððŕéšš ŵåš ûšéð ţö šîĝñ ûþ öŕ šîĝñ îñ öñ Çļîéñţƀŕîðĝé.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
 
@@ -105,6 +138,9 @@ msgstr "[Éšţîɱåţé~~~]"
 
 msgid "email.kind.order"
 msgstr "[Öŕðéŕ~~]"
+
+msgid "email.kind.payment"
+msgstr "[Þåýɱéñţ~~~]"
 
 msgid "email.kind.plan"
 msgstr "[Þļåñ~~]"
@@ -189,6 +225,9 @@ msgstr "[Îƒ ýöû ðîð ñöţ ţŕý ţö šîĝñ îñ, ýöû çåñ îĝ
 
 msgid "login_code.subject"
 msgstr "[Ýöûŕ Çļîéñţƀŕîðĝé šîĝñ-îñ çöðé~~~~~~~~~~~]"
+
+msgid "money_alert.body"
+msgstr "[{lead} {how} {link}~]"
 
 msgid "online_order.body"
 msgstr "[Å çļîéñţ þåîð {amount} ƒöŕ åñ öñļîñé öŕðéŕ. Îţ îš ŵåîţîñĝ ûñðéŕ Þåýɱéñţš, Šåļéš.~~~~~~~~~~~~~~~~~~~~~~~~~~]"
@@ -300,6 +339,21 @@ msgstr "[Å ŕéƒûñð öƒ {amount} ðîðñ'ţ ĝö ţĥŕöûĝĥ. Çĥéç
 
 msgid "refund_failed.body"
 msgstr "[Ýöûŕ ƀåñķ çöûļð ñöţ çöɱþļéţé ţĥé ŕéƒûñð öƒ {amount} ƒŕöɱ {business}. {business} ŵîļļ åŕŕåñĝé îţ åñöţĥéŕ ŵåý.~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "refund_failed_email.action"
+msgstr "[Öþéñ þåýɱéñţš~~~~~]"
+
+msgid "refund_failed_email.heading"
+msgstr "[Å ŕéƒûñð ðîðñ'ţ ĝö ţĥŕöûĝĥ~~~~~~~~~~]"
+
+msgid "refund_failed_email.how"
+msgstr "[Ŕéƒûñð îţ åĝåîñ ƒŕöɱ Þåýɱéñţš, öŕ ŕéţûŕñ ţĥé ɱöñéý åñöţĥéŕ ŵåý.~~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "refund_failed_email.lead"
+msgstr "[Å ŕéƒûñð öƒ {amount} ŵåš ŕéţûŕñéð öŕ çåñçéļéð, šö ţĥé çļîéñţ ĥåšñ'ţ ĝöţ ţĥé ɱöñéý ƀåçķ.~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "refund_failed_email.subject"
+msgstr "[Å {amount} ŕéƒûñð ðîðñ'ţ ĝö ţĥŕöûĝĥ~~~~~~~~~~]"
 
 msgid "registration_code.body"
 msgid_plural "registration_code.body"

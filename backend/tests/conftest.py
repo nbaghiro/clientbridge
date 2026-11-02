@@ -460,6 +460,7 @@ class FakePaymentGateway:
         self.kept_subscriptions: list[str] = []
         self.subscription_prices: dict[str, str] = {}
         self.subscription_fee_percents: dict[str, float] = {}
+        self.subscription_cards: list[bool] = []
         self._sub_methods: dict[str, str] = {}
         self.pad_enabled = True
         self.pad_intents: dict[str, SetupIntentState] = {}
@@ -762,7 +763,9 @@ class FakePaymentGateway:
         metadata: dict[str, str],
         application_fee_percent: float,
         idempotency_key: str | None = None,
+        card: bool = True,
     ) -> SubscriptionResult:
+        self.subscription_cards.append(card)
         if idempotency_key is not None:
             # Stripe replays a key's first outcome and refuses the key with other parameters
             first = self._sub_methods.setdefault(idempotency_key, payment_method_id)
@@ -770,6 +773,8 @@ class FakePaymentGateway:
                 raise Conflict("the retry differs from the original request")
         if payment_method_id == "pm_card_declined":
             raise CardDeclined("the card was declined")
+        if payment_method_id == "pm_card_authenticationRequired":
+            raise PaymentActionRequired("this card requires authentication")
         if idempotency_key is not None and idempotency_key in self._subs:
             return self._subs[idempotency_key]
         self._seq += 1
