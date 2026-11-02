@@ -10286,6 +10286,9 @@
     "gettingPaid.pausedBodyReview": {
         "message": "You can still take card payments. Payouts are on hold while your details are being verified."
     },
+    "gettingPaid.pausedBodyHeld": {
+        "message": "You can still take card payments, but Stripe has put your payouts on hold. Contact support and we'll help sort it out."
+    },
     "gettingPaid.restrictedTitle": {
         "message": "Card payments are paused"
     },
@@ -10321,6 +10324,9 @@
     },
     "gettingPaid.readyBody": {
         "message": "Card payments, Tap to Pay and payouts are all on."
+    },
+    "gettingPaid.readyBodyDue": {
+        "message": "Card payments, Tap to Pay and payouts are all on. Send what's listed below to keep them that way."
     },
     "gettingPaid.phaseNotConnected": {
         "message": "Set up card payments, deposits and Tap to Pay. It takes about 10 minutes and you'll need a photo ID and your bank details."

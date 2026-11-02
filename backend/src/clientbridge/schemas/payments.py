@@ -47,6 +47,10 @@ class ConnectStatus(BaseModel):
     current_deadline: datetime | None = Field(
         default=None, description="When Stripe pauses payouts if what is due isn't sent"
     )
+    payouts_hold: str | None = Field(
+        default=None,
+        description="Stripe's reason payouts are off, such as requirements_pending_verification",
+    )
     available_cents: int | None = Field(
         default=None, description="The Stripe balance available to pay out, when connected"
     )

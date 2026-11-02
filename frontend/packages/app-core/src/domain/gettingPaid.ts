@@ -18,6 +18,7 @@ interface ConnectStatus {
     past_due: string[];
     requirement_errors?: { requirement: string; code: string }[];
     current_deadline: string | null;
+    payouts_hold?: string | null;
     available_cents: number | null;
     pending_cents: number | null;
 }
@@ -259,11 +260,15 @@ export function useGettingPaid(api: ApiLike): GettingPaidView {
                     ? g.restrictedBody
                     : phase === "payouts_paused"
                       ? keys.length === 0
-                          ? g.pausedBodyReview
+                          ? heldForReview(s?.payouts_hold ?? null)
+                              ? g.pausedBodyReview
+                              : g.pausedBodyHeld
                           : deadline === null || deadline.getTime() <= now.getTime()
                             ? g.pausedBodyNoDate
                             : g.pausedBody(formatDate(deadline, zone))
-                      : g.readyBody;
+                      : keys.length > 0
+                        ? g.readyBodyDue
+                        : g.readyBody;
     const errors = s?.requirement_errors ?? [];
     return {
         phase,
@@ -296,6 +301,15 @@ export function useGettingPaid(api: ApiLike): GettingPaidView {
         notices,
         refresh,
     };
+}
+
+/** Whether payouts with nothing due wait on Stripe's review, rather than a hold only support lifts. */
+function heldForReview(hold: string | null): boolean {
+    return (
+        hold === null ||
+        hold === "requirements_pending_verification" ||
+        hold === "determining_status"
+    );
 }
 
 /** Whether to offer the onboarding form: always while anything is due, unless only support can help. */

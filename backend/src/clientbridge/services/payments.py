@@ -259,6 +259,7 @@ class PaymentService:
 
         reason = req.get("disabled_reason")
         deadline = req.get("current_deadline")
+        hold = req.get("payouts_hold")
         available: int | None = None
         pending: int | None = None
         if business.stripe_account_id is not None and business.stripe_charges_enabled:
@@ -282,6 +283,7 @@ class PaymentService:
             current_deadline=datetime.fromtimestamp(deadline, UTC)
             if isinstance(deadline, int)
             else None,
+            payouts_hold=hold if isinstance(hold, str) else None,
             available_cents=available,
             pending_cents=pending,
         )
@@ -1932,6 +1934,15 @@ _REPLAYED: dict[str, StripeResource] = {
 }
 
 
+# a ready account is re-read every few hours, in case Stripe paused it and the event was lost
+_RESYNC_EVERY = 6
+
+
+def _resync_hour(business_id: str) -> int:
+    """The hour, modulo _RESYNC_EVERY, a ready account is re-read; spreads accounts over the day."""
+    return int(hashlib.sha256(business_id.encode()).hexdigest(), 16) % _RESYNC_EVERY
+
+
 def _closed(business: Business) -> bool:
     return business.stripe_requirements.get("disabled_reason") == "closed"
 
@@ -1945,8 +1956,11 @@ async def run_replay_missed_events(db: AsyncSession, gateway: PaymentGateway) ->
         )
         if not _closed(b)
     ]
+    hour = clock.now().hour
     for business in connected:
-        if merchant_account(business) is not None and kyc_status(business) != "enabled":
+        if merchant_account(business) is not None and (
+            kyc_status(business) != "enabled" or _resync_hour(business.id) == hour % _RESYNC_EVERY
+        ):
             await _resync_account(db, gateway, business)
     accounts: list[str | None] = [None, *(b.stripe_account_id for b in connected)]
     since, budget, applied = clock.now() - _REPLAY_WINDOW, _REPLAY_PER_RUN, 0

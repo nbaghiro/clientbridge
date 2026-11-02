@@ -130,6 +130,7 @@ class ConnectAccount:
     card_status: str | None  # card_payments: active, pending, restricted, unsupported or rejected
     current_deadline: int | None = None  # unix time Stripe pauses payouts if currently_due stays
     requirement_errors: tuple[RequirementError, ...] = ()
+    payouts_hold: str | None = None  # Stripe's status_details code while payouts are off
 
     @property
     def details_submitted(self) -> bool:
@@ -197,11 +198,13 @@ def account_status_from(account_id: str, data: dict[str, object]) -> ConnectAcco
             if isinstance(error := row.get("code"), str)
         ]
     deadline = _dict(_dict(requirements.get("summary")).get("minimum_deadline")).get("time")
+    payouts = merchant_capability(data, "stripe_balance", "payouts")
+    held = _rows(payouts.get("status_details"))
+    hold = held[0].get("code") if held and payouts.get("status") != "active" else None
     return ConnectAccount(
         id=account_id,
         charges_enabled=card_status == "active",
-        payouts_enabled=merchant_capability(data, "stripe_balance", "payouts").get("status")
-        == "active",
+        payouts_enabled=payouts.get("status") == "active",
         disabled_reason=_blocked_reason(data),
         currently_due=due["currently_due"],
         eventually_due=due["eventually_due"],
@@ -209,6 +212,7 @@ def account_status_from(account_id: str, data: dict[str, object]) -> ConnectAcco
         card_status=card_status if isinstance(card_status, str) else None,
         current_deadline=_unix(deadline),
         requirement_errors=tuple(errors),
+        payouts_hold=hold if isinstance(hold, str) else None,
     )
 
 
