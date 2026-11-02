@@ -36,7 +36,7 @@ from clientbridge.schemas.orders import (
 )
 from clientbridge.schemas.public import PublicPickupWindow
 from clientbridge.services import ledger
-from clientbridge.services.billing import reprice_ticket
+from clientbridge.services.billing import reprice_ticket, retotal
 from clientbridge.services.bookings import load_availability, windows_on
 from clientbridge.services.business import (
     business_tz,
@@ -47,7 +47,6 @@ from clientbridge.services.business import (
 from clientbridge.services.deliveries import delivery_key
 from clientbridge.services.inventory import assert_parent_stock
 from clientbridge.services.lines import (
-    apply_totals,
     discount_of,
     discount_total,
     fetch_lines,
@@ -67,7 +66,6 @@ from clientbridge.services.payments import (
     resolve_tip,
     sync_order,
 )
-from clientbridge.services.tax import tax_for_lines
 
 _PICKUP_STEPS = {"unfulfilled": 0, "preparing": 1, "ready": 2, "picked_up": 3}
 # a wrong PIN locks the desk out for a while, so four digits can't be guessed in a minute
@@ -522,7 +520,7 @@ class OrderService:
 
     async def _settle_terms(self, order: Order, lines: list[Line]) -> None:
         order.currency = await self._currency(lines)
-        apply_totals(order, await tax_for_lines(self.db, self.biz, lines))
+        await retotal(self.db, self.biz, order, lines)
         await self._link_visits(order, lines)
         await self.db.flush()
 

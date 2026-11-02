@@ -514,8 +514,8 @@ class BusinessService:
         except IntegrityError as exc:
             await self.db.rollback()
             raise Conflict("another business uses that address", code="slug_taken") from exc
-        registered = (business.tax_registered, business.tax_registered_on)
-        if (business.province, business.timezone, *registered) != previous_tax:
+        registration = (business.tax_registered, business.tax_registered_on)
+        if (business.province, business.timezone, *registration) != previous_tax:
             from clientbridge.services.billing import reprice_open_documents  # billing imports us
 
             await reprice_open_documents(self.db, business.id, self.principal.user_id)
