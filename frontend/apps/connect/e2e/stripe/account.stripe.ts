@@ -41,9 +41,6 @@ test("STR-E13 bank details stay behind Stripe's sign-in, which sends its code to
         await page
             .getByRole("button", { name: strings.paymentAccount.manage, exact: true })
             .click();
-        const retry = page.getByRole("button", { name: strings.paymentAccount.retry, exact: true });
-        // Stripe's component sometimes fails its first load; the page offers a retry
-        if (await retry.isVisible({ timeout: 20_000 }).catch(() => false)) await retry.click();
         const component = await stripeFrame(page, /^Sign in to see details$/);
         for (const last4 of before.banks.map((bank) => bank.last4)) {
             await expect(component.getByText(last4)).toHaveCount(0);
