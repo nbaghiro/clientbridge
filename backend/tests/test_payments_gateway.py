@@ -4,7 +4,14 @@ from typing import cast
 import pytest
 import stripe
 
-from clientbridge.core.errors import AppError, Conflict, NotFound, PaymentsNotConfigured
+from clientbridge.core.errors import (
+    AppError,
+    CardDeclined,
+    Conflict,
+    NotFound,
+    PaymentActionRequired,
+    PaymentsNotConfigured,
+)
 from clientbridge.integrations import stripe as stripe_module
 from clientbridge.integrations.stripe import (
     PlanItem,
@@ -663,3 +670,29 @@ async def test_payout_list_reads_only_the_recent_page(
     assert calls == [
         {"stripe_account": "acct_business", "limit": 24, "starting_after": "po_previous"}
     ]
+
+
+@pytest.mark.parametrize(
+    ("code", "refusal"),
+    [
+        ("card_declined", CardDeclined),
+        ("subscription_payment_intent_requires_action", PaymentActionRequired),
+    ],
+)
+async def test_a_first_membership_charge_stripe_refuses_names_why(
+    gateway: StripeGateway,
+    monkeypatch: pytest.MonkeyPatch,
+    code: str,
+    refusal: type[AppError],
+) -> None:
+    failure = stripe.CardError("refused", None, code)
+    monkeypatch.setattr(stripe.Subscription, "create_async", _raises(failure))
+    with pytest.raises(refusal):
+        await gateway.create_subscription(
+            "acct_x",
+            customer_id="cus_x",
+            price_id="price_x",
+            payment_method_id="pm_x",
+            metadata={},
+            application_fee_percent=0.3,
+        )

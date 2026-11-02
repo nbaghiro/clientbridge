@@ -1434,7 +1434,7 @@ class StripeGateway:
                 idempotency_key=idempotency_key,
             )
         except stripe.CardError as exc:
-            if exc.code == "authentication_required":
+            if exc.code == "subscription_payment_intent_requires_action":
                 raise PaymentActionRequired("this card requires authentication") from exc
             raise CardDeclined("the card was declined") from exc
         return SubscriptionResult(
