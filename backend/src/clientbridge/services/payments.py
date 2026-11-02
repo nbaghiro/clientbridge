@@ -1917,7 +1917,7 @@ async def record_failed_delivery(db: AsyncSession, event: GatewayEvent, exc: Exc
 
 ACCOUNT_CLOSED = "v2.core.account.closed"
 _OUR_VOID = "expired_order"  # we refund it in full and return our platform fee
-_UNAPPLIED = "unapplied_payment"  # it reached an invoice that no longer owed it; refunded in full
+_UNAPPLIED = "unapplied_payment"  # it reached a bill that no longer owed it; refunded in full
 _REPLAY_WINDOW = timedelta(days=7)
 _REPLAY_PER_ACCOUNT = 100
 _REPLAY_PER_RUN = 500
@@ -1934,15 +1934,6 @@ _REPLAYED: dict[str, StripeResource] = {
 }
 
 
-# a ready account is re-read every few hours, in case Stripe paused it and the event was lost
-_RESYNC_EVERY = 6
-
-
-def _resync_hour(business_id: str) -> int:
-    """The hour, modulo _RESYNC_EVERY, a ready account is re-read; spreads accounts over the day."""
-    return int(hashlib.sha256(business_id.encode()).hexdigest(), 16) % _RESYNC_EVERY
-
-
 def _closed(business: Business) -> bool:
     return business.stripe_requirements.get("disabled_reason") == "closed"
 
@@ -1956,11 +1947,8 @@ async def run_replay_missed_events(db: AsyncSession, gateway: PaymentGateway) ->
         )
         if not _closed(b)
     ]
-    hour = clock.now().hour
     for business in connected:
-        if merchant_account(business) is not None and (
-            kyc_status(business) != "enabled" or _resync_hour(business.id) == hour % _RESYNC_EVERY
-        ):
+        if merchant_account(business) is not None and kyc_status(business) != "enabled":
             await _resync_account(db, gateway, business)
     accounts: list[str | None] = [None, *(b.stripe_account_id for b in connected)]
     since, budget, applied = clock.now() - _REPLAY_WINDOW, _REPLAY_PER_RUN, 0
@@ -2161,8 +2149,8 @@ async def _reconcile_refund(
                 await _unapply_refund(db, refund, payment)
                 return WebhookOutcome("refund_failed", refund.id)
             return None
-        if refund.status in ("failed", "canceled") and status == "pending":
-            return None
+        if refund.status in ("failed", "canceled"):
+            return None  # final at Stripe: a late succeeded or pending snapshot is out of order
         stalled = refund.status == "pending" and status in ("failed", "canceled")
         refund.status = status
         if stalled:
@@ -2491,7 +2479,7 @@ async def _settle_payment(
             if exc.code != "out_of_stock":
                 raise
             order.status, expired_order = "void", True
-    unapplied = await _unapplied(db, payment)
+    unapplied = await _unapplied(db, payment, None if expired_order else order)
     fees = await _fees(db, gateway, payment.business_id, intent_id)
     payment.status = "succeeded"
     payment.paid_at = occurred_at or clock.now()
@@ -2505,7 +2493,7 @@ async def _settle_payment(
             payment,
             key=f"unapplied:{payment.id}",
             reason=_UNAPPLIED,
-            action="payment.late_invoice_refund",
+            action="payment.late_order_refund" if order else "payment.late_invoice_refund",
         )
         return None
     if expired_order:
@@ -2526,9 +2514,13 @@ async def _settle_payment(
     return _Settled(payment.id, gift_card_id)
 
 
-async def _unapplied(db: AsyncSession, payment: Payment) -> bool:
-    """A card payment settling on an invoice that was voided or paid another way since."""
-    if payment.invoice_id is None or payment.kind != "payment":
+async def _unapplied(db: AsyncSession, payment: Payment, order: Order | None) -> bool:
+    """A card payment settling on an invoice or order that was voided or paid another way since."""
+    if payment.kind != "payment":
+        return False
+    if order is not None:
+        return (await ledger.order_state(db, order))[0] in ("paid", "refunded")
+    if payment.invoice_id is None:
         return False
     invoice = await db.scalar(
         scoped(Invoice, payment.business_id)

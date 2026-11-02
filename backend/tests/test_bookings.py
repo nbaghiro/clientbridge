@@ -544,6 +544,26 @@ async def test_collect_deposit_interactive_returns_secret(
     assert booking.deposit_status == "pending"
 
 
+async def test_a_desk_deposit_card_form_closed_and_reopened_takes_the_same_payment(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    """Staff who close the card form and try again aren't blocked until the stale job runs."""
+    await enable_payments(db)
+    bid = await deposit_booking(as_owner, db, starts="2027-06-02T11:00:00Z")
+    first = await as_owner.post(f"/v1/bookings/{bid}/deposit")
+    assert first.status_code == 200, first.text
+    again = await as_owner.post(f"/v1/bookings/{bid}/deposit")
+    assert again.status_code == 200, again.text
+    assert again.json() == first.json()
+    pending = await db.get(Payment, first.json()["payment_id"])
+    assert pending is not None
+    pending.status = "failed"  # the client's card was declined; the next try is a new charge
+    await db.flush()
+    retry = await as_owner.post(f"/v1/bookings/{bid}/deposit")
+    assert retry.status_code == 200, retry.text
+    assert retry.json()["payment_id"] != first.json()["payment_id"]
+
+
 async def test_collect_deposit_no_deposit_due_409(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:

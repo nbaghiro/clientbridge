@@ -5,18 +5,16 @@ from datetime import timedelta
 
 import httpx
 import pytest
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
-from clientbridge.integrations.stripe import ConnectAccount, MissedEvent
-from clientbridge.models.business import Business
+from clientbridge.integrations.stripe import MissedEvent
 from clientbridge.models.messaging import Delivery
 from clientbridge.models.payments import Payment
 from clientbridge.services import payments
-from clientbridge.services.business import kyc_status
 from clientbridge.services.payments import run_replay_missed_events
-from tests.conftest import BIZ, FakePaymentGateway
+from tests.conftest import FakePaymentGateway
 from tests.helpers import STRIPE, card_pay, enable_payments, provider_ref, sent_invoice
 
 
@@ -137,46 +135,3 @@ async def test_events_already_applied_do_not_use_up_the_replay_budget(
     assert await run_replay_missed_events(db, gateway) == 1
     payment = await db.get(Payment, pay_id, populate_existing=True)
     assert payment is not None and payment.status == "succeeded"
-
-
-async def _ready_account(db: AsyncSession) -> None:
-    await db.execute(
-        update(Business)
-        .where(Business.id == BIZ)
-        .values(
-            stripe_account_id="acct_ready",
-            stripe_charges_enabled=True,
-            stripe_payouts_enabled=True,
-            stripe_requirements={"card_status": "active"},
-        )
-    )
-    await db.flush()
-
-
-@pytest.mark.parametrize("due", [True, False])
-async def test_a_ready_account_is_reread_every_few_hours(
-    db: AsyncSession,
-    gateway: FakePaymentGateway,
-    monkeypatch: pytest.MonkeyPatch,
-    due: bool,
-) -> None:
-    """Stripe pausing payouts on a ready account shows even when its account event was lost."""
-    await _ready_account(db)
-    gateway.accounts["acct_ready"] = ConnectAccount(
-        id="acct_ready",
-        charges_enabled=True,
-        payouts_enabled=False,
-        disabled_reason=None,
-        currently_due=[],
-        eventually_due=[],
-        past_due=[],
-        card_status="active",
-        payouts_hold="restricted_other",
-    )
-    hour = clock.now().hour % 6
-    monkeypatch.setattr(payments, "_resync_hour", lambda _: hour if due else (hour + 1) % 6)
-    await run_replay_missed_events(db, gateway)
-    business = await db.get(Business, BIZ)
-    assert business is not None
-    await db.refresh(business)
-    assert kyc_status(business) == ("payouts_paused" if due else "enabled")

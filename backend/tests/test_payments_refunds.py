@@ -643,6 +643,25 @@ async def test_a_refund_that_fails_later_retains_its_credit_note_and_tells_the_c
     assert await next_credit_note(db, payment) == "CN-9100-2"
 
 
+async def test_a_succeeded_snapshot_arriving_after_the_failure_keeps_the_refund_failed(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await enable_payments(db)
+    cid = await client_id(db)
+    inv_id = await sent_invoice(db, number=9101, total=8000)
+    payment = await _settled_charge(db, "pi_late", client=cid)
+    payment.invoice_id = inv_id
+    await db.flush()
+    await ledger.post_payment(db, payment)
+    await stripe_event(api, "refund.created", _refund_object("pi_late", "succeeded"))
+    await stripe_event(api, "refund.failed", _refund_object("pi_late", "failed"))
+    await stripe_event(api, "refund.updated", _refund_object("pi_late", "succeeded"))
+    refund = await payment_by_ref(db, "re_pi_late")
+    assert refund.status == "failed"
+    invoice = await db.get(Invoice, inv_id)
+    assert invoice is not None and (await ledger.invoice_state(db, invoice))[0] == "paid"
+
+
 async def test_a_refund_that_fails_later_restores_the_gift_card_it_voided(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:

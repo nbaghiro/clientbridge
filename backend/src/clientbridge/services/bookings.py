@@ -1331,7 +1331,10 @@ class BookingService:
         )
 
         async def run(cmd: Command) -> DepositOut:
-            await self._assert_no_open_deposit(booking.id)
+            if pm_ref is not None:
+                await self._assert_no_open_deposit(booking.id)
+            elif await self._has_settled_deposit(booking.id):
+                raise Conflict("deposit already collected or pending")
             payment, client_secret = await open_booking_deposit(
                 self.db,
                 self.gateway,
@@ -1342,6 +1345,8 @@ class BookingService:
                 amount=amount,
                 payment_method=pm_ref,
                 idempotency_key=idempotency_key,
+                # a card form staff closed gives way to this attempt instead of blocking it
+                supersede=pm_ref is None,
             )
             cmd.record("booking.deposit", entity_type="booking", entity_id=booking.id)
             return DepositOut(
@@ -1397,6 +1402,19 @@ class BookingService:
     async def _assert_no_open_deposit(self, booking_id: str) -> None:
         if await self._has_open_deposit(booking_id):
             raise Conflict("deposit already collected or pending")
+
+    async def _has_settled_deposit(self, booking_id: str) -> bool:
+        row = await self.db.scalar(
+            scoped(Payment, self.biz)
+            .with_only_columns(Payment.id)
+            .where(
+                Payment.booking_id == booking_id,
+                Payment.kind == "deposit",
+                Payment.status == "succeeded",
+            )
+            .limit(1)
+        )
+        return row is not None
 
     async def _has_open_deposit(self, booking_id: str) -> bool:
         row = (
