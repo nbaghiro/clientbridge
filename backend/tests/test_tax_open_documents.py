@@ -8,13 +8,15 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
+from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Estimate, Invoice, Line, Order
 from clientbridge.models.business import Business
-from clientbridge.models.catalog import Item
+from clientbridge.models.catalog import GiftCard, Item
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.platform import Audit
-from clientbridge.services import billing
+from clientbridge.services import billing, ledger
 from clientbridge.services.billing import run_reprice_open_documents
+from clientbridge.services.ledger import Leg
 from tests.conftest import BIZ, Factory
 from tests.helpers import client_id, enable_payments, key, ok
 
@@ -232,6 +234,50 @@ async def test_a_ticket_with_a_live_or_settled_payment_keeps_its_amount(
         await db.get_one(Order, str(charging["id"]), populate_existing=True)
     ).total_cents == 2688
     assert (await db.get_one(Order, str(settled["id"]), populate_existing=True)).total_cents == 2688
+
+
+async def test_a_ticket_with_a_gift_card_applied_keeps_its_amount(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    card = GiftCard(id=new_id("gift_card"), business_id=BIZ, code="TAXHOLD1", initial_cents=1000)
+    card.status = "active"
+    db.add(card)
+    await db.flush()
+    await ledger.post(
+        db,
+        BIZ,
+        event="payment",
+        ref=f"test:purchase:{card.id}",
+        legs=[Leg("business", BIZ, "stripe", 1000), Leg("gift_card", card.id, "gift_card", -1000)],
+        subject=("gift_card", card.id),
+    )
+    held = await _held_ticket(as_owner)
+    ok(
+        await as_owner.post(
+            f"/v1/orders/{held['id']}/gift-card", json={"code": card.code}, headers=key()
+        )
+    )
+    ok(await as_owner.patch("/v1/business", json={"tax_registered": False}, headers=key()))
+    order = await db.get_one(Order, str(held["id"]), populate_existing=True)
+    assert order.total_cents == 2688
+
+
+async def test_a_held_ticket_is_charged_at_the_settings_in_force_when_it_is_paid(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    held = await _held_ticket(as_owner)
+    await db.execute(update(Business).where(Business.id == BIZ).values(tax_registered=False))
+    await db.flush()
+    paid = ok(
+        await as_owner.post(
+            f"/v1/orders/{held['id']}/cash", json={"tendered_cents": 2400}, headers=key()
+        )
+    ).json()
+    assert paid["amount_cents"] == 2400
+    audit = (await db.execute(select(Audit).where(Audit.entity_id == held["id"]))).scalars()
+    assert [a.changes for a in audit if a.action == "order.repriced"] == [
+        {"old": 2688, "new": 2400}
+    ]
 
 
 async def test_a_ticket_held_before_a_registration_date_is_taxed_after_it(

@@ -660,6 +660,13 @@ async def reprice_open_documents(
     await _reprice(db, biz, "order", Order, _unpaid_order(biz), settings, performed_by)
 
 
+async def reprice_ticket(db: AsyncSession, biz: str, order_id: str, performed_by: str) -> None:
+    """Bring a locked ticket to today's settings before it is charged, if nothing fixed it yet."""
+    settings = await tax_settings(db, biz, clock.now())
+    unpaid = [Order.id == order_id, *_unpaid_order(biz)]
+    await _reprice(db, biz, "order", Order, unpaid, settings, performed_by)
+
+
 def _unpaid_order(biz: str) -> list[ColumnElement[bool]]:
     """Open tickets nothing was paid against; a live or settled payment keeps its amount."""
     paying = scoped(Payment, biz).where(

@@ -36,6 +36,7 @@ from clientbridge.schemas.orders import (
 )
 from clientbridge.schemas.public import PublicPickupWindow
 from clientbridge.services import ledger
+from clientbridge.services.billing import reprice_ticket
 from clientbridge.services.bookings import load_availability, windows_on
 from clientbridge.services.business import (
     business_tz,
@@ -184,6 +185,7 @@ class OrderService:
 
         async def run(cmd: Command) -> CheckoutOut:
             await self.db.execute(select(Order.id).where(Order.id == order_id).with_for_update())
+            await reprice_ticket(self.db, self.biz, order_id, self.principal.user_id)
             _, due = await self._chargeable(order_id)
             payment, client_secret = await open_terminal_payment(
                 self.db,
@@ -255,6 +257,7 @@ class OrderService:
 
         async def run(cmd: Command) -> CheckoutOut:
             await self.db.execute(select(Order.id).where(Order.id == order_id).with_for_update())
+            await reprice_ticket(self.db, self.biz, order_id, self.principal.user_id)
             _, due = await self._chargeable(order_id)
             payment, client_secret = await open_order_card_payment(
                 self.db,
@@ -292,6 +295,7 @@ class OrderService:
 
         async def run(cmd: Command) -> OrderCashOut:
             await self.db.execute(select(Order.id).where(Order.id == order_id).with_for_update())
+            await reprice_ticket(self.db, self.biz, order_id, self.principal.user_id)
             order, due = await self._chargeable(order_id)
             if await self._has_active_payment(order.id):
                 raise Conflict("this sale already has a payment")
@@ -349,6 +353,7 @@ class OrderService:
 
         async def run(cmd: Command) -> OrderOut:
             await self.db.execute(select(Order.id).where(Order.id == order_id).with_for_update())
+            await reprice_ticket(self.db, self.biz, order_id, self.principal.user_id)
             order, due = await self._chargeable(order_id)
             if await self._has_active_payment(order.id):
                 raise Conflict("this sale already has a payment")
