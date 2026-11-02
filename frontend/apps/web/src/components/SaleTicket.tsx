@@ -743,9 +743,7 @@ function TipBlock({ sale }: { sale: SaleTicket }) {
             <Heading>{d.tipSection}</Heading>
             <TipChips sale={sale} />
             <p className="text-xs text-muted">
-                {sale.totals.taxes.length > 0
-                    ? d.tipOn(formatMoney(sale.totals.subtotalCents, BUSINESS_CURRENCY))
-                    : d.tipOnNoTax(formatMoney(sale.totals.subtotalCents, BUSINESS_CURRENCY))}
+                {sale.tipNote}
             </p>
             {tip > 0 ? (
                 <div className="space-y-2 rounded-md border border-line bg-bg p-3">

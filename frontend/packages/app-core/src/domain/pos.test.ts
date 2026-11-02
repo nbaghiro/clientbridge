@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { ApiLike } from "../api";
 import { BusinessZoneContext } from "../datetime";
 import { strings } from "../strings";
+import { BUSINESS_CURRENCY, formatMoney } from "../format";
 import { allocate, discountCents, withMemberDiscount } from "./billing";
 import { ratesOn } from "./taxes";
 import {
@@ -405,6 +406,16 @@ describe("canceling a sale's checkout", () => {
             result.current.cancelCheckout();
         });
         expect(api.posted).toEqual([]);
+    });
+
+    it("leaves the tax wording out of the tip note when the sale charges none", () => {
+        const { result } = renderHook(() => useSale(saleApi(null), { platform: "web" }), {
+            wrapper,
+        });
+        act(() => {
+            result.current.resume(held, []);
+        });
+        expect(result.current.tipNote).toBe(strings.pos.desk.tipOnNoTax(formatMoney(1000, BUSINESS_CURRENCY)));
     });
 });
 

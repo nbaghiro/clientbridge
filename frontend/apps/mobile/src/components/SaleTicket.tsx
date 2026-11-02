@@ -342,9 +342,7 @@ function TipBlock({ sale }: { sale: SaleTicket }) {
                 />
             ) : null}
             <Text style={styles.note}>
-                {sale.totals.taxes.length > 0
-                    ? d.tipOn(formatMoney(sale.totals.subtotalCents, BUSINESS_CURRENCY))
-                    : d.tipOnNoTax(formatMoney(sale.totals.subtotalCents, BUSINESS_CURRENCY))}
+                {sale.tipNote}
             </Text>
             {tip > 0 ? (
                 <View style={styles.stack}>
