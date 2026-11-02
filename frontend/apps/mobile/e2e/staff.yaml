@@ -34,10 +34,7 @@ onFlowComplete:
 - tapOn: "••••••••"
 - eraseText
 - inputText: "demo1234"
-- hideKeyboard
-- tapOn:
-      text: "Sign in"
-      below: "Forgot password\\?"
+- runFlow: helpers/sign-in.yaml
 - runFlow: helpers/decline-save-password.yaml
 - extendedWaitUntil:
       visible: "Today"

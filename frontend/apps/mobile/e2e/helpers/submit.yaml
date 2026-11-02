@@ -1,0 +1,14 @@
+appId: ${APP_ID}
+---
+# iOS's hideKeyboard fails or presses Return at random, so iOS sends the form with Return itself
+- runFlow:
+      when:
+          platform: iOS
+      commands:
+          - pressKey: Enter
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - hideKeyboard
+          - tapOn: ${BUTTON}

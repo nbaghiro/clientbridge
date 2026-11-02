@@ -16,10 +16,7 @@ appId: ${APP_ID}
           - tapOn: "••••••••"
           - eraseText
           - inputText: "demo1234"
-          - hideKeyboard
-          - tapOn:
-                text: "Sign in"
-                below: "Forgot password\\?"
+          - runFlow: sign-in.yaml
           - runFlow: decline-save-password.yaml
 - extendedWaitUntil:
       visible: "Today"
