@@ -12,10 +12,12 @@ from clientbridge.main import app
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
+from clientbridge.models.ledger import Account
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking, Hours, Slot
+from clientbridge.services import ledger
 from tests.conftest import BIZ, Factory, FakeEmailSender, FakeSmsSender
-from tests.helpers import enable_payments
+from tests.helpers import enable_payments, key, ok, settle
 
 SLUG = "birchbark"
 TZ = ZoneInfo("America/Vancouver")  # the seed business's timezone; hours are local wall-clock
@@ -410,3 +412,39 @@ async def test_any_staff_refuses_a_time_nobody_offers(api: httpx.AsyncClient) ->
     res = await api.post(f"/book/{SLUG}", json=_body(_local(date(2027, 3, 2), 3), staff="any"))
     assert res.status_code == 409, res.text
     assert res.json()["error"] == "slot_unavailable"
+
+
+async def test_a_booking_deposit_with_tax_off_charges_and_books_none(
+    as_owner: httpx.AsyncClient, api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    ok(await as_owner.patch("/v1/business", json={"tax_registered": False}, headers=key()))
+    await enable_payments(db)
+    before = await ledger.account_total(db, BIZ, Account.category == "tax")
+    booked = ok(
+        await api.post(
+            f"/book/{SLUG}",
+            json={
+                "item_id": GROOM_LG,
+                "staff_id": ST_OWNER,
+                "starts_at": "2027-03-02T16:00:00Z",
+                "client": {"name": "Web Booker", "phone": "+16045550001"},
+            },
+        )
+    ).json()
+    deposit = (
+        await db.execute(
+            select(Payment).where(
+                Payment.booking_id == booked["booking_id"], Payment.kind == "deposit"
+            )
+        )
+    ).scalar_one()
+    assert deposit.amount_cents == 2750
+    await settle(api, db, deposit.id, "evt_tax_off_deposit")
+    assert await ledger.account_total(db, BIZ, Account.category == "tax") == before
+    invoice = ok(
+        await as_owner.post(
+            f"/v1/invoices/from-booking/{booked['booking_id']}", json={}, headers=key()
+        ),
+        201,
+    ).json()
+    assert (invoice["tax_total_cents"], invoice["total_cents"]) == (0, 11000)

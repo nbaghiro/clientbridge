@@ -12,12 +12,11 @@ from clientbridge.models.billing import Estimate, Invoice, Line, Order
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item
 from clientbridge.models.ledger import Account, Entry
-from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Audit
 from clientbridge.services import billing
 from clientbridge.services.billing import run_reprice_open_documents
 from tests.conftest import BIZ, Factory
-from tests.helpers import client_id, enable_payments, key, ok, settle
+from tests.helpers import client_id, enable_payments, key, ok
 
 SHAMPOO = {"description": "Shampoo", "item_id": "it_shampoo", "unit_amount_cents": 2400}
 SLUG = "birchbark"
@@ -176,67 +175,6 @@ async def test_a_slug_conflict_with_a_tax_change_is_a_conflict_and_changes_nothi
         "/v1/business", json={"slug": taken, "tax_registered": False}, headers=key()
     )
     assert res.status_code == 409 and res.json()["error"] == "slug_taken"
-
-
-async def test_a_shop_order_with_tax_off_charges_and_books_none(
-    as_owner: httpx.AsyncClient, api: httpx.AsyncClient, db: AsyncSession
-) -> None:
-    ok(await as_owner.patch("/v1/business", json={"tax_registered": False}, headers=key()))
-    await enable_payments(db)
-    before = await _tax_ledger(db)
-    order = ok(
-        await api.post(
-            f"/book/{SLUG}/shop/orders",
-            headers=key(),
-            json={
-                "client": {"name": "Online Shopper", "phone": "+16045550223"},
-                "lines": [{"item_id": "it_shampoo", "quantity": 2}],
-            },
-        )
-    ).json()
-    assert (order["tax_total_cents"], order["total_cents"]) == (0, 4800)
-    payment = (
-        await db.execute(select(Payment).where(Payment.order_id == order["order_id"]))
-    ).scalar_one()
-    assert payment.amount_cents == 4800
-    await settle(api, db, payment.id, "evt_tax_off_shop")
-    assert await _tax_ledger(db) == before
-
-
-async def test_a_booking_deposit_with_tax_off_charges_and_books_none(
-    as_owner: httpx.AsyncClient, api: httpx.AsyncClient, db: AsyncSession
-) -> None:
-    ok(await as_owner.patch("/v1/business", json={"tax_registered": False}, headers=key()))
-    await enable_payments(db)
-    before = await _tax_ledger(db)
-    booked = ok(
-        await api.post(
-            f"/book/{SLUG}",
-            json={
-                "item_id": "it_groom_lg",
-                "staff_id": "st_owner",
-                "starts_at": "2027-03-02T16:00:00Z",
-                "client": {"name": "Web Booker", "phone": "+16045550001"},
-            },
-        )
-    ).json()
-    deposit = (
-        await db.execute(
-            select(Payment).where(
-                Payment.booking_id == booked["booking_id"], Payment.kind == "deposit"
-            )
-        )
-    ).scalar_one()
-    assert deposit.amount_cents == 2750
-    await settle(api, db, deposit.id, "evt_tax_off_deposit")
-    assert await _tax_ledger(db) == before
-    invoice = ok(
-        await as_owner.post(
-            f"/v1/invoices/from-booking/{booked['booking_id']}", json={}, headers=key()
-        ),
-        201,
-    ).json()
-    assert (invoice["tax_total_cents"], invoice["total_cents"]) == (0, 11000)
 
 
 async def test_public_pages_say_which_items_are_taxable(

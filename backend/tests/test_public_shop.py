@@ -10,11 +10,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.models.billing import Invoice, Line, Order
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item
+from clientbridge.models.ledger import Account
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Addon, Booking
 from clientbridge.services import ledger
 from tests.conftest import BIZ, Factory, FakeEmailSender, FakeSmsSender
-from tests.helpers import enable_payments, reachable, settle
+from tests.helpers import enable_payments, key, ok, reachable, settle
 
 SLUG = "birchbark"
 GOOD = {"Stripe-Signature": "good"}
@@ -532,3 +533,28 @@ async def test_two_connections_cannot_reserve_the_same_last_unit(db: AsyncSessio
             await cleanup.execute(delete(Order).where(Order.id.in_(orders)))
             await cleanup.execute(delete(Item).where(Item.id == item_id))
             await cleanup.commit()
+
+
+async def test_a_shop_order_with_tax_off_charges_and_books_none(
+    as_owner: httpx.AsyncClient, api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    ok(await as_owner.patch("/v1/business", json={"tax_registered": False}, headers=key()))
+    await enable_payments(db)
+    before = await ledger.account_total(db, BIZ, Account.category == "tax")
+    order = ok(
+        await api.post(
+            f"/book/{SLUG}/shop/orders",
+            headers=key(),
+            json={
+                "client": {"name": "Online Shopper", "phone": "+16045550223"},
+                "lines": [{"item_id": "it_shampoo", "quantity": 2}],
+            },
+        )
+    ).json()
+    assert (order["tax_total_cents"], order["total_cents"]) == (0, 4800)
+    payment = (
+        await db.execute(select(Payment).where(Payment.order_id == order["order_id"]))
+    ).scalar_one()
+    assert payment.amount_cents == 4800
+    await settle(api, db, payment.id, "evt_tax_off_shop")
+    assert await ledger.account_total(db, BIZ, Account.category == "tax") == before
