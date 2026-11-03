@@ -21,14 +21,19 @@ NAMESPACE = "gateway"
 NAME = "clientbridge"
 SYNC_TIMEOUT_SECONDS = 3600  # PowerSync streams stay open; the default 30 seconds would cut them
 AUTH_LIMITS = "auth-limits"
+
+
+def _posts_to(*flows: str) -> str:
+    """Cloud Armor refuses regex capture groups, so a rule names its paths as prefixes."""
+    paths = " || ".join(f"request.path.startsWith('/self-service/{flow}')" for flow in flows)
+    return f"request.method == 'POST' && ({paths})"
+
+
 # requests a minute per address, tightest first since a request counts on the first rule it matches
 AUTH_RULES: tuple[tuple[str, int], ...] = (
-    (
-        "request.method == 'POST' && request.path.matches('/self-service/(recovery|verification)')",
-        10,
-    ),
-    ("request.method == 'POST' && request.path.matches('/self-service/(login|registration)')", 30),
-    ("request.path.matches('/self-service/')", 120),
+    (_posts_to("recovery", "verification"), 10),
+    (_posts_to("login", "registration"), 30),
+    ("request.path.startsWith('/self-service/')", 120),
 )
 # each host's Service: the web image serves the site, app and Connect hosts by Host header
 BACKENDS: dict[Host, tuple[str, int]] = {

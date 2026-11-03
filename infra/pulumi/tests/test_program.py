@@ -324,9 +324,11 @@ def test_auth_paths_are_rate_limited_per_address_at_the_edge(
     }
     (mail, password, flows) = limits
     # a request counts only on the first rule it matches, so the tightest must come first
-    assert "recovery|verification" in mail and limits[mail] == 10
-    assert "login|registration" in password and limits[password] == 30
+    assert "/recovery" in mail and "/verification" in mail and limits[mail] == 10
+    assert "/login" in password and "/registration" in password and limits[password] == 30
     assert "POST" not in flows and limits[flows] == 120
+    # Cloud Armor refuses an expression with a regex capture group
+    assert not any(".matches(" in expression for expression in limits)
     for each in throttles:
         assert dig(each, "rateLimitOptions", "exceedAction") == "deny(429)"
         assert dig(each, "rateLimitOptions", "enforceOnKey") == "IP"
