@@ -1,6 +1,18 @@
 import { randomUUID } from "node:crypto";
 import { demoPerson } from "@clientbridge/config/e2e/demo";
-import { strings, formatParts, formatPhone } from "@clientbridge/app-core/public";
+import {
+    addDays,
+    addMonths,
+    combineDayAndTime,
+    dateKey,
+    formatDate,
+    formatList,
+    formatParts,
+    formatPhone,
+    formatTime,
+    formatWeekday,
+    strings,
+} from "@clientbridge/app-core/public";
 import { expect, type Page, test } from "@playwright/test";
 import {
     addClientNote,
@@ -11,6 +23,9 @@ import {
     editClient,
     expectClientSegment,
     openClient,
+    pickFieldDate,
+    subjectRows,
+    type ClientFixture,
 } from "./support/clients";
 import { runEmail } from "@clientbridge/config/e2e/run";
 import { navigate, signIn } from "./support/session";
@@ -20,10 +35,12 @@ import {
     chooseFreeBookingTime,
     fillBookingComposer,
     openBooking,
+    type BookingFixture,
     type BookingRecord,
 } from "./support/bookings";
 import { openBusiness, signUp } from "./support/business";
 import { apiCall, visitEvidence } from "./support/visit";
+import { ADMIN, operatorConsole } from "./support/admin";
 
 test("CRM-E2E-01 create, edit, archive and restore persist across independent replicas", async ({
     page,
@@ -634,6 +651,346 @@ test("CRM-E2E-08 a detailing business books a client's parked vehicle as the vis
         body: JSON.stringify(booked),
         contentType: "application/json",
     });
+});
+
+const subj = strings.subjects;
+
+/** The owner and a new half-hour service, in the shape the booking helpers take. */
+async function ownService(
+    page: Page,
+    client: ClientFixture,
+    name: string,
+): Promise<BookingFixture> {
+    const team = await page.request.get(`${bookingApi()}/v1/staff/team`);
+    expect(team.status()).toBe(200);
+    const owner = ((await team.json()) as { members: { id: string; name: string }[] }).members[0];
+    if (owner === undefined) throw new Error("The new business has no owner on its team");
+    const service = await apiCall<{ id: string; name: string }>(
+        page,
+        "POST",
+        "/v1/items",
+        {
+            kind: "service",
+            name,
+            duration_min: 30,
+            price_cents: 6000,
+            deposit_type: "none",
+            online_bookable: false,
+        },
+        201,
+    );
+    return {
+        clientId: client.id,
+        clientName: client.name,
+        clientPhone: client.phone,
+        itemId: service.id,
+        itemName: service.name,
+        staffId: owner.id,
+        staffName: owner.name,
+        zone: "America/Vancouver",
+    };
+}
+
+/** Books a free time through the composer and returns the visit, checking whom it is for. */
+async function bookThroughComposer(
+    page: Page,
+    fixture: BookingFixture,
+    subjectId: string,
+    choose?: string,
+): Promise<BookingRecord> {
+    await fillBookingComposer(page, fixture);
+    if (choose !== undefined)
+        await page
+            .getByRole("form", { name: strings.bookings.composerTitle })
+            .getByRole("group", { name: choose, exact: true })
+            .locator(`button[data-value="${subjectId}"]`)
+            .click();
+    await chooseFreeBookingTime(page, fixture);
+    const creating = page.waitForResponse(
+        (response) =>
+            new URL(response.url()).pathname === "/v1/bookings" &&
+            response.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: strings.bookings.composerBook, exact: true }).click();
+    const created = await creating;
+    expect(created.status(), await created.text()).toBe(201);
+    expect(created.request().postDataJSON()).toMatchObject({
+        client_id: fixture.clientId,
+        subject_id: subjectId,
+        item_id: fixture.itemId,
+    });
+    return (await created.json()) as BookingRecord;
+}
+
+test("CRM-E2E-10 a student's pickups and must-not-collect warning are kept and shown on their visit", async ({
+    page,
+    request,
+}) => {
+    test.setTimeout(240_000);
+    const st = subj.fields.student;
+    const pk = subj.pickup;
+    const account = newAccount("tutoring");
+    await signUp(page, request, account);
+    await openBusiness(page, `${account.name} Learning Studio`, "tutoring");
+    const client = await createClient(page);
+    await apiCall(
+        page,
+        "POST",
+        "/v1/subjects",
+        { client_id: client.id, name: "Théo", attributes: { grade: "Grade 2" } },
+        201,
+    );
+    const record = await openClient(page, client);
+    await expect(
+        record.getByRole("button", { name: subj.editNamed("Théo"), exact: true }),
+    ).toBeVisible({ timeout: 60_000 });
+    await record.getByRole("button", { name: subj.add("student"), exact: true }).click();
+    const form = page.getByRole("dialog", { name: subj.add("student"), exact: true });
+    const names = form.getByRole("textbox", { name: subj.nameLabel });
+    await names.first().fill("Rosalie");
+    await form.getByLabel(st.grade, { exact: false }).fill("Grade 4");
+    await form.getByLabel(st.school, { exact: false }).fill("École Sainte-Anne");
+    const warning = "Marc Gagné. Call Chantal right away if he comes.";
+    await form.getByLabel(st.noPickup, { exact: false }).fill(warning);
+    await form.getByRole("button", { name: pk.add, exact: true }).click();
+    const phone = freshPhone();
+    await names.nth(1).fill("Kemi Nwosu");
+    await form.getByLabel(pk.relation, { exact: false }).fill("Aunt");
+    await form.getByLabel(pk.phone, { exact: false }).fill("250 555 01");
+    await form.getByRole("button", { name: subj.save("student"), exact: true }).click();
+    await expect(form.getByText(pk.phoneInvalid, { exact: true })).toBeVisible();
+    await form.getByLabel(pk.phone, { exact: false }).fill(formatPhone(phone));
+    const saving = crmCommand(page, "subjects", "POST");
+    await form.getByRole("button", { name: subj.save("student"), exact: true }).click();
+    const saved = await saving;
+    expect(saved.status(), await saved.text()).toBe(201);
+    const student = ((await saved.json()) as { id: string }).id;
+    const attributes = {
+        grade: "Grade 4",
+        school: "École Sainte-Anne",
+        no_pickup: warning,
+        pickups: [{ name: "Kemi Nwosu", relation: "Aunt", phone }],
+    };
+    expect((await subjectRows(client.id)).find((x) => x.id === student)).toEqual({
+        id: student,
+        name: "Rosalie",
+        attributes,
+        removed: false,
+    });
+
+    const fixture = await ownService(page, client, "Piano lesson");
+    const booking = await bookThroughComposer(page, fixture, student, subj.one("student"));
+    await openBooking(page, fixture, booking.id, formatParts(["Rosalie", client.name]));
+    const panel = page.getByRole("complementary").filter({ hasText: fixture.itemName });
+    await expect(
+        panel.getByText(pk.mayBePickedUpBy(formatList(["Kemi Nwosu"])), { exact: true }),
+    ).toBeVisible();
+    await expect(panel.getByText(subj.noPickupAlert(warning), { exact: true })).toBeVisible();
+
+    await page.reload();
+    const reopened = await openClient(page, client);
+    await reopened.getByRole("button", { name: subj.editNamed("Rosalie"), exact: true }).click();
+    const editor = page.getByRole("dialog", { name: subj.editNamed("Rosalie"), exact: true });
+    await expect(editor.getByLabel(st.noPickup, { exact: false })).toHaveValue(warning);
+    await expect(editor.getByRole("textbox", { name: subj.nameLabel }).nth(1)).toHaveValue(
+        "Kemi Nwosu",
+    );
+    await expect(editor.getByLabel(pk.phone, { exact: false })).toHaveValue(formatPhone(phone));
+    await editor.getByRole("button", { name: strings.common.cancel, exact: true }).click();
+    expect((await subjectRows(client.id)).find((x) => x.id === student)?.attributes).toEqual(
+        attributes,
+    );
+});
+
+test("CRM-E2E-18 a pet keeps its details after an edition change, and its visits still name it once removed", async ({
+    browser,
+    page,
+    request,
+}) => {
+    test.setTimeout(300_000);
+    const pet = subj.fields.pet;
+    const account = newAccount("edition-pet");
+    await signUp(page, request, account);
+    const onboarding = page.waitForResponse(
+        (r) => new URL(r.url()).pathname === "/v1/onboarding" && r.request().method() === "POST",
+    );
+    await openBusiness(page, `${account.name} Pet Studio`, "petGrooming");
+    const businessId = ((await (await onboarding).json()) as { id: string }).id;
+    const client = await createClient(page);
+    let record = await openClient(page, client);
+    await record.getByRole("button", { name: subj.add("pet"), exact: true }).click();
+    const form = page.getByRole("dialog", { name: subj.add("pet"), exact: true });
+    await form.getByRole("textbox", { name: subj.nameLabel }).fill("Biscuit");
+    await form.getByRole("textbox", { name: pet.breed, exact: false }).fill("Golden retriever");
+    await form.getByRole("textbox", { name: pet.weight, exact: false }).fill("31.5");
+    await form
+        .getByRole("group", { name: pet.temperament, exact: true })
+        .locator('button[data-value="anxious"]')
+        .click();
+    const saving = crmCommand(page, "subjects", "POST");
+    await form.getByRole("button", { name: subj.save("pet"), exact: true }).click();
+    const saved = await saving;
+    expect(saved.status(), await saved.text()).toBe(201);
+    const biscuit = ((await saved.json()) as { id: string }).id;
+    const details = {
+        species: "dog",
+        breed: "Golden retriever",
+        weight_kg: 31.5,
+        temperament: "anxious",
+    };
+    const row = record.getByRole("button", { name: subj.editNamed("Biscuit"), exact: true });
+    await expect(row).toContainText("Golden retriever");
+
+    const fixture = await ownService(page, client, "Full groom");
+    let past: BookingRecord | null = null;
+    for (let back = 1; back <= 14 && past === null; back++) {
+        const day = dateKey(addDays(new Date(), -back, fixture.zone), fixture.zone);
+        const response = await page.request.post(`${bookingApi()}/v1/bookings`, {
+            headers: { Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() },
+            data: {
+                client_id: client.id,
+                subject_id: biscuit,
+                item_id: fixture.itemId,
+                staff_id: fixture.staffId,
+                starts_at: combineDayAndTime(day, "10:00", fixture.zone).toISOString(),
+                notify: false,
+            },
+        });
+        if (response.status() === 201) past = (await response.json()) as BookingRecord;
+        else expect(response.status(), await response.text()).toBe(409);
+    }
+    if (past === null) throw new Error("No open morning in the last two weeks");
+    const booked = await bookThroughComposer(page, fixture, biscuit);
+
+    const ops = await operatorConsole(browser, "console");
+    try {
+        await ops.goto(`${ADMIN}/businesses/${businessId}`);
+        await expect(ops.getByText(`${account.name} Pet Studio`, { exact: true })).toBeVisible({
+            timeout: 60_000,
+        });
+        await ops.getByRole("combobox", { name: strings.admin.changeEdition }).click();
+        await ops
+            .getByRole("listbox", { name: strings.admin.changeEdition })
+            .getByRole("option", { name: strings.admin.editionOption("property"), exact: true })
+            .click();
+        const changing = ops.waitForResponse(
+            (r) =>
+                new URL(r.url()).pathname === `/admin/v1/businesses/${businessId}/edition` &&
+                r.request().method() === "POST",
+        );
+        await ops.getByRole("button", { name: strings.admin.saveEdition, exact: true }).click();
+        const changed = await changing;
+        expect(changed.status(), await changed.text()).toBe(200);
+    } finally {
+        await ops.context().close();
+    }
+
+    await page.reload();
+    record = await openClient(page, client);
+    await expect(
+        record.getByRole("button", { name: subj.add("property"), exact: true }),
+    ).toBeVisible({ timeout: 60_000 });
+    await expect(row).toContainText("Golden retriever");
+    await expect(row).toContainText(pet.temperaments.anxious);
+    await row.click();
+    const editor = page.getByRole("dialog", { name: subj.editNamed("Biscuit"), exact: true });
+    await expect(editor.getByRole("textbox", { name: pet.breed, exact: false })).toHaveValue(
+        "Golden retriever",
+    );
+    await expect(editor.getByRole("textbox", { name: pet.weight, exact: false })).toHaveValue(
+        "31.5",
+    );
+    await expect(editor.getByLabel(subj.fields.property.address, { exact: false })).toHaveCount(0);
+    await editor.getByRole("button", { name: subj.remove("pet"), exact: true }).click();
+    const removing = crmCommand(page, `subjects/${biscuit}`, "DELETE");
+    await page
+        .getByRole("dialog", { name: subj.removeTitle("Biscuit"), exact: true })
+        .getByRole("button", { name: subj.removeConfirm, exact: true })
+        .click();
+    expect((await removing).status()).toBe(204);
+    expect(await subjectRows(client.id)).toEqual([
+        { id: biscuit, name: "Biscuit", attributes: details, removed: true },
+    ]);
+
+    const start = new Date(booked.starts_at);
+    const upcoming = formatParts([
+        "Biscuit",
+        formatWeekday(start, fixture.zone),
+        formatDate(start, fixture.zone),
+        formatTime(start, fixture.zone),
+        fixture.staffName,
+    ]);
+    const visit = strings.clients.history.visit(fixture.itemName, "Biscuit");
+    for (const reload of [false, true]) {
+        if (reload) await page.reload();
+        record = await openClient(page, client);
+        await expect(row).toHaveCount(0);
+        await expect(record.getByText(upcoming, { exact: true })).toBeVisible();
+        await navigate(page, `/clients/${client.id}/history`);
+        await expect(page.getByText(visit, { exact: true })).toHaveCount(2);
+    }
+});
+
+const NORTHLIGHT = { email: runEmail("owner@northlight.example"), password: "demo1234" };
+
+test("CRM-E2E-19 a site's equipment keeps its model, serial and warranty end", async ({ page }) => {
+    test.setTimeout(180_000);
+    const eq = subj.equipment;
+    const zone = "America/Vancouver";
+    await signIn(page, NORTHLIGHT);
+    const client = await createClient(page);
+    const record = await openClient(page, client);
+    await record.getByRole("button", { name: subj.add("site"), exact: true }).click();
+    const form = page.getByRole("dialog", { name: subj.add("site"), exact: true });
+    await form.getByRole("textbox", { name: subj.nameLabel }).fill("Warehouse");
+    await form
+        .getByLabel(subj.fields.property.address, { exact: false })
+        .fill("1840 Store Street, Victoria");
+    await form.getByRole("button", { name: eq.add, exact: true }).click();
+    // the site also has a recorder location, so the device field is matched from its start
+    await form.getByRole("textbox", { name: new RegExp(`^${eq.location}`) }).fill("Loading dock");
+    await form.getByRole("button", { name: subj.save("site"), exact: true }).click();
+    await expect(form.getByText(eq.modelRequired, { exact: true })).toBeVisible();
+    await form.getByLabel(eq.model, { exact: false }).fill("4MP turret camera");
+    await form.getByLabel(eq.serial, { exact: false }).fill("AX-38211-QT");
+    const today = new Date();
+    const until = addMonths(today, 18, zone);
+    await pickFieldDate(form, eq.installedOn, today, zone);
+    await pickFieldDate(form, eq.warrantyUntil, until, zone);
+    const saving = crmCommand(page, "subjects", "POST");
+    await form.getByRole("button", { name: subj.save("site"), exact: true }).click();
+    const saved = await saving;
+    expect(saved.status(), await saved.text()).toBe(201);
+    const site = ((await saved.json()) as { id: string }).id;
+    const device = {
+        model: "4MP turret camera",
+        location: "Loading dock",
+        serial: "AX-38211-QT",
+        installed_on: dateKey(today, zone),
+        warranty_until: dateKey(until, zone),
+    };
+    expect(await subjectRows(client.id)).toEqual([
+        {
+            id: site,
+            name: "Warehouse",
+            attributes: { address: "1840 Store Street, Victoria", equipment: [device] },
+            removed: false,
+        },
+    ]);
+
+    await page.reload();
+    await navigate(page, `/clients/${client.id}/subjects`);
+    const card = page.getByRole("article").filter({ hasText: "Warehouse" });
+    await expect(card.getByText(device.model, { exact: true })).toBeVisible({ timeout: 60_000 });
+    await expect(card.getByText(eq.serialShort(device.serial), { exact: false })).toBeVisible();
+    await expect(
+        card.getByText(eq.warrantyEnds(formatDate(until, zone)), { exact: true }),
+    ).toBeVisible();
+    await card.getByRole("button", { name: subj.editNamed("Warehouse"), exact: true }).click();
+    const editor = page.getByRole("dialog", { name: subj.editNamed("Warehouse"), exact: true });
+    await expect(editor.getByLabel(eq.model, { exact: false })).toHaveValue(device.model);
+    await expect(editor.getByLabel(eq.serial, { exact: false })).toHaveValue(device.serial);
+    await editor.getByRole("button", { name: strings.common.cancel, exact: true }).click();
 });
 
 test("CRM-E2E-15 a phone another client holds is refused, and the form offers to open that client", async ({

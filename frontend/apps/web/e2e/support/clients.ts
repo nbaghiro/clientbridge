@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { demoPerson } from "@clientbridge/config/e2e/demo";
-import { formatPhone, strings } from "@clientbridge/app-core/public";
+import {
+    formatFullDate,
+    formatMonthYear,
+    formatPhone,
+    strings,
+} from "@clientbridge/app-core/public";
 import { expect, type Locator, type Page, type Response } from "@playwright/test";
 import { navigate } from "./session";
 import { runUrl, demoSlug } from "@clientbridge/config/e2e/run";
@@ -303,4 +308,40 @@ export async function verifyReturning(
     await expect(page.getByRole("textbox", { name: b.name, exact: true })).toHaveValue(
         f.clientName,
     );
+}
+
+export interface SubjectRecord {
+    id: string;
+    name: string;
+    attributes: Record<string, unknown>;
+    removed: boolean;
+}
+
+/** A client's subjects as stored, removed ones included. */
+export async function subjectRows(clientId: string): Promise<SubjectRecord[]> {
+    return select<SubjectRecord>`
+        SELECT id, name, attributes, deleted_at IS NOT NULL AS removed FROM subjects
+        WHERE client_id = ${clientId} ORDER BY created_at, id`;
+}
+
+/** Picks a day in a form's date field, stepping its calendar forward to that month. */
+export async function pickFieldDate(
+    form: Locator,
+    label: string,
+    date: Date,
+    zone: string,
+): Promise<void> {
+    const page = form.page();
+    await form.getByRole("button", { name: label, exact: false }).click();
+    const picker = page.getByRole("dialog", { name: label, exact: true });
+    const grid = picker.getByRole("grid");
+    await expect(grid).toBeVisible();
+    for (let month = 0; month < 36; month++) {
+        const shown = (await grid.getAttribute("aria-label")) ?? "";
+        if (shown === formatMonthYear(date, zone)) break;
+        await picker.getByRole("button", { name: strings.ui.nextMonth, exact: true }).click();
+        await expect(grid).not.toHaveAccessibleName(shown);
+    }
+    await expect(grid).toHaveAccessibleName(formatMonthYear(date, zone));
+    await grid.getByRole("gridcell", { name: formatFullDate(date, zone), exact: true }).click();
 }

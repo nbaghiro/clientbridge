@@ -29,7 +29,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 1. Get set up | Plan billing: trial, purchase, seats and read-only | [CB-6](https://linear.app/clientbridgeca/issue/CB-6) | Partly automated |
 | 1. Get set up | Sales tax by province | [CB-7](https://linear.app/clientbridgeca/issue/CB-7) | Partly automated |
 | 2. Clients and catalog | Client records: add, edit and search | [CB-8](https://linear.app/clientbridgeca/issue/CB-8) | Automated |
-| 2. Clients and catalog | Client subjects: who or what is booked | [CB-9](https://linear.app/clientbridgeca/issue/CB-9) | Partly automated |
+| 2. Clients and catalog | Client subjects: who or what is booked | [CB-9](https://linear.app/clientbridgeca/issue/CB-9) | Automated |
 | 2. Clients and catalog | Client notes, photos and history | [CB-10](https://linear.app/clientbridgeca/issue/CB-10) | Partly automated |
 | 2. Clients and catalog | Client tags and duplicate merge | [CB-11](https://linear.app/clientbridgeca/issue/CB-11) | Partly automated |
 | 2. Clients and catalog | Services, classes and resources | [CB-13](https://linear.app/clientbridgeca/issue/CB-13) | Partly automated |
@@ -532,14 +532,13 @@ The business loads its clients, what they book for, and the services and product
 
 * `CRM-E2E-03 (web)`
 * `CRM-E2E-08 (web)`
-* `CRM-E2E-05 (journeys)`
+* `CRM-E2E-10 (web)`
+* `CRM-E2E-18 (web)`
+* `CRM-E2E-19 (web)`
 * `OPS-E2E-02 (web)`
-
-**To automate**
-
-* `CRM-E2E-10` in `apps/web/e2e/clients.e2e.ts`: Pickup permissions and the must-not-collect alert on a student's visit.
-* `CRM-E2E-11` in `apps/web/e2e/journeys/client.journey.ts`: Connect booking with a new property address matched to the client's existing place (CRM-E10, CRM-E11).
-* `CRM-E2E-18` in `apps/web/e2e/clients.e2e.ts`: A pet keeps its details after the edition changes, and a removed subject is still named on its visits.
+* `NATIVE-CRM-04 (native-ios, native-android)`
+* `CRM-E2E-05 (journeys)`
+* `CRM-E2E-11 (journeys)`
 
 **Depends on:** Nothing
 

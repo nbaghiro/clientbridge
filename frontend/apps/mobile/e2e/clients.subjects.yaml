@@ -1,0 +1,100 @@
+appId: ${APP_ID}
+name: NATIVE-CRM-04 A pet's details show on the record, and the groomer sees the pet on their visit
+onFlowComplete:
+    - runFlow: helpers/restore-owner.yaml
+---
+- evalScript: ${output.phone = "250" + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000))}
+- evalScript: ${output.name = "Wren Abernathy"}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/clients
+          BODY: "${JSON.stringify({ name: output.name, phone: output.phone })}"
+- evalScript: ${output.clientId = output.response.id}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/subjects
+          BODY: "${JSON.stringify({ client_id: output.clientId, name: 'Juniper', attributes: { species: 'dog', breed: 'Bernese mountain dog', weight_kg: 41, temperament: 'anxious' } })}"
+- evalScript: ${output.petId = output.response.id}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/items
+          BODY: "${JSON.stringify({ kind: 'service', name: 'Bath and tidy ' + output.phone.slice(-4), duration_min: 30, price_cents: 5000, deposit_type: 'none', online_bookable: false })}"
+- evalScript: ${output.itemId = output.response.id}
+- runScript:
+      file: helpers/book-next-week.js
+      env:
+          BODY: "${JSON.stringify({ client_id: output.clientId, subject_id: output.petId, item_id: output.itemId, staff_id: 'st_diego_' + E2E_NAMESPACE })}"
+- runFlow: helpers/owner.yaml
+# the owner's record shows the dog with its details
+- tapOn: "Clients"
+- tapOn: "Search name, phone or pet"
+- inputText: ${output.phone}
+- extendedWaitUntil:
+      visible: ${".*" + output.name + ".*"}
+      timeout: 60000
+- tapOn: ${".*" + output.name + ".*"}
+- extendedWaitUntil:
+      visible: "Book"
+      timeout: 60000
+# the pet's row is one button, so its details are read back in its editor
+- scrollUntilVisible:
+      element: "Edit Juniper"
+      direction: DOWN
+- assertVisible: "Juniper · .*"
+- takeScreenshot: pet-on-record
+- tapOn: "Edit Juniper"
+- extendedWaitUntil:
+      visible: "Bernese mountain dog"
+      timeout: 30000
+- assertVisible: "41"
+- tapOn: "Cancel"
+- runFlow: helpers/close-sheet.yaml
+# Android keeps the search keyboard over the tabs once the record closes
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - hideKeyboard
+# the groomer opens the visit on their phone and sees which dog it is for
+- tapOn: "Today"
+- tapOn: "Setup"
+- scrollUntilVisible:
+      element: "Sign out"
+      direction: DOWN
+- tapOn: "Sign out"
+- extendedWaitUntil:
+      visible: "Sign in"
+      timeout: 30000
+- tapOn: "you@business.ca"
+- inputText: "diego+${E2E_NAMESPACE}@birchbark.example"
+- tapOn: "••••••••"
+- eraseText
+- inputText: "demo1234"
+- hideKeyboard
+- tapOn:
+      text: "Sign in"
+      below: "Forgot password\\?"
+      optional: true
+- runFlow: helpers/decline-save-password.yaml
+- extendedWaitUntil:
+      visible: "Today"
+      timeout: 60000
+- tapOn: "Schedule"
+- tapOn: "Next"
+- tapOn: ${output.dayLabel}
+- extendedWaitUntil:
+      visible: ".*Juniper.*"
+      timeout: 60000
+- tapOn: ".*Juniper.*"
+- extendedWaitUntil:
+      visible: ".*Bernese mountain dog.*"
+      timeout: 30000
+- assertVisible: "Anxious"
+- assertVisible: ${".*" + output.name + ".*"}
+- takeScreenshot: pet-on-staff-visit

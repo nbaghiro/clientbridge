@@ -1,6 +1,9 @@
 import {
+    formatDate,
     formatParts,
     formatPhone,
+    formatTime,
+    formatWeekday,
     strings,
     addDays,
     combineDayAndTime,
@@ -28,7 +31,14 @@ import { demoSlug, runEmail } from "@clientbridge/config/e2e/run";
 import { randomUUID } from "node:crypto";
 import { demoPerson } from "@clientbridge/config/e2e/demo";
 import { expectPhoto, filesApi, photoEvidence, portrait } from "../support/files";
-import { apiCall, visitEvidence } from "../support/visit";
+import {
+    apiCall,
+    connectUrl,
+    fillConnectDetails,
+    onlineBooker,
+    teamMember,
+    visitEvidence,
+} from "../support/visit";
 
 test.use({ actionTimeout: 15_000 });
 
@@ -564,5 +574,143 @@ test("FLOW-04-B a merge moves a duplicate's pet, note and visit onto the kept ti
         });
     } finally {
         await cancelOwnedBooking(page, bookingId);
+    }
+});
+
+test("CRM-E2E-11 online bookings for one place, however its name or address is typed, file a single site on the record", async ({
+    page,
+    browser,
+}) => {
+    test.setTimeout(300_000);
+    const b = strings.publicBooking;
+    const zone = "America/Vancouver";
+    const slug = demoSlug("northlight");
+    await signIn(page, { email: runEmail("owner@northlight.example"), password: "demo1234" });
+    const owner = await teamMember(page, runEmail("owner@northlight.example"));
+    const service = await apiCall<{ id: string; name: string }>(
+        page,
+        "POST",
+        "/v1/items",
+        {
+            kind: "service",
+            name: `Site survey ${randomUUID().slice(0, 6).toUpperCase()}`,
+            duration_min: 30,
+            price_cents: 0,
+            deposit_type: "none",
+            online_bookable: true,
+        },
+        201,
+    );
+    const address = `2001:db8:${randomUUID().replaceAll("-", "").slice(0, 16).match(/.{4}/g)?.join(":")}::1`;
+    // each booking starts in a fresh browser, so no saved draft carries over between them
+    const visitorContext = () =>
+        browser.newContext({ extraHTTPHeaders: { "X-Forwarded-For": address } });
+    const owned: string[] = [];
+    try {
+        const booker = onlineBooker("Garage cameras");
+        const typed = [
+            { subject: "Garage cameras", address: "2860 Quadra Street, Victoria" },
+            { subject: "  garage   CAMERAS ", address: "2860 Quadra Street, Victoria" },
+            { subject: "Shop", address: " 2860  quadra STREET,  victoria" },
+        ];
+        for (const [i, entry] of typed.entries()) {
+            // other cases book Erik too, so a time taken meanwhile moves this booking to the next one
+            for (let taken = 0; ; taken++) {
+                expect(taken, "Erik's open times kept being taken").toBeLessThan(5);
+                const visiting = await visitorContext();
+                const visitor = await visiting.newPage();
+                await visitor.goto(connectUrl(slug));
+                await visitor
+                    .getByRole("button")
+                    .filter({ has: visitor.getByText(service.name, { exact: true }) })
+                    .click();
+                await visitor
+                    .getByRole("group", { name: b.with, exact: true })
+                    .locator(`button[data-value="${owner.id}"]`)
+                    .click();
+                await visitor
+                    .getByRole("radiogroup", { name: b.openTimes, exact: true })
+                    .getByRole("radio")
+                    .nth(taken)
+                    .click();
+                await fillConnectDetails(
+                    visitor,
+                    { ...booker, subject: entry.subject },
+                    "site",
+                    entry.address,
+                );
+                const posted = visitor.waitForResponse(
+                    (response) =>
+                        new URL(response.url()).pathname === `/book/${slug}` &&
+                        response.request().method() === "POST",
+                );
+                await visitor.getByRole("button", { name: b.confirm, exact: true }).click();
+                const online = await posted;
+                if (online.status() === 409) {
+                    await visiting.close();
+                    continue;
+                }
+                expect(online.status(), await online.text()).toBe(200);
+                const result = (await online.json()) as { booking_id: string; status: string };
+                owned.push(result.booking_id);
+                // a client the business already knows is booked at once; a new one waits for approval
+                const title = result.status === "pending" ? b.pendingTitle : b.doneTitle;
+                expect(result.status).toBe(i === 0 ? "pending" : "confirmed");
+                await expect(
+                    visitor.getByRole("heading", { name: title, exact: true }),
+                ).toBeVisible();
+                await visiting.close();
+                break;
+            }
+        }
+
+        const filed = await visitEvidence([booker.phone]);
+        const clientRow = filed.clients[0];
+        if (clientRow === undefined) throw new Error("The online booker is missing");
+        expect(filed.clients).toHaveLength(1);
+        expect(filed.subjects).toEqual([
+            {
+                id: expect.any(String),
+                client_id: clientRow.id,
+                name: "Garage cameras",
+                attributes: { address: "2860 Quadra Street, Victoria" },
+            },
+        ]);
+        const place = filed.subjects[0]?.id;
+        expect(filed.bookings.map((x) => [x.id, x.subject_id])).toEqual(
+            owned.map((id) => [id, place]),
+        );
+
+        const client: ClientFixture = {
+            id: clientRow.id,
+            name: clientRow.name,
+            phone: clientRow.phone,
+        };
+        const record = await openClient(page, client);
+        const row = record.getByRole("button", {
+            name: strings.subjects.editNamed("Garage cameras"),
+            exact: true,
+        });
+        await expect(row).toContainText("2860 Quadra Street, Victoria");
+        await expect(
+            record.getByRole("button", { name: strings.subjects.editNamed("Shop"), exact: true }),
+        ).toHaveCount(0);
+        for (const visit of filed.bookings) {
+            const start = new Date(visit.starts_at);
+            await expect(
+                record.getByText(
+                    formatParts([
+                        "Garage cameras",
+                        formatWeekday(start, zone),
+                        formatDate(start, zone),
+                        formatTime(start, zone),
+                        owner.name,
+                    ]),
+                    { exact: true },
+                ),
+            ).toBeVisible();
+        }
+    } finally {
+        for (const id of owned) await cancelOwnedBooking(page, id);
     }
 });
