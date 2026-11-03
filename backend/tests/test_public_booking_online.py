@@ -480,6 +480,16 @@ async def test_a_new_name_at_a_known_address_books_that_place(
     assert cabin.attributes == {"address": "1 Lake Rd"}
 
 
+async def test_the_typed_name_wins_over_another_place_at_that_address(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _kind(db, "property")
+    cabin = await _booked_subject(api, db, subject_name="Cabin")
+    await _booked_subject(api, db, subject_name="Lake house", subject_address="1 Lake Rd")
+    filled = await _booked_subject(api, db, subject_name="Cabin", subject_address="1 Lake Rd")
+    assert filled.id == cabin.id and cabin.attributes == {"address": "1 Lake Rd"}
+
+
 async def test_a_property_without_an_address_takes_the_first_one_booked(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:

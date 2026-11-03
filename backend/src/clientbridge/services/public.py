@@ -1,6 +1,7 @@
 import secrets
 from collections.abc import Sequence
 from datetime import UTC, date, datetime, timedelta
+from itertools import chain
 
 from sqlalchemy import ColumnElement, and_, func, select, text
 from sqlalchemy.exc import IntegrityError
@@ -951,11 +952,12 @@ async def _subject(
     found = named[0] if named else None
     if business.subject in PLACE_KINDS and place:
         found = next(
-            (s for s in named if _same_words(s.attributes.get("address"), place)),
-            next(
+            chain(
+                (s for s in named if _same_words(s.attributes.get("address"), place)),
+                (s for s in named if not s.attributes.get("address")),
                 (s for s in owned if _same_words(s.attributes.get("address"), place)),
-                next((s for s in named if not s.attributes.get("address")), None),
             ),
+            None,
         )
     if found is not None:
         if place and not found.attributes.get("address"):

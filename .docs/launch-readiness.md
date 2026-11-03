@@ -506,7 +506,7 @@ The business loads its clients, what they book for, and the services and product
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at [http://localhost:8700](<http://localhost:8700>), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. For step 6, run `make configure-demo-admin`, restart `make dev-api` and run `make dev-admin` ([http://localhost:8711](<http://localhost:8711>)). Open web at [http://localhost:8700](<http://localhost:8700>), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
 * **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
 
 **QA steps**
@@ -514,17 +514,17 @@ The business loads its clients, what they book for, and the services and product
 1. Add a dog with breed, weight and temperament.
    **Expect:** it shows on the record on web and mobile.
 2. Book the dog.
-   **Expect:** the groomer sees the dog on the booking on their phone.
-3. At Brightwater, book online with a new property name and address.
-   **Expect:** the property and address appear on the client record.
+   **Expect:** the groomer sees the dog on the booking and on Today on their phone.
+3. At Brightwater, book online with a new property name and address, then book again with the same name in different case and spacing.
+   **Expect:** the property and address appear once on the client record, with both bookings on it.
 4. At Lakeside, add a student with grade and school, and set who may collect them with one must-not-collect person.
-   **Expect:** the composer offers the student; the alert shows on their visits.
+   **Expect:** the composer offers the student; their visits show who may collect them and the must-not-collect alert.
 5. At Northlight, add equipment to a site.
    **Expect:** model, serial and warranty end are kept.
 6. In the admin console, change Birchbark's edition to properties.
    **Expect:** existing pets still show with their details.
-7. Remove a subject that has past visits.
-   **Expect:** the history still names it.
+7. Remove a subject that has past and upcoming visits.
+   **Expect:** the record no longer lists it; its history and upcoming visits still name it.
 
 **Done when:** Staff always know which pet, student, property, site or vehicle a visit is for.
 
@@ -539,6 +539,7 @@ The business loads its clients, what they book for, and the services and product
 
 * `CRM-E2E-10` in `apps/web/e2e/clients.e2e.ts`: Pickup permissions and the must-not-collect alert on a student's visit.
 * `CRM-E2E-11` in `apps/web/e2e/journeys/client.journey.ts`: Connect booking with a new property address matched to the client's existing place (CRM-E10, CRM-E11).
+* `CRM-E2E-18` in `apps/web/e2e/clients.e2e.ts`: A pet keeps its details after the edition changes, and a removed subject is still named on its visits.
 
 **Depends on:** Nothing
 

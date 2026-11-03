@@ -825,7 +825,8 @@
           "business_id IN member AND deleted_at IS NULL"
         ],
         "subjects": [
-          "business_id IN member"
+          "business_id IN member AND deleted_at IS NULL",
+          "business_id IN member AND deleted_at IS NOT NULL"
         ],
         "notes": [
           "business_id IN member"

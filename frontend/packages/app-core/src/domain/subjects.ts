@@ -645,6 +645,17 @@ const LIST_KEYS: Record<SubjectKind, readonly string[]> = {
     vehicle: [],
 };
 
+const keysOf = (k: SubjectKind): ReadonlySet<string> =>
+    new Set([...SUBJECT_FIELDS[k].map((f) => f.key), ...LIST_KEYS[k]]);
+
+const KIND_KEYS: Record<SubjectKind, ReadonlySet<string>> = {
+    pet: keysOf("pet"),
+    student: keysOf("student"),
+    property: keysOf("property"),
+    site: keysOf("site"),
+    vehicle: keysOf("vehicle"),
+};
+
 /** The kind a subject's details belong to, which outlives a change of the business's kind. */
 export function subjectKindOf(
     kind: SubjectKind | null,
@@ -654,12 +665,8 @@ export function subjectKindOf(
     const filled = Object.keys(attributes).filter(
         (k) => attributes[k] !== null && attributes[k] !== "",
     );
-    const score = (k: SubjectKind): number => {
-        const keys = new Set([...SUBJECT_FIELDS[k].map((f) => f.key), ...LIST_KEYS[k]]);
-        return filled.filter((key) => keys.has(key)).length;
-    };
-    const best = KINDS.reduce((a, b) => (score(b) > score(a) ? b : a), kind);
-    return score(best) > score(kind) ? best : kind;
+    const score = (k: SubjectKind): number => filled.filter((key) => KIND_KEYS[k].has(key)).length;
+    return KINDS.reduce((a, b) => (score(b) > score(a) ? b : a), kind);
 }
 
 /** One line per installed device, with its warranty and whether it has ended or ends soon. */
@@ -973,7 +980,9 @@ export function useSubjectForm(
                 .map(([f, v]) => [f.key, f.type === "number" ? parseNumber(v) : v]),
         );
         const devicesTyped = typedRows(EQUIPMENT.keys, equipment);
-        const peopleTyped = typedRows(PICKUPS.keys, pickups);
+        const peopleTyped = typedRows(PICKUPS.keys, pickups).map((p) =>
+            p.phone === undefined ? p : { ...p, phone: normalizePhone(p.phone) ?? p.phone },
+        );
         const attributes = {
             ...kept,
             ...typed,

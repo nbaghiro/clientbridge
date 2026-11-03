@@ -328,7 +328,7 @@ describe("the pickup editor", () => {
                     no_pickup: "Not to be released to Kevin Byrne.",
                     pickups: [
                         { name: "Rosa Lindqvist", relation: "Aunt" },
-                        { name: "Ngozi Nwosu", phone: "613-555-0181" },
+                        { name: "Ngozi Nwosu", phone: "+16135550181" },
                     ],
                 },
             },
@@ -350,6 +350,26 @@ describe("editing after the business changes kind", () => {
             useSubjectForm(recordingApi(), "cl_ann", withPhone, vi.fn()),
         );
         expect(result.current.pickups?.[0]?.phone).toBe(formatPhone("+16135550144"));
+    });
+
+    it("saves a pickup phone as stored where the business no longer books students", async () => {
+        business.subject = "pet";
+        const withPhone = {
+            ...student,
+            attributes: { pickups: [{ name: "Rosa Lindqvist", phone: "+16135550144" }] },
+        };
+        const api = recordingApi();
+        const { result } = renderHook(() => useSubjectForm(api, "cl_ann", withPhone, vi.fn()));
+        await act(async () => {
+            result.current.submit();
+            await Promise.resolve();
+        });
+        expect(api.sent).toEqual([
+            {
+                name: withPhone.name,
+                attributes: { pickups: [{ name: "Rosa Lindqvist", phone: "+16135550144" }] },
+            },
+        ]);
     });
 
     it("edits a pet with a pet's fields in a business that now books properties", () => {
