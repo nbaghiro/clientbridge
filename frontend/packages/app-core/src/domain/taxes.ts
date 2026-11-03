@@ -1,11 +1,11 @@
 import { useBusinessQuery as useQuery } from "../hooks";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { type ApiLike, failureMessage, newIdempotencyKey } from "../api";
 import { dateKey, wallTime, zonedDate, useBusinessZone } from "../datetime";
 import { formatList, formatMoney, formatMoneyShort, BUSINESS_CURRENCY } from "../format";
-import { type Load, useAsyncAction, useRemote } from "../hooks";
+import { type Load, useAsyncAction, useRemote, useSyncedDraft } from "../hooks";
 import { strings } from "../strings";
 import { useReplicaLoad } from "./sync";
 import { FEDERAL_TAX_CODES, TAX_RATES } from "../taxRates";
@@ -252,9 +252,15 @@ function settingsDraft(
     gst: string | null | undefined,
     pst: string | null | undefined,
     frequency: string | null | undefined,
-) {
+): {
+    registration: "registered" | "small";
+    registeredSince: string;
+    gst: string;
+    pst: string;
+    frequency: FilingFrequency;
+} {
     return {
-        registration: registered ? ("registered" as const) : ("small" as const),
+        registration: registered ? "registered" : "small",
         registeredSince: since ?? "",
         gst: gst ?? "",
         pst: pst ?? "",
@@ -270,30 +276,18 @@ export function useTaxSettingsForm(
     const query = useQuery<TaxSettingsRow>(TAX_SETTINGS_SQL);
     const row = query.data[0];
     const load = useReplicaLoad([query], row === undefined);
-    const initial = useMemo(
-        () =>
-            settingsDraft(
-                row?.tax_registered === 1,
-                row?.tax_registered_on,
-                row?.gst_hst_number,
-                row?.pst_number,
-                row?.filing_frequency,
-            ),
-        [
-            row?.tax_registered,
-            row?.tax_registered_on,
-            row?.gst_hst_number,
-            row?.pst_number,
-            row?.filing_frequency,
-        ],
+    const synced = useSyncedDraft(
+        row === undefined
+            ? null
+            : settingsDraft(
+                  row.tax_registered === 1,
+                  row.tax_registered_on,
+                  row.gst_hst_number,
+                  row.pst_number,
+                  row.filing_frequency,
+              ),
     );
-    const [draft, setDraft] = useState(initial);
-    const [shown, setShown] = useState(initial);
-    // only an untouched draft follows the record, so a sync never drops an edit
-    if (shown !== initial) {
-        setShown(initial);
-        if (JSON.stringify(draft) === JSON.stringify(shown)) setDraft(initial);
-    }
+    const draft = synced.values ?? settingsDraft(false, null, null, null, null);
     const [fieldErrors, setFieldErrors] = useState<TaxSettingsForm["fieldErrors"]>({});
     const [saved, setSaved] = useState(false);
     const { busy, error, run } = useAsyncAction();
@@ -311,10 +305,10 @@ export function useTaxSettingsForm(
             api.get<{ tax_collected_cents: number }>(
                 `/v1/reports/gst-hst?start=${from}&end=${dateKey(period.to, zone)}`,
             ),
-        `${from}:${String(initial.registration === "registered")}`,
+        `${from}:${String(synced.base?.registration === "registered")}`,
     );
-    const edit = (patch: Partial<typeof draft>): void => {
-        setDraft((d) => ({ ...d, ...patch }));
+    const edit = <K extends keyof typeof draft>(key: K, value: (typeof draft)[K]): void => {
+        synced.set(key, value);
         setSaved(false);
     };
 
@@ -328,27 +322,27 @@ export function useTaxSettingsForm(
         hasPst: lines.some((l) => l.code === "PST" || l.code === "RST"),
         registration: draft.registration,
         setRegistration: (r) => {
-            edit({ registration: r });
+            edit("registration", r);
         },
         registeredSince: draft.registeredSince,
         setRegisteredSince: (v) => {
-            edit({ registeredSince: v });
+            edit("registeredSince", v);
         },
         gst: draft.gst,
         setGst: (v) => {
-            edit({ gst: v });
+            edit("gst", v);
         },
         pst: draft.pst,
         setPst: (v) => {
-            edit({ pst: v });
+            edit("pst", v);
         },
         frequency: draft.frequency,
         setFrequency: (f) => {
-            edit({ frequency: f });
+            edit("frequency", f);
         },
         fieldErrors,
         filing: { ...period, collectedCents: collected.data?.tax_collected_cents ?? null },
-        dirty: JSON.stringify(draft) !== JSON.stringify(initial),
+        dirty: synced.dirty,
         busy,
         error,
         saved,
@@ -360,31 +354,44 @@ export function useTaxSettingsForm(
                 errs.pst = t.pstInvalid;
             setFieldErrors(errs);
             if (Object.keys(errs).length > 0) return;
+            const sent = synced.changes;
+            const registration =
+                sent.registration !== undefined || sent.registeredSince !== undefined;
+            let stored: SavedTaxSettings | null = null;
             run(
                 async () => {
-                    const stored = await api.patch<SavedTaxSettings>("/v1/business", {
-                        tax_registered: registered,
-                        tax_registered_on:
-                            registered && draft.registeredSince !== ""
-                                ? draft.registeredSince
-                                : null,
-                        gst_hst_number: draft.gst.trim(),
-                        pst_number: draft.pst.trim(),
-                        filing_frequency: draft.frequency,
+                    stored = await api.patch<SavedTaxSettings>("/v1/business", {
+                        ...(registration
+                            ? {
+                                  tax_registered: registered,
+                                  tax_registered_on:
+                                      registered && draft.registeredSince !== ""
+                                          ? draft.registeredSince
+                                          : null,
+                              }
+                            : {}),
+                        ...(sent.gst === undefined ? {} : { gst_hst_number: sent.gst.trim() }),
+                        ...(sent.pst === undefined ? {} : { pst_number: sent.pst.trim() }),
+                        ...(sent.frequency === undefined
+                            ? {}
+                            : { filing_frequency: sent.frequency }),
                     });
-                    setDraft(
-                        settingsDraft(
-                            stored.tax_registered,
-                            stored.tax_registered_on,
-                            stored.gst_hst_number,
-                            stored.pst_number,
-                            stored.filing_frequency,
-                        ),
-                    );
                 },
                 {
                     errorMessage: t.saveError,
                     onSuccess: () => {
+                        synced.settle(
+                            sent,
+                            stored === null
+                                ? null
+                                : settingsDraft(
+                                      stored.tax_registered,
+                                      stored.tax_registered_on,
+                                      stored.gst_hst_number,
+                                      stored.pst_number,
+                                      stored.filing_frequency,
+                                  ),
+                        );
                         setSaved(true);
                     },
                 },
