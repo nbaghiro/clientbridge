@@ -177,7 +177,8 @@ export function clientMatches(
 ): boolean {
     const t = fold(q);
     if (t === "") return true;
-    const digits = phoneDigits(q);
+    // only a query that reads as a number searches phones, so digits in a name don't
+    const digits = /^[\d\s+().-]+$/.test(q.trim()) ? phoneDigits(q) : "";
     return (
         fold(client.name).includes(t) ||
         (digits.length >= 3 && phoneDigits(client.phone).includes(digits)) ||
