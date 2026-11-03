@@ -419,14 +419,16 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **Done when:** Every taxed figure matches a hand calculation for the province.
 
+**By hand only**
+
+* Steps 1 to 7 on iOS and Android.
+* Step 6 with real card payments for the shop and a booking deposit.
+
 **Automated by**
 
 * `ID-E2E-01 (web)`
 * `BILL-DOC-01 (web)`
-
-**To automate**
-
-* `BILL-DOC-21` in `apps/web/e2e/billing.e2e.ts`: Golden tax matrix for ON, BC, QC and NS with exempt and GST-only lines, plus tax off (FIN02, FIN03).
+* `BILL-DOC-21 (web)`
 
 **Depends on:** Nothing
 

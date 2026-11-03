@@ -505,7 +505,9 @@ function OrderSummary({ shop }: { shop: ShopFlow }) {
             </div>
             <div className="border-t border-line pt-3">
                 <DocTotals lines={shop.totalLines} currency={shop.currency} density="compact" />
-                <p className="pt-2 text-xs text-muted">{s.taxNote}</p>
+                {shop.taxNote !== null ? (
+                    <p className="pt-2 text-xs text-muted">{shop.taxNote}</p>
+                ) : null}
             </div>
             <div className="rounded-xl bg-accent-weak p-3.5">
                 <p className="flex items-center gap-2 text-sm font-semibold text-ink">
@@ -526,7 +528,7 @@ function ShopPay({ shop }: { shop: ShopFlow }) {
     const total = formatMoney(o.total_cents, o.currency);
     return (
         <div className="space-y-4">
-            <p className="text-sm text-muted">{s.payBody(total)}</p>
+            <p className="text-sm text-muted">{shop.payBody}</p>
             <CardForm
                 clientSecret={o.client_secret}
                 stripeAccount={o.stripe_account_id}

@@ -1976,6 +1976,10 @@
         "message": "Tip is worked out on {money}, before tax.",
         "args": ["money"]
     },
+    "pos.desk.tipOnNoTax": {
+        "message": "Tip is worked out on {money}.",
+        "args": ["money"]
+    },
     "pos.desk.tipAmount": {
         "message": "Tip amount"
     },
@@ -11853,6 +11857,13 @@
         "message": "Tip is worked out on {money}, before tax.",
         "args": ["money"]
     },
+    "publicPay.tipHintNoTax": {
+        "message": "Optional. All of it goes to the staff."
+    },
+    "publicPay.tipBaseNoTax": {
+        "message": "Tip is worked out on {money}.",
+        "args": ["money"]
+    },
     "publicPay.payWithTip": {
         "message": "Pay {money} by card",
         "args": ["money"]
@@ -12696,6 +12707,10 @@
     },
     "publicShop.payBody": {
         "message": "{total}, tax included. Paid now, picked up later.",
+        "args": ["total"]
+    },
+    "publicShop.payBodyNoTax": {
+        "message": "{total}. Paid now, picked up later.",
         "args": ["total"]
     },
     "publicShop.pay": {

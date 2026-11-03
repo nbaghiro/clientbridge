@@ -11,7 +11,7 @@ import {
     parseTimestamp,
     weekdayDay,
 } from "../datetime";
-import { normalizePhone, BUSINESS_CURRENCY } from "../format";
+import { formatMoney, normalizePhone, BUSINESS_CURRENCY } from "../format";
 import type { DocTotalLine } from "../ui";
 import { zoneNote } from "./publicBooking";
 import {
@@ -29,6 +29,7 @@ interface PublicShopItem {
     description: string | null;
     price_cents: number;
     currency: string;
+    taxable: boolean;
     image_url: string | null;
     in_stock: boolean;
     category: string | null;
@@ -41,6 +42,7 @@ export interface PublicShop {
     brand: PublicBrand;
     items: PublicShopItem[];
     stripe_account_id: string | null;
+    charges_tax: boolean;
 }
 
 interface PublicShopOrderResult {
@@ -144,7 +146,9 @@ export function shopTotalLines(
             cents: order.subtotal_cents ?? subtotalCents,
             kind: "subtotal",
         },
-        ...(order.tax_total_cents !== null && order.tax_total_cents !== undefined
+        ...(order.tax_total_cents !== null &&
+        order.tax_total_cents !== undefined &&
+        order.tax_total_cents > 0
             ? [{ key: "tax", label: s.tax, cents: order.tax_total_cents, kind: "tax" as const }]
             : []),
         { key: "total", label: s.total, cents: order.total_cents, kind: "total" },
@@ -466,6 +470,20 @@ export function useShopFlow(client: PublicShopClient, slug: string, storage?: Sh
                       ),
                   ),
         totalLines: shopTotalLines(base.subtotalCents, base.order),
+        taxNote:
+            base.shop?.charges_tax === true && lines.some((l) => l.item.taxable)
+                ? strings.publicShop.taxNote
+                : null,
+        payBody:
+            base.order === null
+                ? null
+                : (base.order.tax_total_cents ?? 0) > 0
+                  ? strings.publicShop.payBody(
+                        formatMoney(base.order.total_cents, base.order.currency),
+                    )
+                  : strings.publicShop.payBodyNoTax(
+                        formatMoney(base.order.total_cents, base.order.currency),
+                    ),
         inCart: (productId: string) => productCount(items, base.cart, productId),
         maxOf: cap,
         variantId: (productId: string) =>

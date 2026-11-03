@@ -549,7 +549,7 @@ export function saleTotalLines(
             label: d.tip,
             cents: t.tipCents,
             kind: "subtotal",
-            hint: d.tipNoTax,
+            ...(t.taxes.length > 0 ? { hint: d.tipNoTax } : {}),
         });
     rows.push({
         key: "total",
@@ -852,6 +852,7 @@ export interface SaleTicket {
     tip: TipChoice;
     setTip: (tip: TipChoice) => void;
     tipKey: string;
+    tipNote: string;
     tipOptions: { key: string; label: string; hint: string }[];
     tipShares: TipShare[];
     tipMode: TipSplitMode;
@@ -1297,6 +1298,10 @@ export function useSale(
             setTipState(next);
         },
         tipKey: tip.kind === "percent" ? String(tip.pct) : tip.kind,
+        tipNote:
+            t.taxes.length > 0
+                ? d.tipOn(formatMoney(t.subtotalCents, BUSINESS_CURRENCY))
+                : d.tipOnNoTax(formatMoney(t.subtotalCents, BUSINESS_CURRENCY)),
         tipOptions: [
             ...TIP_PRESETS.map((pct) => ({
                 key: String(pct),

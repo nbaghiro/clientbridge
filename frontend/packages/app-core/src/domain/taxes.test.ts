@@ -199,13 +199,102 @@ describe("useTaxSettingsForm registration date", () => {
         const bodies: unknown[] = [];
         const api = {
             get: () => Promise.resolve({ tax_collected_cents: 0 }),
-            patch: (_path: string, body: unknown) => {
+            patch: (_path: string, body: Record<string, unknown>) => {
                 bodies.push(body);
-                return Promise.resolve({});
+                const gst = typeof body.gst_hst_number === "string" ? body.gst_hst_number : "";
+                return Promise.resolve({
+                    ...body,
+                    gst_hst_number: gst.replaceAll(" ", "").toUpperCase(),
+                });
             },
         } as unknown as ApiLike;
         return { api, bodies };
     };
+
+    const stored = {
+        province: "BC",
+        tax_registered: 1,
+        tax_registered_on: null,
+        gst_hst_number: "123456789RT0001",
+        pst_number: null,
+        filing_frequency: "annual",
+        province_locked: 0,
+    };
+
+    it("keeps an unsaved choice when the replica emits the row again", () => {
+        replica.rows = [stored];
+        const { api } = saving();
+        const { result, rerender } = renderHook(() => useTaxSettingsForm(api, (c) => c), {
+            wrapper,
+        });
+        act(() => {
+            result.current.setRegistration("small");
+        });
+        replica.rows = [{ ...stored, province_locked: 1 }];
+        rerender();
+        expect(result.current.registration).toBe("small");
+        expect(result.current.dirty).toBe(true);
+    });
+
+    it("keeps an edit when another device changes the record, and follows it untouched", () => {
+        replica.rows = [stored];
+        const { api } = saving();
+        const { result, rerender } = renderHook(() => useTaxSettingsForm(api, (c) => c), {
+            wrapper,
+        });
+        replica.rows = [{ ...stored, filing_frequency: "monthly" }];
+        rerender();
+        expect(result.current.frequency).toBe("monthly");
+        act(() => {
+            result.current.setRegistration("small");
+        });
+        replica.rows = [{ ...stored, filing_frequency: "quarterly" }];
+        rerender();
+        expect(result.current.registration).toBe("small");
+        expect(result.current.frequency).toBe("monthly");
+    });
+
+    it("takes the saved values when the sync arrives before the response", async () => {
+        replica.rows = [stored];
+        const { api } = saving();
+        const { result, rerender } = renderHook(() => useTaxSettingsForm(api, (c) => c), {
+            wrapper,
+        });
+        act(() => {
+            result.current.setGst("987654321 rt 0001");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        replica.rows = [{ ...stored, gst_hst_number: "987654321RT0001" }];
+        rerender();
+        await waitFor(() => {
+            expect(result.current.saved).toBe(true);
+        });
+        expect(result.current.gst).toBe("987654321RT0001");
+        expect(result.current.dirty).toBe(false);
+    });
+
+    it("takes the saved record after saving, even when the server normalised it", async () => {
+        replica.rows = [stored];
+        const { api } = saving();
+        const { result, rerender } = renderHook(() => useTaxSettingsForm(api, (c) => c), {
+            wrapper,
+        });
+        act(() => {
+            result.current.setGst("987654321 rt 0001");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(result.current.saved).toBe(true);
+        });
+        replica.rows = [{ ...stored, gst_hst_number: "987654321RT0001" }];
+        rerender();
+        expect(result.current.gst).toBe("987654321RT0001");
+        expect(result.current.dirty).toBe(false);
+    });
 
     it("loads the stored day and sends the one picked", async () => {
         replica.rows = [

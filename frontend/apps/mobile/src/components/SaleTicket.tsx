@@ -341,9 +341,7 @@ function TipBlock({ sale }: { sale: SaleTicket }) {
                     }}
                 />
             ) : null}
-            <Text style={styles.note}>
-                {d.tipOn(formatMoney(sale.totals.subtotalCents, BUSINESS_CURRENCY))}
-            </Text>
+            <Text style={styles.note}>{sale.tipNote}</Text>
             {tip > 0 ? (
                 <View style={styles.stack}>
                     <Choice

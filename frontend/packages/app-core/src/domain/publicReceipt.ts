@@ -196,7 +196,7 @@ export function publicReceiptTotals(receipt: PublicReceipt): DocTotalLine[] {
             label: r.tip,
             cents: receipt.tip_cents,
             kind: "subtotal",
-            hint: r.tipNoTax,
+            ...(receipt.taxes.length > 0 ? { hint: r.tipNoTax } : {}),
         });
     rows.push({
         key: "total",

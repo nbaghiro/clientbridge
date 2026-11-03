@@ -1811,6 +1811,9 @@
     "pos.desk.tipOn": {
         "message": "[Ţîþ îš ŵöŕķéð öûţ öñ {money}, ƀéƒöŕé ţåẋ. one two three]"
     },
+    "pos.desk.tipOnNoTax": {
+        "message": "[Ţîþ îš ŵöŕķéð öûţ öñ {money}. one two]"
+    },
     "pos.desk.tipAmount": {
         "message": "[Ţîþ åɱöûñţ one two]"
     },
@@ -11033,6 +11036,12 @@
     "publicPay.tipBase": {
         "message": "[Ţîþ îš ŵöŕķéð öûţ öñ {money}, ƀéƒöŕé ţåẋ. one two three]"
     },
+    "publicPay.tipHintNoTax": {
+        "message": "[Öþţîöñåļ. Åļļ öƒ îţ ĝöéš ţö ţĥé šţåƒƒ. one two three]"
+    },
+    "publicPay.tipBaseNoTax": {
+        "message": "[Ţîþ îš ŵöŕķéð öûţ öñ {money}. one two]"
+    },
     "publicPay.payWithTip": {
         "message": "[Þåý {money} ƀý çåŕð one two]"
     },
@@ -11809,6 +11818,9 @@
     },
     "publicShop.payBody": {
         "message": "[{total}, ţåẋ îñçļûðéð. Þåîð ñöŵ, þîçķéð ûþ ļåţéŕ. one two three]"
+    },
+    "publicShop.payBodyNoTax": {
+        "message": "[{total}. Þåîð ñöŵ, þîçķéð ûþ ļåţéŕ. one two]"
     },
     "publicShop.pay": {
         "message": "[Þåý {amount} one]"

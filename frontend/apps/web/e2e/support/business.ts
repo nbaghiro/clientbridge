@@ -1,6 +1,8 @@
 import { strings } from "@clientbridge/app-core/public";
 import { type APIRequestContext, type Page, expect } from "@playwright/test";
-import { mailedCode } from "./auth";
+import { randomUUID } from "node:crypto";
+import { runUrl } from "@clientbridge/config/e2e/run";
+import { mailedCode, newAccount } from "./auth";
 import { select } from "./db";
 
 export interface BusinessEvidence {
@@ -95,4 +97,35 @@ export async function openBusiness(
             .locator("aside")
             .getByRole("link", { name: strings.navigation.businessMenu, exact: true }),
     ).toBeVisible({ timeout: 60_000 });
+}
+
+export interface NewBusiness {
+    id: string;
+    slug: string;
+}
+
+/** A signed-up owner with a business of their own, for a case that changes its settings. */
+export async function newBusiness(
+    page: Page,
+    request: APIRequestContext,
+    prefix: string,
+    province: string,
+): Promise<NewBusiness> {
+    const account = newAccount(prefix);
+    await signUp(page, request, account);
+    await openBusiness(page, `${account.name} Co`, "beauty", province);
+    const [row] = await select<NewBusiness>`
+        SELECT b.id, b.slug FROM businesses b
+        JOIN staff s ON s.business_id = b.id JOIN users u ON u.id = s.user_id
+        WHERE u.email = ${account.email}`;
+    if (row === undefined) throw new Error("the new business has no row");
+    return row;
+}
+
+/** A change made straight through the API, as another device would. */
+export async function patchBusiness(page: Page, data: unknown) {
+    return page.request.patch(`${runUrl("VITE_API_URL")}/v1/business`, {
+        headers: { Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() },
+        data,
+    });
 }

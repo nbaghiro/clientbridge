@@ -7991,6 +7991,11 @@ export interface components {
             price_cents: number;
             /** Currency */
             currency: string;
+            /**
+             * Taxable
+             * @description False when the item's tax class is exempt
+             */
+            taxable: boolean;
             /** Image Url */
             image_url?: string | null;
             /** Description */
@@ -8124,6 +8129,16 @@ export interface components {
              */
             timezone: string;
             policy?: components["schemas"]["PublicPolicy"] | null;
+            /**
+             * Charges Tax
+             * @description Whether the business is registered to add sales tax
+             */
+            charges_tax: boolean;
+            /**
+             * Tax Starts On
+             * @description The first day it adds tax, when registration starts later
+             */
+            tax_starts_on?: string | null;
             /**
              * Subject
              * @description What a booking names besides the client; null asks for nothing
@@ -8783,6 +8798,16 @@ export interface components {
             timezone: string;
             policy?: components["schemas"]["PublicPolicy"] | null;
             /**
+             * Charges Tax
+             * @description Whether the business is registered to add sales tax
+             */
+            charges_tax: boolean;
+            /**
+             * Tax Starts On
+             * @description The first day it adds tax, when registration starts later
+             */
+            tax_starts_on?: string | null;
+            /**
              * Subject
              * @description What a booking names besides the client; null asks for nothing
              */
@@ -8951,6 +8976,11 @@ export interface components {
             deposit_required: boolean;
             /** Deposit Amount Cents */
             deposit_amount_cents: number;
+            /**
+             * Taxable
+             * @description False when the item's tax class is exempt
+             */
+            taxable: boolean;
             /** Image Url */
             image_url?: string | null;
             /**
@@ -8990,6 +9020,11 @@ export interface components {
             items: components["schemas"]["PublicShopItem"][];
             /** Stripe Account Id */
             stripe_account_id?: string | null;
+            /**
+             * Charges Tax
+             * @description Whether an order placed today is charged sales tax
+             */
+            charges_tax: boolean;
         };
         /** PublicShopItem */
         PublicShopItem: {
@@ -9007,6 +9042,11 @@ export interface components {
             price_cents: number;
             /** Currency */
             currency: string;
+            /**
+             * Taxable
+             * @description False when the item's tax class is exempt
+             */
+            taxable: boolean;
             /** Image Url */
             image_url?: string | null;
             /**
