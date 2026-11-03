@@ -1,7 +1,9 @@
 import httpx
+import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core.errors import AppError
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Order
 from clientbridge.models.payments import Payment
@@ -138,6 +140,29 @@ async def test_cancel_after_the_card_went_through_is_refused(
     await settle(as_staff, db, paid["payment_id"])
     res = await as_staff.post(f"/v1/orders/{sale['id']}/checkout/cancel")
     assert (res.status_code, res.json()["error"]) == (409, "checkout_paid")
+
+
+async def test_a_cancel_stripe_cannot_answer_is_a_bad_gateway_not_a_paid_card(
+    as_staff: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sale = await _sale(as_staff, db)
+    ok(await as_staff.post(f"/v1/orders/{sale['id']}/checkout"))
+
+    async def timed_out(account_id: str, *, payment_intent_id: str) -> None:
+        raise AppError(
+            "the payment provider couldn't cancel this payment",
+            code="payment_provider_error",
+            status_code=502,
+        )
+
+    monkeypatch.setattr(gateway, "cancel_payment_intent", timed_out)
+    res = await as_staff.post(f"/v1/orders/{sale['id']}/checkout/cancel")
+    assert (res.status_code, res.json()["error"]) == (502, "payment_provider_error")
+    [kept] = await _payments(db, sale["id"])
+    assert kept.status == "pending"
 
 
 async def test_cancel_is_idempotent_and_a_no_op_without_a_checkout(

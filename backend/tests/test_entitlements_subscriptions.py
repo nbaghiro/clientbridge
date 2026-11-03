@@ -788,6 +788,56 @@ async def test_create_without_stripe_connected_409(
     assert gateway.created_subscriptions == []
 
 
+async def test_create_while_card_payments_are_off_409(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    await db.execute(
+        update(Business).where(Business.id == BIZ).values(stripe_charges_enabled=False)
+    )
+    cid = await client_id(db)
+    item = await _sub_item(db)
+    pm = await _saved_method(db, cid)
+    res = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id), headers=key())
+    assert res.status_code == 409
+    assert res.json()["error"] == "card_payments_off"
+    assert gateway.created_subscriptions == []
+
+
+@pytest.mark.parametrize(
+    ("card", "code"),
+    [
+        ("pm_card_declined", "card_declined"),
+        ("pm_card_authenticationRequired", "payment_action_required"),
+    ],
+)
+async def test_a_first_charge_that_doesnt_go_through_starts_no_membership(
+    as_owner: httpx.AsyncClient, db: AsyncSession, card: str, code: str
+) -> None:
+    await enable_payments(db)
+    cid = await client_id(db)
+    item = await _sub_item(db)
+    pm = await _saved_method(db, cid, ref=card)
+    res = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id), headers=key())
+    assert res.status_code == 402
+    assert res.json()["error"] == code
+    assert await db.scalar(select(Subscription.id).where(Subscription.client_id == cid)) is None
+
+
+async def test_a_bank_debit_membership_may_start_before_its_first_debit_settles(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    cid = await client_id(db)
+    item = await _sub_item(db)
+    pm = await _saved_method(db, cid, method="bank_eft")
+    pm.mandate_status = "active"
+    await db.flush()
+    res = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id), headers=key())
+    assert res.status_code == 201, res.text
+    assert gateway.subscription_cards == [False]
+
+
 async def test_create_unknown_or_foreign_client_404(
     as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
 ) -> None:

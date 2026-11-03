@@ -261,6 +261,7 @@ function DocForm({ kind, draft, clientId, onClose }: DocFormProps) {
                                                     )}
                                                     initial={l.discount}
                                                     baseCents={l.grossCents}
+                                                    taxed={c.taxed}
                                                     onApply={(next) => {
                                                         c.setLineDiscount(l.key, next);
                                                         setDiscounting(null);
@@ -342,6 +343,7 @@ function DocForm({ kind, draft, clientId, onClose }: DocFormProps) {
                                             title={s.discountTitle}
                                             initial={c.docDiscount}
                                             baseCents={c.discountBaseCents}
+                                            taxed={c.taxed}
                                             onApply={(next) => {
                                                 c.setDocDiscount(next);
                                                 setDiscounting(null);

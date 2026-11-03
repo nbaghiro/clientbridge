@@ -1,8 +1,8 @@
 import re
 from datetime import date, datetime
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, StringConstraints, field_validator, model_validator
 
 from clientbridge.core.mirrors import Mirror
 from clientbridge.core.phones import RequiredPhone
@@ -13,6 +13,8 @@ from clientbridge.schemas.clients import RequiredName
 
 # `\Z` rather than `$`, so a trailing newline can't pass.
 HEX_COLOR = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})\Z")
+# a blank pet name reads as no pet, the same as leaving it out
+SubjectName = Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)]
 
 
 class PublicBrand(BaseModel):
@@ -276,7 +278,7 @@ class PublicBookingCreate(BaseModel):
     starts_at: datetime
     client: PublicBookingClient
     addons: list[PublicAddonIn] = Field(default_factory=list, max_length=10)
-    subject_name: str | None = Field(default=None, max_length=60)
+    subject_name: SubjectName | None = None
     subject_address: str | None = Field(
         default=None,
         max_length=200,

@@ -505,6 +505,44 @@ async def order_gift_card_applied(db: AsyncSession, order: Order) -> int:
     return int((await db.execute(select(gift_card_applied_expr(order.id)))).scalar_one())
 
 
+async def visit_deposits(db: AsyncSession, order: Order) -> int:
+    """Deposits held on the visits rung up on an open sale; paying the sale applies them."""
+    lines = await fetch_lines(db, order.business_id, "order", order.id)
+    held = 0
+    for booking_id in dict.fromkeys(ln.booking_id for ln in lines if ln.booking_id):
+        booking = await db.get(Booking, booking_id)
+        if booking is not None:
+            held += await deposit_held(db, booking)
+    return min(held, order.total_cents)
+
+
+@dataclass(frozen=True)
+class OrderMoney:
+    paid: int
+    tip: int
+    deposit: int
+    gift: int
+    due: int
+
+
+async def order_money(db: AsyncSession, order: Order, status: str) -> OrderMoney:
+    """What a sale collected, its credits, and what an open one still owes net of tips."""
+    paid, _ = await collected(db, order.business_id, "order", order.id)
+    tips = await db.scalar(
+        scoped(Payment, order.business_id)
+        .with_only_columns(func.coalesce(func.sum(Payment.tip_cents), 0))
+        .where(
+            Payment.order_id == order.id, Payment.kind == "payment", Payment.status == "succeeded"
+        )
+    )
+    tip = int(tips or 0)
+    open_ = status == "open"
+    deposit = await visit_deposits(db, order) if open_ else await order_deposit_applied(db, order)
+    gift = await order_gift_card_applied(db, order)
+    due = max(0, order.total_cents - deposit - gift - (paid - tip)) if open_ else 0
+    return OrderMoney(paid, tip, deposit, gift, due)
+
+
 def order_status_expr() -> ColumnElement[str]:
     """An order stores only open/void; whether it is paid or refunded comes from the ledger."""
     return _order_status(

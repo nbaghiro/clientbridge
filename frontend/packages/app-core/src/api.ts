@@ -104,6 +104,7 @@ const FAILURES: Record<string, (detail: FailureDetail) => string> = {
     payment_action_required: () => strings.api.paymentActionRequired,
     checkout_paid: () => strings.api.checkoutPaid,
     card_payments_unavailable: () => strings.api.cardPaymentsUnavailable,
+    card_payments_off: () => strings.api.cardPaymentsOff,
     staff_has_future_work: () => strings.api.staffHasFutureWork,
     broadcast_address_missing: () => strings.api.broadcastAddressMissing,
     broadcast_contact_missing: () => strings.api.broadcastContactMissing,

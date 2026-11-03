@@ -509,6 +509,15 @@ async def test_a_booking_named_after_a_deleted_pet_files_a_new_one(
     assert fresh.id != gone.id and fresh.deleted_at is None
 
 
+async def test_an_online_pet_name_takes_the_same_200_characters_as_staff(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    longest = "B" * 200
+    assert (await _booked_subject(api, db, subject_name=f" {longest} ")).name == longest
+    res = await api.post(f"/book/{SLUG}", json=_body(subject_name="B" * 201))
+    assert res.status_code == 422
+
+
 @pytest.mark.parametrize(
     ("kind", "extra"),
     [

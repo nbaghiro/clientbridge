@@ -708,6 +708,14 @@ describe("detailErrors", () => {
         expect(detailErrors({ ...filled, subjectName: "Pepper" }, "pet", false).subject).toBeNull();
     });
 
+    it("keeps a pet's name within what the booking page accepts", () => {
+        const named = (subjectName: string) => ({ ...filled, subjectName });
+        expect(detailErrors(named("P".repeat(200)), "pet", false).subject).toBeNull();
+        expect(detailErrors(named("P".repeat(201)), "pet", false).subject).toBe(
+            strings.subjects.tooLong(200),
+        );
+    });
+
     it("asks a property business for a new property's address", () => {
         const named = { ...filled, subjectName: "Cottage" };
         expect(detailErrors(named, "property", false).address).toBe(s.addressRequired("property"));

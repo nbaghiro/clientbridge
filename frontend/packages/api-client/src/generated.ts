@@ -5384,6 +5384,11 @@ export interface components {
              */
             current_deadline?: string | null;
             /**
+             * Payouts Hold
+             * @description Stripe's reason payouts are off, such as requirements_pending_verification
+             */
+            payouts_hold?: string | null;
+            /**
              * Available Cents
              * @description The Stripe balance available to pay out, when connected
              */

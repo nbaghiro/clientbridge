@@ -81,6 +81,7 @@ interface Strings {
         readonly checkoutPaid: string;
         readonly depositInProgress: string;
         readonly cardPaymentsUnavailable: string;
+        readonly cardPaymentsOff: string;
         readonly staffHasFutureWork: string;
         readonly broadcastAddressMissing: string;
         readonly broadcastContactMissing: string;
@@ -678,6 +679,7 @@ interface Strings {
             readonly applyDiscount: string;
             readonly removeDiscount: string;
             readonly discountPreview: (off: string, after: string) => string;
+            readonly discountPreviewNoTax: (off: string, after: string) => string;
             readonly discountInvalid: (percent: string, amount: string) => string;
             readonly discountPercentMax: (max: string) => string;
             readonly discountTooBig: (money: string) => string;
@@ -3498,6 +3500,7 @@ interface Strings {
         readonly pausedBody: (date: string) => string;
         readonly pausedBodyNoDate: string;
         readonly pausedBodyReview: string;
+        readonly pausedBodyHeld: string;
         readonly restrictedTitle: string;
         readonly restrictedBody: string;
         readonly reqError: {
@@ -3512,6 +3515,7 @@ interface Strings {
         } & Labels;
         readonly readyTitle: string;
         readonly readyBody: string;
+        readonly readyBodyDue: string;
         readonly phaseNotConnected: string;
         readonly phaseInProgress: string;
         readonly phasePending: string;

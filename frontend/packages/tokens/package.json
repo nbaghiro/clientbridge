@@ -12,9 +12,15 @@
         "./admin.css": "./src/admin.css"
     },
     "scripts": {
-        "typecheck": "tsc --noEmit"
+        "typecheck": "tsc --noEmit",
+        "test": "vitest run"
     },
     "peerDependencies": {
         "tailwindcss": "^4.3.3"
+    },
+    "devDependencies": {
+        "@stripe/connect-js": "^3.4.6",
+        "@stripe/stripe-js": "^10.0.0",
+        "vitest": "^5.0.3"
     }
 }

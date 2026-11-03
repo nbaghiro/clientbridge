@@ -602,6 +602,13 @@ export function previewDiscount(
     };
 }
 
+function discountPreview(offCents: number, baseCents: number, taxed: boolean): string | null {
+    if (offCents <= 0) return null;
+    const off = formatMoney(offCents, BUSINESS_CURRENCY);
+    const after = formatMoney(baseCents - offCents, BUSINESS_CURRENCY);
+    return taxed ? d.discountPreview(off, after) : d.discountPreviewNoTax(off, after);
+}
+
 export interface DiscountEditor {
     kind: DiscountKind;
     setKind: (k: DiscountKind) => void;
@@ -611,13 +618,17 @@ export interface DiscountEditor {
     setReason: (r: string) => void;
     reasons: readonly string[];
     draft: SaleDiscount | null;
-    previewCents: number;
+    preview: string | null;
     error: string | null;
     apply: () => SaleDiscount | null;
 }
 
-/** The discount form: percent or amount, a reason, and the cents it takes off `baseCents`. */
-export function useDiscountEditor(initial: SaleDiscount | null, baseCents: number): DiscountEditor {
+/** The discount form: percent or amount, a reason, and what it takes off `baseCents`. */
+export function useDiscountEditor(
+    initial: SaleDiscount | null,
+    baseCents: number,
+    taxed: boolean,
+): DiscountEditor {
     const [kind, setKindState] = useState<DiscountKind>(initial?.kind ?? "percent");
     const [value, setValueState] = useState(
         initial === null
@@ -655,7 +666,7 @@ export function useDiscountEditor(initial: SaleDiscount | null, baseCents: numbe
         setReason,
         reasons: d.reasons,
         draft,
-        previewCents: discountCents(baseCents, draft),
+        preview: discountPreview(discountCents(baseCents, draft), baseCents, taxed),
         error,
         apply: () => {
             const problem =
@@ -2640,7 +2651,11 @@ export function useDiscountSheet(sale: SaleTicket): DiscountSheet {
         scope === "sale"
             ? sale.totals.subtotalCents + sale.totals.saleDiscountCents
             : sale.lines.filter((l) => keys.includes(l.key)).reduce((n, l) => n + l.grossCents, 0);
-    const editor = useDiscountEditor(scope === "sale" ? sale.saleDiscount : null, base);
+    const editor = useDiscountEditor(
+        scope === "sale" ? sale.saleDiscount : null,
+        base,
+        sale.totals.taxes.length > 0,
+    );
     const preview = previewDiscount(sale.lines, sale.saleDiscount, rates, registered, {
         scope,
         lineKeys: keys,

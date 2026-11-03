@@ -330,6 +330,24 @@ async def test_a_declined_estimate_shows_staff_and_the_client_its_stored_total(
     assert page["taxes"] != []
 
 
+async def test_an_expired_estimate_keeps_the_total_it_lapsed_with(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    sent = await _sent_estimate(as_owner, db)
+    lapsed = (
+        update(Estimate).where(Estimate.id == sent["id"]).values(valid_until=date(2026, 10, 12))
+    )
+    await db.execute(lapsed)
+    ok(await as_owner.patch("/v1/business", json={"tax_registered": False}, headers=key()))
+    page = ok(await as_owner.get(f"/estimate/{sent['view_token']}")).json()
+    assert page["total_cents"] == await _total(db, Estimate, sent["id"]) == 2688
+    assert page["taxes"] != []
+    repriced = select(Audit).where(
+        Audit.entity_id == sent["id"], Audit.action == "estimate.repriced"
+    )
+    assert (await db.execute(repriced)).first() is None
+
+
 async def test_a_converted_estimate_stays_with_its_invoice(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:

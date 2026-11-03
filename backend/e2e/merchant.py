@@ -143,7 +143,7 @@ async def banks() -> dict[str, object]:
 
 
 async def mirror(state: str) -> dict[str, object]:
-    """Mirror a payouts-paused account onto the run's business, or read it back from Stripe."""
+    """Mirror a paused or Stripe-held payouts state onto the run's business, or read it back."""
     account = await validate_context()
     settings = get_settings()
     gateway = StripeGateway(settings.stripe_secret_key, settings.stripe_webhook_secret, "CA")
@@ -155,6 +155,16 @@ async def mirror(state: str) -> dict[str, object]:
         if state == "paused":
             status = replace(
                 status, payouts_enabled=False, past_due=["external_account"], current_deadline=None
+            )
+        elif state == "held":
+            # held by Stripe with nothing for the business to send
+            status = replace(
+                status,
+                payouts_enabled=False,
+                currently_due=[],
+                past_due=[],
+                current_deadline=None,
+                payouts_hold="restricted_other",
             )
         apply_account_status(business, status)
         await db.commit()
@@ -184,8 +194,8 @@ async def main() -> None:
     parser.add_argument("command", choices=sorted(COMMANDS))
     parser.add_argument("id", nargs="?", default="")
     args = parser.parse_args()
-    if args.command == "mirror" and args.id not in ("paused", "stripe"):
-        parser.error("mirror takes paused or stripe")
+    if args.command == "mirror" and args.id not in ("paused", "held", "stripe"):
+        parser.error("mirror takes paused, held or stripe")
     try:
         print(json.dumps(await COMMANDS[args.command](args)))
     finally:

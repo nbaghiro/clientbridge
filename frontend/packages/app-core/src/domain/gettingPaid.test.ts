@@ -218,6 +218,21 @@ describe("useGettingPaid", () => {
         expect(result.current.canFinish).toBe(false);
     });
 
+    it("says Stripe holds payouts when nothing is due and Stripe isn't reviewing", async () => {
+        const api = connected({
+            kyc_status: "payouts_paused",
+            payouts_enabled: false,
+            payouts_hold: "restricted_other",
+        });
+        const { result } = renderHook(() => useGettingPaid(api), { wrapper });
+        await waitFor(() => {
+            expect(result.current.phase).toBe("payouts_paused");
+        });
+        expect(result.current.title).toBe(g.pausedTitle);
+        expect(result.current.message).toBe(g.pausedBodyHeld);
+        expect(result.current.chargesEnabled).toBe(true);
+    });
+
     it("names the deadline only while it is still ahead", async () => {
         const ahead = new Date(Date.now() + 30 * 86_400_000);
         const cases: [string, string][] = [
@@ -264,7 +279,7 @@ describe("useGettingPaid", () => {
         await waitFor(() => {
             expect(result.current.phase).toBe("enabled");
         });
-        expect(result.current.message).toBe(g.readyBody);
+        expect(result.current.message).toBe(g.readyBodyDue);
         expect(result.current.canFinish).toBe(true);
     });
 

@@ -23,7 +23,7 @@
         "disputes.stripe.ts > STR-E04 a lost dispute takes back a forfeited deposit, and a deposit paid after its visit was settled is refunded": 87,
         "memberships.stripe.ts > STR-E07 a daily membership renews on a test clock, sends one notice per failed renewal and can be canceled while the plan is lapsed": 137,
         "payouts.stripe.ts > STR-E01 a Connect invoice payment books fees that match Stripe's balance transaction": 22,
-        "payouts.stripe.ts > STR-E09 Getting paid shows payouts paused from the mirrored account and Check again reads it back from Stripe": 22,
+        "payouts.stripe.ts > STR-E09 Getting paid shows payouts paused, or held by Stripe, from the mirrored account and Check again reads it back from Stripe": 30,
         "provider.stripe.ts > STRIPE-BROWSER-01 customer pays a CAD invoice through Stripe.js and signed settlement persists": 42,
         "provider.stripe.ts > STRIPE-BROWSER-02 declined card stays unpaid then corrected card settles the same payment once": 51,
         "provider.stripe.ts > STRIPE-BROWSER-03 completing a real 3DS challenge settles only after authentication": 47,

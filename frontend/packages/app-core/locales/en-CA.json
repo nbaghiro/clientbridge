@@ -155,7 +155,7 @@
         "message": "Another client already has this phone number. Each number belongs to one client."
     },
     "api.clientArchived": {
-        "message": "This client is archived. Restore them from their record first."
+        "message": "This client is archived. An owner or admin can restore them from their record."
     },
     "api.slotUnavailable": {
         "message": "That time is no longer open. Pick another time."
@@ -221,6 +221,9 @@
     },
     "api.cardPaymentsUnavailable": {
         "message": "This business can't take card payments online yet."
+    },
+    "api.cardPaymentsOff": {
+        "message": "Card payments are off for this business. Open Getting paid in Setup to see what Stripe needs."
     },
     "api.staffHasFutureWork": {
         "message": "This member still has upcoming visits. Choose whether to move or cancel them."
@@ -2067,6 +2070,10 @@
     },
     "pos.desk.discountPreview": {
         "message": "{off} off, {after} before tax",
+        "args": ["off", "after"]
+    },
+    "pos.desk.discountPreviewNoTax": {
+        "message": "{off} off, now {after}",
         "args": ["off", "after"]
     },
     "pos.desk.discountInvalid": {
@@ -5866,7 +5873,7 @@
         "args": ["what"]
     },
     "subjects.tooLong": {
-        "message": "Keep this under {max, number} characters.",
+        "message": "Keep this to {max, number} characters or fewer.",
         "args": ["max"]
     },
     "subjects.fields.birthday": {
@@ -10279,6 +10286,9 @@
     "gettingPaid.pausedBodyReview": {
         "message": "You can still take card payments. Payouts are on hold while your details are being verified."
     },
+    "gettingPaid.pausedBodyHeld": {
+        "message": "You can still take card payments, but Stripe has put your payouts on hold. Contact support and we'll help sort it out."
+    },
     "gettingPaid.restrictedTitle": {
         "message": "Card payments are paused"
     },
@@ -10314,6 +10324,9 @@
     },
     "gettingPaid.readyBody": {
         "message": "Card payments, Tap to Pay and payouts are all on."
+    },
+    "gettingPaid.readyBodyDue": {
+        "message": "Card payments, Tap to Pay and payouts are all on. Send what's listed below to keep them that way."
     },
     "gettingPaid.phaseNotConnected": {
         "message": "Set up card payments, deposits and Tap to Pay. It takes about 10 minutes and you'll need a photo ID and your bank details."

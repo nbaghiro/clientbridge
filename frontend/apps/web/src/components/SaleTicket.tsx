@@ -137,7 +137,7 @@ function ClientPicker({ sale }: { sale: SaleTicket }) {
     );
 }
 
-function DiscountFields({ editor, baseCents }: { editor: DiscountEditor; baseCents: number }) {
+function DiscountFields({ editor }: { editor: DiscountEditor }) {
     const known = editor.reasons.includes(editor.reason);
     return (
         <div className="space-y-3">
@@ -176,13 +176,8 @@ function DiscountFields({ editor, baseCents }: { editor: DiscountEditor; baseCen
                 onChange={editor.setReason}
                 surface="surface"
             />
-            {editor.previewCents > 0 ? (
-                <p className="text-sm text-ink-soft">
-                    {d.discountPreview(
-                        formatMoney(editor.previewCents, BUSINESS_CURRENCY),
-                        formatMoney(baseCents - editor.previewCents, BUSINESS_CURRENCY),
-                    )}
-                </p>
+            {editor.preview !== null ? (
+                <p className="text-sm text-ink-soft">{editor.preview}</p>
             ) : null}
             {editor.error !== null ? <Notice tone="danger">{editor.error}</Notice> : null}
         </div>
@@ -194,16 +189,18 @@ export function DiscountForm({
     title,
     initial,
     baseCents,
+    taxed,
     onApply,
     onCancel,
 }: {
     title: string;
     initial: SaleDiscount | null;
     baseCents: number;
+    taxed: boolean;
     onApply: (discount: SaleDiscount | null) => void;
     onCancel: () => void;
 }) {
-    const editor = useDiscountEditor(initial, baseCents);
+    const editor = useDiscountEditor(initial, baseCents, taxed);
     return (
         <section
             className="space-y-3 rounded-md border border-accent-line bg-surface p-3.5 shadow-card"
@@ -213,7 +210,7 @@ export function DiscountForm({
                 <h3 className="truncate text-sm font-semibold text-ink">{title}</h3>
                 <IconButton icon="x" label={d.cancel} size="sm" onPress={onCancel} />
             </div>
-            <DiscountFields editor={editor} baseCents={baseCents} />
+            <DiscountFields editor={editor} />
             <div className="flex items-center justify-between gap-2">
                 {initial !== null ? (
                     <Button
@@ -253,7 +250,11 @@ function LineDiscountEditor({
     onDone: () => void;
 }) {
     const line = sale.lines.find((l) => l.key === lineKey);
-    const editor = useDiscountEditor(line?.discount ?? null, line?.grossCents ?? 0);
+    const editor = useDiscountEditor(
+        line?.discount ?? null,
+        line?.grossCents ?? 0,
+        sale.totals.taxes.length > 0,
+    );
     if (line === undefined) return null;
     return (
         <section
@@ -266,7 +267,7 @@ function LineDiscountEditor({
                 </h3>
                 <IconButton icon="x" label={d.cancel} size="sm" onPress={onDone} />
             </div>
-            <DiscountFields editor={editor} baseCents={line.grossCents} />
+            <DiscountFields editor={editor} />
             <div className="flex items-center justify-between gap-2">
                 {line.discount !== null ? (
                     <Button
@@ -331,12 +332,6 @@ function PreviewRow({
 function DiscountSheet({ sale, onClose }: { sale: SaleTicket; onClose: () => void }) {
     const sheet = useDiscountSheet(sale);
     const p = sheet.preview;
-    const base =
-        sheet.scope === "sale"
-            ? sale.totals.subtotalCents + sale.totals.saleDiscountCents
-            : sale.lines
-                  .filter((l) => sheet.keys.includes(l.key))
-                  .reduce((n, l) => n + l.grossCents, 0);
     return (
         <Modal open size="lg" onClose={onClose}>
             <div className="-mr-2 max-h-[calc(100vh-7rem)] space-y-5 overflow-y-auto pr-2">
@@ -385,7 +380,7 @@ function DiscountSheet({ sale, onClose }: { sale: SaleTicket; onClose: () => voi
                         </div>
                     ) : null}
                 </div>
-                <DiscountFields editor={sheet.editor} baseCents={base} />
+                <DiscountFields editor={sheet.editor} />
                 <div className="rounded-md border border-line bg-bg px-4 py-2">
                     <div className="grid grid-cols-[1fr_auto_auto] gap-6 py-1 text-xs font-semibold uppercase tracking-wide text-muted">
                         <span />

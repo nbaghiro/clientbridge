@@ -132,7 +132,7 @@
         "message": "[Åñöţĥéŕ çļîéñţ åļŕéåðý ĥåš ţĥîš þĥöñé ñûɱƀéŕ. Éåçĥ ñûɱƀéŕ ƀéļöñĝš ţö öñé çļîéñţ. one two three four five six]"
     },
     "api.clientArchived": {
-        "message": "[Ţĥîš çļîéñţ îš åŕçĥîṽéð. Ŕéšţöŕé ţĥéɱ ƒŕöɱ ţĥéîŕ ŕéçöŕð ƒîŕšţ. one two three four]"
+        "message": "[Ţĥîš çļîéñţ îš åŕçĥîṽéð. Åñ öŵñéŕ öŕ åðɱîñ çåñ ŕéšţöŕé ţĥéɱ ƒŕöɱ ţĥéîŕ ŕéçöŕð. one two three four five]"
     },
     "api.slotUnavailable": {
         "message": "[Ţĥåţ ţîɱé îš ñö ļöñĝéŕ öþéñ. Þîçķ åñöţĥéŕ ţîɱé. one two three]"
@@ -196,6 +196,9 @@
     },
     "api.cardPaymentsUnavailable": {
         "message": "[Ţĥîš ƀûšîñéšš çåñ'ţ ţåķé çåŕð þåýɱéñţš öñļîñé ýéţ. one two three four]"
+    },
+    "api.cardPaymentsOff": {
+        "message": "[Çåŕð þåýɱéñţš åŕé öƒƒ ƒöŕ ţĥîš ƀûšîñéšš. Öþéñ Ĝéţţîñĝ þåîð îñ Šéţûþ ţö šéé ŵĥåţ Šţŕîþé ñééðš. one two three four five six]"
     },
     "api.staffHasFutureWork": {
         "message": "[Ţĥîš ɱéɱƀéŕ šţîļļ ĥåš ûþçöɱîñĝ ṽîšîţš. Çĥööšé ŵĥéţĥéŕ ţö ɱöṽé öŕ çåñçéļ ţĥéɱ. one two three four five]"
@@ -1900,6 +1903,9 @@
     },
     "pos.desk.discountPreview": {
         "message": "[{off} öƒƒ, {after} ƀéƒöŕé ţåẋ one two]"
+    },
+    "pos.desk.discountPreviewNoTax": {
+        "message": "[{off} öƒƒ, ñöŵ {after} one]"
     },
     "pos.desk.discountInvalid": {
         "message": "[Éñţéŕ å ðîšçöûñţ ļîķé {percent} öŕ {amount} one two]"
@@ -5382,7 +5388,7 @@
         "message": "[Þîçķûþ ŕéšţŕîçţîöñ: {what} one two]"
     },
     "subjects.tooLong": {
-        "message": "[Ķééþ ţĥîš ûñðéŕ {max, number} çĥåŕåçţéŕš. one two three]"
+        "message": "[Ķééþ ţĥîš ţö {max, number} çĥåŕåçţéŕš öŕ ƒéŵéŕ. one two three]"
     },
     "subjects.fields.birthday": {
         "message": "[Ɓîŕţĥðåý one]"
@@ -9542,6 +9548,9 @@
     "gettingPaid.pausedBodyReview": {
         "message": "[Ýöû çåñ šţîļļ ţåķé çåŕð þåýɱéñţš. Þåýöûţš åŕé öñ ĥöļð ŵĥîļé ýöûŕ ðéţåîļš åŕé ƀéîñĝ ṽéŕîƒîéð. one two three four five six]"
     },
+    "gettingPaid.pausedBodyHeld": {
+        "message": "[Ýöû çåñ šţîļļ ţåķé çåŕð þåýɱéñţš, ƀûţ Šţŕîþé ĥåš þûţ ýöûŕ þåýöûţš öñ ĥöļð. Çöñţåçţ šûþþöŕţ åñð ŵé'ļļ ĥéļþ šöŕţ îţ öûţ. one two three four five six seven]"
+    },
     "gettingPaid.restrictedTitle": {
         "message": "[Çåŕð þåýɱéñţš åŕé þåûšéð one two three]"
     },
@@ -9577,6 +9586,9 @@
     },
     "gettingPaid.readyBody": {
         "message": "[Çåŕð þåýɱéñţš, Ţåþ ţö Þåý åñð þåýöûţš åŕé åļļ öñ. one two three four]"
+    },
+    "gettingPaid.readyBodyDue": {
+        "message": "[Çåŕð þåýɱéñţš, Ţåþ ţö Þåý åñð þåýöûţš åŕé åļļ öñ. Šéñð ŵĥåţ'š ļîšţéð ƀéļöŵ ţö ķééþ ţĥéɱ ţĥåţ ŵåý. one two three four five six]"
     },
     "gettingPaid.phaseNotConnected": {
         "message": "[Šéţ ûþ çåŕð þåýɱéñţš, ðéþöšîţš åñð Ţåþ ţö Þåý. Îţ ţåķéš åƀöûţ 10 ɱîñûţéš åñð ýöû'ļļ ñééð å þĥöţö ÎĐ åñð ýöûŕ ƀåñķ ðéţåîļš. one two three four five six seven]"

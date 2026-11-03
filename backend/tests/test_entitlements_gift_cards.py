@@ -708,6 +708,28 @@ async def test_refunding_the_rest_gives_the_gift_card_balance_back(
     assert await _balance(db, card) == 1000
 
 
+async def test_a_declined_card_confirmed_after_a_gift_card_paid_part_is_refunded(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    await _active_card(db, code="GIFTLATE", balance=1000)
+    sale = await _sale(as_owner)
+    pay = await as_owner.post(f"/v1/orders/{sale['id']}/pay", json={})
+    assert pay.status_code == 200, pay.text
+    declined = await db.get(Payment, pay.json()["payment_id"])
+    assert declined is not None
+    declined.status = "failed"
+    await db.flush()
+    applied = (await _apply(as_owner, sale["id"], "GIFTLATE")).json()
+    assert applied["due_cents"] == int(str(sale["total_cents"])) - 1000
+    await settle(as_owner, db, declined.id)
+    assert [amount for _, amount, _ in gateway.refunds] == [declined.amount_cents]
+    refund = await db.scalar(
+        select(Payment).where(Payment.parent_payment_id == declined.id, Payment.kind == "refund")
+    )
+    assert refund is not None and refund.reason == "unapplied_payment"
+
+
 async def test_voiding_the_sale_gives_the_gift_card_balance_back(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:

@@ -105,7 +105,7 @@ onFlowComplete:
       timeout: 30000
 - tapOn: "Cancel"
 # two archived together, one restored, and each ends as chosen
-- evalScript: ${output.bulkPrefix = "250" + output.exchange + output.line.slice(0, 2)}
+- evalScript: ${output.bulkPrefix = "250" + output.exchange + "9" + output.line.slice(1, 2)}
 - runScript:
       file: helpers/client-api.js
       env:

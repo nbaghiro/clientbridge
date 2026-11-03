@@ -78,14 +78,19 @@ flowchart LR
   `v2.core.account[configuration.merchant].capability_status_updated` and `v2.core.account.closed` events
   arrive through an event destination; the handler fetches the account and mirrors it.
 - **KYC phase.** `business.derive_kyc_status` reads both capabilities. `enabled` means charges and payouts
-  are on with nothing past due; `payouts_paused` means charges are on but payouts are off or a requirement
-  is past due; `restricted` means card payments are off while something is due; `pending` means Stripe is
-  reviewing; `not_started` means details aren't submitted yet, or the account only pays for its plan; and
+  are on, even with a past-due requirement for another payment method; `payouts_paused` means charges are
+  on but the payouts capability is off; `restricted` means card payments are off while something is due,
+  including a pending card capability with details still owed; `pending` means Stripe is reviewing with
+  nothing owed; `not_started` means details aren't submitted yet, or the account only pays for its plan; and
   `disabled` means the account is closed or only Stripe support can lift the restriction. Getting paid
   shows the finish action whenever anything is due, and a deadline that has passed uses the wording without
   a date. Errors Stripe reports on a requirement (`requirements.entries[].errors`) are mirrored into
   `stripe_requirements.requirement_errors` and shown under that requirement through `gettingPaid.reqError.*`
-  copy, with a generic fallback.
+  copy, with a generic fallback. The payouts capability's first `status_details` code is mirrored as
+  `stripe_requirements.payouts_hold` and returned as `payouts_hold`: with nothing due, Getting paid says
+  payouts wait on verification for `requirements_pending_verification` or `determining_status`, and that
+  Stripe holds them for any other code. A ready account with something due says what is listed keeps it
+  that way.
 - **Refresh.** `POST /v1/connect/refresh` (owners and admins) reads the account from Stripe and mirrors it,
   for when its events are late or never arrived. It calls Stripe at most six times a minute per business
   and otherwise returns the mirrored status. Getting paid's Refresh button and the return from onboarding
@@ -129,9 +134,19 @@ flowchart LR
 - Owners see Stripe's embedded notification banner on Getting paid and Today (web), and manage the
   account through the embedded account management component, as Stripe requires for accounts with no
   Stripe dashboard where Stripe carries losses. Owners and admins can open account management and payouts.
-  The React Native SDK has neither component and Stripe does not support Connect.js inside a WebView, so
-  mobile links to the web page for both. `payments` records each attempt and Stripe object; the ledger
+  Mobile hosts onboarding, payments and payouts through `@stripe/stripe-react-native`'s Connect
+  components. That SDK has no account management component and Stripe does not support Connect.js inside
+  a WebView, so mobile's Manage on web opens `/setup/getting-paid?manage=account` on the web. `payments` records each attempt and Stripe object; the ledger
   records what each one did to the money.
+- **Theming.** Stripe's frames can't read our CSS, so `@clientbridge/tokens` (`stripe.ts`) builds their
+  appearance from our tokens: `stripeConnectAppearance` for the Connect components on web and mobile, and
+  `stripeElementsAppearance` for the card form. Web resolves the CSS variables where the frame mounts, so a
+  business's brand colour on its public pages reaches the card form; mobile passes `theme.colors`. Both get
+  our locale (`baseLocale()`), Connect's details open as a drawer over our scrim, and the card form pins the
+  tabs layout, which draws no panel around the fields when card is the only method. Stripe sets tabular
+  figures, and in Schibsted Grotesk those make `,`, `.` and `:` as wide as a digit, so `STRIPE_FONTS` loads
+  the font without them and they come from the system font. Touch screens get 16px card inputs, because iOS
+  zooms into a smaller one. Link and Klarna keep the colours Stripe gives them.
 - The Stripe API version is pinned (`STRIPE_API_VERSION` in `integrations/stripe.py`), and the Connect
   webhook endpoint (snapshot events) must be created with that same version, because the handlers parse
   its payload shapes. Thin events are unversioned and signed with the event destination's own secret
@@ -207,7 +222,14 @@ An intent that nobody will finish is cancelled rather than left confirmable, so 
   processing or went through, is logged and left for the next run.
 - Canceling an intent Stripe already canceled counts as canceled, so a declined deposit attempt closed
   from Stripe's side no longer blocks paying the deposit again. An intent that is processing or
-  succeeded still refuses, with `payment_in_progress`.
+  succeeded still refuses, with `payment_in_progress`. Any other Stripe error on a cancel (a timeout, a
+  rate limit, a revoked account) answers `payment_provider_error` (502). A staff or client action that
+  needed the cancel fails with it instead of reading the payment as already made, and the jobs that
+  release unpaid bookings and orders and close past visits skip that one and go on to the rest.
+- Staff who close a desk deposit's card form and open it again aren't blocked by the attempt they left:
+  each opening sends a new key, so the new attempt cancels the open one at Stripe and replaces it. Only a
+  deposit already paid refuses. If the old attempt went through or is processing, the new one is
+  canceled and refused with `deposit_in_progress`.
 - After a refusal such as a declined card, the desk's next press is a new attempt with a new key, so
   Stripe asks the bank again instead of replaying the decline. A request that got no answer keeps its
   key. Staff see the server's reason: a declined card, a card that needs the client to approve, or a
@@ -217,6 +239,11 @@ An intent that nobody will finish is cancelled rather than left confirmable, so 
   `invoice.payment_action_required` subscription is needed. A first payment never approved expires the
   subscription through `customer.subscription.updated` (`incomplete_expired`), which now sends the same
   cancel notice as a deletion.
+- A card membership's first period is paid on the spot or nothing starts: the subscription is created
+  with `payment_behavior=error_if_incomplete`, so a declined card answers 402 `card_declined` and one that
+  needs the client to approve answers 402 `payment_action_required`, with no membership row. A bank debit
+  membership is created with `allow_incomplete`, since its first debit settles days later. Creating one
+  needs card payments on (`card_payments_off` otherwise), as one-off charges do.
 - Creating a membership locks the client and requires an idempotency key, so two quick creates can't
   both start billing. A saved card or bank account a membership still bills can't be removed
   (`payment_method_in_use`); one only canceled memberships used is removed after their link is
@@ -280,7 +307,9 @@ saved card or bank account and the platform fee as `application_fee_percent`. It
 Refund commands and Dashboard-originated refunds converge on the same local refund handling:
 `refund.created`, `refund.updated` and `refund.failed` all go through one handler. Each Stripe refund has
 its own Payment row tied to the original payment. The remaining refundable amount and product
-restrictions are checked server-side, and repeating a provider outcome doesn't post twice. The refund
+restrictions are checked server-side, and repeating a provider outcome doesn't post twice. A failed or
+canceled refund is final, as it is at Stripe, so a `succeeded` snapshot delivered after the failure
+changes nothing. The refund
 command requires an idempotency key and passes it to Stripe, so a rolled-back command retried with the
 same key refunds once.
 
@@ -303,10 +332,13 @@ dispute. A refund that fails after it succeeded reverses the refund journal, for
 (`restore_forfeit`) and restores a gift card or package the refund had voided. A held deposit goes back
 on the booking's open invoice under an application keyed by the failed refund, so the invoice it reopened
 is paid down again; if that invoice was paid or voided in the meantime, the deposit stays held. Any
-refund that fails or is canceled, including one still pending, pushes an alert to staff that opens the
-original payment, since the money still has to go back; the client is told only about a refund they had
+refund that fails or is canceled, including one still pending, pushes an alert to owners and admins that
+opens the original payment and emails the owner's address (the billing email, else the first owner's
+sign-in), since the money still has to go back; the client is told only about a refund they had
 been told went through. That includes the full refund of a payment that reached a voided invoice or sale:
-if it bounces, the client stays charged until staff return the money another way.
+if it bounces, the client stays charged until staff return the money another way. A card payment that
+settles on a desk sale or online order for more than it still owes, tip aside (cash after a declined
+attempt the client later confirmed), is refunded in full the same way, with `payment.late_order_refund`.
 
 The sale detail shows the tax a sale charged, from its payment and redemption journals; like a refunded
 card sale, a sale returned to its gift card keeps showing what it charged.
@@ -326,8 +358,11 @@ sales.
 
 Dispute and payment-failure events find their payment within the business whose account sent the event,
 as settlement does, so an event can never touch another business's payment. An inquiry
-(`warning_needs_response`) alerts staff once and books nothing; money moves only if it
-escalates. A `prevented` dispute, which the card network settled before any funds left, also books
+(`warning_needs_response`) alerts owners and admins once and books nothing; money moves only if it
+escalates. An inquiry keeps its answer-by date in `dispute_respond_by` until it escalates. Dispute and
+inquiry alerts push to owners' and admins' phones and email the owner's address with the date the
+evidence is due, so an owner who only uses the web still hears in time. A `prevented`
+dispute, which the card network settled before any funds left, also books
 nothing and leaves the payment refundable, as does a status we don't know, which is logged. A visit
 cancel skips refunding a disputed deposit, so the dispute decides that money and the cancel still goes
 through; an online order with a disputed payment is refused as "contact the business". Late opening events cannot reopen a won/lost dispute, and dispute fees and returned fees post
@@ -371,7 +406,7 @@ session for Stripe's embedded payouts component:
 
 Stripe stores the schedule and executes payouts. There is no local schedule column, duplicate timer,
 or custom payout-creation endpoint. The existing web/mobile embedded-component integration hosts the
-flow; unsupported mobile account-management components link to web as described above.
+flow; mobile's account management links to web as described above.
 
 ### Display and accounting
 
@@ -447,7 +482,8 @@ Stripe delivers it again. Any other exception also leaves a `failed` row, is log
 deliveries apply it once. Failed rows don't raise an alert by age yet.
 
 Payment notices are sent only for events less than a day old (`event.created`); an older event still
-settles but sends no notice. Gift card issuance is always sent, because the client needs the code. The
+settles but sends no notice. Gift card issuance is always sent, because the client needs the code, and so
+are dispute, bank inquiry and failed refund alerts, because the owner still has to act. The
 same rule applies to replays and to reconciliation.
 
 ### Replaying missed events

@@ -1,11 +1,11 @@
 // The default theme's tokens as plain values, since React Native has no CSS variables.
-import { type ThemeKey, themes } from "./index";
+import { SCRIM, type ThemeKey, themes } from "./index";
 
 const DEFAULT_THEME: ThemeKey = "pewter";
 const t = themes[DEFAULT_THEME];
 
 export const theme = {
-    colors: { ...t.color, scrim: "rgba(20,25,30,0.35)" },
+    colors: { ...t.color, scrim: SCRIM },
     fonts: t.font,
     radius: t.radius.base,
     avatarRadius: t.radius.avatar,

@@ -1224,7 +1224,7 @@ test("CRM-E2E-16 an archived client leaves search and pickers, can't take new wo
     });
     await test.step("the server refuses new work and keeps the invoice", async () => {
         const headers = { Origin: new URL(page.url()).origin };
-        const refused = await page.request.post(`${bookingApi()}/v1/invoices`, {
+        const refused = await page.request.post(`${bookingApi()}/v1/estimates`, {
             headers,
             data: { client_id: client.id, lines: [] },
         });

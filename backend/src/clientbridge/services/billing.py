@@ -3,7 +3,7 @@ import secrets
 from collections.abc import Sequence
 from datetime import date, datetime, timedelta
 
-from sqlalchemy import ColumnElement, func, select
+from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -76,10 +76,9 @@ class BillingService:
 
     async def create_invoice(self, data: InvoiceCreate, idempotency_key: str | None) -> InvoiceOut:
         self._assert_admin()
-        client = await self._client(data.client_id)
+        await self._client(data.client_id)
 
         async def run(cmd: Command) -> InvoiceOut:
-            await assert_client_active(self.db, client)
             invoice = Invoice(
                 id=new_id("invoice"),
                 business_id=self.biz,
@@ -653,11 +652,14 @@ async def reprice_open_documents(
     db: AsyncSession, biz: str, performed_by: str | None, at: datetime | None = None
 ) -> None:
     """Whatever hasn't fixed its tax follows the settings: drafts, open quotes, unpaid tickets."""
-    settings = await tax_settings(db, biz, at or clock.now())
+    moment = at or clock.now()
+    settings = await tax_settings(db, biz, moment)
     await _reprice(db, biz, "invoice", Invoice, [Invoice.status == "draft"], settings, performed_by)
+    today = moment.astimezone(await business_tz(db, biz)).date()
     open_quote = [
         Estimate.status.in_(("draft", "sent")),
         Estimate.converted_invoice_id.is_(None),
+        or_(Estimate.valid_until.is_(None), Estimate.valid_until >= today),
     ]
     await _reprice(db, biz, "estimate", Estimate, open_quote, settings, performed_by)
     await _reprice(db, biz, "order", Order, _unpaid_order(biz), settings, performed_by)
