@@ -92,8 +92,10 @@ onFlowComplete:
       visible: ".*Juniper.*"
       timeout: 60000
 - tapOn: ".*Juniper.*"
-- extendedWaitUntil:
-      visible: ".*Bernese mountain dog.*"
+# a phone shows the pet below the visit's times, so the sheet scrolls to it
+- scrollUntilVisible:
+      element: ".*Bernese mountain dog.*"
+      direction: DOWN
       timeout: 30000
 - assertVisible: "Anxious"
 - assertVisible: ${".*" + output.name + ".*"}
