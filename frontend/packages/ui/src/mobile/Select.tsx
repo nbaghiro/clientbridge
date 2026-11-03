@@ -180,10 +180,11 @@ export function SelectSheet<K extends string>({
     const shown =
         needle === ""
             ? options
-            : options.filter(
-                  (o) =>
-                      o.label.toLowerCase().includes(needle) ||
-                      (o.detail?.toLowerCase().includes(needle) ?? false),
+            : options.filter((o) =>
+                  o.match !== undefined
+                      ? o.match(needle)
+                      : o.label.toLowerCase().includes(needle) ||
+                        (o.detail?.toLowerCase().includes(needle) ?? false),
               );
     const close = (): void => {
         setOpen(false);

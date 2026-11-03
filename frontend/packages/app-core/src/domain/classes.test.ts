@@ -53,7 +53,7 @@ describe("seatMatches", () => {
         { id: "cl_tran", name: "Thu Tran", subject_id: "sj_minh", subject_name: "Minh" },
         { id: "cl_tran", name: "Thu Tran", subject_id: "sj_an", subject_name: "An" },
         { id: "cl_ann", name: "Ann Lee", subject_id: null, subject_name: null },
-    ];
+    ].map((c) => ({ ...c, phone: c.id === "cl_ann" ? "+16045550123" : null, tags: null }));
 
     it("offers each sibling a seat of their own", () => {
         const found = seatMatches(family, "tran", new Set(), true);
@@ -80,6 +80,24 @@ describe("seatMatches", () => {
                 avatar: "Thu Tran",
             },
         ]);
+    });
+
+    it("finds a client the way the directory does", () => {
+        const andre = [
+            {
+                id: "cl_andre",
+                name: "André Côté",
+                phone: "+16045550188",
+                tags: '["café"]',
+                subject_id: null,
+                subject_name: null,
+            },
+        ];
+        for (const q of ["andre cote", "604 555 0188", "+1 604-555-0188", "cafe"])
+            expect(seatMatches(andre, q, new Set(), false).map((m) => m.clientId)).toEqual([
+                "cl_andre",
+            ]);
+        expect(seatMatches(family, "555-0123", new Set(), false)[0]?.clientId).toBe("cl_ann");
     });
 
     it("finds no one for an empty search", () => {

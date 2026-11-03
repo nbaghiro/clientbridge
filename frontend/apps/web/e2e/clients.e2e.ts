@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { demoPerson } from "@clientbridge/config/e2e/demo";
-import { strings, formatParts } from "@clientbridge/app-core/public";
-import { expect, test } from "@playwright/test";
+import { strings, formatParts, formatPhone } from "@clientbridge/app-core/public";
+import { expect, type Page, test } from "@playwright/test";
 import {
     addClientNote,
     addPet,
@@ -12,6 +12,7 @@ import {
     expectClientSegment,
     openClient,
 } from "./support/clients";
+import { runEmail } from "@clientbridge/config/e2e/run";
 import { navigate, signIn } from "./support/session";
 import { newAccount, freshPhone } from "./support/auth";
 import {
@@ -673,4 +674,288 @@ test("CRM-E2E-15 a phone another client holds is refused, and the form offers to
             .getByRole("complementary", { name: holder.name, exact: true })
             .getByRole("heading", { name: holder.name, exact: true }),
     ).toBeVisible();
+});
+
+async function paletteRow(page: Page, query: string, name: string) {
+    await page.keyboard.press("ControlOrMeta+k");
+    const palette = page.getByRole("dialog");
+    await expect(palette.getByText(strings.search.jumpTo)).toBeVisible();
+    await page.keyboard.type(query);
+    return palette.getByRole("button").filter({ hasText: name });
+}
+
+async function closePalette(page: Page): Promise<void> {
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+}
+
+test("CRM-E2E-09 directory and palette find a client the same ways, and only managers see lifetime value", async ({
+    page,
+    browser,
+}) => {
+    test.setTimeout(240_000);
+    const r = strings.clients.record;
+    await signIn(page);
+    const line = freshPhone();
+    const digits = line.slice(2);
+    const formatted = `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+    const run = randomUUID().slice(0, 6);
+    const client = await createClient(page, `Émile Côté ${run}`, line);
+    await addPet(page, client, `Archibald${run}`);
+    const queries = [
+        client.name,
+        client.name.toUpperCase(),
+        `emile cote ${run}`,
+        digits,
+        line,
+        `1${digits}`,
+        `+1 ${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6)}`,
+        formatted,
+        digits.slice(-7),
+        `archibald${run}`,
+    ];
+    await test.step("directory", async () => {
+        await navigate(page, "/clients");
+        const search = page.getByRole("searchbox");
+        for (const query of queries) {
+            await search.fill(query);
+            await expect(
+                page.getByRole("button").filter({ hasText: client.name }),
+                query,
+            ).toHaveCount(1);
+        }
+        await search.fill(`no client ${run}`);
+        await expect(page.getByRole("button").filter({ hasText: client.name })).toHaveCount(0);
+    });
+    await test.step("palette", async () => {
+        await navigate(page, "/today");
+        for (const query of queries) {
+            await expect(await paletteRow(page, query, client.name), query).not.toHaveCount(0);
+            await closePalette(page);
+        }
+        await expect(await paletteRow(page, `archibald${run}`, `Archibald${run}`)).toHaveCount(1);
+        await expect(
+            page.getByRole("dialog").getByText(strings.search.addClientNamed(`archibald${run}`)),
+        ).toHaveCount(0);
+        await closePalette(page);
+    });
+    await test.step("booking picker", async () => {
+        await navigate(page, "/schedule?new=1");
+        const form = page.getByRole("form", { name: strings.bookings.composerTitle });
+        for (const query of [`emile cote ${run}`, formatted, `1${digits}`, `archibald${run}`]) {
+            await form.getByRole("searchbox").fill(query);
+            await expect(
+                form.getByRole("button").filter({ hasText: client.name }),
+                query,
+            ).toHaveCount(1);
+        }
+    });
+    await test.step("the owner sees lifetime value and every visit", async () => {
+        const record = await openClient(page, client);
+        await expect(record.getByText(r.lifetime, { exact: true })).toBeVisible();
+        await expect(record.getByText(r.visits, { exact: true })).toBeVisible();
+    });
+    for (const [who, email, manager] of [
+        ["admin", "admin@birchbark.example", true],
+        ["staff", "diego@birchbark.example", false],
+    ] as const) {
+        await test.step(`${who} sees the record`, async () => {
+            const context = await browser.newContext({
+                baseURL: new URL(page.url()).origin,
+                viewport: { width: 1440, height: 900 },
+            });
+            try {
+                const other = await context.newPage();
+                await signIn(other, { email: runEmail(email), password: "demo1234" });
+                const record = await openClient(other, client);
+                await expect(record.getByText(r.lifetime, { exact: true })).toHaveCount(
+                    manager ? 1 : 0,
+                );
+                await expect(record.getByText(r.balance, { exact: true })).toHaveCount(
+                    manager ? 1 : 0,
+                );
+                await expect(
+                    record.getByText(manager ? r.visits : r.yourVisits, { exact: true }),
+                ).toBeVisible();
+                await expect(
+                    record.getByText(manager ? r.upcoming : r.yourUpcoming, { exact: true }),
+                ).toBeVisible();
+            } finally {
+                await context.close();
+            }
+        });
+    }
+});
+
+test("CRM-E2E-16 an archived client leaves search and pickers, can't take new work and keeps their invoices", async ({
+    page,
+}) => {
+    test.setTimeout(240_000);
+    const r = strings.clients.record;
+    await signIn(page);
+    const client = await createClient(page);
+    const invoice = await page.request.post(`${bookingApi()}/v1/invoices`, {
+        headers: { Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() },
+        data: {
+            client_id: client.id,
+            lines: [{ description: "Full groom", quantity: 1, unit_amount_cents: 5000 }],
+        },
+    });
+    expect(invoice.status(), await invoice.text()).toBe(201);
+    const invoiceId = ((await invoice.json()) as { id: string }).id;
+    const digits = client.phone.slice(2);
+    const phoneLabel = formatPhone(client.phone);
+    const picker = async (shown: 0 | 1): Promise<void> => {
+        await navigate(page, "/schedule?new=1");
+        const form = page.getByRole("form", { name: strings.bookings.composerTitle });
+        for (const query of [client.name, digits]) {
+            await form.getByRole("searchbox").fill(query);
+            await expect(form.getByRole("button").filter({ hasText: client.name })).toHaveCount(
+                shown,
+            );
+        }
+        await navigate(page, "/today");
+    };
+    await picker(1);
+    const archived = await page.request.post(`${bookingApi()}/v1/clients/${client.id}/archive`, {
+        headers: { Origin: new URL(page.url()).origin },
+    });
+    expect(archived.status(), await archived.text()).toBe(200);
+    await test.step("gone from the palette and the picker", async () => {
+        await expectClientSegment(page, client, true);
+        await navigate(page, "/today");
+        for (const query of [client.name, digits]) {
+            await expect
+                .poll(async () => {
+                    const count = await (await paletteRow(page, query, phoneLabel)).count();
+                    await closePalette(page);
+                    return count;
+                })
+                .toBe(0);
+        }
+        await picker(0);
+    });
+    await test.step("the record offers Restore instead of new work", async () => {
+        const record = await openClient(page, client);
+        await expect(record.getByText(r.archived, { exact: true })).toBeVisible();
+        for (const name of [r.book, r.message, r.invoice])
+            await expect(record.getByRole("button", { name, exact: true })).toHaveCount(0);
+        await expect(
+            record.getByRole("button", { name: strings.clients.edit.restore, exact: true }),
+        ).toBeVisible();
+    });
+    await test.step("the wallet and the full page offer no new work either", async () => {
+        const record = await openClient(page, client);
+        await record.getByRole("button", { name: r.manageWallet, exact: true }).click();
+        await expect(
+            page.getByText(strings.clients.wallet.archived, { exact: true }),
+        ).toBeVisible();
+        for (const name of [
+            strings.clients.sellPackageLink,
+            strings.clients.startSubscriptionLink,
+            strings.clients.addCard,
+            strings.clients.addBankWeb,
+        ])
+            await expect(page.getByRole("button", { name, exact: true })).toHaveCount(0);
+        await navigate(page, `/clients/${client.id}/history`);
+        await expect(
+            page.getByRole("button", { name: strings.clients.edit.restore, exact: true }),
+        ).toBeVisible();
+        for (const name of [r.book, r.message])
+            await expect(page.getByRole("button", { name, exact: true })).toHaveCount(0);
+        await navigate(page, "/today");
+    });
+    await test.step("the server refuses new work and keeps the invoice", async () => {
+        const headers = { Origin: new URL(page.url()).origin };
+        const refused = await page.request.post(`${bookingApi()}/v1/invoices`, {
+            headers,
+            data: { client_id: client.id, lines: [] },
+        });
+        expect(refused.status(), await refused.text()).toBe(409);
+        expect(await refused.json()).toMatchObject({ error: "client_archived" });
+        await navigate(page, `/payments/invoices?open=${invoiceId}`);
+        await expect(
+            page.getByText(client.name, { exact: false }).filter({ visible: true }).first(),
+        ).toBeVisible();
+        await navigate(page, "/today");
+    });
+    await test.step("restore from the record brings them back everywhere", async () => {
+        const record = await openClient(page, client);
+        const restoring = clientCommand(page, `/${client.id}/restore`, "POST");
+        await record
+            .getByRole("button", { name: strings.clients.edit.restore, exact: true })
+            .click();
+        expect((await restoring).status()).toBe(200);
+        await expect(record.getByRole("button", { name: r.book, exact: true })).toBeVisible();
+        await expect(record.getByText(r.archived, { exact: true })).toHaveCount(0);
+        await expectClientSegment(page, client, false);
+        await navigate(page, "/today");
+        await expect(await paletteRow(page, digits, phoneLabel)).toHaveCount(1);
+        await closePalette(page);
+        await picker(1);
+    });
+});
+
+test("CRM-E2E-17 archive two clients in bulk, then restore one, and each ends in the state chosen", async ({
+    page,
+    browser,
+}) => {
+    test.setTimeout(180_000);
+    const t = strings.clients.tidy;
+    await signIn(page);
+    const shared = freshPhone().slice(0, -1);
+    const first = await createClient(page, demoPerson(randomUUID()), `${shared}1`);
+    const second = await createClient(page, demoPerson(randomUUID()), `${shared}2`);
+    const observer = await browser.newContext({
+        baseURL: new URL(page.url()).origin,
+        viewport: { width: 1440, height: 900 },
+    });
+    try {
+        const other = await observer.newPage();
+        await signIn(other);
+        await navigate(page, "/clients");
+        await page.getByRole("searchbox").fill(shared.slice(2));
+        await page.getByRole("button", { name: t.select, exact: true }).click();
+        await page.getByRole("checkbox", { name: first.name, exact: true }).check();
+        await page.getByRole("checkbox", { name: second.name, exact: true }).check();
+        await page.getByRole("button", { name: t.archive, exact: true }).click();
+        const confirmation = page.getByRole("dialog", { name: t.archiveTitle(2), exact: true });
+        await confirmation
+            .getByRole("button", { name: strings.common.cancel, exact: true })
+            .click();
+        await expect(confirmation).toHaveCount(0);
+        await page.getByRole("button", { name: t.archive, exact: true }).click();
+        const archiving = clientCommand(page, "/archive", "POST");
+        await confirmation.getByRole("button", { name: t.archiveConfirm, exact: true }).click();
+        const archived = await archiving;
+        expect(archived.status(), await archived.text()).toBe(200);
+        expect(await archived.json()).toEqual({ count: 2 });
+        await expect(page.getByText(t.archived(2), { exact: true })).toBeVisible();
+        await test.step("the archived tab offers no second archive", async () => {
+            const tab = strings.clients.edit
+                .segmentArchived(0)
+                .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+                .replace("0", "[\\d,]+");
+            await page.getByRole("button", { name: new RegExp(`^${tab}$`) }).click();
+            await page.getByRole("checkbox", { name: first.name, exact: true }).check();
+            await expect(page.getByRole("button", { name: t.tag, exact: true })).toBeVisible();
+            await expect(page.getByRole("button", { name: t.archive, exact: true })).toHaveCount(0);
+            await page.getByRole("button", { name: strings.common.done, exact: true }).click();
+        });
+        await expectClientSegment(other, first, true);
+        await expectClientSegment(other, second, true);
+        const record = await openClient(other, first);
+        const restoring = clientCommand(other, `/${first.id}/restore`, "POST");
+        await record
+            .getByRole("button", { name: strings.clients.edit.restore, exact: true })
+            .click();
+        expect((await restoring).status()).toBe(200);
+        await expectClientSegment(page, first, false);
+        await expectClientSegment(page, second, true);
+        await page.reload();
+        await expectClientSegment(page, first, false);
+        await expectClientSegment(page, second, true);
+    } finally {
+        await observer.close();
+    }
 });

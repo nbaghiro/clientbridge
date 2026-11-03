@@ -28,6 +28,7 @@ const ann: ClientListRow = {
     archived: false,
     archivedAt: null,
     tags: [],
+    subjectNames: [],
     subjects: "",
     next: null,
     balanceCents: 0,

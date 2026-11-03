@@ -7,7 +7,9 @@ name: Owner client record surfaces
 - inputText: "Olivia"
 - hideKeyboard
 - tapOn: ".*Olivia Martin.*"
-- assertVisible: "Book"
+- extendedWaitUntil:
+      visible: "Book"
+      timeout: 60000
 - assertVisible: "Balance due"
 - takeScreenshot: client-record
 - tapOn: "History"
@@ -15,9 +17,14 @@ name: Owner client record surfaces
 - takeScreenshot: client-history
 - tapOn: "Back|Go back|Navigate up"
 - tapOn: ".*Olivia Martin.*"
-- scrollUntilVisible:
-      element: "Manage"
-      direction: DOWN
+- extendedWaitUntil:
+      visible: "Book"
+      timeout: 60000
+# iOS calls Manage visible while it sits under the sticky actions, where a tap lands on Edit
+- swipe:
+      start: "50%,70%"
+      end: "50%,25%"
+      duration: 500
 - tapOn: "Manage"
 - assertVisible: "Payment methods"
 - takeScreenshot: client-wallet

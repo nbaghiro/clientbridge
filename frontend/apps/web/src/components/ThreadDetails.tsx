@@ -1,4 +1,5 @@
 import {
+    canManagePayments,
     type Conversation,
     type InboxThread,
     BUSINESS_CURRENCY,
@@ -16,6 +17,7 @@ import {
 import { Avatar, Badge, Button, KeyValueList, Money } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
+import { useRole } from "../lib/auth";
 
 const s = strings.messaging;
 
@@ -44,6 +46,7 @@ export function ContextPanel({
     const kind = useSubjectKind();
     const client = conversation.client;
     const balance = client?.balance_cents ?? 0;
+    const manager = canManagePayments(useRole());
     const consent = consentLabel(conversation.consent);
     const consentInfo = consentDetail(conversation.consent, zone);
     return (
@@ -60,15 +63,17 @@ export function ContextPanel({
                 </div>
             </div>
             <div className="flex gap-2">
-                <Button
-                    size="sm"
-                    grow
-                    onPress={() => {
-                        openTask({ kind: "booking", clientId: thread.client_id });
-                    }}
-                >
-                    {s.book}
-                </Button>
+                {client === null || client.status === "active" ? (
+                    <Button
+                        size="sm"
+                        grow
+                        onPress={() => {
+                            openTask({ kind: "booking", clientId: thread.client_id });
+                        }}
+                    >
+                        {s.book}
+                    </Button>
+                ) : null}
                 <Button
                     size="sm"
                     variant="outline"
@@ -90,17 +95,24 @@ export function ContextPanel({
                                   value: client?.subject_names ?? "—",
                               },
                           ]),
+                    ...(manager
+                        ? [
+                              {
+                                  label: s.balance,
+                                  value:
+                                      balance > 0 ? (
+                                          <Money currency={BUSINESS_CURRENCY} cents={balance} />
+                                      ) : (
+                                          s.settled
+                                      ),
+                                  intent: balance > 0 ? ("warning" as const) : undefined,
+                              },
+                          ]
+                        : []),
                     {
-                        label: s.balance,
-                        value:
-                            balance > 0 ? (
-                                <Money currency={BUSINESS_CURRENCY} cents={balance} />
-                            ) : (
-                                s.settled
-                            ),
-                        intent: balance > 0 ? "warning" : undefined,
+                        label: manager ? s.nextVisit : s.yourNextVisit,
+                        value: conversation.nextVisit ?? s.nothingBooked,
                     },
-                    { label: s.nextVisit, value: conversation.nextVisit ?? s.nothingBooked },
                 ]}
             />
             <section>

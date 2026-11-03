@@ -1,0 +1,221 @@
+appId: ${APP_ID}
+name: NATIVE-CRM-03 A phone taken, changes from another device, archive, restore and roles
+onFlowComplete:
+    - runFlow: helpers/restore-owner.yaml
+---
+- evalScript: ${output.exchange = String(700 + Math.floor(Math.random() * 200))}
+- evalScript: ${output.line = String(1000 + Math.floor(Math.random() * 8000))}
+- evalScript: ${output.phone = "250" + output.exchange + output.line}
+- evalScript: ${output.name = "Harriet Quill"}
+- evalScript: ${output.renamed = "Harriet Lavoie"}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/clients
+          BODY: "${JSON.stringify({ name: output.name, phone: output.phone })}"
+- evalScript: ${output.clientId = output.response.id}
+- runFlow: helpers/owner.yaml
+# a taken number is refused on the phone, with a way to that client
+- tapOn: "Clients"
+- tapOn: "Add"
+- assertVisible: "Add client"
+- tapOn: "First and last name"
+- inputText: "Someone Else"
+- tapOn: "250 555 0100"
+- inputText: ${output.phone}
+- extendedWaitUntil:
+      visible: ${output.name + " already has this phone number"}
+      timeout: 60000
+- tapOn: "Add"
+- assertVisible: ${output.name + " already has this phone number"}
+- assertVisible: "Add client"
+- takeScreenshot: phone-taken
+- tapOn: "Open record"
+- extendedWaitUntil:
+      visible: "Book"
+      timeout: 60000
+- assertVisible: ${output.name}
+# a rename and an archive from another device reach the open record
+- assertVisible: "Lifetime"
+- assertVisible: "Visits"
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: PATCH
+          PATH: ${"/v1/clients/" + output.clientId}
+          BODY: "${JSON.stringify({ name: output.renamed })}"
+- extendedWaitUntil:
+      visible: ${output.renamed}
+      timeout: 60000
+- assertNotVisible: ${output.name}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: ${"/v1/clients/" + output.clientId + "/archive"}
+- extendedWaitUntil:
+      visible: "Restore"
+      timeout: 60000
+- assertVisible: "Archived"
+- assertNotVisible: "Book"
+- assertNotVisible: "Message"
+- takeScreenshot: archived-record
+# the wallet keeps what they have and offers nothing new
+- swipe:
+      start: "50%,70%"
+      end: "50%,25%"
+      duration: 500
+- tapOn: "Manage"
+- extendedWaitUntil:
+      visible: "This client is archived.*"
+      timeout: 30000
+- assertNotVisible: "Add card"
+- assertNotVisible: ".*Sell package"
+- assertNotVisible: ".*Start subscription"
+- takeScreenshot: archived-wallet
+- tapOn: "Back|Go back|Navigate up"
+- runFlow:
+      when:
+          visible: "Restore"
+      file: helpers/close-sheet.yaml
+- tapOn: "Today"
+- tapOn: "Search"
+- inputText: ${output.phone}
+- extendedWaitUntil:
+      visible: "Nothing matches.*"
+      timeout: 30000
+- assertNotVisible: ${".*" + output.renamed + ".*"}
+- tapOn: "Cancel"
+# restored on the phone, they are found again, and with a country code
+- tapOn: "Clients"
+- tapOn: "Archived.*"
+- tapOn: ${".*" + output.renamed + ".*"}
+- tapOn: "Restore"
+- extendedWaitUntil:
+      visible: "Book"
+      timeout: 60000
+- assertNotVisible: "Archived"
+- runFlow: helpers/close-sheet.yaml
+- tapOn: "Today"
+- tapOn: "Search"
+- inputText: ${"1" + output.phone}
+- extendedWaitUntil:
+      visible: ${".*" + output.renamed + ".*"}
+      timeout: 30000
+- tapOn: "Cancel"
+# two archived together, one restored, and each ends as chosen
+- evalScript: ${output.bulkPrefix = "250" + output.exchange + output.line.slice(0, 2)}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/clients
+          BODY: '${JSON.stringify({ name: "Bulk One", phone: output.bulkPrefix + "01" })}'
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/clients
+          BODY: '${JSON.stringify({ name: "Bulk Two", phone: output.bulkPrefix + "02" })}'
+- tapOn: "Clients"
+- tapOn: "Active.*"
+- tapOn: "Search name, phone or pet"
+- inputText: ${output.bulkPrefix}
+- hideKeyboard
+- extendedWaitUntil:
+      visible: ".*Bulk Two.*"
+      timeout: 60000
+- tapOn: "Select"
+- tapOn: ".*Bulk One.*"
+- tapOn: ".*Bulk Two.*"
+- tapOn: "Archive"
+- extendedWaitUntil:
+      visible: "Archive 2 clients\\?"
+      timeout: 15000
+- takeScreenshot: bulk-archive-confirm
+# iOS keeps the selection bar's Archive in view behind the alert, level with Tag; Android hides it
+- runFlow:
+      when:
+          platform: iOS
+      commands:
+          - tapOn:
+                text: "Archive"
+                below: "Archive 2 clients\\?"
+                above: "Tag"
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - tapOn:
+                text: "Archive"
+                below: "Archive 2 clients\\?"
+- extendedWaitUntil:
+      visible: "2 clients archived\\."
+      timeout: 30000
+- tapOn: "Done"
+- tapOn: "Archived.*"
+- extendedWaitUntil:
+      visible: ".*Bulk Two.*"
+      timeout: 60000
+- tapOn: "Select"
+- tapOn: ".*Bulk One.*"
+- assertVisible: "Tag"
+- assertNotVisible: "Archive"
+- takeScreenshot: bulk-archived-tab
+- tapOn: "Done"
+- tapOn: ".*Bulk One.*"
+- tapOn: "Restore"
+- extendedWaitUntil:
+      visible: "Book"
+      timeout: 60000
+- runFlow: helpers/close-sheet.yaml
+- extendedWaitUntil:
+      notVisible: ".*Bulk One.*"
+      timeout: 30000
+- assertVisible: ".*Bulk Two.*"
+- tapOn: "Active.*"
+- extendedWaitUntil:
+      visible: ".*Bulk One.*"
+      timeout: 30000
+- assertNotVisible: ".*Bulk Two.*"
+# staff read the same client without its money, and their own visit count
+- tapOn: "Today"
+- tapOn: "Setup"
+- scrollUntilVisible:
+      element: "Sign out"
+      direction: DOWN
+- tapOn: "Sign out"
+- extendedWaitUntil:
+      visible: "Sign in"
+      timeout: 30000
+- tapOn: "you@business.ca"
+- inputText: "diego+${E2E_NAMESPACE}@birchbark.example"
+- tapOn: "••••••••"
+- eraseText
+- inputText: "demo1234"
+- hideKeyboard
+- tapOn:
+      text: "Sign in"
+      below: "Forgot password\\?"
+      optional: true
+- runFlow: helpers/decline-save-password.yaml
+- extendedWaitUntil:
+      visible: "Today"
+      timeout: 60000
+- tapOn: "Clients"
+- tapOn: "Search name, phone or pet"
+- inputText: ${output.phone}
+- extendedWaitUntil:
+      visible: ${".*" + output.renamed + ".*"}
+      timeout: 60000
+- tapOn: ${".*" + output.renamed + ".*"}
+- extendedWaitUntil:
+      visible: "Your visits"
+      timeout: 60000
+- assertNotVisible: "Lifetime"
+- assertNotVisible: "Balance due"
+- scrollUntilVisible:
+      element: "Your upcoming visits"
+      direction: DOWN
+- takeScreenshot: staff-record

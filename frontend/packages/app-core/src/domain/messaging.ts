@@ -1,5 +1,5 @@
 import { historyStart } from "@clientbridge/sync";
-import { personMedia, usePeoplePhotos } from "./files";
+import { usePeoplePhotos } from "./files";
 
 import { useBusinessQuery as useQuery } from "../hooks";
 
@@ -23,7 +23,7 @@ import { isConnectionFailure, type Load, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { Intent, SelectOption } from "../ui";
 import { type MarketingConsent, consentFor, smsSegments, useConsents } from "./broadcasts";
-import { useClients } from "./clients";
+import { clientOption, useClients } from "./clients";
 import { staffNameSql } from "./staff";
 import { useReplicaLoad } from "./sync";
 
@@ -94,7 +94,7 @@ WHERE m.thread_id = ? ORDER BY m.created_at`;
 
 // The client beside a thread: contact, subjects, what they owe and their next visit after `?`.
 export const INBOX_CLIENT_SQL = `
-SELECT c.id, c.name, c.phone,
+SELECT c.id, c.name, c.phone, c.status,
        (SELECT GROUP_CONCAT(s.name, ', ') FROM subjects s WHERE s.client_id = c.id) AS subject_names,
        (SELECT SUM(a.balance_cents) FROM accounts a WHERE a.owner_type = 'client'
           AND a.owner_id = c.id AND a.category = 'receivable') AS balance_cents,
@@ -237,6 +237,7 @@ interface ClientContextRow {
     id: string;
     name: string;
     phone: string | null;
+    status: string;
     subject_names: string | null;
     balance_cents: number | null;
     next_at: string | null;
@@ -518,11 +519,7 @@ export function useNewMessage(
     const attempt = useRef<Attempt | null>(null);
     const smsBlocked = consents.stopped.has(clientId);
     return {
-        clients: clients.map((c) => ({
-            key: c.id,
-            label: c.name,
-            media: personMedia(c.name, null, photos.client(c.id)),
-        })),
+        clients: clients.map((c) => clientOption(c, photos.client(c.id))),
         clientId,
         setClientId: (id) => {
             setClientIdRaw(id);

@@ -18,6 +18,7 @@ from clientbridge.schemas.contracts import (
     ContractVersionCreate,
     SignatureOut,
 )
+from clientbridge.services.clients import assert_client_active
 from clientbridge.services.deliveries import delivery_key
 from clientbridge.services.notifications import queued_notifier
 
@@ -31,9 +32,10 @@ class ContractService:
     async def send_contract(self, data: ContractSend, idempotency_key: str | None) -> SignatureOut:
         self._assert_admin()
         contract = await self._contract(data.contract_id)
-        await self._client(data.client_id)
+        client = await self._client(data.client_id)
 
         async def run(cmd: Command) -> SignatureOut:
+            await assert_client_active(self.db, client)
             signature = Signature(
                 id=new_id("signature"),
                 business_id=self.biz,

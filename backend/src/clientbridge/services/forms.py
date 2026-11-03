@@ -28,6 +28,7 @@ from clientbridge.schemas.forms import (
     FormSend,
     PublicFormField,
 )
+from clientbridge.services.clients import assert_client_active
 from clientbridge.services.deliveries import delivery_key
 from clientbridge.services.notifications import Notifier, Outcome, queued_notifier
 from clientbridge.services.plans import serving
@@ -44,9 +45,10 @@ class FormService:
     async def send_form(self, data: FormSend, idempotency_key: str | None) -> FormResponseOut:
         self._assert_admin()
         form = await self._form(data.form_id)
-        await self._client(data.client_id)
+        client = await self._client(data.client_id)
 
         async def run(cmd: Command) -> FormResponseOut:
+            await assert_client_active(self.db, client)
             response = FormResponse(
                 id=new_id("form_response"),
                 business_id=self.biz,

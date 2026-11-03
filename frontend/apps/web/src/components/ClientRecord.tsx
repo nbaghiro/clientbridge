@@ -12,6 +12,7 @@ import {
     subjectTemperament,
     strings,
     useClientRecord,
+    useClientLifecycle,
     useNoteActions,
     visitPill,
     formatParts,
@@ -128,36 +129,52 @@ function RecordActions({
 }) {
     const open = useOpenLink();
     const navigate = useNavigate();
+    const restoring = useClientLifecycle(api, record.client.id);
     return (
         <div className="flex flex-1 flex-wrap gap-2">
-            <Button
-                size="sm"
-                onPress={() => {
-                    openTask({ kind: "booking", clientId: record.client.id });
-                }}
-            >
-                {r.book}
-            </Button>
-            <Button
-                size="sm"
-                variant="outline"
-                onPress={() => {
-                    open("message", record.client.id);
-                }}
-            >
-                {r.message}
-            </Button>
-            {manager ? (
-                <Button
-                    size="sm"
-                    variant="outline"
-                    onPress={() => {
-                        openTask({ kind: "doc", doc: "invoice", clientId: record.client.id });
-                    }}
-                >
-                    {r.invoice}
-                </Button>
-            ) : null}
+            {restoring.error !== null ? <Notice tone="danger">{restoring.error}</Notice> : null}
+            {record.client.archived ? (
+                manager ? (
+                    <Button size="sm" busy={restoring.busy} onPress={restoring.restore}>
+                        {strings.clients.edit.restore}
+                    </Button>
+                ) : null
+            ) : (
+                <>
+                    <Button
+                        size="sm"
+                        onPress={() => {
+                            openTask({ kind: "booking", clientId: record.client.id });
+                        }}
+                    >
+                        {r.book}
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        onPress={() => {
+                            open("message", record.client.id);
+                        }}
+                    >
+                        {r.message}
+                    </Button>
+                    {manager ? (
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onPress={() => {
+                                openTask({
+                                    kind: "doc",
+                                    doc: "invoice",
+                                    clientId: record.client.id,
+                                });
+                            }}
+                        >
+                            {r.invoice}
+                        </Button>
+                    ) : null}
+                </>
+            )}
             <Button
                 size="sm"
                 variant="quiet"
@@ -202,7 +219,7 @@ export function RecordFacts({ record, manager }: { record: ClientDetail; manager
                           },
                       ]
                     : []),
-                { label: r.visits, value: String(record.visits) },
+                { label: manager ? r.visits : r.yourVisits, value: String(record.visits) },
                 { label: r.since, value: formatDate(c.since, zone) },
             ]}
         />
@@ -465,7 +482,7 @@ export function ClientRecordView({
                     </div>
                 </DetailSection>
             ) : null}
-            <DetailSection title={r.upcoming}>
+            <DetailSection title={manager ? r.upcoming : r.yourUpcoming}>
                 {record.upcoming.length === 0 ? (
                     <p className="text-sm text-muted">{r.noUpcoming}</p>
                 ) : (
@@ -505,7 +522,9 @@ export function ClientRecordView({
                 )}
                 {record.lastVisitAt !== null ? (
                     <p className="mt-2 text-xs text-muted">
-                        {r.lastVisit(formatDate(record.lastVisitAt, zone))}
+                        {(manager ? r.lastVisit : r.yourLastVisit)(
+                            formatDate(record.lastVisitAt, zone),
+                        )}
                     </p>
                 ) : null}
             </DetailSection>

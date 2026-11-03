@@ -6,9 +6,9 @@ import { formatParts, formatRating } from "../format";
 import { type Load, useAsyncAction, useBusinessQuery as useQuery } from "../hooks";
 import { strings } from "../strings";
 import type { SelectOption } from "../ui";
-import { personMedia, usePeoplePhotos } from "./files";
+import { usePeoplePhotos } from "./files";
 import { afterReview, outgoing } from "./previews";
-import { useClients } from "./clients";
+import { clientOption, useClients } from "./clients";
 import { useReplicaLoad } from "./sync";
 
 export const REVIEW_REQUESTS_SQL = `
@@ -98,11 +98,7 @@ export function useReviewQueue(canRequest: boolean): ReviewQueue {
             visit: formatParts([s.service, formatDate(parseTimestamp(s.completed_at), zone)]),
         })),
         canRequest,
-        clientOptions: clients.map((c) => ({
-            key: c.id,
-            label: c.name,
-            media: personMedia(c.name, null, photos.client(c.id)),
-        })),
+        clientOptions: clients.map((c) => clientOption(c, photos.client(c.id))),
     };
 }
 

@@ -217,6 +217,7 @@ export function ClientEditorSheet({
                         label={sj.firstName(editor.firstSubject.kind)}
                         optional
                         value={draft.subjectName}
+                        error={errors.subject}
                         onChange={(v) => {
                             set("subjectName", v);
                         }}

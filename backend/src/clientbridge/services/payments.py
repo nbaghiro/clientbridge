@@ -479,6 +479,8 @@ class PaymentService:
         self, client_id: str, idempotency_key: str | None = None
     ) -> SetupIntentOut:
         """A SetupIntent to save a client's card for later off-session charges (no charge now)."""
+        from clientbridge.services.clients import assert_client_active  # clients imports payments
+
         self._assert_admin()
         business = await self._business()
         account_id = merchant_account(business)
@@ -487,6 +489,7 @@ class PaymentService:
         client = await self._client(client_id)
 
         async def run(cmd: Command) -> SetupIntentOut:
+            await assert_client_active(self.db, client)
             customer_id = await ensure_customer(self.db, self.gateway, account_id, client)
             intent = await self.gateway.create_setup_intent(account_id, customer_id=customer_id)
             cmd.record("payment.setup_intent", entity_type="client", entity_id=client.id)
@@ -503,6 +506,8 @@ class PaymentService:
         )
 
     async def create_pad_link(self, client_id: str) -> PaymentSetupLinkOut:
+        from clientbridge.services.clients import assert_client_active  # clients imports payments
+
         self._assert_admin()
         business = await self._business()
         client = await self._client(client_id)
@@ -512,6 +517,7 @@ class PaymentService:
         await self.gateway.ensure_pad_capability(account_id)
 
         async def run(cmd: Command) -> PaymentSetupLinkOut:
+            await assert_client_active(self.db, client)
             await self.db.execute(
                 scoped(Client, self.biz).where(Client.id == client.id).with_for_update()
             )

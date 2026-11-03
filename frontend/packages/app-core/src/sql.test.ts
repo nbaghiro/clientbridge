@@ -2168,7 +2168,7 @@ describe("app-core SQL against the replica schema", () => {
         const ann = run("CLIENT_SQL", [new Date().toISOString(), "cl_ann"])[0];
         expect(pick([ann ?? {}], "subject_names", "next_visit_at", "tags")).toEqual([
             {
-                subject_names: "Rex",
+                subject_names: '["Rex"]',
                 next_visit_at: "2026-11-05T17:00:00Z",
                 tags: '["vip","regular"]',
             },

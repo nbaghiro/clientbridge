@@ -9,6 +9,7 @@ from clientbridge.core.phones import RequiredPhone
 from clientbridge.models.business import Business, ProvinceCode, Staff, SubjectKind
 from clientbridge.models.catalog import Item, ItemKind
 from clientbridge.models.scheduling import Booking, BookingStatus, DepositStatus
+from clientbridge.schemas.clients import RequiredName
 
 # `\Z` rather than `$`, so a trailing newline can't pass.
 HEX_COLOR = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})\Z")
@@ -263,7 +264,7 @@ class ManageCancelResult(BaseModel):
 
 
 class PublicBookingClient(BaseModel):
-    name: str
+    name: RequiredName
     phone: RequiredPhone
 
 

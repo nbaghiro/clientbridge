@@ -43,7 +43,7 @@ from clientbridge.services.bookings import (
 )
 from clientbridge.services.business import business_tz, load_staff
 from clientbridge.services.catalog import assert_offers, deposit_cents, load_item
-from clientbridge.services.clients import load_client
+from clientbridge.services.clients import assert_client_active, load_client
 from clientbridge.services.deliveries import delivery_key
 from clientbridge.services.notifications import queued_notifier
 from clientbridge.services.payments import cancel_open_deposits, refund_deposit
@@ -312,11 +312,12 @@ class ProgramService:
         item = await load_item(self.db, self.biz, program.item_id, require_active=False)
         if not is_program(item):
             raise Unprocessable(_NOT_PROGRAM, code="not_a_program")
-        await load_client(self.db, self.biz, data.client_id)
+        client = await load_client(self.db, self.biz, data.client_id)
         if data.subject_id is not None:
             await assert_subject(self.db, self.biz, data.subject_id, data.client_id)
 
         async def run(cmd: Command) -> EnrolmentOut:
+            await assert_client_active(self.db, client)
             bookings = await enrol(
                 self.db,
                 self.biz,

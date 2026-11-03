@@ -48,6 +48,7 @@ from clientbridge.schemas.reviews import (
     ReviewRequestOut,
 )
 from clientbridge.services.business import businesses_at_hour
+from clientbridge.services.clients import assert_client_active
 from clientbridge.services.deliveries import delivery_key
 from clientbridge.services.notifications import Notifier, queued_notifier
 from clientbridge.services.plans import plan_access
@@ -105,6 +106,7 @@ class ReviewService:
             )
             if client is None:
                 raise NotFound("client not found")
+            await assert_client_active(self.db, client)
             if data.booking_id is not None:
                 booking = await self.db.scalar(
                     scoped(Booking, self.biz, soft_delete=True)
@@ -164,7 +166,11 @@ async def run_review_requests(db: AsyncSession, notifier: Notifier, now: datetim
             .with_only_columns(ReviewRequest.booking_id)
             .where(ReviewRequest.booking_id.is_not(None))
         )
-        active = scoped(Client, business.id, soft_delete=True).with_only_columns(Client.id)
+        active = (
+            scoped(Client, business.id, soft_delete=True)
+            .with_only_columns(Client.id)
+            .where(Client.status == "active")
+        )
         bookings = await db.scalars(
             scoped(Booking, business.id, soft_delete=True)
             .where(

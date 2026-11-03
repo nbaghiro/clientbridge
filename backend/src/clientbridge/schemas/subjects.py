@@ -7,6 +7,7 @@ from clientbridge.core.mirrors import Mirror
 from clientbridge.core.phones import Phone
 from clientbridge.models.business import SubjectKind
 from clientbridge.models.clients import Subject
+from clientbridge.schemas.clients import RequiredName
 
 
 class PetAttributes(BaseModel):
@@ -106,7 +107,7 @@ class SubjectCreate(Mirror):
     mirrors = Subject
 
     client_id: str
-    name: str = Field(min_length=1)
+    name: RequiredName
     attributes: dict[str, object] = Field(
         default_factory=dict, description="Validated against the business's subject kind"
     )
@@ -115,7 +116,7 @@ class SubjectCreate(Mirror):
 class SubjectUpdate(Mirror):
     mirrors = Subject
 
-    name: str | None = Field(default=None, min_length=1)
+    name: RequiredName | None = None
     attributes: dict[str, object] | None = None
 
 

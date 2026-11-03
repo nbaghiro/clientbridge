@@ -59,6 +59,7 @@ interface Strings {
         readonly pickupWindowTaken: string;
         readonly shopNotReady: string;
         readonly phoneTaken: string;
+        readonly clientArchived: string;
         readonly slotUnavailable: string;
         readonly classSeat: string;
         readonly classMove: string;
@@ -1785,10 +1786,13 @@ interface Strings {
             readonly settled: string;
             readonly lifetime: string;
             readonly visits: string;
+            readonly yourVisits: string;
             readonly balance: string;
             readonly since: string;
             readonly upcoming: string;
+            readonly yourUpcoming: string;
             readonly lastVisit: (when: string) => string;
+            readonly yourLastVisit: (when: string) => string;
             readonly notes: string;
             readonly addNote: string;
             readonly pinned: string;
@@ -1815,6 +1819,7 @@ interface Strings {
             readonly back: string;
             readonly colClient: string;
             readonly colNext: string;
+            readonly colYourNext: string;
             readonly colBalance: string;
             readonly colTags: string;
             readonly pane: string;
@@ -1835,6 +1840,7 @@ interface Strings {
             readonly consentHint: string;
             readonly consentRecorded: (when: string, who: string) => string;
             readonly nameRequired: string;
+            readonly nameTooLong: (max: number) => string;
             readonly contactRequired: string;
             readonly phoneInvalid: string;
             readonly saveError: string;
@@ -1946,6 +1952,7 @@ interface Strings {
             readonly more: (label: string) => string;
             readonly expiringBanner: (label: string) => string;
             readonly onlyManagers: string;
+            readonly archived: string;
         };
         readonly tidy: {
             readonly select: string;
@@ -2016,8 +2023,11 @@ interface Strings {
         readonly saving: string;
         readonly saveError: (kind: string) => string;
         readonly visits: string;
+        readonly yourVisits: string;
         readonly lastVisit: string;
+        readonly yourLastVisit: string;
         readonly nextVisit: string;
+        readonly yourNextVisit: string;
         readonly nothingBooked: string;
         readonly noneTitle: (kind: string) => string;
         readonly noneBody: (kind: string) => string;
@@ -2202,6 +2212,7 @@ interface Strings {
         readonly openRecord: string;
         readonly book: string;
         readonly nextVisit: string;
+        readonly yourNextVisit: string;
         readonly nothingBooked: string;
         readonly balance: string;
         readonly settled: string;
@@ -4248,6 +4259,7 @@ interface Strings {
         readonly notePlaceholder: (kind: string) => string;
         readonly reachHint: string;
         readonly nameRequired: string;
+        readonly nameTooLong: (max: number) => string;
         readonly contactRequired: string;
         readonly phoneInvalid: string;
         readonly subjectRequired: (kind: string) => string;

@@ -55,6 +55,7 @@ function sections<K extends string>(options: readonly SelectOption<K>[]): Sectio
 }
 
 export function matches(o: SelectOption<string>, needle: string): boolean {
+    if (o.match !== undefined) return o.match(needle);
     return (
         o.label.toLowerCase().includes(needle) ||
         (o.detail?.toLowerCase().includes(needle) ?? false) ||

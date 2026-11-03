@@ -587,3 +587,45 @@ async def test_a_name_edit_reaches_the_stripe_customer(
     renamed = await as_owner.patch(f"/v1/clients/{cid}", json={"name": "Renamed Client"})
     assert renamed.status_code == 200, renamed.text
     assert gateway.customer_updates == [("cus_sync", "Renamed Client")]
+
+
+@pytest.mark.parametrize("name", ["", "   ", "\t\n", "\u00a0"])
+async def test_a_blank_name_is_refused(
+    as_owner: httpx.AsyncClient, db: AsyncSession, name: str
+) -> None:
+    created = await as_owner.post("/v1/clients", json={"name": name})
+    assert created.status_code == 422, created.text
+    cid = (await as_owner.post("/v1/clients", json={"name": "Kept"})).json()["id"]
+    edited = await as_owner.patch(f"/v1/clients/{cid}", json={"name": name})
+    assert edited.status_code == 422, edited.text
+    assert (await _client(db, cid))["name"] == "Kept"
+
+
+async def test_a_name_over_the_limit_is_refused(as_owner: httpx.AsyncClient) -> None:
+    assert (await as_owner.post("/v1/clients", json={"name": "Z" * 201})).status_code == 422
+    assert (await as_owner.post("/v1/clients", json={"name": "Z" * 200})).status_code == 201
+
+
+async def test_a_null_name_is_refused_and_an_absent_one_kept(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = (await as_owner.post("/v1/clients", json={"name": "Kept"})).json()["id"]
+    assert (await as_owner.patch(f"/v1/clients/{cid}", json={"name": None})).status_code == 422
+    res = await as_owner.patch(f"/v1/clients/{cid}", json={"tags": ["vip"]})
+    assert res.status_code == 200 and res.json()["name"] == "Kept"
+
+
+async def test_names_are_saved_without_surrounding_spaces(as_owner: httpx.AsyncClient) -> None:
+    created = await as_owner.post("/v1/clients", json={"name": "  Anne Marie  "})
+    assert created.status_code == 201 and created.json()["name"] == "Anne Marie"
+    edited = await as_owner.patch(
+        f"/v1/clients/{created.json()['id']}", json={"name": "  Émile Côté "}
+    )
+    assert edited.status_code == 200 and edited.json()["name"] == "Émile Côté"
+
+
+async def test_a_blank_first_pet_name_is_refused(as_owner: httpx.AsyncClient) -> None:
+    res = await as_owner.post(
+        "/v1/clients", json={"name": "Kept", "subject": {"name": "   ", "attributes": {}}}
+    )
+    assert res.status_code == 422, res.text

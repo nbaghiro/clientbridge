@@ -296,15 +296,17 @@ export function ClientsScreen() {
                             >
                                 {t.mergeSelected}
                             </Button>
-                            <Button
-                                grow
-                                variant="outline"
-                                icon="box"
-                                busy={sel.archiving}
-                                onPress={askArchive}
-                            >
-                                {t.archive}
-                            </Button>
+                            {dir.segment === "active" ? (
+                                <Button
+                                    grow
+                                    variant="outline"
+                                    icon="box"
+                                    busy={sel.archiving}
+                                    onPress={askArchive}
+                                >
+                                    {t.archive}
+                                </Button>
+                            ) : null}
                         </>
                     ) : null}
                 </View>
@@ -370,7 +372,10 @@ export function ClientsScreen() {
                                 layout="segmented"
                                 label={strings.clients.title}
                                 value={dir.segment}
-                                onChange={dir.setSegment}
+                                onChange={(segment) => {
+                                    sel.clear();
+                                    dir.setSegment(segment);
+                                }}
                                 options={[
                                     {
                                         key: "active",
@@ -407,7 +412,7 @@ export function ClientsScreen() {
                                         </Text>
                                     ) : null}
                                     <Text style={[styles.headCell, styles.colWide]}>
-                                        {r.colNext}
+                                        {manager ? r.colNext : r.colYourNext}
                                     </Text>
                                     {manager ? (
                                         <Text style={[styles.headCell, styles.colMoney]}>
