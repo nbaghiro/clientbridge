@@ -3,9 +3,10 @@
 import httpx
 import pytest
 import stripe
+from e2e.stripe_cleanup import unlocked
 from sqlalchemy.ext.asyncio import AsyncSession
 from tests.conftest import BIZ
-from tests.sandbox.conftest import StripeEvents, StripeRun, unlocked
+from tests.sandbox.conftest import StripeEvents, StripeRun
 from tests.sandbox.test_payments_sandbox import confirm, deliver, open_invoice
 
 from clientbridge.models.payments import Payment

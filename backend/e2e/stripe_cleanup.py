@@ -2,6 +2,7 @@
 
 import asyncio
 import time
+from collections.abc import Awaitable, Callable
 from contextlib import suppress
 from typing import Literal
 
@@ -13,6 +14,20 @@ EVIDENCE: dict[Literal["lose", "escalate"], str] = {
 }
 
 
+async def unlocked[T](request: Callable[[], Awaitable[T]]) -> T:
+    """Retries Stripe's lock_timeout, returned while Stripe itself is still updating the object."""
+    # a dispute can hold its charge for most of a minute while Stripe processes it
+    for attempt in range(9):
+        try:
+            return await request()
+        except stripe.RateLimitError as exc:
+            # the SDK leaves a 429's code off exc.code and keeps it on exc.error
+            if exc.error is None or exc.error.code != "lock_timeout" or attempt == 8:
+                raise
+            await asyncio.sleep(min(2**attempt, 10))
+    raise AssertionError("unreachable")
+
+
 async def submit_evidence(
     account: str, dispute: stripe.Dispute, action: Literal["lose", "escalate"], run: str
 ) -> stripe.Dispute:
@@ -21,21 +36,17 @@ async def submit_evidence(
         raise ValueError("live dispute evidence is forbidden")
     ready = "warning_needs_response" if action == "escalate" else "needs_response"
     if dispute.status == ready:
-        for attempt in range(10):
-            try:
-                dispute = await stripe.Dispute.modify_async(
-                    dispute.id,
-                    evidence={"uncategorized_text": EVIDENCE[action]},
-                    submit=True,
-                    stripe_account=account,
-                    idempotency_key=f"browser:{run}:{dispute.id}:{action}",
-                )
-                break
-            except stripe.RateLimitError:
-                # Stripe locks a dispute while it processes it; the same key retries safely
-                if attempt == 9:
-                    raise
-                await asyncio.sleep(3)
+        dispute_id = dispute.id
+        # the same key retries safely while Stripe still holds the dispute
+        dispute = await unlocked(
+            lambda: stripe.Dispute.modify_async(
+                dispute_id,
+                evidence={"uncategorized_text": EVIDENCE[action]},
+                submit=True,
+                stripe_account=account,
+                idempotency_key=f"browser:{run}:{dispute_id}:{action}",
+            )
+        )
     elif action == "escalate" or dispute.status not in ("under_review", "won", "lost"):
         raise ValueError(f"cannot {action} a dispute that is {dispute.status}")
     deadline = time.monotonic() + 120

@@ -7,7 +7,7 @@ const marked = (key: string): string => `<${key}>`;
 
 describe("Stripe appearance", () => {
     it("takes every Connect colour from the theme, apart from the shared scrim", () => {
-        const { variables } = stripeConnectAppearance(marked);
+        const { variables = {} } = stripeConnectAppearance(marked);
         const colors = Object.entries(variables).filter(([name]) => /Color|^color/.test(name));
         expect(colors.length).toBeGreaterThan(20);
         for (const [name, value] of colors) {
@@ -17,7 +17,7 @@ describe("Stripe appearance", () => {
     });
 
     it("draws Connect badges in our status pills, with no outline", () => {
-        const { variables } = stripeConnectAppearance(marked);
+        const { variables = {} } = stripeConnectAppearance(marked);
         expect(variables.badgeSuccessColorBackground).toBe(marked(INTENT_COLORS.success.soft));
         expect(variables.badgeSuccessColorBorder).toBe(marked(INTENT_COLORS.success.soft));
         expect(variables.badgeSuccessColorText).toBe(marked(INTENT_COLORS.success.ink));
@@ -25,13 +25,13 @@ describe("Stripe appearance", () => {
     });
 
     it("gives touch screens 16px card inputs so iOS doesn't zoom, and desktops our 14px", () => {
-        expect(stripeElementsAppearance(marked, true).rules[".Input"].fontSize).toBe("16px");
-        expect(stripeElementsAppearance(marked, false).rules[".Input"].fontSize).toBe("14px");
+        expect(stripeElementsAppearance(marked, true).rules?.[".Input"]?.fontSize).toBe("16px");
+        expect(stripeElementsAppearance(marked, false).rules?.[".Input"]?.fontSize).toBe("14px");
     });
 
     it("leaves the comma, full stop and colon to the system font", () => {
         for (const font of STRIPE_FONTS) {
-            const ranges = font.unicodeRange.split(", ");
+            const ranges = (font.unicodeRange ?? "").split(", ");
             const covers = (code: number): boolean =>
                 ranges.some((range) => {
                     const [from = "", to = from] = range.replace(/U\+/g, "").split("-");

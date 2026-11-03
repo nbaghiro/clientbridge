@@ -1,3 +1,6 @@
+import type { AppearanceOptions, CustomFontSource } from "@stripe/connect-js";
+import type { Appearance } from "@stripe/stripe-js";
+
 import { type ColorKey, INTENT_COLORS, SCRIM } from "./palette";
 import { themes } from "./themes";
 
@@ -15,7 +18,7 @@ const WITHOUT_PUNCTUATION =
     "U+0000-002B, U+002D, U+002F-0039, U+003B-00FF, U+0131, U+0152-0153, U+2000-206F, U+20AC, U+2122, U+2212";
 
 /** Schibsted Grotesk for Stripe's frames, one face per weight of the variable font. */
-export const STRIPE_FONTS = ["400", "500", "600", "700"].map((weight) => ({
+export const STRIPE_FONTS: CustomFontSource[] = ["400", "500", "600", "700"].map((weight) => ({
     family: FONT,
     src: SCHIBSTED,
     weight,
@@ -24,7 +27,7 @@ export const STRIPE_FONTS = ["400", "500", "600", "700"].map((weight) => ({
 }));
 
 /** Connect embedded components (account, payments, payouts, notices) in our colours, type and radii. */
-export function stripeConnectAppearance(color: Color) {
+export function stripeConnectAppearance(color: Color): AppearanceOptions {
     const badge = (tone: keyof typeof INTENT_COLORS) => {
         const { soft, ink } = INTENT_COLORS[tone];
         return { background: color(soft), text: color(ink) };
@@ -34,7 +37,7 @@ export function stripeConnectAppearance(color: Color) {
     const warning = badge("warning");
     const danger = badge("danger");
     return {
-        overlays: "drawer" as const,
+        overlays: "drawer",
         variables: {
             fontFamily: FONT_STACK,
             fontSizeBase: "14px",
@@ -74,7 +77,8 @@ export function stripeConnectAppearance(color: Color) {
             borderRadius: `${String(themes.pewter.radius.base)}px`,
             buttonBorderRadius: CONTROL_RADIUS,
             formBorderRadius: CONTROL_RADIUS,
-            badgeBorderRadius: "9999px",
+            // Stripe caps radii at 24px, still a pill at a badge's height
+            badgeBorderRadius: "24px",
             overlayBorderRadius: OVERLAY_RADIUS,
             overlayBackdropColor: SCRIM,
             buttonLabelFontSize: "14px",
@@ -104,12 +108,8 @@ export function stripeConnectAppearance(color: Color) {
 }
 
 /** The card form (Payment and Express Checkout Elements) drawn like our Field; touch screens get 16px inputs so iOS doesn't zoom. */
-export function stripeElementsAppearance(color: Color, touch: boolean) {
-    const inputSize = touch ? "16px" : "14px";
+export function stripeElementsAppearance(color: Color, touch: boolean): Appearance {
     return {
-        theme: "stripe" as const,
-        inputs: "spaced" as const,
-        labels: "above" as const,
         variables: {
             fontFamily: FONT_STACK,
             fontSizeBase: "14px",
@@ -127,16 +127,15 @@ export function stripeElementsAppearance(color: Color, touch: boolean) {
             labelFontWeight: "500",
             labelColorText: color("inkSoft"),
             inputColorBorder: color("border"),
+            inputBoxShadow: "none",
             inputFocusColorBorder: color("accent"),
-            focusBoxShadow: "none",
+            inputFocusBoxShadow: "none",
         },
         rules: {
-            ".Input": { boxShadow: "none", padding: "9px 12px", fontSize: inputSize },
-            ".Input:focus": { boxShadow: "none" },
+            ".Input": { padding: "9px 12px", fontSize: touch ? "16px" : "14px" },
             ".Label": { fontSize: "14px", marginBottom: "6px" },
             ".Tab": { boxShadow: "none", borderColor: color("border") },
             ".Block": { boxShadow: "none", borderColor: color("border") },
-            ".AccordionItem": { boxShadow: "none", borderColor: color("border") },
         },
     };
 }

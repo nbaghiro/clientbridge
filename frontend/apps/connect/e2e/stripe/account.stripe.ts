@@ -43,7 +43,8 @@ test("STR-E13 bank details stay behind Stripe's sign-in, which sends its code to
             .click();
         const component = await stripeFrame(page, /^Sign in to see details$/);
         for (const last4 of before.banks.map((bank) => bank.last4)) {
-            await expect(component.getByText(last4)).toHaveCount(0);
+            // a whole number, since Stripe's font check draws hidden "0123456789" text
+            await expect(component.getByText(new RegExp(`\\b${last4}\\b`))).toHaveCount(0);
         }
 
         const popup = await openStripeSignIn(context, page);

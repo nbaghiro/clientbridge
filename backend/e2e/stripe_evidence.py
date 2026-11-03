@@ -13,6 +13,7 @@ from clientbridge.core.db import engine
 from clientbridge.integrations.stripe import (
     close_stripe_client,
 )
+from e2e.stripe_cleanup import unlocked
 from e2e.stripe_context import BUSINESS, guard
 
 
@@ -281,6 +282,11 @@ def transaction_row(row: dict[str, object]) -> dict[str, object]:
 
 async def charge_evidence(account: str, charge_id: str) -> dict[str, object]:
     """A charge with every balance transaction Stripe booked for it, its refunds and disputes."""
+    # a settling dispute holds its charge for a while; the reads repeat safely
+    return await unlocked(lambda: read_charge(account, charge_id))
+
+
+async def read_charge(account: str, charge_id: str) -> dict[str, object]:
     charge = await stripe.Charge.retrieve_async(
         charge_id, expand=["balance_transaction"], stripe_account=account
     )
