@@ -115,11 +115,17 @@ from clientbridge.services.bookings import (
     visit_needs,
     waitlist_position,
 )
-from clientbridge.services.business import business_tz, local_today, staff_names
+from clientbridge.services.business import (
+    business_tz,
+    local_today,
+    registered_on,
+    staff_names,
+)
 from clientbridge.services.catalog import assert_offers, deposit_cents, offers
 from clientbridge.services.clients import find_or_create_by_contact, welcome_back
 from clientbridge.services.deliveries import delivery_key
 from clientbridge.services.files import (
+    assert_size,
     confirm_upload,
     item_images,
     manage_photo_url,
@@ -185,6 +191,7 @@ def _service_out(
         currency=item.currency,
         deposit_required=item.deposit_type != "none",
         deposit_amount_cents=deposit_cents(item),
+        taxable=item.tax_class != "exempt",
         image_url=image_url,
         kind=item.kind,
         category=item.category,
@@ -265,6 +272,8 @@ class PublicBookingService:
             now=clock.now().astimezone(tz),
             timezone=business.timezone,
             policy=_policy_out(policy_of(business)),
+            charges_tax=business.tax_registered,
+            tax_starts_on=business.tax_registered_on,
             subject=business.subject,
         )
 
@@ -614,7 +623,7 @@ class PublicBookingService:
             if data.returning_token is not None
             else await self._find_or_create_client(business.id, data.client)
         )
-        await welcome_back(self.db, self.gateway, cmd, client)
+        await welcome_back(self.db, cmd, client)
         subject_id = (
             await returning.subject(client, chosen)
             if chosen is not None
@@ -1501,8 +1510,8 @@ def public_brand(business: Business) -> PublicBrand:
     return PublicBrand(
         public_slug=business.slug if business.status != "closed" else None,
         business_name=business.name,
-        cover_url=brand.cover_url,
-        logo_url=media_url(brand.logo_file_id) if brand.logo_file_id is not None else None,
+        cover_url=_photo_url(brand.cover_file_id),
+        logo_url=_photo_url(brand.logo_file_id),
         primary=brand.primary,
         tagline=brand.tagline,
     )
@@ -1609,7 +1618,6 @@ def _strokes_out(raw: list[object] | None) -> list[list[tuple[float, float]]] | 
 
 
 FORM_UPLOAD_TYPES = frozenset({"application/pdf", "image/jpeg", "image/png", "image/heic"})
-FORM_UPLOAD_MAX_BYTES = 10 * 1024 * 1024
 
 
 class PublicFormService:
@@ -1651,8 +1659,7 @@ class PublicFormService:
         response, _, _ = await self._resolve(token)
         if data.content_type not in FORM_UPLOAD_TYPES:
             raise Unprocessable("attach a PDF, JPG, PNG or HEIC file")
-        if data.size is None or data.size > FORM_UPLOAD_MAX_BYTES:
-            raise Unprocessable("attach a file up to 10 MB")
+        assert_size(data.size)
         result = await mint_upload(
             self.db,
             storage,
@@ -1886,13 +1893,12 @@ async def _tip_names(db: AsyncSession, business_id: str, lines: list[Line]) -> l
 async def estimate_tax(
     db: AsyncSession, estimate: Estimate, lines: list[Line]
 ) -> tuple[datetime, TaxResult]:
-    """An open estimate is quoted at today's rates; an accepted one keeps its acceptance rates."""
-    if estimate.accepted_at is None:
+    """A quote still open is priced live; anything else shows the tax stored on its lines."""
+    if estimate.status == "sent" and estimate.converted_invoice_id is None:
         now = clock.now()
         return now, await tax_breakdown(db, estimate.business_id, lines, now)
-    return estimate.accepted_at, await issued_tax(
-        db, estimate.business_id, lines, estimate.accepted_at
-    )
+    fixed_at = estimate.accepted_at or estimate.declined_at or estimate.created_at
+    return fixed_at, await issued_tax(db, estimate.business_id, lines, fixed_at)
 
 
 async def public_doc_lines(
@@ -2247,6 +2253,7 @@ async def addon_items(db: AsyncSession, business_id: str) -> list[PublicAddon]:
             name=i.name,
             price_cents=i.price_cents,
             currency=i.currency,
+            taxable=i.tax_class != "exempt",
             image_url=images.get(i.id),
             description=i.description,
             in_stock=_stock_left(i) != 0,
@@ -2313,6 +2320,7 @@ async def shop_items(db: AsyncSession, business_id: str) -> list[PublicShopItem]
             description=i.description,
             price_cents=i.price_cents,
             currency=i.currency,
+            taxable=i.tax_class != "exempt",
             image_url=images.get(i.id),
             in_stock=not i.track_stock or (i.stock_on_hand or 0) > 0,
             category=i.category,
@@ -2392,6 +2400,9 @@ class PublicShopService:
             brand=public_brand(business),
             items=await shop_items(self.db, business.id),
             stripe_account_id=_account(business),
+            charges_tax=registered_on(
+                business.tax_registered, business.tax_registered_on, local_today(business)
+            ),
         )
 
     async def pickup_days(self, slug: str) -> PublicPickupDays:
@@ -2441,7 +2452,7 @@ class PublicShopService:
                 phone=data.client.phone,
                 source="online_shop",
             )
-            await welcome_back(self.db, self.gateway, cmd, client)
+            await welcome_back(self.db, cmd, client)
             order = Order(
                 id=new_id("order"),
                 business_id=business.id,

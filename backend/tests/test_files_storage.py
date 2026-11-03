@@ -1,3 +1,4 @@
+from urllib.parse import parse_qs, urlsplit
 from uuid import uuid4
 
 import boto3
@@ -14,7 +15,7 @@ def test_s3_storage_round_trips_an_object_through_presigned_urls() -> None:
     storage = get_file_storage()
     key = f"tests/{uuid4().hex}.txt"
     upload = httpx.put(
-        storage.presign_upload(key, "text/plain"),
+        storage.presign_upload(key, "text/plain", 5),
         content=b"hello",
         headers={"Content-Type": "text/plain"},
     )
@@ -23,6 +24,31 @@ def test_s3_storage_round_trips_an_object_through_presigned_urls() -> None:
     assert httpx.get(storage.presign_download(key)).content == b"hello"
     storage.delete(key)
     assert storage.head(key) is None
+
+
+def test_an_upload_url_takes_only_the_declared_size() -> None:
+    storage = get_file_storage()
+    key = f"tests/{uuid4().hex}.txt"
+    url = storage.presign_upload(key, "text/plain", 5)
+    [signed] = parse_qs(urlsplit(url).query)["X-Amz-SignedHeaders"]
+    assert "content-length" in signed.split(";")
+    refused = httpx.put(url, content=b"hello world", headers={"Content-Type": "text/plain"})
+    assert refused.status_code == 403
+    assert storage.head(key) is None
+
+
+def test_a_promoted_copy_keeps_its_bytes_when_the_upload_is_put_again() -> None:
+    storage = get_file_storage()
+    upload, key = f"tests/{uuid4().hex}.png", f"tests/{uuid4().hex}.png"
+    url = storage.presign_upload(upload, "image/jpeg", 5)
+    httpx.put(url, content=b"first", headers={"Content-Type": "image/jpeg"}).raise_for_status()
+    storage.promote(upload, key, "image/png")
+    httpx.put(url, content=b"later", headers={"Content-Type": "image/jpeg"}).raise_for_status()
+    served = httpx.get(storage.presign_download(key))
+    assert served.content == b"first" and served.headers["content-type"] == "image/png"
+    assert storage.read_start(key, 3) == b"fir"
+    for each in (upload, key):
+        storage.delete(each)
 
 
 def test_s3_storage_raises_errors_other_than_a_missing_object() -> None:

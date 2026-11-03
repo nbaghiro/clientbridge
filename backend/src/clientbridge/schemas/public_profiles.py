@@ -10,7 +10,6 @@ class PublicProfileHours(BaseModel):
 
 
 class PublicProfile(PublicBookingPage):
-    cover_url: str | None = None
     about: str | None = None
     address: str | None = None
     phone: str | None = None

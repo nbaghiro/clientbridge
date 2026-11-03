@@ -5,17 +5,18 @@ import {
     type BrandForm,
     bareUrl,
     bookingPageUrl,
-    mediaUrl,
-    coverTarget,
-    logoTarget,
-    useFileUpload,
+    brandColourName,
     useAsyncAction,
     strings,
+    unsavedConfirm,
     useBookingPreview,
     useBrandForm,
     useSetupChecklist,
 } from "@clientbridge/app-core";
+import { readableInk } from "@clientbridge/tokens";
 import { theme } from "@clientbridge/tokens/native";
+import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import {
     Badge,
     Avatar,
@@ -23,6 +24,7 @@ import {
     Button,
     Checklist,
     Choice,
+    confirm,
     CopyField,
     Empty,
     FactList,
@@ -37,13 +39,14 @@ import {
     SwatchPicker,
     TextField,
 } from "@clientbridge/ui";
-import { useState } from "react";
 import { launchImageLibraryAsync } from "expo-image-picker";
 import { Image, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 
 import { api, apiBaseUrl } from "../lib/api";
 import { bookUrl, pageUrl } from "../lib/config";
 import { useOpenLink } from "../lib/links";
+import { pickedPhoto } from "../lib/photos";
+import type { RootStackParamList } from "../navigation";
 
 const c = theme.colors;
 const o = strings.business.getSetUp;
@@ -52,6 +55,7 @@ const o = strings.business.getSetUp;
 function BookingPreview({ brand, logo }: { brand: BrandForm; logo: string | null }) {
     const preview = useBookingPreview(3);
     const b = strings.publicBooking;
+    const ink = readableInk(brand.colour);
     return (
         <View accessibilityLabel={o.preview} style={styles.preview}>
             <View style={styles.bar}>
@@ -60,14 +64,20 @@ function BookingPreview({ brand, logo }: { brand: BrandForm; logo: string | null
                     {bareUrl(bookingPageUrl(bookUrl, brand.slug))}
                 </Text>
             </View>
-            <View style={styles.head}>
-                <Avatar name={brand.name} src={logo} variant="mark" color={brand.colour} />
+            <View style={[styles.head, { backgroundColor: brand.colour }]}>
+                <Avatar
+                    name={brand.name}
+                    src={logo}
+                    variant="mark"
+                    color={brand.colour}
+                    style={styles.mark}
+                />
                 <View style={styles.grow}>
-                    <Text style={styles.name} numberOfLines={1}>
+                    <Text style={[styles.name, { color: ink }]} numberOfLines={1}>
                         {brand.name}
                     </Text>
                     {brand.tagline !== "" ? (
-                        <Text style={styles.tagline} numberOfLines={1}>
+                        <Text style={[styles.tagline, { color: ink }]} numberOfLines={1}>
                             {brand.tagline}
                         </Text>
                     ) : null}
@@ -102,11 +112,9 @@ function BookingPreview({ brand, logo }: { brand: BrandForm; logo: string | null
     );
 }
 
-function BrandSheet({ brand, onClose }: { brand: BrandForm; onClose: () => void }) {
-    const upload = useFileUpload(api, (id) => {
-        brand.setProfile("cover_url", mediaUrl(apiBaseUrl, id) ?? "");
-    });
-    const logoUpload = useFileUpload(api, brand.setLogoFileId);
+/** The draft lives only as long as the sheet, so closing it can't leak abandoned edits into a later save. */
+function BrandSheet({ onClose }: { onClose: () => void }) {
+    const brand = useBrandForm(api);
     const picker = useAsyncAction();
     const pickImage = (kind: "logo" | "cover"): void => {
         picker.run(
@@ -116,27 +124,30 @@ function BrandSheet({ brand, onClose }: { brand: BrandForm; onClose: () => void 
                     quality: 0.85,
                 });
                 const asset = result.assets?.[0];
-                if (!asset || !brand.businessId) return;
-                const blob = await (await fetch(asset.uri)).blob();
-                const target = kind === "logo" ? logoTarget : coverTarget;
-                const flow = kind === "logo" ? logoUpload : upload;
-                flow.upload(
-                    blob,
-                    target(brand.businessId),
-                    asset.mimeType ?? "image/jpeg",
-                    asset.fileSize,
-                );
+                if (asset) brand[kind].upload(pickedPhoto(asset));
             },
             { errorMessage: strings.common.fileUploadError },
         );
     };
 
-    const logo = brand.logoFileId === "" ? null : mediaUrl(apiBaseUrl, brand.logoFileId);
+    const logo = brand.logo.src(apiBaseUrl);
+    const cover = brand.cover.src(apiBaseUrl);
+    const close = (): void => {
+        if (!brand.dirty && !brand.uploading) {
+            onClose();
+            return;
+        }
+        confirm(unsavedConfirm("close"))
+            .then((ok) => {
+                if (ok) onClose();
+            })
+            .catch(() => undefined);
+    };
     return (
-        <Modal open onClose={onClose} size="xl">
+        <Modal open onClose={close} size="xl">
             <View style={styles.brandSections}>
                 <View style={styles.stack}>
-                    <SheetHeader title={o.brandTitle} onClose={onClose} />
+                    <SheetHeader title={o.brandTitle} onClose={close} />
                     <Text style={styles.small}>{o.brandBody}</Text>
                 </View>
                 <View style={styles.logoRow}>
@@ -149,25 +160,39 @@ function BrandSheet({ brand, onClose }: { brand: BrandForm; onClose: () => void 
                     />
                     <View style={[styles.stack, styles.grow]}>
                         <Text style={styles.section}>{o.logo}</Text>
-                        <Text style={styles.small}>{o.logoHint}</Text>
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            busy={logoUpload.busy || picker.busy}
-                            disabled={upload.busy}
-                            onPress={() => {
-                                pickImage("logo");
-                            }}
-                        >
-                            {logo !== null ? strings.files.replaceLogo : strings.files.uploadLogo}
-                        </Button>
+                        <Text style={styles.small}>{o.logoHintPhone}</Text>
+                        <View style={styles.actions}>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                busy={brand.logo.busy || picker.busy}
+                                disabled={brand.cover.busy || !brand.ready}
+                                onPress={() => {
+                                    pickImage("logo");
+                                }}
+                            >
+                                {logo !== null
+                                    ? strings.files.replaceLogo
+                                    : strings.files.uploadLogo}
+                            </Button>
+                            {logo !== null ? (
+                                <Button
+                                    size="sm"
+                                    variant="link"
+                                    disabled={brand.logo.busy}
+                                    onPress={brand.logo.remove}
+                                >
+                                    {strings.files.removeLogo}
+                                </Button>
+                            ) : null}
+                        </View>
                     </View>
                 </View>
                 <Field label={o.coverPhoto}>
                     <View style={styles.stack}>
-                        {brand.profile.cover_url ? (
+                        {cover !== null ? (
                             <Image
-                                source={{ uri: brand.profile.cover_url }}
+                                source={{ uri: cover }}
                                 style={{
                                     width: "100%",
                                     aspectRatio: 3,
@@ -196,30 +221,29 @@ function BrandSheet({ brand, onClose }: { brand: BrandForm; onClose: () => void 
                                 style={{ alignSelf: "center" }}
                                 size="sm"
                                 variant="outline"
-                                busy={upload.busy || picker.busy}
-                                disabled={logoUpload.busy}
+                                busy={brand.cover.busy || picker.busy}
+                                disabled={brand.logo.busy || !brand.ready}
                                 onPress={() => {
                                     pickImage("cover");
                                 }}
                             >
-                                {brand.profile.cover_url ? o.replaceCover : o.uploadCover}
+                                {cover !== null ? o.replaceCover : o.uploadCover}
                             </Button>
-                            {brand.profile.cover_url ? (
+                            {cover !== null ? (
                                 <Button
                                     style={{ alignSelf: "center" }}
                                     size="sm"
                                     variant="link"
-                                    onPress={() => {
-                                        brand.setProfile("cover_url", "");
-                                    }}
+                                    disabled={brand.cover.busy}
+                                    onPress={brand.cover.remove}
                                 >
                                     {o.removeCover}
                                 </Button>
                             ) : null}
                         </View>
-                        {upload.error || logoUpload.error || picker.error ? (
+                        {brand.cover.error || brand.logo.error || picker.error ? (
                             <Notice tone="danger">
-                                {upload.error ?? logoUpload.error ?? picker.error}
+                                {brand.cover.error ?? brand.logo.error ?? picker.error}
                             </Notice>
                         ) : null}
                     </View>
@@ -228,6 +252,7 @@ function BrandSheet({ brand, onClose }: { brand: BrandForm; onClose: () => void 
                     <SwatchPicker
                         label={o.colour}
                         colours={BRAND_COLOURS}
+                        colourLabel={brandColourName}
                         value={brand.colour}
                         onChange={brand.setColour}
                     />
@@ -237,7 +262,8 @@ function BrandSheet({ brand, onClose }: { brand: BrandForm; onClose: () => void 
                     value={brand.tagline}
                     onChange={brand.setTagline}
                     placeholder={o.taglinePlaceholder}
-                    maxLength={60}
+                    maxLength={brand.taglineMax}
+                    error={brand.fieldErrors.tagline}
                     optional
                     surface="surface"
                 />
@@ -249,7 +275,9 @@ function BrandSheet({ brand, onClose }: { brand: BrandForm; onClose: () => void 
                             key={field.key}
                             multiline={field.multiline}
                             label={field.label}
+                            maxLength={field.maxLength}
                             value={brand.profile[field.key]}
+                            error={brand.fieldErrors[field.key]}
                             onChange={(value) => {
                                 brand.setProfile(field.key, value);
                             }}
@@ -261,6 +289,7 @@ function BrandSheet({ brand, onClose }: { brand: BrandForm; onClose: () => void 
                             label={field.label}
                             type="number"
                             value={brand.profile[field.key]}
+                            error={brand.fieldErrors[field.key]}
                             onChange={(value) => {
                                 brand.setProfile(field.key, value);
                             }}
@@ -283,12 +312,13 @@ function BrandSheet({ brand, onClose }: { brand: BrandForm; onClose: () => void 
                 </View>
                 {brand.error !== null ? <Notice tone="danger">{brand.error}</Notice> : null}
                 {brand.saved ? <Notice tone="success">{o.saved}</Notice> : null}
+                {brand.dirty ? <Notice tone="info">{o.unsaved}</Notice> : null}
                 <View style={styles.gap}>
                     <Button
                         size="lg"
                         full
                         busy={brand.busy}
-                        disabled={upload.busy || logoUpload.busy || picker.busy}
+                        disabled={brand.uploading || picker.busy}
                         onPress={brand.submit}
                     >
                         {brand.busy ? o.saving : o.save}
@@ -301,10 +331,11 @@ function BrandSheet({ brand, onClose }: { brand: BrandForm; onClose: () => void 
 
 /** The Setup home on a phone: the checklist, the booking link and the brand sheet. */
 export function GetSetUpScreen() {
-    const brand = useBrandForm(api);
+    const route = useRoute<RouteProp<RootStackParamList, "GetSetUp">>();
+    const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, "GetSetUp">>();
     const list = useSetupChecklist(api, pageUrl);
     const open = useOpenLink();
-    const [editing, setEditing] = useState(false);
+    const editing = route.params?.brand === true;
     const pct = list.done / list.total;
 
     if (list.load.state === "loading") {
@@ -380,8 +411,7 @@ export function GetSetUpScreen() {
                                     action: {
                                         label: t.action,
                                         onPress: () => {
-                                            if (t.key === "brand") setEditing(true);
-                                            else open(t.target);
+                                            open(t.target);
                                         },
                                     },
                                 }))}
@@ -417,7 +447,7 @@ export function GetSetUpScreen() {
                     variant="outline"
                     icon="image"
                     onPress={() => {
-                        setEditing(true);
+                        navigation.setParams({ brand: true });
                     }}
                 >
                     {o.brandTitle}
@@ -435,9 +465,8 @@ export function GetSetUpScreen() {
             </ScrollView>
             {editing ? (
                 <BrandSheet
-                    brand={brand}
                     onClose={() => {
-                        setEditing(false);
+                        navigation.setParams({ brand: false });
                     }}
                 />
             ) : null}
@@ -464,6 +493,8 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     logoRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+    actions: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 12 },
+    mark: { borderWidth: 2, borderColor: c.surface },
     brandSections: { gap: 16 },
     stack: { gap: 8 },
     profileSection: {

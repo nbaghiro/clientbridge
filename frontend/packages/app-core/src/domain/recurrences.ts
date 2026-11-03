@@ -46,7 +46,7 @@ import {
 } from "./bookings";
 import { useNow } from "../hooks";
 import { bookableItems, useCatalogItems } from "./catalog";
-import { fold, useClients } from "./clients";
+import { clientOption, fold, useClients } from "./clients";
 import { type StaffRow, staffName, useStaff } from "./staff";
 import { kindWord, useSubjectKind } from "./subjects";
 import { useReplicaLoad } from "./sync";
@@ -377,11 +377,7 @@ export function useSeriesComposer(api: ApiLike, viewer: Viewer | null): SeriesCo
         setClientId,
         clientOptions: clients
             .filter((c) => c.status === "active")
-            .map((c) => ({
-                key: c.id,
-                label: c.name,
-                media: personMedia(c.name, null, photos.client(c.id)),
-            })),
+            .map((c) => clientOption(c, photos.client(c.id))),
         subjectHint: subject === null ? null : s.subject(kindWord(kind), subject.name),
         itemId,
         setItemId,

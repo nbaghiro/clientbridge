@@ -437,7 +437,7 @@ build + permanent maintenance.)
 
 ### Attachments
 
-`POST /v1/files` creates a pending row and a presigned upload URL. After the upload, `POST /v1/files/{id}/complete` (or the public form's `/upload/{file_id}/complete`) checks the object's size in storage and sets `uploaded_at`. A missing object returns 409 `upload_missing`, and a different size returns 422. Readers ignore rows without `uploaded_at`: public media, item images, the logo, form answers and the replica queries. `prune_pending_files` removes pending rows older than 24 hours together with their objects. File metadata syncs, but bytes do not; an image that cannot load falls back to its initial.
+`POST /v1/files` creates a pending row and a presigned upload URL under `uploads/`. Every upload declares its size, and no file may exceed 10 MB (422 `file_too_large`, the public form's upload included); the URL signs that size and the content type, so storage takes only those bytes, and the cap is checked once, here. A logo, image or photo must declare PNG, JPEG or WebP (422 `file_type_unsupported`), because SVG can carry script and an HTML file would be a web page on our link; the web app draws an SVG logo to a PNG in the browser before uploading it, and `/media` serves nothing else. After the upload, `POST /v1/files/{id}/complete` (or the public form's `/upload/{file_id}/complete`, through the same `confirm_upload`) checks that the stored size is the declared one, copies the object to its final key outside `uploads/`, so a later PUT to the same URL can't change what is served. For a picture it then checks the copy's first bytes really are one of those types (`file_type_unsupported`) and records the type they show, on the row and as the copy's stored Content-Type, since a phone's picker can re-encode a photo and keep the original's file type. It sets `uploaded_at` last. A missing object returns 409 `upload_missing`, and a different size returns 422. Readers ignore rows without `uploaded_at`: public media, item images, the logo, form answers and the replica queries. `prune_pending_files` removes pending rows older than 24 hours together with their objects, and the bucket deletes anything under `uploads/` after a day, including the upload a completed file was copied from. File metadata syncs, but bytes do not; an image that cannot load falls back to its initial.
 
 ### Device storage
 
@@ -524,8 +524,18 @@ a non-2xx reply makes it retry.
   `/sessions/whoami` at `AUTH_INTERNAL_URL` and the admin API at `AUTH_ADMIN_URL`, both inside the
   cluster. `scripts.verify_kratos` runs the pinned Kratos with that environment and the Kratos contract
   against it.
-- **Not built in** — Kratos OSS has no login lockout; production rate-limits the auth service's
-  `/auth/self-service/*` paths at the proxy (CB-1). The admin API must stay on the private network.
+- **Rate limits** — Kratos OSS has no login lockout, so Cloud Armor throttles the auth service's
+  `/auth/self-service/*` paths per address at the gateway and answers 429, at the per-minute rates in
+  `gateway.AUTH_RULES` (CB-1). Guessing spread over many addresses is not stopped. A browser can't read
+  that 429 across origins, so it shows `auth.unavailable`; a phone shows `auth.tooManyAttempts`.
+  `send_auth_email` also caps auth mail at 10 an hour for each recipient and template
+  (`auth_email_hourly_limit`), whoever asks for it, and answers the courier as if the rest were sent.
+  Counting by template means a flood of recovery requests can't hold back the same person's verification
+  or sign-up code. The count uses one form of the address (trimmed, lowercased, without a `+tag`, and without dots for Gmail), so
+  spellings of one inbox share it; mail still goes to the address as given. A send that fails gives its
+  count back, so the courier's retries during an outage don't use up the cap, and a Redis outage lifts
+  the cap rather than stopping sign-ups and resets.
+- **Not built in** — the admin API must stay on the private network.
 
 ## Authorization & visibility
 
@@ -606,7 +616,7 @@ Business logos and catalog item images are `files` rows (`parent_type` business/
 uploaded by an owner or admin. `GET /media/{file_id}` serves only those two kinds, by redirecting to a
 short-lived presigned S3 URL, so they have stable links for the public pages and the apps. Only files whose
 upload was completed are served. Every other
-file stays behind auth. The brand stores `logo_file_id`; `public_brand` turns it into the media URL.
+file stays behind auth. The brand stores `logo_file_id` and `cover_file_id`; `public_brand` turns them into media URLs, so a change of API address never leaves a stale link.
 
 Job photos are `files` rows on a booking (`parent_type` booking, `purpose` photo, image types only). The
 member on the booking or a manager can add one, and `GET /v1/files/{id}/link` returns a presigned download

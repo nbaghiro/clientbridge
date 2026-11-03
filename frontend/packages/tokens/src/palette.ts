@@ -21,6 +21,28 @@ export function cssVar(key: ColorKey): string {
 export const ON_DATA = "#FFFFFF";
 export const SHADOW = "#14191E";
 
+// The colours a business brand or a team member can take, by the name a screen reader says.
+export const BRAND_PALETTE = {
+    forest: "#2E4A3F",
+    slate: "#3F5E80",
+    teal: "#2E6670",
+    plum: "#7D5A82",
+    terracotta: "#A95C43",
+    ochre: "#86621E",
+    charcoal: "#3A4654",
+} as const;
+
+// Black or white, whichever reads on a brand colour (the WCAG contrast crossover).
+export function readableInk(color: string): "#000000" | "#ffffff" {
+    const hex = color.slice(1);
+    const full = hex.length === 3 ? hex.replace(/./g, "$&$&") : hex;
+    const [r = 0, g = 0, b = 0] = [0, 2, 4].map((at) => {
+        const value = parseInt(full.slice(at, at + 2), 16) / 255;
+        return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+    });
+    return r * 0.2126 + g * 0.7152 + b * 0.0722 > 0.179 ? "#000000" : "#ffffff";
+}
+
 // A see-through tint of a data or theme colour (web, so CSS variables work too).
 export function tint(color: string, percent: number): string {
     return `color-mix(in srgb, ${color} ${String(percent)}%, transparent)`;

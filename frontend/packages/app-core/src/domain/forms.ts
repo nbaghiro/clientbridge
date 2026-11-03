@@ -1,5 +1,5 @@
 import { useBusinessQuery as useQuery } from "../hooks";
-import { personMedia, usePeoplePhotos } from "./files";
+import { usePeoplePhotos } from "./files";
 import { afterReview, outgoing } from "./previews";
 
 import { useMemo, useState } from "react";
@@ -7,7 +7,7 @@ import { useMemo, useState } from "react";
 import { formatLongDate, parseTimestamp, readDate, useBusinessZone } from "../datetime";
 import { formatList, formatPhone } from "../format";
 import { type Load, useAsyncAction } from "../hooks";
-import { type ClientRow, useClients } from "./clients";
+import { type ClientRow, clientOption, useClients } from "./clients";
 import { type PublicFormField, optionPair } from "./publicForm";
 import { useReplicaLoad } from "./sync";
 import { strings } from "../strings";
@@ -448,12 +448,7 @@ export function sendOptions(
 ): SelectOption<string>[] {
     return clients.map((c) => {
         const detail = formatPhone(c.phone);
-        return {
-            key: c.id,
-            label: c.name,
-            ...(detail === "" ? {} : { detail }),
-            media: personMedia(c.name, null, photo(c.id)),
-        };
+        return { ...clientOption(c, photo(c.id)), ...(detail === "" ? {} : { detail }) };
     });
 }
 

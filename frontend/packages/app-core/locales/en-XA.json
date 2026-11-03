@@ -353,6 +353,12 @@
     "api.ownPay": {
         "message": "[Öñļý ţĥé öŵñéŕ çåñ åþþŕöṽé öŕ þåý ýöûŕ öŵñ éåŕñîñĝš. one two three four]"
     },
+    "api.fileTypeUnsupported": {
+        "message": "[Ûšé å ÞÑĜ, ĴÞÉĜ öŕ ŴéƀÞ þîçţûŕé. one two three]"
+    },
+    "api.fileTooLarge": {
+        "message": "[Ţĥåţ ƒîļé îš ţöö ƀîĝ. Ûšé öñé ûþ ţö 10 ṀƁ. one two three]"
+    },
     "common.amountWithCurrency": {
         "message": "{amount} {currency}"
     },
@@ -1033,6 +1039,9 @@
     },
     "billing.startAnother": {
         "message": "[Šţåŕţ åñöţĥéŕ one two]"
+    },
+    "billing.noClientsYet": {
+        "message": "[Åðð å çļîéñţ îñ Çļîéñţš ƒîŕšţ. one two three]"
     },
     "billing.discardTitle": {
         "message": "[Çļöšé ŵîţĥöûţ šåṽîñĝ? one two]"
@@ -1814,6 +1823,9 @@
     "pos.desk.tipOn": {
         "message": "[Ţîþ îš ŵöŕķéð öûţ öñ {money}, ƀéƒöŕé ţåẋ. one two three]"
     },
+    "pos.desk.tipOnNoTax": {
+        "message": "[Ţîþ îš ŵöŕķéð öûţ öñ {money}. one two]"
+    },
     "pos.desk.tipAmount": {
         "message": "[Ţîþ åɱöûñţ one two]"
     },
@@ -2130,7 +2142,7 @@
         "message": "[Ñö šéŕṽîçéš öŕ þŕöðûçţš ýéţ one two three]"
     },
     "pos.desk.noItemsBody": {
-        "message": "[Åðð ŵĥåţ ýöû šéļļ îñ Šéţûþ, Çåţåļöĝ, åñð îţ åþþéåŕš ĥéŕé. one two three four]"
+        "message": "[Åðð ŵĥåţ ýöû šéļļ îñ Šéţûþ, Šéŕṽîçéš & þŕöðûçţš, åñð îţ åþþéåŕš ĥéŕé. one two three four five]"
     },
     "pos.desk.addCatalog": {
         "message": "[Öþéñ ţĥé çåţåļöĝ one two]"
@@ -2919,7 +2931,7 @@
         "message": "[Öþéñ ţîɱé one]"
     },
     "bookings.chairTime": {
-        "message": "[Çĥåîŕ ţîɱé one two]"
+        "message": "[Ţîɱé ƀööķéð one two]"
     },
     "bookings.hoursOpen": {
         "message": "[{h, number, ::.#} ĥ one]"
@@ -2998,6 +3010,12 @@
     },
     "bookings.emptyDayWeb": {
         "message": "[Çļîçķ åñ öþéñ ţîɱé öñ ţĥé ƀöåŕð ţö åðð å ṽîšîţ, öŕ šĥåŕé ýöûŕ ƀööķîñĝ ļîñķ. one two three four five]"
+    },
+    "bookings.noServicesYet": {
+        "message": "[Åðð å šéŕṽîçé îñ Šéţûþ, Šéŕṽîçéš & þŕöðûçţš ƒîŕšţ. one two three four]"
+    },
+    "bookings.emptyDayNotReady": {
+        "message": "[Åðð å šéŕṽîçé åñð šéţ ýöûŕ ĥöûŕš îñ Šéţûþ, ţĥéñ çļîéñţš çåñ ƀööķ ýöû öñļîñé. one two three four five]"
     },
     "bookings.closedNote": {
         "message": "[Çļöšéð · {reason}. {count,plural,one{# ṽîšîţ šţîļļ ƀööķéð ñééðš å ñéŵ ţîɱé.} other{# ṽîšîţš šţîļļ ƀööķéð ñééð å ñéŵ ţîɱé.} =0{Ñöţĥîñĝ îš ƀööķéð ţĥîš ðåý.}} one two three four five six seven]"
@@ -6044,6 +6062,9 @@
     "messaging.clientLabel": {
         "message": "[Ţö one]"
     },
+    "messaging.noClientsYet": {
+        "message": "[Åðð å çļîéñţ îñ Çļîéñţš ƒîŕšţ. one two three]"
+    },
     "messaging.chooseClient": {
         "message": "[Çĥööšé å çļîéñţ one two]"
     },
@@ -6804,7 +6825,10 @@
         "message": "[Ļöĝö one]"
     },
     "business.getSetUp.logoHint": {
-        "message": "[ÞÑĜ öŕ ŠṼĜ, šǫûåŕé ŵöŕķš ƀéšţ. one two three]"
+        "message": "[ÞÑĜ, ĴÞÉĜ, ŴéƀÞ öŕ ŠṼĜ, ûþ ţö 10 ṀƁ. Šǫûåŕé ŵöŕķš ƀéšţ. one two three]"
+    },
+    "business.getSetUp.logoHintPhone": {
+        "message": "[Å šǫûåŕé þîçţûŕé ŵöŕķš ƀéšţ. one two three]"
     },
     "business.getSetUp.colour": {
         "message": "[Ɓŕåñð çöļöûŕ one two]"
@@ -6816,7 +6840,34 @@
         "message": "[Çåļɱ, çåŕéƒûļ ŵöŕķ, çļöšé ţö ĥöɱé. one two three]"
     },
     "business.getSetUp.save": {
-        "message": "[Šåṽé çĥåñĝéš one two]"
+        "message": "[Šåṽé ƀŕåñð one two]"
+    },
+    "business.getSetUp.unsaved": {
+        "message": "[Ýöû ĥåṽé ûñšåṽéð ƀŕåñð çĥåñĝéš. one two three]"
+    },
+    "business.getSetUp.editBrand": {
+        "message": "[Éðîţ ƀŕåñð one two]"
+    },
+    "business.getSetUp.colourNames.forest": {
+        "message": "[Ƒöŕéšţ ĝŕééñ one two]"
+    },
+    "business.getSetUp.colourNames.slate": {
+        "message": "[Šļåţé ƀļûé one two]"
+    },
+    "business.getSetUp.colourNames.teal": {
+        "message": "[Ţéåļ one]"
+    },
+    "business.getSetUp.colourNames.plum": {
+        "message": "[Þļûɱ one]"
+    },
+    "business.getSetUp.colourNames.terracotta": {
+        "message": "[Ţéŕŕåçöţţå one two]"
+    },
+    "business.getSetUp.colourNames.ochre": {
+        "message": "[Öçĥŕé one]"
+    },
+    "business.getSetUp.colourNames.charcoal": {
+        "message": "[Çĥåŕçöåļ one]"
     },
     "business.getSetUp.saving": {
         "message": "[Šåṽîñĝ… one]"
@@ -6934,6 +6985,45 @@
     },
     "business.saveError": {
         "message": "[Çöûļð ñöţ šåṽé åççöûñţ šéţţîñĝš one two three]"
+    },
+    "business.saveDetails": {
+        "message": "[Šåṽé ƀûšîñéšš ðéţåîļš one two]"
+    },
+    "business.unsaved": {
+        "message": "[Ýöû ĥåṽé ûñšåṽéð ƀûšîñéšš ðéţåîļš. one two three]"
+    },
+    "business.checkFields": {
+        "message": "[Çĥéçķ ţĥé ƒîéļðš ɱåŕķéð ƀéļöŵ. one two three]"
+    },
+    "business.fieldErrors.name": {
+        "message": "[Éñţéŕ å ñåɱé öƒ ûþ ţö 100 çĥåŕåçţéŕš. one two three]"
+    },
+    "business.fieldErrors.email": {
+        "message": "[Éñţéŕ å ṽåļîð éɱåîļ åððŕéšš, ļîķé ýöû@éẋåɱþļé.çöɱ. one two three four]"
+    },
+    "business.fieldErrors.postalCode": {
+        "message": "[Éñţéŕ ţĥé þöšţåļ çöðé ļîķé Ṽ8Ŵ 1Ý9. one two three]"
+    },
+    "business.fieldErrors.legalPhone": {
+        "message": "[Éñţéŕ å ƒûļļ þĥöñé ñûɱƀéŕ, ŵîţĥ îţš åŕéå çöðé. one two three]"
+    },
+    "business.fieldErrors.website": {
+        "message": "[Éñţéŕ ţĥé ƒûļļ åððŕéšš, šţåŕţîñĝ ŵîţĥ ĥţţþš://. one two three]"
+    },
+    "business.fieldErrors.gallery": {
+        "message": "[Þûţ öñé ļîñķ öñ éåçĥ ļîñé, éåçĥ šţåŕţîñĝ ŵîţĥ ĥţţþš://. Ýöû çåñ åðð ûþ ţö 12. one two three four five]"
+    },
+    "business.fieldErrors.tooLong": {
+        "message": "[Ţĥåţ'š ţöö ļöñĝ. Šĥöŕţéñ îţ åñð ţŕý åĝåîñ. one two three]"
+    },
+    "business.fieldErrors.pickupPrep": {
+        "message": "[Éñţéŕ ţĥé ɱîñûţéš åš å ŵĥöļé ñûɱƀéŕ, ûþ ţö öñé ŵééķ. one two three four]"
+    },
+    "business.fieldErrors.pickupHold": {
+        "message": "[Éñţéŕ å ŵĥöļé ñûɱƀéŕ öƒ ðåýš, ƒŕöɱ 1 ţö 30. one two three]"
+    },
+    "business.fieldErrors.pickupCapacity": {
+        "message": "[Éñţéŕ å ŵĥöļé ñûɱƀéŕ ƒŕöɱ 1 ţö 100. one two three]"
     },
     "business.onboarding.provinceAB": {
         "message": "[Åļƀéŕţå one]"
@@ -9066,7 +9156,7 @@
         "message": "[Çĥåñĝé ţĥé þŕöṽîñçé ţö {province}? one two]"
     },
     "taxes.provinceConfirmBody": {
-        "message": "[Ñéŵ þŕîçéš, šåļéš åñð îñṽöîçéš ŵîļļ çĥåŕĝé ţĥé šåļéš ţåẋ öƒ {province}. Îñṽöîçéš, šåļéš åñð ŕéçéîþţš åļŕéåðý îššûéð ķééþ ţĥé ţåẋ ţĥéý çĥåŕĝéð. one two three four five six seven eight]"
+        "message": "[Ñéŵ þŕîçéš, šåļéš åñð îñṽöîçéš ŵîļļ çĥåŕĝé ţĥé šåļéš ţåẋ öƒ {province}. Îñṽöîçéš, šåļéš åñð ŕéçéîþţš åļŕéåðý îššûéð ķééþ ţĥé ţåẋ ţĥéý çĥåŕĝéð. Ýöûŕ ţîɱé žöñé šţåýš ţĥé šåɱé; ýöû çåñ çĥåñĝé îţ îñ Šéţûþ, Ɓûšîñéšš. one two three four five six seven eight nine ten one two]"
     },
     "taxes.provinceSaveError": {
         "message": "[Ŵé çöûļðñ'ţ çĥåñĝé ţĥé þŕöṽîñçé. Ţŕý åĝåîñ. one two three]"
@@ -9670,6 +9760,9 @@
     },
     "today.quietTitle": {
         "message": "[Å ǫûîéţ ðåý one two]"
+    },
+    "today.quietBodyNotLive": {
+        "message": "[Ñöţĥîñĝ îš ƀööķéð åñð ñöţĥîñĝ îš ŵåîţîñĝ öñ ýöû. Åðð å ƀööķîñĝ, öŕ ƒîñîšĥ Ĝéţ šéţ ûþ šö çļîéñţš çåñ ƀööķ öñļîñé. one two three four five six seven]"
     },
     "today.quietBody": {
         "message": "[Ñöţĥîñĝ îš ƀööķéð åñð ñöţĥîñĝ îš ŵåîţîñĝ öñ ýöû. Šĥåŕé ýöûŕ ƀööķîñĝ þåĝé öŕ åðð å ƀööķîñĝ. one two three four five six]"
@@ -10697,11 +10790,20 @@
     "auth.backToSignIn": {
         "message": "[Ɓåçķ ţö šîĝñ îñ one two]"
     },
-    "auth.resetError": {
-        "message": "[Çöûļðñ'ţ ŕéšéţ ýöûŕ þåššŵöŕð. Çĥéçķ ţĥé çöðé åñð ţŕý åĝåîñ. one two three four]"
-    },
     "auth.resendFailed": {
-        "message": "[Çöûļðñ'ţ šéñð å ñéŵ çöðé. Çĥéçķ ýöûŕ çöññéçţîöñ åñð ţŕý åĝåîñ. one two three four]"
+        "message": "[Çöûļðñ'ţ šéñð ţĥé çöðé. Çĥéçķ ýöûŕ çöññéçţîöñ åñð ţŕý åĝåîñ. one two three four]"
+    },
+    "auth.savePasswordFailed": {
+        "message": "[Çöûļðñ'ţ šåṽé ýöûŕ þåššŵöŕð. Çĥéçķ ýöûŕ çöññéçţîöñ åñð ţŕý åĝåîñ. one two three four five]"
+    },
+    "auth.codeTooOften": {
+        "message": "[Ţöö ɱåñý ŵŕöñĝ çöðéš. Šéñð å ñéŵ öñé ţö ķééþ ĝöîñĝ. one two three four]"
+    },
+    "auth.codeExpired": {
+        "message": "[Ţĥåţ çöðé ĥåš éẋþîŕéð. Šéñð å ñéŵ öñé ţö ķééþ ĝöîñĝ. one two three four]"
+    },
+    "auth.tooManyAttempts": {
+        "message": "[Ţöö ɱåñý åţţéɱþţš. Ŵåîţ å ɱîñûţé åñð ţŕý åĝåîñ. one two three]"
     },
     "auth.verifyTitle": {
         "message": "[Çöñƒîŕɱ ýöûŕ éɱåîļ one two]"
@@ -10782,7 +10884,7 @@
         "message": "[Ţĥåţ ţööķ å ļîţţļé ţöö ļöñĝ. Þļéåšé ţŕý åĝåîñ. one two three]"
     },
     "auth.unavailable": {
-        "message": "[Šîĝñ-îñ îš ûñåṽåîļåƀļé ŕîĝĥţ ñöŵ. Çĥéçķ ýöûŕ çöññéçţîöñ åñð ţŕý åĝåîñ. one two three four five]"
+        "message": "[Šîĝñ-îñ îš ûñåṽåîļåƀļé ŕîĝĥţ ñöŵ. Çĥéçķ ýöûŕ çöññéçţîöñ, ŵåîţ å ɱîñûţé åñð ţŕý åĝåîñ. one two three four five six]"
     },
     "auth.googleFailed": {
         "message": "[Çöûļðñ'ţ çöñţîñûé ŵîţĥ Ĝööĝļé. Ţŕý åĝåîñ öŕ ûšé ýöûŕ éɱåîļ. one two three four]"
@@ -10856,6 +10958,9 @@
     "auth.securityConfirmCodes": {
         "message": "[Î šåṽéð ţĥéšé çöðéš one two]"
     },
+    "auth.backupCodeUsed": {
+        "message": "[Ûšéð {date} one]"
+    },
     "auth.securityKeys": {
         "message": "[Šéçûŕîţý ķéýš åñð þåššķéýš one two three]"
     },
@@ -10891,6 +10996,12 @@
     },
     "auth.securityReauthOnWeb": {
         "message": "[Çöñƒîŕɱ îţ'š ýöû îñ ţĥé ŵéƀ åþþ ţö çĥåñĝé šîĝñ-îñ šéţţîñĝš. one two three four]"
+    },
+    "auth.resetMfaSubtitle": {
+        "message": "[Çöñƒîŕɱ îţ'š ýöû ƀéƒöŕé çĥööšîñĝ å ñéŵ þåššŵöŕð. one two three four]"
+    },
+    "auth.startOver": {
+        "message": "[Šţåŕţ öṽéŕ one two]"
     },
     "auth.providerError": {
         "message": "[Šöɱéţĥîñĝ ŵéñţ ŵŕöñĝ. Þļéåšé ţŕý åĝåîñ. one two three]"
@@ -10943,11 +11054,20 @@
     "auth.flowMessages.4000034": {
         "message": "[Ţĥåţ þåššŵöŕð ĥåš åþþéåŕéð îñ å ðåţå ƀŕéåçĥ. Çĥööšé å ðîƒƒéŕéñţ öñé. one two three four five]"
     },
+    "auth.flowMessages.4000039": {
+        "message": "[Çĥööšé å þåššŵöŕð ţĥåţ'š ðîƒƒéŕéñţ ƒŕöɱ ýöûŕ çûŕŕéñţ öñé. one two three four]"
+    },
     "auth.flowMessages.4000012": {
         "message": "[Ţĥåţ ƀåçķûþ çöðé ĥåš åļŕéåðý ƀééñ ûšéð. Ţŕý åñöţĥéŕ öñé. one two three four]"
     },
     "auth.flowMessages.4000016": {
         "message": "[Ţĥåţ ƀåçķûþ çöðé îšñ'ţ ŕîĝĥţ. Çĥéçķ îţ åñð ţŕý åĝåîñ. one two three four]"
+    },
+    "auth.flowMessages.4060005": {
+        "message": "[Ţĥåţ çöðé ĥåš éẋþîŕéð. Šéñð å ñéŵ öñé ţö ķééþ ĝöîñĝ. one two three four]"
+    },
+    "auth.flowMessages.4070005": {
+        "message": "[Ţĥåţ çöðé ĥåš éẋþîŕéð. Šéñð å ñéŵ öñé ţö ķééþ ĝöîñĝ. one two three four]"
     },
     "auth.flowMessages.4060006": {
         "message": "[Ţĥåţ çöðé îšñ'ţ ŕîĝĥţ öŕ ĥåš éẋþîŕéð. Ŕéǫûéšţ å ñéŵ öñé. one two three four]"
@@ -11065,6 +11185,12 @@
     },
     "publicPay.tipBase": {
         "message": "[Ţîþ îš ŵöŕķéð öûţ öñ {money}, ƀéƒöŕé ţåẋ. one two three]"
+    },
+    "publicPay.tipHintNoTax": {
+        "message": "[Öþţîöñåļ. Åļļ öƒ îţ ĝöéš ţö ţĥé šţåƒƒ. one two three]"
+    },
+    "publicPay.tipBaseNoTax": {
+        "message": "[Ţîþ îš ŵöŕķéð öûţ öñ {money}. one two]"
     },
     "publicPay.payWithTip": {
         "message": "[Þåý {money} ƀý çåŕð one two]"
@@ -11427,7 +11553,7 @@
         "message": "[Ñéẋţ öþéñîñĝ {day} one two]"
     },
     "publicBooking.noTimesWeek": {
-        "message": "[Ñöţĥîñĝ îš öþéñ ţĥîš ŵééķ. Ţŕý ļåţéŕ ðåţéš öŕ çåļļ ţĥé šţûðîö. one two three four]"
+        "message": "[Ñöţĥîñĝ îš öþéñ ţĥîš ŵééķ. Ţŕý ļåţéŕ ðåţéš öŕ çåļļ ţĥé ƀûšîñéšš. one two three four]"
     },
     "publicBooking.closedDay": {
         "message": "[Çļöšéð ƒöŕ {reason}. one two]"
@@ -11580,7 +11706,7 @@
         "message": "[Ŕéǫûéšţ šéñţ one two]"
     },
     "publicBooking.pendingBody": {
-        "message": "[Ţĥé šţûðîö çöñƒîŕɱš ñéŵ çļîéñţš ƒîŕšţ. Ýöû'ļļ ĥéåŕ ƀåçķ åƀöûţ {when} öñçé ţĥéý'ṽé ļööķéð åţ ýöûŕ ŕéǫûéšţ. one two three four five six seven]"
+        "message": "[Ţĥé ƀûšîñéšš çöñƒîŕɱš ñéŵ çļîéñţš ƒîŕšţ. Ýöû'ļļ ĥéåŕ ƀåçķ åƀöûţ {when} öñçé ţĥéý'ṽé ļööķéð åţ ýöûŕ ŕéǫûéšţ. one two three four five six seven]"
     },
     "publicBooking.waitlistTitle": {
         "message": "[Ýöû'ŕé öñ ţĥé ŵåîţļîšţ one two]"
@@ -11637,7 +11763,7 @@
         "message": "[{day} åţ {time} one]"
     },
     "publicBooking.nothingBookable": {
-        "message": "[Ñöţĥîñĝ çåñ ƀé ƀööķéð öñļîñé ŕîĝĥţ ñöŵ. Çåļļ ţĥé šţûðîö ţö ƀööķ. one two three four]"
+        "message": "[Ñöţĥîñĝ çåñ ƀé ƀööķéð öñļîñé ŕîĝĥţ ñöŵ. Çåļļ ţĥé ƀûšîñéšš ţö ƀööķ. one two three four five]"
     },
     "publicBooking.timesIn": {
         "message": "[Ţîɱéš åŕé îñ {zone} one two]"
@@ -11661,7 +11787,7 @@
         "message": "[Ñééð å ĥåñð? one two]"
     },
     "publicOrder.contactBody": {
-        "message": "[Çöñţåçţ ţĥé šţûðîö îƒ ýöû ĥåṽé å ǫûéšţîöñ åƀöûţ ýöûŕ öŕðéŕ. one two three four]"
+        "message": "[Çöñţåçţ ţĥé ƀûšîñéšš îƒ ýöû ĥåṽé å ǫûéšţîöñ åƀöûţ ýöûŕ öŕðéŕ. one two three four]"
     },
     "publicOrder.refundPending": {
         "message": "[Ýöûŕ ŕéƒûñð îš ƀéîñĝ þŕöçéššéð one two three]"
@@ -11790,7 +11916,7 @@
         "message": "[Šĥöþ one]"
     },
     "publicShop.subtitle": {
-        "message": "[Öŕðéŕ öñļîñé, þîçķ ûþ åţ ţĥé šţûðîö. one two three]"
+        "message": "[Öŕðéŕ öñļîñé, þîçķ ûþ îñ þéŕšöñ. one two three]"
     },
     "publicShop.all": {
         "message": "[Åļļ one]"
@@ -11823,7 +11949,7 @@
         "message": "[Ŕéɱöṽé one]"
     },
     "publicShop.pickupTitle": {
-        "message": "[Þîçķ ûþ åţ ţĥé šţûðîö one two]"
+        "message": "[Þîçķ ûþ îñ þéŕšöñ one two]"
     },
     "publicShop.pickupWhen": {
         "message": "[Ŵé'ļļ ļéţ ýöû ķñöŵ ŵĥéñ îţ'š ŕéåðý ţö þîçķ ûþ ðûŕîñĝ öþéñîñĝ ĥöûŕš. one two three four five]"
@@ -11846,6 +11972,9 @@
     "publicShop.payBody": {
         "message": "[{total}, ţåẋ îñçļûðéð. Þåîð ñöŵ, þîçķéð ûþ ļåţéŕ. one two three]"
     },
+    "publicShop.payBodyNoTax": {
+        "message": "[{total}. Þåîð ñöŵ, þîçķéð ûþ ļåţéŕ. one two]"
+    },
     "publicShop.pay": {
         "message": "[Þåý {amount} one]"
     },
@@ -11856,7 +11985,7 @@
         "message": "[Öŕðéŕ þļåçéð one two]"
     },
     "publicShop.doneBody": {
-        "message": "[Öŕðéŕ {number} îš ŵîţĥ ţĥé šţûðîö. Ŵé'ļļ ļéţ ýöû ķñöŵ åš šööñ åš îţ'š ŕéåðý ţö þîçķ ûþ. one two three four five]"
+        "message": "[Öŕðéŕ {number} îš ŵîţĥ ţĥé ƀûšîñéšš. Ŵé'ļļ ļéţ ýöû ķñöŵ åš šööñ åš îţ'š ŕéåðý ţö þîçķ ûþ. one two three four five]"
     },
     "publicShop.whatNext": {
         "message": "[Ŵĥåţ ĥåþþéñš ñéẋţ one two]"
@@ -11883,7 +12012,7 @@
         "message": "[Šĥöþ ñöţ ƒöûñð one two]"
     },
     "publicShop.notFoundBody": {
-        "message": "[Ţĥîš ļîñķ îš îñṽåļîð öŕ ţĥé šţûðîö îšñ'ţ šéļļîñĝ öñļîñé ŕîĝĥţ ñöŵ. one two three four five]"
+        "message": "[Ţĥîš ļîñķ îš îñṽåļîð öŕ ţĥé ƀûšîñéšš îšñ'ţ šéļļîñĝ öñļîñé ŕîĝĥţ ñöŵ. one two three four five]"
     },
     "publicShop.loadErrorTitle": {
         "message": "[Ŵé çöûļðñ'ţ ļöåð ţĥé šĥöþ one two]"
@@ -12159,7 +12288,7 @@
         "message": "[Ýöû çåñ çåñçéļ ûþ ţö {cancel} åñð ɱöṽé ýöûŕ ṽîšîţ ûþ ţö {move}, ƒŕöɱ ţĥé ļîñķ îñ ýöûŕ çöñƒîŕɱåţîöñ. {keepLate,select,other{Đéþöšîţš åŕé åļŵåýš ŕéƒûñðéð.} true{Åƒţéŕ ţĥåţ, ţĥé ðéþöšîţ îš ķéþţ.}} one two three four five six seven eight nine]"
     },
     "onlineBooking.policy.clientTextOff": {
-        "message": "[Ţö çĥåñĝé öŕ çåñçéļ, çåļļ öŕ ţéẋţ ţĥé šţûðîö. one two three]"
+        "message": "[Ţö çĥåñĝé öŕ çåñçéļ, çåļļ öŕ ţéẋţ ţĥé ƀûšîñéšš. one two three]"
     },
     "onlineBooking.policy.examples": {
         "message": "[Ĥöŵ ţĥîš þļåýš öûţ one two]"
@@ -12252,7 +12381,7 @@
         "message": "[Ṁéššåĝé one]"
     },
     "publicManage.messageTitle": {
-        "message": "[Ṁéššåĝé ţĥé šţûðîö one two]"
+        "message": "[Ṁéššåĝé ţĥé ƀûšîñéšš one two]"
     },
     "publicManage.messageLabel": {
         "message": "[Ýöûŕ ɱéššåĝé one two]"
@@ -12261,7 +12390,7 @@
         "message": "[Šéñð ɱéššåĝé one two]"
     },
     "publicManage.messageSent": {
-        "message": "[Ṁéššåĝé šéñţ. Ţĥé šţûðîö çåñ ŕéþļý ţö ýöûŕ ƀööķîñĝ çöñţåçţ ðéţåîļš. one two three four five]"
+        "message": "[Ṁéššåĝé šéñţ. Ţĥé ƀûšîñéšš çåñ ŕéþļý ţö ýöûŕ ƀööķîñĝ çöñţåçţ ðéţåîļš. one two three four five]"
     },
     "publicManage.messageError": {
         "message": "[Ŵé çöûļðñ'ţ šéñð ýöûŕ ɱéššåĝé. Ţŕý åĝåîñ. one two three]"
@@ -12336,7 +12465,7 @@
         "message": "[Çåñçéļ ûþ ţö {cancel, number} ĥöûŕš ƀéƒöŕé, ɱöṽé ûþ ţö {move, number} ĥöûŕš ƀéƒöŕé. one two three four]"
     },
     "publicManage.policyOff": {
-        "message": "[Ţö çĥåñĝé öŕ çåñçéļ, çåļļ öŕ ţéẋţ ţĥé šţûðîö. one two three]"
+        "message": "[Ţö çĥåñĝé öŕ çåñçéļ, çåļļ öŕ ţéẋţ ţĥé ƀûšîñéšš. one two three]"
     },
     "publicManage.countdown": {
         "message": "[Ýöûŕ ṽîšîţ îš {label} one two]"
@@ -12435,7 +12564,7 @@
         "message": "[Ɓööķîñĝ ñöţ ƒöûñð one two]"
     },
     "publicManage.notFoundBody": {
-        "message": "[Ţĥîš ļîñķ ĥåš éẋþîŕéð öŕ ţĥé ƀööķîñĝ ŵåš åļŕéåðý çĥåñĝéð. Çĥéçķ ýöûŕ ļåţéšţ ɱéššåĝé ƒŕöɱ ţĥé šţûðîö. one two three four five six seven]"
+        "message": "[Ţĥîš ļîñķ ĥåš éẋþîŕéð öŕ ţĥé ƀööķîñĝ ŵåš åļŕéåðý çĥåñĝéð. Çĥéçķ ýöûŕ ļåţéšţ ɱéššåĝé ƒŕöɱ ţĥé ƀûšîñéšš. one two three four five six seven]"
     },
     "publicManage.canceledAlready": {
         "message": "[Ţĥîš ƀööķîñĝ ŵåš çåñçéļļéð. one two three]"
@@ -12444,19 +12573,19 @@
         "message": "[Ţĥîš ṽîšîţ çåñ ñö ļöñĝéŕ ƀé çĥåñĝéð öñļîñé. one two three]"
     },
     "publicManage.blocked.by_phone": {
-        "message": "[Ţĥîš ƀûšîñéšš ţåķéš çĥåñĝéš ƀý þĥöñé. Þļéåšé çåļļ ţĥé šţûðîö. one two three four]"
+        "message": "[Ţĥîš ƀûšîñéšš ţåķéš çĥåñĝéš ƀý þĥöñé. Þļéåšé çåļļ ţĥéɱ. one two three four]"
     },
     "publicManage.blocked.class_session": {
-        "message": "[Çļåšš šéššîöñš åŕé šĥåŕéð ŵîţĥ öţĥéŕ çļîéñţš. Þļéåšé çåļļ ţĥé šţûðîö ţö ɱöṽé. one two three four five]"
+        "message": "[Çļåšš šéššîöñš åŕé šĥåŕéð ŵîţĥ öţĥéŕ çļîéñţš. Þļéåšé çåļļ ţĥé ƀûšîñéšš ţö ɱöṽé. one two three four five]"
     },
     "publicManage.blocked.reschedule_limit": {
         "message": "[Ţĥîš ṽîšîţ ĥåš ƀééñ ɱöṽéð åš ɱåñý ţîɱéš åš ţĥé þöļîçý åļļöŵš. one two three four]"
     },
     "publicManage.blocked.member_unavailable": {
-        "message": "[Ţĥé ţéåɱ ɱéɱƀéŕ ƒöŕ ţĥîš ṽîšîţ îš ñö ļöñĝéŕ åṽåîļåƀļé. Ýöû çåñ çåñçéļ îţ, öŕ ɱéššåĝé ţĥé šţûðîö ţö ƒîñð å ñéŵ ţîɱé. one two three four five six seven]"
+        "message": "[Ţĥé ţéåɱ ɱéɱƀéŕ ƒöŕ ţĥîš ṽîšîţ îš ñö ļöñĝéŕ åṽåîļåƀļé. Ýöû çåñ çåñçéļ îţ, öŕ ɱéššåĝé ţĥé ƀûšîñéšš ţö ƒîñð å ñéŵ ţîɱé. one two three four five six seven]"
     },
     "publicManage.blocked.cutoff": {
-        "message": "[{hours,plural,one{Îţ'š ļéšš ţĥåñ # ĥöûŕ åŵåý.} other{Îţ'š ļéšš ţĥåñ # ĥöûŕš åŵåý.}} Þļéåšé çåļļ ţĥé šţûðîö. one two three four five]"
+        "message": "[{hours,plural,one{Îţ'š ļéšš ţĥåñ # ĥöûŕ åŵåý.} other{Îţ'š ļéšš ţĥåñ # ĥöûŕš åŵåý.}} Þļéåšé çåļļ ţĥé ƀûšîñéšš. one two three four five]"
     },
     "publicManage.error": {
         "message": "[Ŵé çöûļðñ'ţ šåṽé ţĥåţ çĥåñĝé. Þļéåšé ţŕý åĝåîñ. one two three]"
@@ -12487,6 +12616,24 @@
     },
     "navigation.main": {
         "message": "[Ṁåîñ one]"
+    },
+    "navigation.leaveTitle": {
+        "message": "[Ļéåṽé ŵîţĥöûţ šåṽîñĝ? one two]"
+    },
+    "navigation.leave": {
+        "message": "[Ļéåṽé one]"
+    },
+    "navigation.closeTitle": {
+        "message": "[Çļöšé ŵîţĥöûţ šåṽîñĝ? one two]"
+    },
+    "navigation.close": {
+        "message": "[Çļöšé one]"
+    },
+    "navigation.unsavedLost": {
+        "message": "[Çĥåñĝéš šîñçé ţĥé ļåšţ šåṽé åŕé ļöšţ. one two three]"
+    },
+    "navigation.keepEditing": {
+        "message": "[Ķééþ éðîţîñĝ one two]"
     },
     "navigation.finishSetup": {
         "message": "[Ƒîñîšĥ šéţţîñĝ ûþ one two]"
@@ -12834,7 +12981,7 @@
         "message": "[Ɓööķîñĝ þöļîçîéš one two]"
     },
     "publicLanding.gallery": {
-        "message": "[Åŕöûñð ţĥé šţûðîö one two]"
+        "message": "[Ĝåļļéŕý one]"
     },
     "publicLanding.jumpTo": {
         "message": "[Éẋþļöŕé ţĥîš ƀûšîñéšš one two]"
@@ -12859,6 +13006,9 @@
     },
     "publicLanding.noServices": {
         "message": "[Çöñţåçţ ûš ţö åŕŕåñĝé ýöûŕ ṽîšîţ. one two three]"
+    },
+    "publicLanding.noServicesYet": {
+        "message": "[Šéŕṽîçéš ŵîļļ åþþéåŕ ĥéŕé šööñ. one two three]"
     },
     "publicLanding.loadingOpenings": {
         "message": "[Çĥéçķîñĝ åṽåîļåƀîļîţý… one two]"
@@ -12901,6 +13051,9 @@
     },
     "files.uploadLogo": {
         "message": "[Ûþļöåð ļöĝö one two]"
+    },
+    "files.removeLogo": {
+        "message": "[Ŕéɱöṽé ļöĝö one two]"
     },
     "files.replaceLogo": {
         "message": "[Ŕéþļåçé ļöĝö one two]"

@@ -1,8 +1,10 @@
+import secrets
+
 import pytest
 from starlette.requests import Request
 
 from clientbridge.core.config import get_settings
-from clientbridge.core.ratelimit import RateLimiter, requester_ip
+from clientbridge.core.ratelimit import RateLimiter, allow_action, release_action, requester_ip
 
 
 def _request(headers: dict[str, str], client: tuple[str, int] | None) -> Request:
@@ -64,6 +66,15 @@ def test_evicts_after_window() -> None:
     assert rl.check("ip", 11.0) is True  # window has passed
 
 
+def test_release_gives_back_the_last_hit() -> None:
+    rl = RateLimiter(limit=1, window_s=60.0)
+    rl.release("ip")
+    assert rl.check("ip", 0.0) is True
+    rl.release("ip")
+    assert rl.check("ip", 0.1) is True
+    assert rl.check("ip", 0.2) is False
+
+
 def test_keys_are_independent() -> None:
     rl = RateLimiter(limit=1, window_s=60.0)
     assert rl.check("a", 0.0) is True
@@ -74,8 +85,6 @@ def test_keys_are_independent() -> None:
 async def test_deployed_limit_is_shared_between_api_processes(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import secrets
-
     from clientbridge.core import ratelimit
     from clientbridge.core.errors import TooManyRequests
 
@@ -99,3 +108,14 @@ async def test_deployed_limit_refuses_with_503_while_redis_is_unreachable(
     with pytest.raises(AppError) as refused:
         await ratelimit.public_pay_rate_limit(_request({}, ("203.0.113.9", 0)))
     assert refused.value.status_code == 503
+
+
+async def test_giving_back_a_lapsed_count_keeps_the_next_window_limited(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(get_settings(), "env", "staging")
+    limiter = RateLimiter(limit=1, window_s=60)
+    address = f"{secrets.token_hex(12)}@example.com"
+    await release_action(address, "auth-email", limiter)
+    assert await allow_action(address, "auth-email", limiter)
+    assert not await allow_action(address, "auth-email", limiter)

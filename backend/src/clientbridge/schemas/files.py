@@ -13,7 +13,7 @@ class FileCreate(Mirror):
     parent_id: str
     purpose: FilePurpose | None = None
     content_type: str | None = None
-    size: int | None = None
+    size: int = Field(ge=0)
 
 
 class FileOut(Mirror):
@@ -48,7 +48,7 @@ class PublicFileCreate(Mirror):
     mirrors = File
 
     content_type: str | None = None
-    size: int | None = None
+    size: int = Field(ge=0)
 
 
 class PublicFileUpload(BaseModel):

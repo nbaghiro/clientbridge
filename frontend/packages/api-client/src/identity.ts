@@ -37,13 +37,16 @@ export type FlowStep =
     | { kind: "flow"; flow: Flow }
     | { kind: "redirect"; url: string }
     | { kind: "reauth" }
-    | { kind: "restart" };
+    /** The flow can't go on; `tooOften` when wrong codes used up its attempts. */
+    | { kind: "restart"; tooOften?: boolean };
 
 type SessionState = "active" | "second_factor" | "none";
 
 interface SessionIdentity {
     id: string;
+    sessionId: string;
     email: string;
+    verified: boolean;
 }
 
 interface StartOptions {
@@ -158,6 +161,17 @@ function errorId(body: Json): string {
     return text(record(body.error).id);
 }
 
+function namesNewRecovery(body: Json): boolean {
+    const next = record(record(body.error).details).continue_with;
+    return Array.isArray(next) && next.some((each) => record(each).action === "show_recovery_ui");
+}
+
+// Kratos marks its attempt limit (ErrCodeSubmittedTooOften) only in this English reason, never by id.
+const tooOftenIn = (reason: unknown): boolean => text(reason).includes("submitted too often");
+
+const restart = (tooOften: boolean): FlowStep =>
+    tooOften ? { kind: "restart", tooOften } : { kind: "restart" };
+
 /** Drives Kratos self-service flows: browser flows ride the session cookie, native flows a token. */
 export function createIdentityClient(opts: IdentityOptions): IdentityClient {
     const base = opts.baseUrl.replace(/\/+$/, "");
@@ -188,6 +202,18 @@ export function createIdentityClient(opts: IdentityOptions): IdentityClient {
         const json = await body(res);
         if (!res.ok) throw new IdentityError(res.status, errorId(json) || "flow_unavailable");
         return parseFlow(kind, json);
+    };
+
+    // Kratos replaces a verification flow for its attempt limit, a used code or a spent flow; the new one says which.
+    const replacedBy = async (
+        kind: FlowKind,
+        id: string,
+        sessionToken?: string,
+    ): Promise<FlowMessage[]> => {
+        if (!id) return [];
+        const path = `/self-service/${kind}/flows?id=${encodeURIComponent(id)}`;
+        const res = await request(path, {}, sessionToken).catch(() => null);
+        return res ? messages(record((await body(res)).ui).messages) : [];
     };
 
     return {
@@ -243,6 +269,10 @@ export function createIdentityClient(opts: IdentityOptions): IdentityClient {
             if (res.status === 422 && redirect) return { kind: "redirect", url: redirect };
             if (error === "session_refresh_required" || res.status === 401)
                 return { kind: "reauth" };
+            if (error === "self_service_flow_replaced") {
+                const causes = await replacedBy(flow.kind, text(json.use_flow_id), sessionToken);
+                return restart(causes.some((m) => tooOftenIn(m.text)));
+            }
             if (
                 res.status === 410 ||
                 error === "security_csrf_violation" ||
@@ -258,7 +288,10 @@ export function createIdentityClient(opts: IdentityOptions): IdentityClient {
             }
             const step = nextStep(json.continue_with);
             if (step.next?.flow === "settings") return { kind: "done", ...step };
-            return { kind: "flow", flow: parseFlow(flow.kind, json) };
+            if ("ui" in json) return { kind: "flow", flow: parseFlow(flow.kind, json) };
+            // A reset code past its attempt limit, or used already, gets a bare error naming a new flow.
+            if (namesNewRecovery(json)) return restart(tooOftenIn(record(json.error).reason));
+            throw new IdentityError(res.status, error || "submit_failed");
         },
 
         async session(sessionToken) {
@@ -278,7 +311,15 @@ export function createIdentityClient(opts: IdentityOptions): IdentityClient {
             if (!res.ok)
                 throw new IdentityError(res.status, errorId(json) || "identity_unavailable");
             const identity = record(json.identity);
-            return { id: text(identity.id), email: text(record(identity.traits).email) };
+            const addresses: unknown = identity.verifiable_addresses;
+            return {
+                id: text(identity.id),
+                sessionId: text(json.id),
+                email: text(record(identity.traits).email),
+                verified:
+                    Array.isArray(addresses) &&
+                    addresses.some((address) => record(address).verified === true),
+            };
         },
 
         async exchange(flow, returnToCode) {

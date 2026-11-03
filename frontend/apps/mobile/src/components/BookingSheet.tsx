@@ -91,6 +91,7 @@ import {
 
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
+import { pickedPhoto } from "../lib/photos";
 import { CheckInSheet } from "./CheckInSheet";
 import { DocumentPreview } from "./DocumentPreview";
 import { BookingVisitRecords } from "./VisitRecords";
@@ -293,8 +294,7 @@ function Photos({ event }: { event: ScheduleEvent }) {
                     : await launchImageLibraryAsync(options);
                 const asset = result.assets?.[0];
                 if (!asset) return;
-                const blob = await (await fetch(asset.uri)).blob();
-                photos.add(blob, asset.mimeType ?? "image/jpeg", asset.fileSize);
+                photos.add(pickedPhoto(asset));
             },
             { errorMessage: strings.common.fileUploadError },
         );
@@ -1035,6 +1035,7 @@ function ComposerFields({ form }: { form: BookingComposer }) {
             <SearchSelect
                 label={s.composerService}
                 placeholder={s.composerServicePlaceholder}
+                emptyLabel={s.noServicesYet}
                 options={form.services.map((i) => ({
                     key: i.id,
                     label: i.name,

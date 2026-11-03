@@ -1,5 +1,14 @@
 import { strings, useSetupChecklist } from "@clientbridge/app-core";
-import { Button, Checklist, Empty, Notice, PageHeader, Panel } from "@clientbridge/ui";
+import {
+    Badge,
+    Button,
+    Checklist,
+    CopyField,
+    Empty,
+    Notice,
+    PageHeader,
+    Panel,
+} from "@clientbridge/ui";
 
 import { config } from "../config";
 import { api } from "../lib/api";
@@ -96,6 +105,16 @@ export function GetSetUp() {
                         </div>
                     </Panel>
                 )}
+                <Panel
+                    title={o.shareTitle}
+                    actions={list.live ? <Badge label={o.live} intent="success" /> : undefined}
+                    className="mt-6"
+                >
+                    <div className="space-y-3">
+                        <p className="text-sm text-muted">{list.live ? o.shareBody : o.notLive}</p>
+                        <CopyField label={o.shareTitle} value={list.pageUrl} copyLabel={o.share} />
+                    </div>
+                </Panel>
             </Loaded>
         </div>
     );

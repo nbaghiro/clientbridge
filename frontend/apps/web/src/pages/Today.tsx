@@ -1,7 +1,6 @@
 import {
     type OwnerToday,
     type TodayActions,
-    bookingPageUrl,
     canManagePayments,
     firstRunLayout,
     formatMoney,
@@ -131,7 +130,7 @@ function OwnerTodayPage() {
     const actions = useTodayActions(api);
     const openLink = useOpenLink();
     const setup = useSetupProgress();
-    const bookingLink = setup.slug === null ? null : bookingPageUrl(config.bookUrl, setup.slug);
+    const bookingLink = setup.bookingLink(config.bookUrl);
     const { load, view, money, moneyLoad } = today;
     const layout = firstRunLayout(
         view.agenda.length,

@@ -210,6 +210,8 @@ export interface SelectOption<K extends string> {
     // Options sharing a group sit under one heading, in the order the groups first appear.
     group?: string | undefined;
     disabled?: boolean | undefined;
+    // Replaces the label search for an option found by more than its label, such as a client's phone.
+    match?: ((query: string) => boolean) | undefined;
 }
 
 export interface SelectProps<K extends string> {
@@ -224,6 +226,8 @@ export interface SelectProps<K extends string> {
     onChange?: ((key: K) => void) | undefined;
     // Shown while the value matches no option.
     placeholder?: string | undefined;
+    // Says what to add when there is nothing to choose from yet.
+    emptyLabel?: string | undefined;
     // A search box over the list; on by default for long lists.
     searchable?: boolean | undefined;
     size?: "sm" | "md" | "lg" | undefined;
@@ -988,6 +992,8 @@ export interface ItemTileProps {
 export interface SwatchPickerProps {
     label: string;
     colours: readonly string[];
+    // What a screen reader says for a swatch; the colour's value when absent.
+    colourLabel?: ((colour: string) => string) | undefined;
     value?: string | undefined;
     defaultValue?: string | undefined;
     onChange?: ((colour: string) => void) | undefined;

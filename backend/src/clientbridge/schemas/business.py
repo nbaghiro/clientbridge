@@ -1,8 +1,9 @@
 import re
 from datetime import date, datetime
+from typing import Annotated
 from urllib.parse import urlparse
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
 
 from clientbridge.core.mirrors import Mirror
 from clientbridge.core.phones import Phone
@@ -20,6 +21,9 @@ GST_HST_NUMBER = re.compile(r"^\d{9}RT\d{4}$")
 QST_NUMBER = re.compile(r"^\d{10}TQ\d{4}$")
 PST_NUMBER = re.compile(r"^(PST)?\d{4}\d{4}$")
 POSTAL_CODE = re.compile(r"^([A-Z][0-9][A-Z])([0-9][A-Z][0-9])$")
+BusinessName = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)
+]
 
 
 def public_email(value: str | None) -> str | None:
@@ -40,7 +44,7 @@ def _optional_public_email(value: str | None, field: str) -> str | None:
 class OnboardBody(Mirror):
     mirrors = Business
 
-    name: str
+    name: BusinessName
     slug: str
     province: ProvinceCode
     timezone: str | None = None
@@ -79,12 +83,12 @@ class BusinessOut(Mirror):
 
 
 class BrandInput(BaseModel):
-    """The public brand; values are validated and trimmed so clients can apply them directly."""
+    """The stored public brand; values are validated and trimmed so clients can apply them."""
 
     logo_file_id: str | None = None
+    cover_file_id: str | None = None
     primary: str | None = None
     tagline: str | None = None
-    cover_url: str | None = Field(default=None, max_length=2048)
     about: str | None = Field(default=None, max_length=3000)
     address: str | None = Field(default=None, max_length=300)
     phone: str | None = Field(default=None, max_length=40)
@@ -97,7 +101,7 @@ class BrandInput(BaseModel):
     pickup_capacity: int = Field(default=10, ge=1, le=100)
     public_staff_ids: list[str] = Field(default_factory=list, max_length=100)
 
-    @field_validator("cover_url", "website")
+    @field_validator("website")
     @classmethod
     def _check_public_url(cls, value: str | None) -> str | None:
         value = (value or "").strip()
@@ -141,12 +145,18 @@ class BrandInput(BaseModel):
         return (v or "").strip() or None
 
 
+class BrandUpdate(BrandInput):
+    """The brand as written; only writes cap the tagline, as a stored one may be longer."""
+
+    tagline: Annotated[str, StringConstraints(strip_whitespace=True, max_length=120)] | None = None
+
+
 class BusinessSettingsUpdate(Mirror):
     mirrors = Business
 
     """Partial update of account fields; tax numbers accept an empty string to clear."""
 
-    name: str | None = None
+    name: BusinessName | None = None
     slug: str | None = Field(
         default=None, description="The public page's address; old links stop working"
     )
@@ -181,7 +191,7 @@ class BusinessSettingsUpdate(Mirror):
     legal_phone: Phone = Field(
         default=None, description="The business's legal contact phone; empty clears"
     )
-    brand: BrandInput | None = None
+    brand: BrandUpdate | None = None
 
     @field_validator("unit", "street_number", "street_name", "city")
     @classmethod

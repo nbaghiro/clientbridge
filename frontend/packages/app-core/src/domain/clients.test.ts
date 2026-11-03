@@ -7,6 +7,7 @@ import { strings } from "../strings";
 import {
     type ClientRow,
     clientMatches,
+    clientOption,
     filterClients,
     useNoteComposer,
     visitPill,
@@ -17,8 +18,22 @@ const ZONE = "America/Vancouver";
 
 const r = strings.clients.record;
 
-const client = (id: string, name: string, phone: string | null) =>
-    ({ id, name, phone, status: "active", lifetime_value_cents: null }) satisfies ClientRow;
+const client = (
+    id: string,
+    name: string,
+    phone: string | null,
+    more: { tags?: string[]; subjectNames?: string[] } = {},
+) =>
+    ({
+        id,
+        name,
+        phone,
+        status: "active",
+        lifetime_value_cents: null,
+        tags: [],
+        subjectNames: [],
+        ...more,
+    }) satisfies ClientRow;
 
 const ROWS = [
     client("cl_ann", "Ann Tremblay", "+16045550001"),
@@ -42,6 +57,24 @@ describe("filterClients", () => {
         for (const q of ["(250) 555-0202", "+1 250 555 0202", "12505550202"])
             expect(filterClients(rows, q).map((c) => c.id)).toEqual(["cl_cara"]);
         expect(filterClients(rows, "emile cote").map((c) => c.id)).toEqual(["cl_emile"]);
+    });
+
+    it("finds a client by a pet's name or a tag, as the directory does", () => {
+        const rows = [
+            ...ROWS,
+            client("cl_dee", "Dee", null, { tags: ["VIP"], subjectNames: ["Archie", "Mabel"] }),
+        ];
+        expect(filterClients(rows, "archie").map((c) => c.id)).toEqual(["cl_dee"]);
+        expect(filterClients(rows, "mab").map((c) => c.id)).toEqual(["cl_dee"]);
+        expect(filterClients(rows, "vip").map((c) => c.id)).toEqual(["cl_dee"]);
+    });
+
+    it("lets a client picker find them the same way", () => {
+        const dee = client("cl_dee", "Dee", "+12505550303", { subjectNames: ["Archie"] });
+        const option = clientOption(dee, null);
+        expect(option.match?.("archie")).toBe(true);
+        expect(option.match?.("(250) 555-0303")).toBe(true);
+        expect(option.match?.("bob")).toBe(false);
     });
 
     it("finds an accented tag typed with or without its accent", () => {

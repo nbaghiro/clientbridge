@@ -28,6 +28,7 @@ import {
     minutesInto,
     useSubjectKind,
     useCrewJob,
+    useBookingSetupMissing,
 } from "@clientbridge/app-core";
 import { INTENT_COLORS } from "@clientbridge/tokens";
 import { theme } from "@clientbridge/tokens/native";
@@ -101,6 +102,7 @@ export function ScheduleScreen() {
     const zone = useBusinessZone();
     const kind = useSubjectKind();
     const viewer = useViewer();
+    const setupMissing = useBookingSetupMissing(viewer);
     const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const board = useScheduleBoard(viewer);
     const day = board.focus;
@@ -403,7 +405,9 @@ export function ScheduleScreen() {
                                                 variant="card"
                                                 icon="calendar"
                                                 message={s.emptyDayTitle}
-                                                body={s.emptyDay}
+                                                body={
+                                                    setupMissing ? s.emptyDayNotReady : s.emptyDay
+                                                }
                                             />
                                         ) : (
                                             <Empty

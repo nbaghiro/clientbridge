@@ -1,6 +1,93 @@
-import { describe, expect, it } from "vitest";
+// @vitest-environment happy-dom
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { canEditPhoto, personMedia, photoIndex } from "./files";
+import type { ApiLike } from "../api";
+import { strings } from "../strings";
+import { canEditPhoto, logoTarget, personMedia, photoIndex, useFileUpload } from "./files";
+
+describe("useFileUpload", () => {
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
+    function storageApi(post: (path: string, body: unknown) => Promise<unknown>): ApiLike {
+        return { post } as unknown as ApiLike;
+    }
+
+    const minted = { file: { id: "fl_a" }, upload_url: "https://files.test/a" };
+
+    it("declares the bytes' own type and size, then confirms them", async () => {
+        const put = vi.fn(() => Promise.resolve({ ok: true }));
+        vi.stubGlobal("fetch", put);
+        const posts: [string, unknown][] = [];
+        const api = storageApi((path, body) => {
+            posts.push([path, body]);
+            return Promise.resolve(minted);
+        });
+        const uploaded = vi.fn();
+        const { result } = renderHook(() => useFileUpload(api, uploaded));
+        const bytes = new Blob(["abcd"], { type: "image/webp" });
+        act(() => {
+            result.current.upload(Promise.resolve(bytes), logoTarget("bz_a"));
+        });
+        await waitFor(() => {
+            expect(uploaded).toHaveBeenCalledWith("fl_a");
+        });
+        expect(posts[0]).toEqual([
+            "/v1/files",
+            {
+                parent_type: "business",
+                parent_id: "bz_a",
+                purpose: "logo",
+                content_type: "image/webp",
+                size: 4,
+            },
+        ]);
+        expect(put).toHaveBeenCalledWith("https://files.test/a", {
+            method: "PUT",
+            headers: { "Content-Type": "image/webp" },
+            body: bytes,
+        });
+        expect(posts[1]?.[0]).toBe("/v1/files/fl_a/complete");
+    });
+
+    it("says what is wrong with a refused file", async () => {
+        const refused = Object.assign(new Error("422"), { code: "file_too_large" });
+        const api = storageApi(() => Promise.reject(refused));
+        const { result } = renderHook(() => useFileUpload(api));
+        act(() => {
+            result.current.upload(new Blob(["a"], { type: "image/png" }), logoTarget("bz_a"));
+        });
+        await waitFor(() => {
+            expect(result.current.error).toBe(strings.api.fileTooLarge);
+        });
+    });
+
+    it("reports bytes that could not be prepared, without asking the server", async () => {
+        const post = vi.fn();
+        const unreadable = Object.assign(new Error("no"), { code: "file_type_unsupported" });
+        const { result } = renderHook(() => useFileUpload(storageApi(post)));
+        act(() => {
+            result.current.upload(Promise.reject(unreadable), logoTarget("bz_a"));
+        });
+        await waitFor(() => {
+            expect(result.current.error).toBe(strings.api.fileTypeUnsupported);
+        });
+        expect(post).not.toHaveBeenCalled();
+    });
+
+    it("tells a connection failure apart from a refused file", async () => {
+        const api = storageApi(() => Promise.reject(new TypeError("offline")));
+        const { result } = renderHook(() => useFileUpload(api));
+        act(() => {
+            result.current.upload(new Blob(["a"], { type: "image/png" }), logoTarget("bz_a"));
+        });
+        await waitFor(() => {
+            expect(result.current.error).toBe(strings.common.fileUploadOffline);
+        });
+    });
+});
 
 describe("photoIndex", () => {
     it("keeps each person's newest photo, keyed by client, user and staff id", () => {

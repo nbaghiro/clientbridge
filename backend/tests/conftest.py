@@ -249,14 +249,24 @@ def push() -> FakePushSender:
     return FakePushSender()
 
 
+# what a real file of each type starts with, so a test only sets bytes when they are the point
+_FILE_STARTS = {
+    "image/png": b"\x89PNG\r\n\x1a\n",
+    "image/jpeg": b"\xff\xd8\xff",
+    "image/webp": b"RIFF\x00\x00\x00\x00WEBP",
+}
+
+
 class FakeFileStorage:
     def __init__(self) -> None:
         self.uploads: list[tuple[str, str]] = []
         self.downloads: list[str] = []
         self.stored: dict[str, int] = {}
+        self.starts: dict[str, bytes] = {}
+        self.types: dict[str, str] = {}
         self.deleted: list[str] = []
 
-    def presign_upload(self, key: str, content_type: str) -> str:
+    def presign_upload(self, key: str, content_type: str, size: int) -> str:
         self.uploads.append((key, content_type))
         return f"https://files.test/{key}"
 
@@ -267,8 +277,20 @@ class FakeFileStorage:
     def head(self, key: str) -> int | None:
         return self.stored.get(key)
 
+    def read_start(self, key: str, length: int) -> bytes:
+        if key in self.starts:
+            return self.starts[key][:length]
+        declared = dict(self.uploads).get(key, "")
+        return _FILE_STARTS.get(declared, b"")[:length]
+
+    def promote(self, source: str, key: str, content_type: str) -> None:
+        self.stored[key] = self.stored[source]
+        self.starts[key] = self.read_start(source, 64)
+        self.types[key] = content_type
+
     def delete(self, key: str) -> None:
         self.stored.pop(key, None)
+        self.starts.pop(key, None)
         self.deleted.append(key)
 
 

@@ -156,10 +156,14 @@ export function PublicOrder() {
                                     <dt>{s.subtotal}</dt>
                                     <dd>{formatMoney(order.subtotal_cents, order.currency)}</dd>
                                 </div>
-                                <div className="flex justify-between">
-                                    <dt>{s.tax}</dt>
-                                    <dd>{formatMoney(order.tax_total_cents, order.currency)}</dd>
-                                </div>
+                                {order.tax_total_cents > 0 ? (
+                                    <div className="flex justify-between">
+                                        <dt>{s.tax}</dt>
+                                        <dd>
+                                            {formatMoney(order.tax_total_cents, order.currency)}
+                                        </dd>
+                                    </div>
+                                ) : null}
                                 <div className="flex justify-between font-bold">
                                     <dt>{s.total}</dt>
                                     <dd>{formatMoney(order.total_cents, order.currency)}</dd>

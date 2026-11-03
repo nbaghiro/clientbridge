@@ -1,5 +1,5 @@
 import { formatPhone, strings } from "@clientbridge/app-core/public";
-import { expect } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import {
     createInvoice,
     expectPaid,
@@ -13,11 +13,17 @@ import {
     expectDocumentTotal,
     fillDocumentLine,
     openDocument,
+    registerForTax,
     saveDocument,
+    sendDocument,
+    taxLegs,
+    type DocumentClient,
     type DocumentRecord,
 } from "./support/billing";
+import { businessEvidence, newBusiness, patchBusiness, type NewBusiness } from "./support/business";
+import { payCash, ringCash, stockProduct } from "./support/pos";
 import { paymentEvidence, receiptMessages } from "./support/evidence";
-import { signIn, test } from "./support/session";
+import { navigate, signIn, test } from "./support/session";
 import { randomUUID } from "node:crypto";
 import { demoId, runUrl } from "@clientbridge/config/e2e/run";
 
@@ -613,4 +619,218 @@ test.describe(() => {
                 .map((entry) => [entry.category, entry.amount_cents]),
         ).toEqual([["receivable", -deposit]]);
     });
+});
+
+test("BILL-DOC-21 golden tax matrix for ON, BC, QC and NS with exempt and GST-only lines, plus tax off", async ({
+    baseURL,
+    browser,
+    page,
+    request,
+}) => {
+    test.setTimeout(420_000);
+    const o = strings.business.onboarding;
+    const matrix = [
+        {
+            province: o.provinceON,
+            federal: "HST" as const,
+            lineTax: [1300, 433, 0],
+            taxes: { "HST 13%": "$17.33" },
+            legs: { HST: 1733 },
+            total: "$190.66",
+            totalCents: 19066,
+        },
+        {
+            province: o.provinceQC,
+            federal: "GST" as const,
+            lineTax: [1498, 167, 0],
+            taxes: { "GST 5%": "$6.67", "QST 9.975%": "$9.98" },
+            legs: { GST: 667, QST: 998 },
+            total: "$189.98",
+            totalCents: 18998,
+        },
+        {
+            province: o.provinceNS,
+            federal: "HST" as const,
+            lineTax: [1400, 467, 0],
+            taxes: { "HST 14%": "$18.67" },
+            legs: { HST: 1867 },
+            total: "$192.00",
+            totalCents: 19200,
+        },
+        {
+            province: o.provinceBC,
+            federal: "GST" as const,
+            lineTax: [1200, 167, 0],
+            taxes: { "GST 5%": "$6.67", "PST 7%": "$7.00" },
+            legs: { GST: 667, PST: 700 },
+            total: "$187.00",
+            totalCents: 18700,
+        },
+    ];
+    const visible = (scope: Locator, text: string): Locator =>
+        scope.getByText(text, { exact: true }).locator("visible=true").first();
+    const issue = async (
+        tab: Page,
+        row: (typeof matrix)[number],
+    ): Promise<{ id: string; client: DocumentClient; token: string }> => {
+        const client = await createDocumentClient(tab);
+        const editor = await composeDocument(tab, client, "invoice");
+        await fillDocumentLine(tab, editor, 0, "Standard service", "1", "100.00", "standard");
+        await fillDocumentLine(
+            tab,
+            editor,
+            1,
+            "Federal only service",
+            "1",
+            "33.33",
+            "federal_only",
+            row.federal,
+        );
+        await fillDocumentLine(tab, editor, 2, "Exempt fee", "1", "40.00", "exempt");
+        const draft = await saveDocument(tab, editor, "invoice");
+        await editor.getByRole("button", { name: strings.common.close, exact: true }).click();
+        const dialog = await openDocument(tab, client, "invoice", draft.id);
+        const sent = await sendDocument(tab, draft.id);
+        expect(sent).toMatchObject({ subtotal_cents: 17333, total_cents: row.totalCents });
+        for (const [label, amount] of Object.entries(row.taxes)) {
+            await expect(visible(dialog, label)).toBeVisible();
+            await expect(visible(dialog, amount)).toBeVisible();
+        }
+        const saved = await documentEvidence("invoice", draft.id);
+        expect(saved.lines.map((line) => line.tax_amount_cents)).toEqual(row.lineTax);
+        expect(await taxLegs(draft.id)).toEqual(row.legs);
+        return { id: draft.id, client, token: sent.pay_token };
+    };
+
+    let last: Awaited<ReturnType<typeof issue>> | null = null;
+    let opened: NewBusiness | null = null;
+    for (const row of matrix) {
+        const context =
+            row.province === o.provinceBC
+                ? null
+                : await browser.newContext(baseURL === undefined ? {} : { baseURL });
+        const tab = context === null ? page : await context.newPage();
+        opened = await newBusiness(tab, request, "tax-matrix", "beauty", row.province);
+        await registerForTax(tab, "123456789RT0001");
+        last = await issue(tab, row);
+        const payPage = await request.get(`${runUrl("VITE_API_URL")}/pay/${last.token}`);
+        const taxes = ((await payPage.json()) as { taxes: { code: string; cents: number }[] })
+            .taxes;
+        expect(Object.fromEntries(taxes.map((tax) => [tax.code, tax.cents]))).toEqual(row.legs);
+        await context?.close();
+    }
+    if (last === null || opened === null) throw new Error("the matrix issued nothing");
+    const issued = last;
+    const business = opened;
+    const bc = matrix[3];
+    if (bc === undefined) throw new Error("the matrix has no BC row");
+
+    const api = runUrl("VITE_API_URL");
+    const chargesTax = async (): Promise<boolean[]> =>
+        Promise.all(
+            ["shop", "services"].map(async (path) => {
+                const response = await request.get(`${api}/book/${business.slug}/${path}`);
+                return ((await response.json()) as { charges_tax: boolean }).charges_tax;
+            }),
+        );
+    expect(await chargesTax()).toEqual([true, true]);
+
+    const client = await createDocumentClient(page);
+    const quoted = await page.request.post(`${api}/v1/estimates`, {
+        headers: { Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() },
+        data: {
+            client_id: client.id,
+            send: true,
+            lines: [{ description: "Quoted groom", unit_amount_cents: 10000 }],
+        },
+    });
+    expect(quoted.status(), await quoted.text()).toBe(201);
+    const estimate = (await quoted.json()) as { id: string; total_cents: number };
+    expect(estimate.total_cents).toBe(11200);
+    const ticket = await page.request.post(`${api}/v1/orders`, {
+        headers: { Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() },
+        data: { lines: [{ description: "Held groom", unit_amount_cents: 10000 }] },
+    });
+    expect(ticket.status(), await ticket.text()).toBe(201);
+    const held = (await ticket.json()) as { id: string; total_cents: number };
+    expect(held.total_cents).toBe(11200);
+    const editor = await composeDocument(page, client, "invoice");
+    await fillDocumentLine(page, editor, 0, "Waiting draft", "1", "100.00", "standard");
+    const waiting = await saveDocument(page, editor, "invoice");
+    expect(waiting).toMatchObject({ tax_total_cents: 1200, total_cents: 11200 });
+    await editor.getByRole("button", { name: strings.common.close, exact: true }).click();
+
+    await navigate(page, "/setup/taxes");
+    await page.getByText(strings.taxes.regSmall("$30,000"), { exact: true }).click();
+    await page.getByRole("button", { name: strings.taxes.save, exact: true }).click();
+    await expect(page.getByText(strings.taxes.saved, { exact: true })).toBeVisible();
+    await expect(page.getByText(strings.taxes.offNotice, { exact: true })).toBeVisible();
+
+    const kept = await openDocument(page, issued.client, "invoice", issued.id);
+    for (const [label, amount] of Object.entries(bc.taxes)) {
+        await expect(visible(kept, label)).toBeVisible();
+        await expect(visible(kept, amount)).toBeVisible();
+    }
+    await expect(visible(kept, bc.total)).toBeVisible();
+    expect((await documentEvidence("invoice", issued.id)).document).toMatchObject({
+        total_cents: bc.totalCents,
+    });
+    expect(await taxLegs(issued.id)).toEqual(bc.legs);
+    const province = await patchBusiness(page, { province: "ON" });
+    expect(province.status()).toBe(409);
+    expect((await businessEvidence(business.id)).business[0]?.province).toBe("BC");
+    await kept.getByRole("button", { name: strings.common.close, exact: true }).click();
+
+    const heldPaid = await page.request.post(`${api}/v1/orders/${held.id}/cash`, {
+        headers: { Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() },
+        data: { tendered_cents: 10000 },
+    });
+    expect(heldPaid.status(), await heldPaid.text()).toBe(200);
+    expect(await heldPaid.json()).toMatchObject({ amount_cents: 10000 });
+
+    const quote = await openDocument(page, client, "estimate", estimate.id);
+    await expect(visible(quote, "$100.00")).toBeVisible();
+    await expect(quote.getByText("$112.00", { exact: true })).toHaveCount(0);
+    expect((await documentEvidence("estimate", estimate.id)).document).toMatchObject({
+        total_cents: 10000,
+    });
+    await quote.getByRole("button", { name: strings.common.close, exact: true }).click();
+
+    const repriced = await openDocument(page, client, "invoice", waiting.id);
+    await expect(visible(repriced, "$100.00")).toBeVisible();
+    await expect(repriced.getByText("$112.00", { exact: true })).toHaveCount(0);
+    await expect(repriced.getByText("GST 5%", { exact: true })).toHaveCount(0);
+    expect(await sendDocument(page, waiting.id)).toMatchObject({
+        tax_total_cents: 0,
+        total_cents: 10000,
+    });
+    await expect.poll(() => taxLegs(waiting.id)).toEqual({});
+    await repriced.getByRole("button", { name: strings.common.close, exact: true }).click();
+
+    const fresh = await composeDocument(page, client, "invoice");
+    await fillDocumentLine(page, fresh, 0, "Untaxed groom", "1", "100.00", "standard");
+    expect(await saveDocument(page, fresh, "invoice")).toMatchObject({
+        tax_total_cents: 0,
+        total_cents: 10000,
+    });
+    await fresh.getByRole("button", { name: strings.common.close, exact: true }).click();
+
+    const product = await stockProduct(page, {
+        name: "Untaxed Shampoo",
+        prefix: "TAX-OFF",
+        priceCents: 2000,
+        taxClass: "standard",
+        stock: 5,
+    });
+    const payment = await ringCash(page, {
+        product,
+        stock: 5,
+        taps: 1,
+        client,
+        charge: "$20.00",
+        given: "20.00",
+    });
+    expect((await payCash(page, payment, "$20.00")).amount_cents).toBe(2000);
+
+    expect(await chargesTax()).toEqual([false, false]);
 });

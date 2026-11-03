@@ -3,6 +3,7 @@ import pytest
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.models.billing import Invoice
 from clientbridge.models.business import Business
 from clientbridge.models.platform import Audit
 from clientbridge.services.business import has_issued_tax
@@ -60,6 +61,19 @@ async def test_a_business_without_taxed_documents_changes_its_province(
     assert (await api.patch("/v1/business", json={"province": "ZZ"})).status_code == 422
     await db.refresh(fresh)
     assert fresh.province == "ON"
+
+
+async def test_a_province_change_reprices_open_documents(
+    api: httpx.AsyncClient, db: AsyncSession, factory: Factory, fresh: Business
+) -> None:
+    await _registered(db, fresh)
+    body = {"client_id": await _client(factory, fresh), "lines": [GROOM]}
+    draft = await api.post("/v1/invoices", json=body)
+    assert draft.status_code == 201, draft.text
+    assert draft.json()["tax_total_cents"] == 600
+    assert (await api.patch("/v1/business", json=TORONTO)).status_code == 200
+    row = await db.get_one(Invoice, draft.json()["id"], populate_existing=True)
+    assert (row.tax_total_cents, row.total_cents) == (650, 5650)
 
 
 async def test_untaxed_and_draft_documents_leave_the_province_open(

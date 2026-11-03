@@ -6,13 +6,14 @@ import {
     useSetupProgress,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import { useNavigation } from "@react-navigation/native";
+import { type RouteProp, useNavigation, useRoute } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Avatar, Button, Icon } from "@clientbridge/ui";
+import { Avatar, Button, Icon, Skeleton } from "@clientbridge/ui";
 
 import { apiBaseUrl } from "../lib/api";
 import { useRole } from "../lib/auth";
+import { useOpenLink } from "../lib/links";
 import { useSignOut } from "../lib/session";
 import type { RootStackParamList } from "../navigation";
 import { Business } from "./Business";
@@ -53,6 +54,14 @@ export function SetupScreen() {
     const role = useRole();
     const business = useSetupProgress();
     const signOut = useSignOut();
+    const openLink = useOpenLink();
+    if (role === null) {
+        return (
+            <View style={styles.content}>
+                <Skeleton variant="row" count={7} label={strings.common.loading} />
+            </View>
+        );
+    }
     return (
         <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
             <View style={styles.identity}>
@@ -64,6 +73,18 @@ export function SetupScreen() {
                     variant="mark"
                 />
                 <Text style={styles.rowLabel}>{business.businessName}</Text>
+            </View>
+            <View style={[styles.group, styles.payments]}>
+                <Pressable
+                    style={styles.row}
+                    accessibilityRole="button"
+                    onPress={() => {
+                        openLink("payments");
+                    }}
+                >
+                    <Text style={styles.rowLabel}>{strings.navigation.payments}</Text>
+                    <Icon name="chevron" size={18} color={theme.colors.muted} />
+                </Pressable>
             </View>
             <View style={styles.group}>
                 {setupSectionsFor("mobile", role).map((s, i) => (
@@ -94,13 +115,15 @@ export function BusinessScreen() {
 }
 
 export function TeamHoursScreen() {
-    return <Team footer={<Hours />} />;
+    const route = useRoute<RouteProp<RootStackParamList, "Team">>();
+    return <Team footer={<Hours />} showFooter={route.params?.hours === true} />;
 }
 
 const styles = StyleSheet.create({
     identity: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 16 },
     screen: { flex: 1 },
     content: { padding: 16 },
+    payments: { marginBottom: 16 },
     group: {
         backgroundColor: theme.colors.surface,
         borderRadius: theme.radius,

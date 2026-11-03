@@ -3,6 +3,7 @@ import { runPreview, runPort } from "@clientbridge/config/e2e/run";
 
 const port = runPort("WEB_E2E_PORT");
 const pseudoPort = runPort("WEB_PSEUDO_E2E_PORT");
+const connectPort = runPort("CONNECT_E2E_PORT");
 const baseURL = `http://localhost:${String(port)}`;
 
 export const chromium = process.env.CI ? {} : { channel: "chrome" };
@@ -59,6 +60,14 @@ export default defineConfig({
             command: `pnpm exec vite --port ${String(pseudoPort)} --strictPort`,
             env: { VITE_PSEUDO_LOCALE: "1" },
             url: `http://localhost:${String(pseudoPort)}/`,
+            reuseExistingServer: !process.env.CI,
+        },
+        {
+            // what an owner sets in Setup has to reach the public pages
+            command: process.env.CI
+                ? runPreview("connect", connectPort)
+                : `pnpm --filter connect exec vite --port ${String(connectPort)} --strictPort`,
+            url: `http://localhost:${String(connectPort)}/`,
             reuseExistingServer: !process.env.CI,
         },
         ...(adminUrl

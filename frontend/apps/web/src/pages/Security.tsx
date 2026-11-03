@@ -164,7 +164,9 @@ export function Security() {
                 {s.backupCodes.codes !== null ? (
                     <ul className="grid grid-cols-2 gap-1 font-mono text-sm text-ink sm:grid-cols-3">
                         {s.backupCodes.codes.map((code) => (
-                            <li key={code}>{code}</li>
+                            <li key={code.key} className={code.used ? "text-muted" : undefined}>
+                                {code.label}
+                            </li>
                         ))}
                     </ul>
                 ) : null}

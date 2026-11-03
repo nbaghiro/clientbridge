@@ -217,6 +217,24 @@ async def fetch_lines(
     return list(rows.scalars().all())
 
 
+async def fetch_lines_of(
+    db: AsyncSession, business_id: str, parent: LineParent, parent_ids: list[str]
+) -> dict[str, list[Line]]:
+    """Many parents' lines in one read, each parent's in the order fetch_lines gives them."""
+    rows = await db.execute(
+        scoped(Line, business_id)
+        .add_columns(parent_fk(parent))
+        .where(parent_fk(parent).in_(parent_ids))
+        .order_by(Line.position, Line.id)
+        .execution_options(populate_existing=True)
+    )
+    lines: dict[str, list[Line]] = {}
+    for line, parent_id in rows.tuples():
+        if parent_id is not None:
+            lines.setdefault(parent_id, []).append(line)
+    return lines
+
+
 def line_out(ln: Line) -> LineOut:
     return LineOut(
         id=ln.id,

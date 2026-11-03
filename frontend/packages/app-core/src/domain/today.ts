@@ -493,7 +493,7 @@ interface TodayMoney {
 export function firstRunLayout(
     agendaCount: number,
     money: TodayMoney | null,
-    setup: { complete: boolean },
+    setup: { complete: boolean; dismissed: boolean },
 ): { guide: boolean; money: boolean } {
     // A business with money moving keeps its usual Today, even with setup left to finish.
     const quiet =
@@ -501,7 +501,7 @@ export function firstRunLayout(
         money.collectedCents === 0 &&
         money.paymentCount === 0 &&
         money.awaitingCount === 0;
-    const guide = agendaCount === 0 && !setup.complete && quiet;
+    const guide = agendaCount === 0 && !setup.complete && !setup.dismissed && quiet;
     return { guide, money: !guide };
 }
 

@@ -37,13 +37,50 @@ test("the business cover photo keeps its hovered actions readable", async ({ pag
     await page.unrouteAll({ behavior: "ignoreErrors" });
 });
 
+test("a phone is offered plan your visit only when there is something to jump to", async ({
+    page,
+}) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    let phone: string | null = null;
+    await page.route(`${api}/book/${slug}/profile`, (route) =>
+        rewrite(route, (profile) => ({
+            ...profile,
+            hours: [],
+            address: null,
+            phone,
+            email: null,
+            website: null,
+        })),
+    );
+    const sections = page.getByRole("navigation", { name: strings.publicLanding.jumpTo });
+    const visit = sections.getByRole("link", { name: strings.publicLanding.visit, exact: true });
+
+    await page.goto(home);
+    await expect(
+        sections.getByRole("link", { name: strings.publicLanding.servicesTitle, exact: true }),
+    ).toBeVisible();
+    await expect(visit).toHaveCount(0);
+
+    phone = "+12505550100";
+    await page.goto(home);
+    await visit.click();
+    await expect(page.locator("#visit")).toBeInViewport();
+    await expect(page.locator("#visit").getByText(phone)).toBeVisible();
+});
+
 test("empty businesses do not advertise unavailable services or products", async ({ page }) => {
     await page.route(`${api}/book/${slug}/profile`, (route) =>
         rewrite(route, (profile) => ({
             ...profile,
             services: [],
             staff: [],
-            policy: null,
+            hours: [],
+            address: null,
+            phone: null,
+            email: null,
+            website: null,
+            // the server always sends the booking rules, whether or not anything can be booked
+            policy: { self_service: true, cancel_cutoff_hours: 24, reschedule_cutoff_hours: 24 },
         })),
     );
     await page.route(`${api}/book/${slug}/shop`, (route) =>
@@ -53,6 +90,15 @@ test("empty businesses do not advertise unavailable services or products", async
     const nav = page.getByRole("navigation", { name: strings.publicLanding.navigation });
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expect(nav).toHaveCount(0);
+    await expect(
+        page.getByText(strings.publicLanding.noServicesYet, { exact: true }),
+    ).toBeVisible();
+    await expect(page.locator("aside")).toHaveCount(0);
+    await expect(page.getByText(strings.publicLanding.visit, { exact: true })).toHaveCount(0);
+    await expect(page.getByText(strings.publicLanding.policies, { exact: true })).toHaveCount(0);
+    await expect(
+        page.getByText(strings.publicLanding.lateCancelPolicy, { exact: true }),
+    ).toHaveCount(0);
     await expect(
         page.getByRole("button", { name: strings.publicBooking.shopLink, exact: true }),
     ).toHaveCount(0);
@@ -67,6 +113,7 @@ test("business favicon follows the homepage and booking branding", async ({ page
     await page.goto(home);
     const icon = page.locator('link[rel="icon"]').first();
     await expect(icon).toHaveAttribute("href", /^data:image\/png;base64,/);
+    await expect(page).not.toHaveTitle(strings.common.appName);
     await page
         .locator("header")
         .getByRole("button", { name: strings.publicLanding.book, exact: true })

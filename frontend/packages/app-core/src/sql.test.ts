@@ -1982,6 +1982,16 @@ describe("app-core SQL against the replica schema", () => {
         ).toEqual([{ services: 1, hours: 1, team: 3, stripe: 0, slug: null }]);
     });
 
+    it("knows clients can book only with a service and hours", () => {
+        expect(pick(run("SETUP_PROGRESS_SQL"), "services", "hours")).toEqual([
+            { services: 1, hours: 1 },
+        ]);
+        db.run("DELETE FROM hours");
+        expect(pick(run("SETUP_PROGRESS_SQL"), "services", "hours")).toEqual([
+            { services: 1, hours: 0 },
+        ]);
+    });
+
     it("names members from their synced account and open invites by their email", () => {
         insert("users", [
             { id: "us_owner", name: "Hana" },
@@ -2246,7 +2256,11 @@ describe("app-core SQL against the replica schema", () => {
                 province_locked: 1,
             },
         ]);
-        const locked = () => run("TAX_SETTINGS_SQL")[0]?.province_locked;
+        const locked = () => {
+            const value = run("TAX_SETTINGS_SQL")[0]?.province_locked;
+            expect(run("PROVINCE_LOCKED_SQL")[0]?.province_locked).toBe(value);
+            return value;
+        };
         db.run("SAVEPOINT untaxed");
         db.run(
             "DELETE FROM entries WHERE account_id IN (SELECT id FROM accounts WHERE category = 'tax')",

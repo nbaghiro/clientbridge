@@ -1,5 +1,5 @@
 import { useBusinessQuery as useQuery } from "../hooks";
-import { personMedia, usePeoplePhotos } from "./files";
+import { usePeoplePhotos } from "./files";
 import { afterReview } from "./previews";
 
 import { useMemo, useRef, useState } from "react";
@@ -28,7 +28,7 @@ import {
     useCatalogItems,
 } from "./catalog";
 import { type Checkout, type CheckoutMethod, NEW_CARD, useCheckout } from "./checkout";
-import { packageBalance, useClients } from "./clients";
+import { clientOption, packageBalance, useClients } from "./clients";
 import { ownedLiabilitySql, sessionsUsedSql } from "./ledger";
 import { checkoutMethods, useSavedCards } from "./payments";
 import { CLIENT_SUBJECTS_SQL, type SubjectDbRow, kindWord, useSubjectKind } from "./subjects";
@@ -870,11 +870,7 @@ export function useEntitlementSaleForm(
         setRecipient,
         clientId,
         setClientId,
-        clientOptions: clients.map((c) => ({
-            key: c.id,
-            label: c.name,
-            media: personMedia(c.name, null, photos.client(c.id)),
-        })),
+        clientOptions: clients.map((c) => clientOption(c, photos.client(c.id))),
         subject:
             kind !== "package" || subjectKind === null || subjects.length === 0
                 ? null

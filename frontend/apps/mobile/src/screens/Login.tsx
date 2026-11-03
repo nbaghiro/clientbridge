@@ -1,4 +1,9 @@
-import { strings, useAuthForm, useRecoveryForm } from "@clientbridge/app-core";
+import {
+    type SecondFactorForm,
+    strings,
+    useAuthForm,
+    useRecoveryForm,
+} from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { StatusBar } from "expo-status-bar";
 import { type ReactNode, useState } from "react";
@@ -202,7 +207,15 @@ function CodeStep({
     );
 }
 
-function SecondFactor({ auth }: { auth: Auth }) {
+function SecondFactor({
+    auth,
+    subtitle = a.mfaSubtitle,
+    cancelLabel = a.notYou,
+}: {
+    auth: SecondFactorForm;
+    subtitle?: string;
+    cancelLabel?: string;
+}) {
     const others = auth.mfaMethods.filter((m) => m !== auth.mfaMethod);
     if (auth.mfaMethods.length === 0)
         return (
@@ -211,7 +224,7 @@ function SecondFactor({ auth }: { auth: Auth }) {
                 <Notice tone="info">{a.mfaKeyOnly}</Notice>
                 <View style={styles.submit}>
                     <Button variant="link" onPress={auth.cancel}>
-                        {a.notYou}
+                        {cancelLabel}
                     </Button>
                 </View>
             </View>
@@ -219,7 +232,7 @@ function SecondFactor({ auth }: { auth: Auth }) {
     return (
         <CodeStep
             title={a.mfaTitle}
-            body={a.mfaSubtitle}
+            body={subtitle}
             label={auth.mfaMethod === "totp" ? a.mfaTotp : a.mfaLookup}
             placeholder={auth.mfaMethod === "totp" ? a.codePlaceholder : a.backupCodePlaceholder}
             autoComplete={auth.mfaMethod === "totp" ? "one-time-code" : "off"}
@@ -242,7 +255,7 @@ function SecondFactor({ auth }: { auth: Auth }) {
             ) : null}
             <View style={styles.submit}>
                 <Button variant="link" onPress={auth.cancel}>
-                    {a.notYou}
+                    {cancelLabel}
                 </Button>
             </View>
         </CodeStep>
@@ -250,6 +263,10 @@ function SecondFactor({ auth }: { auth: Auth }) {
 }
 
 function Recover({ recovery, onBack }: { recovery: Recovery; onBack: () => void }) {
+    if (recovery.step === "mfa")
+        return (
+            <SecondFactor auth={recovery} subtitle={a.resetMfaSubtitle} cancelLabel={a.startOver} />
+        );
     if (recovery.step === "code")
         return (
             <View>

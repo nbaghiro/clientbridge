@@ -137,6 +137,7 @@ export function Select<K extends string>(props: NativeProps<SelectProps<K>>) {
 
 /** Select's body; `searchFirst` always opens a sheet with its search box focused (SearchSelect). */
 export function SelectSheet<K extends string>({
+    emptyLabel,
     label,
     name,
     hint,
@@ -179,10 +180,11 @@ export function SelectSheet<K extends string>({
     const shown =
         needle === ""
             ? options
-            : options.filter(
-                  (o) =>
-                      o.label.toLowerCase().includes(needle) ||
-                      (o.detail?.toLowerCase().includes(needle) ?? false),
+            : options.filter((o) =>
+                  o.match !== undefined
+                      ? o.match(needle)
+                      : o.label.toLowerCase().includes(needle) ||
+                        (o.detail?.toLowerCase().includes(needle) ?? false),
               );
     const close = (): void => {
         setOpen(false);
@@ -266,7 +268,9 @@ export function SelectSheet<K extends string>({
                     <View style={styles.list}>
                         {shown.length === 0 ? (
                             <Text style={styles.empty}>
-                                {options.length === 0 ? strings.ui.noOptions : strings.ui.noMatches}
+                                {options.length === 0
+                                    ? (emptyLabel ?? strings.ui.noOptions)
+                                    : strings.ui.noMatches}
                             </Text>
                         ) : (
                             rows

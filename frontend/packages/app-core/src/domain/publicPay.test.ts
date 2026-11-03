@@ -223,6 +223,28 @@ describe("the public pay page", () => {
     });
 });
 
+describe("the tip wording", () => {
+    const form = async (taxes: typeof TAXES) => {
+        const client = {
+            getPublicInvoice: () => Promise.resolve(publicInvoice({ taxes })),
+            payCard: () => Promise.reject(new Error("unused")),
+        };
+        const { result } = renderHook(() => usePublicPayForm(client, "tok"));
+        await waitFor(() => {
+            expect(result.current.status).toBe("ready");
+        });
+        return result.current.tip;
+    };
+
+    it("only mentions tax when the invoice charged it", async () => {
+        const taxed = await form(TAXES.slice(0, 2));
+        expect(taxed.hint).toBe(pp.tipHint);
+        const untaxed = await form([]);
+        expect(untaxed.hint).toBe(pp.tipHintNoTax);
+        expect(untaxed.note).not.toContain("tax");
+    });
+});
+
 describe("starting a card payment", () => {
     it("sends the balance it shows and reloads when the invoice changed", async () => {
         let balance = 3748;

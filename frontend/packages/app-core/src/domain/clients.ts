@@ -33,11 +33,12 @@ import {
     phoneDigits,
     BUSINESS_CURRENCY,
 } from "../format";
-import { useAsyncAction, useNow, useRemote } from "../hooks";
+import { useAsyncAction, useNow, useRemote, useSyncedDraft } from "../hooks";
 import type { Load } from "../hooks";
 import { type IconName, SUBJECT_ICON } from "../icons";
 import { strings } from "../strings";
-import type { Intent, TimelineEntry } from "../ui";
+import type { Intent, SelectOption, TimelineEntry } from "../ui";
+import { personMedia } from "./files";
 import { utcSql } from "../datetime";
 import { TEXTS_STOPPED_SQL } from "./broadcasts";
 import { clientValueSql, invoiceStatusSql } from "./ledger";
@@ -70,7 +71,7 @@ import {
     toSubject,
     useSubjectKind,
 } from "./subjects";
-import { useReplicaLoad } from "./sync";
+import { expectArrival, useArrival, useReplicaLoad } from "./sync";
 import { staffNameSql } from "./staff";
 
 const s = strings.clients;
@@ -82,14 +83,42 @@ export interface ClientRow {
     phone: string | null;
     status: string;
     lifetime_value_cents: number | null;
+    tags: string[];
+    subjectNames: string[];
 }
 
 export const CLIENTS_SQL = `
-SELECT c.id, c.name, c.phone, c.status, ${clientValueSql("c.id")} AS lifetime_value_cents
+SELECT c.id, c.name, c.phone, c.status, c.tags, ${clientValueSql("c.id")} AS lifetime_value_cents,
+       (SELECT json_group_array(sj.name) FROM subjects sj
+          WHERE sj.client_id = c.id AND sj.deleted_at IS NULL) AS subject_names
 FROM clients c WHERE c.status = 'active' ORDER BY c.name COLLATE NOCASE`;
 
+type ClientDbRow = Omit<ClientRow, "tags" | "subjectNames"> & {
+    tags: string | null;
+    subject_names: string | null;
+};
+
 export function useClients(): ClientRow[] {
-    return useQuery<ClientRow>(CLIENTS_SQL).data;
+    const { data } = useQuery<ClientDbRow>(CLIENTS_SQL);
+    return useMemo(
+        () =>
+            data.map(({ subject_names, ...c }) => ({
+                ...c,
+                tags: parseTags(c.tags),
+                subjectNames: parseTags(subject_names),
+            })),
+        [data],
+    );
+}
+
+/** A client in a picker, found by the same name, phone, subject and tag search as the client list. */
+export function clientOption(c: ClientRow, photo: string | null): SelectOption<string> {
+    return {
+        key: c.id,
+        label: c.name,
+        media: personMedia(c.name, null, photo),
+        match: (q) => clientMatches(c, q),
+    };
 }
 
 export function filterClients(rows: ClientRow[], q: string): ClientRow[] {
@@ -101,10 +130,19 @@ export function createClient(
     api: ApiLike,
     input: { name: string; phone?: string | null },
 ): Promise<{ id: string }> {
-    return api.post<{ id: string }>("/v1/clients", {
-        name: input.name.trim(),
-        phone: normalizePhone(input.phone),
-    });
+    return api
+        .post<{ id: string }>("/v1/clients", {
+            name: input.name.trim(),
+            phone: normalizePhone(input.phone),
+        })
+        .then(expectClient);
+}
+
+const clientArrival = (id: string): string => `client:${id}`;
+
+function expectClient(created: { id: string }): { id: string } {
+    expectArrival(clientArrival(created.id), (current) => current > 0);
+    return created;
 }
 
 /** A Postgres text[] synced as JSON text; an unreadable value reads as no tags. */
@@ -132,7 +170,7 @@ export function clientMatches(
     client: {
         name: string;
         phone: string | null;
-        subjects?: string | null;
+        subjectNames?: readonly string[];
         tags?: readonly string[];
     },
     q: string,
@@ -143,7 +181,7 @@ export function clientMatches(
     return (
         fold(client.name).includes(t) ||
         (digits.length >= 3 && phoneDigits(client.phone).includes(digits)) ||
-        fold(client.subjects ?? "").includes(t) ||
+        (client.subjectNames ?? []).some((name) => fold(name).includes(t)) ||
         (client.tags ?? []).some((tag) => fold(tag).includes(t))
     );
 }
@@ -191,6 +229,7 @@ export interface ClientListRow {
     archived: boolean;
     archivedAt: Date | null;
     tags: string[];
+    subjectNames: string[];
     subjects: string;
     next: Date | null;
     balanceCents: number;
@@ -199,6 +238,7 @@ export interface ClientListRow {
 }
 
 function toListRow(r: DirectoryRow): ClientListRow {
+    const subjectNames = parseTags(r.subject_names);
     return {
         id: r.id,
         name: r.name,
@@ -207,7 +247,8 @@ function toListRow(r: DirectoryRow): ClientListRow {
         archived: r.status !== "active",
         archivedAt: r.archived_at === null ? null : parseTimestamp(r.archived_at),
         tags: parseTags(r.tags),
-        subjects: formatList(parseTags(r.subject_names), "unit"),
+        subjectNames,
+        subjects: formatList(subjectNames, "unit"),
         next: r.next_visit_at === null ? null : parseTimestamp(r.next_visit_at),
         balanceCents: r.balance_cents ?? 0,
         lifetimeCents: r.lifetime_value_cents,
@@ -574,7 +615,13 @@ export function useClientRecord(
     const textsStopped = useTextsStopped(id);
     const zone = useBusinessZone();
     const row = client.data[0];
-    const load = useReplicaLoad([client, visits, subjects, notes], row === undefined);
+    const replica = useReplicaLoad([client, visits, subjects, notes], row === undefined);
+    // a record opened as soon as it was created reaches the replica a moment later
+    const arrival = useArrival(id === "" ? null : clientArrival(id), row === undefined ? 0 : 1);
+    const load: Load =
+        arrival === "arriving" && replica.state === "empty"
+            ? { ...replica, state: "loading" }
+            : replica;
     const record = useMemo(() => {
         if (row === undefined) return null;
         const now = new Date();
@@ -698,15 +745,20 @@ export interface ClientEditor {
     firstSubject: { kind: SubjectKind; detail: SubjectField } | null;
 }
 
-function draftFor(client: ClientListRow | null, consent: boolean): ClientDraft {
-    return {
-        name: client?.name ?? "",
-        phone: client === null ? "" : formatPhone(client.phone),
-        tags: client?.tags ?? [],
-        consent,
-        subjectName: "",
-        subjectDetail: "",
-    };
+const EMPTY_DRAFT: ClientDraft = {
+    name: "",
+    phone: "",
+    tags: [],
+    consent: false,
+    subjectName: "",
+    subjectDetail: "",
+};
+
+type ContactFields = Pick<ClientDraft, "name" | "phone" | "tags">;
+const CONTACT_FIELDS: readonly string[] = ["name", "phone", "tags"];
+
+function contactOf(client: { name: string; phone: string | null; tags: string[] }): ContactFields {
+    return { name: client.name, phone: formatPhone(client.phone), tags: client.tags };
 }
 
 /** Add when `clientId` is null, edit otherwise. Errors show after the first submit. */
@@ -726,14 +778,15 @@ export function useClientEditor(
     }>(CLIENT_CONSENT_SQL, [clientId ?? ""]).data[0];
     const agreed = consentRow !== undefined && consentRow.status !== "withdrawn";
     const textsStopped = useTextsStopped(clientId ?? "");
-    const initial = useMemo(() => draftFor(client, agreed), [client, agreed]);
-    const [draft, setDraft] = useState<ClientDraft>(initial);
-    // the directory can load after the editor opens, so an untouched draft follows the record
-    const [shown, setShown] = useState(initial);
-    if (shown !== initial) {
-        setShown(initial);
-        if (JSON.stringify(draft) === JSON.stringify(shown)) setDraft(initial);
-    }
+    // an edited record keeps only the fields touched, so a field synced in meanwhile shows through
+    const synced = useSyncedDraft(client === null ? null : contactOf(client));
+    const [added, setAdded] = useState<ClientDraft>(EMPTY_DRAFT);
+    const [consent, setConsent] = useState<boolean | null>(null);
+    const draft: ClientDraft = {
+        ...added,
+        ...(synced.values ?? {}),
+        consent: consent ?? agreed,
+    };
     const [tried, setTried] = useState(false);
     const [ignored, setIgnored] = useState(false);
     const [taken, setTaken] = useState<{ phone: string; clientId: string } | null>(null);
@@ -741,18 +794,24 @@ export function useClientEditor(
     const lifecycle = useClientLifecycle(api, client?.id ?? null);
     const attempt = useRef<Attempt | null>(null);
     const set = <K extends keyof ClientDraft>(key: K, value: ClientDraft[K]): void => {
-        setDraft((d) => ({ ...d, [key]: value }));
+        if (key === "consent") setConsent(value as boolean);
+        else if (client !== null && CONTACT_FIELDS.includes(key))
+            synced.set(key as keyof ContactFields, value as ContactFields[keyof ContactFields]);
+        else setAdded((d) => ({ ...d, [key]: value }));
         setError(null);
     };
+    const consentChanged = consent !== null && consent !== agreed;
     const contactChanged =
-        client === null || draft.name !== initial.name || draft.phone !== initial.phone;
+        client === null || synced.changes.name !== undefined || synced.changes.phone !== undefined;
     const found = contactChanged ? findDuplicates(draft, directory, clientId) : [];
     const refused = takenMatch(taken, draft.phone, directory);
     const duplicates = [
         ...(refused !== null && !found.some((m) => m.phoneTaken) ? [refused] : []),
         ...found.filter((m) => m.phoneTaken || !ignored),
     ];
-    const dirty = JSON.stringify(draft) !== JSON.stringify(initial);
+    const dirty =
+        consentChanged ||
+        (client === null ? JSON.stringify(added) !== JSON.stringify(EMPTY_DRAFT) : synced.dirty);
 
     // a refusal naming a client this device knows shows as that match; any other stays an error
     const holdsPhone = (e: unknown, phone: string | null): boolean => {
@@ -788,21 +847,29 @@ export function useClientEditor(
                                   },
                               },
                 };
-                const saved = await api.post<{ id: string }>("/v1/clients", input, {
-                    idempotencyKey: attemptKey(attempt, input),
-                });
+                const saved = expectClient(
+                    await api.post<{ id: string }>("/v1/clients", input, {
+                        idempotencyKey: attemptKey(attempt, input),
+                    }),
+                );
                 attempt.current = null;
                 onSaved(saved.id);
                 return;
             }
+            const sent = synced.changes;
             const input = {
-                ...body,
-                ...(draft.consent === initial.consent ? {} : { marketing_consent: draft.consent }),
+                ...(sent.name === undefined ? {} : { name: body.name }),
+                ...(sent.phone === undefined ? {} : { phone: body.phone }),
+                ...(sent.tags === undefined ? {} : { tags: body.tags }),
+                ...(consentChanged ? { marketing_consent: draft.consent } : {}),
             };
-            await api.patch(`/v1/clients/${client.id}`, input, {
-                idempotencyKey: attemptKey(attempt, [client.id, input]),
-            });
+            const saved = await api.patch<{ name: string; phone: string | null; tags: string[] }>(
+                `/v1/clients/${client.id}`,
+                input,
+                { idempotencyKey: attemptKey(attempt, [client.id, input]) },
+            );
             attempt.current = null;
+            synced.settle(sent, contactOf(saved));
             onSaved(client.id);
         };
         run(

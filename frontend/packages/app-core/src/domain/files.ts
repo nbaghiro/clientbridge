@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { isConnectionFailure, useAsyncAction, useBusinessQuery } from "../hooks";
 import { strings } from "../strings";
 import { isManager } from "./auth";
-import type { ApiLike } from "../api";
+import { type ApiLike, failureMessage } from "../api";
 
 /** Where a file attaches. The server mints the row + s3 key; (parent_type, parent_id) own it. */
 interface UploadTarget {
@@ -22,29 +22,24 @@ interface FileUploadResponse {
 function requestUpload(
     api: ApiLike,
     target: UploadTarget,
-    contentType: string,
-    sizeBytes?: number,
+    body: Blob,
 ): Promise<{ fileId: string; uploadUrl: string }> {
     return api
         .post<FileUploadResponse>("/v1/files", {
             parent_type: target.parentType,
             parent_id: target.parentId,
             purpose: target.purpose ?? null,
-            content_type: contentType,
-            size: sizeBytes ?? null,
+            content_type: body.type,
+            size: body.size,
         })
         .then((r) => ({ fileId: r.file.id, uploadUrl: r.upload_url }));
 }
 
 /** Bypasses ApiLike: the presigned url is external and unauthenticated. */
-async function putToPresignedUrl(
-    uploadUrl: string,
-    body: Blob,
-    contentType: string,
-): Promise<void> {
+async function putToPresignedUrl(uploadUrl: string, body: Blob): Promise<void> {
     const res = await fetch(uploadUrl, {
         method: "PUT",
-        headers: { "Content-Type": contentType },
+        headers: { "Content-Type": body.type },
         body,
     });
     if (!res.ok) {
@@ -153,40 +148,40 @@ interface FileUpload {
     busy: boolean;
     error: string | null;
     fileId: string | null;
-    upload: (body: Blob, target: UploadTarget, contentType: string, sizeBytes?: number) => void;
+    // A promise for bytes still being prepared, so preparing them counts as part of the upload.
+    upload: (body: Blob | Promise<Blob>, target: UploadTarget) => void;
     reset: () => void;
 }
 
-/** The only platform seam is the blob source (web input, mobile picker). */
+/** The only platform seam is the blob source (web input, mobile picker); its type and size are declared. */
 export function useFileUpload(api: ApiLike, onUploaded?: (fileId: string) => void): FileUpload {
     const [fileId, setFileId] = useState<string | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
 
-    const upload = (
-        body: Blob,
-        target: UploadTarget,
-        contentType: string,
-        sizeBytes?: number,
-    ): void => {
+    const upload = (body: Blob | Promise<Blob>, target: UploadTarget): void => {
         run(
             async () => {
-                const { fileId: id, uploadUrl } = await requestUpload(
-                    api,
-                    target,
-                    contentType,
-                    sizeBytes,
-                );
-                await putToPresignedUrl(uploadUrl, body, contentType);
-                // the server confirms the bytes arrived before the file counts as attached
-                await api.post(`/v1/files/${id}/complete`, {});
-                setFileId(id);
-                onUploaded?.(id);
+                const bytes = await body;
+                try {
+                    const { fileId: id, uploadUrl } = await requestUpload(api, target, bytes);
+                    await putToPresignedUrl(uploadUrl, bytes);
+                    // the server confirms the bytes arrived before the file counts as attached
+                    await api.post(`/v1/files/${id}/complete`, {});
+                    setFileId(id);
+                    onUploaded?.(id);
+                } finally {
+                    // React Native keeps a blob's bytes natively until it is closed
+                    (bytes as Blob & { close?: () => void }).close?.();
+                }
             },
             {
                 errorMessage: (error) =>
-                    isConnectionFailure(error)
-                        ? strings.common.fileUploadOffline
-                        : strings.common.fileUploadError,
+                    failureMessage(
+                        error,
+                        isConnectionFailure(error)
+                            ? strings.common.fileUploadOffline
+                            : strings.common.fileUploadError,
+                    ),
             },
         );
     };
@@ -284,7 +279,7 @@ export interface PersonPhoto {
     label: string;
     hint: string;
     removeLabel: string;
-    upload: (body: Blob, contentType: string, sizeBytes?: number) => void;
+    upload: (body: Blob | Promise<Blob>) => void;
     remove: () => void;
 }
 
@@ -308,14 +303,9 @@ export function usePersonPhoto(
         label: src === null ? f.addPhoto : f.changePhoto,
         hint: owner.kind === "client" ? f.clientPhotoHint : f.memberPhotoHint,
         removeLabel: f.removePhoto,
-        upload: (body, contentType, sizeBytes) => {
+        upload: (body) => {
             if (!canEdit) return;
-            files.upload(
-                body,
-                { parentType: owner.kind, parentId: owner.id, purpose: "photo" },
-                contentType,
-                sizeBytes,
-            );
+            files.upload(body, { parentType: owner.kind, parentId: owner.id, purpose: "photo" });
         },
         remove: () => {
             if (!canEdit) return;

@@ -106,15 +106,15 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
  1. From the marketing site, click Start free.
     **Expect:** the browser lands on `/signup`, not the sign-in page.
  2. Sign up with the new email and enter a wrong code, then the mailed code.
-    **Expect:** the wrong code is refused with a plain message; the right one opens onboarding.
+    **Expect:** the wrong code is refused with a plain message; the right one opens onboarding. Six wrong codes stop that code with a message that says so; Send a new code then works.
  3. Reload while confirming.
     **Expect:** you stay signed in and are not sent back to confirm again.
  4. Sign out and back in on web, iPhone and Android.
-    **Expect:** each lands on Today; on mobile, killing and reopening the app keeps you signed in.
- 5. Reset the password with the emailed code on web.
-    **Expect:** you are signed in on that device only; the old password fails.
+    **Expect:** each lands on Today; on mobile, signing out reaches Sign in right away, and killing and reopening the app keeps you signed in.
+ 5. Reset the password with the emailed code on web and on a phone, with and without a second factor on.
+    **Expect:** you are signed in on that device only; the old password fails. With a second factor on, the right code is accepted and the second factor is asked for before the new password. Six wrong codes stop that code with a message that says so; Send a new code then works.
  6. Change the password in Setup > Sign-in & security.
-    **Expect:** the other devices are signed out at their next request.
+    **Expect:** the other devices are signed out at their next request; reusing the current password is refused with a plain message.
  7. Sign in with Google on the same address.
     **Expect:** the same account and business open; on mobile the Google button shows the unavailable state.
  8. Try a wrong password five times.
@@ -124,17 +124,20 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 10. Sign in with a code on iPhone and Android.
     **Expect:** both accept the authenticator code.
 11. Sign in with one backup code, then try it again.
-    **Expect:** the first use works, the second is refused.
+    **Expect:** the first use works, the second is refused, and Show codes lists it as used on the business's date.
 12. On web, add a security key, sign in with password and key, then remove it.
     **Expect:** the removed key no longer signs in. Keys are web only: on mobile, an account whose only second factor is a key is asked to add an authenticator or backup codes on the web.
+13. On web, stop a password reset at its new-password step, go back to the sign-in page and enter a wrong password, then do the same and sign in as a different account.
+    **Expect:** what you typed decides: the wrong password is refused and the other account opens, whatever session the browser still held.
 
 **Done when:** Every step passes on web, iPhone and Android with no workaround, each second factor can be added, used and removed, and a used backup code never works twice.
 
 **By hand only**
 
 * Google sign-in with a real Google account (consent screen, callback on the staging host).
-* Proxy rate limiting on `/auth/self-service/*`, which only exists on the deployed gateway.
+* Rate limiting on `/auth/self-service/*`, which only exists on the deployed gateway: from one address, the eleventh recovery or verification POST in a minute gets a 429, and a phone says to wait a minute.
 * Native passkeys are not built; check only the mobile fallback message.
+* A password reset with a second factor on, on iPhone and Android; the Maestro flows don't cover second factors.
 
 **Automated by**
 
@@ -147,6 +150,11 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 * `web: auth.e2e.ts › an account whose identity was recreated confirms its email instead of looping`
 * `web: auth.e2e.ts › auth errors offer a clean return to sign in`
 * `web: auth.e2e.ts › sign-in, signup and reset validation at <width>px`
+* `web: auth.e2e.ts › a password reset on an account with a second factor confirms it, then saves the new password`
+* `web: auth.e2e.ts › a reset left half-finished by a reload can start again`
+* `web: auth.e2e.ts › the credentials typed decide the account, whatever session the browser still holds`
+* `web: auth.e2e.ts › too many wrong codes at sign-up ask for a new one, and it confirms the email`
+* `web: auth.e2e.ts › too many wrong codes on a reset ask for a new one, and it resets the password`
 * `mobile: auth.recovery.yaml (recovery end to end, unregistered)`
 * `mobile: staff.yaml (sign-in entry and Google unavailable, unregistered)`
 * `XB-E2E-04 (web)`
@@ -178,27 +186,36 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
    **Expect:** the business page, booking page, pay page and shop all show the new brand and favicon.
 4. Open Today, Schedule, Clients, Payments and Inbox with no data.
    **Expect:** each explains what to add first; the Get set up checklist ticks items as they are done.
-5. Try to change the province after onboarding.
-   **Expect:** it is locked, with a reason.
+5. Change the province in Sales tax, then charge tax on a sale and try to change it again.
+   **Expect:** it changes until a document has charged tax, and the time zone stays as it was; after that it is locked, with a reason.
 
 **Done when:** A new business looks like itself on every Connect page within five minutes of signing up, and each industry gets the right subject.
-
-**By hand only**
-
-* Logo taken with the phone camera (native image picker).
 
 **Automated by**
 
 * `ID-E2E-01 (web)`
 * `XB-E2E-01 (web)`
+* `CFG-E2E-05 (web)`
+* `CFG-E2E-06 (web)`
+* `CFG-E2E-07 (web)`
+* `CFG-E2E-08 (web)`
+* `CFG-E2E-09 (web)`
+* `CFG-E2E-10 (web)`
+* `CFG-E2E-11 (web)`
+* `CFG-E2E-12 (web)`
+* `NATIVE-CFG-01 (native-ios, native-android)`
 * `connect: publicLanding.e2e.ts › business favicon follows the homepage and booking branding`
 * `connect: publicLanding.e2e.ts › empty businesses do not advertise unavailable services or products`
+* `connect: publicLanding.e2e.ts › a phone is offered plan your visit only when there is something to jump to`
 * `web: auth.e2e.ts › existing business never flashes onboarding during sign-in or a slow reload`
 
 **To automate**
 
-* `CFG-E2E-05` in `apps/web/e2e/business.e2e.ts`: Brand colour, logo and cover set in Setup reach the booking, pay and shop pages (CFG08).
-* `CFG-E2E-06` in `apps/web/e2e/business.e2e.ts`: Province is locked after onboarding (CFG07); client-only industry shows no subject fields.
+* A home cleaning business records properties (step 2).
+
+**By hand only**
+
+* Pick a logo from the library on a real iPhone, including a HEIC photo, and on a real Android phone; simulators can't stand in for either. **Expect:** it uploads, saves and shows on the business, booking, pay and shop pages.
 
 **Depends on:** CB-1
 
@@ -419,14 +436,16 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **Done when:** Every taxed figure matches a hand calculation for the province.
 
+**By hand only**
+
+* Steps 1 to 7 on iOS and Android.
+* Step 6 with real card payments for the shop and a booking deposit.
+
 **Automated by**
 
 * `ID-E2E-01 (web)`
 * `BILL-DOC-01 (web)`
-
-**To automate**
-
-* `BILL-DOC-21` in `apps/web/e2e/billing.e2e.ts`: Golden tax matrix for ON, BC, QC and NS with exempt and GST-only lines, plus tax off (FIN02, FIN03).
+* `BILL-DOC-21 (web)`
 
 **Depends on:** Nothing
 

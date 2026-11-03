@@ -177,7 +177,7 @@ describe("firstRunLayout", () => {
     };
 
     it("leads with the guide on a new account and hides the empty figures", () => {
-        expect(firstRunLayout(0, quiet, { complete: false })).toEqual({
+        expect(firstRunLayout(0, quiet, { complete: false, dismissed: false })).toEqual({
             guide: true,
             money: false,
         });
@@ -185,16 +185,23 @@ describe("firstRunLayout", () => {
 
     it("keeps the usual Today once money is moving, even with setup left", () => {
         const open = { ...quiet, awaitingCents: 4500, awaitingCount: 1 };
-        expect(firstRunLayout(0, open, { complete: false })).toEqual({
+        expect(firstRunLayout(0, open, { complete: false, dismissed: false })).toEqual({
             guide: false,
             money: true,
         });
     });
 
     it("keeps the usual Today with visits booked, setup finished or figures still loading", () => {
-        expect(firstRunLayout(2, quiet, { complete: false }).guide).toBe(false);
-        expect(firstRunLayout(0, quiet, { complete: true }).guide).toBe(false);
-        expect(firstRunLayout(0, null, { complete: false }).guide).toBe(false);
+        expect(firstRunLayout(2, quiet, { complete: false, dismissed: false }).guide).toBe(false);
+        expect(firstRunLayout(0, quiet, { complete: true, dismissed: false }).guide).toBe(false);
+        expect(firstRunLayout(0, null, { complete: false, dismissed: false }).guide).toBe(false);
+    });
+
+    it("keeps the guide away once the owner hides the setup list", () => {
+        expect(firstRunLayout(0, quiet, { complete: false, dismissed: true })).toEqual({
+            guide: false,
+            money: true,
+        });
     });
 });
 

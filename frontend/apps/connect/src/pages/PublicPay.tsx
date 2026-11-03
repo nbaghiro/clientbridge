@@ -223,7 +223,7 @@ export function PublicPay() {
                                             <h3 className="text-sm font-semibold text-ink">
                                                 {form.tip.title}
                                             </h3>
-                                            <p className="text-xs text-muted">{pp.tipHint}</p>
+                                            <p className="text-xs text-muted">{form.tip.hint}</p>
                                         </div>
                                         <Choice
                                             layout="tiles"

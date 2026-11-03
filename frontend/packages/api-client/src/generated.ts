@@ -4994,18 +4994,18 @@ export interface components {
             auto_complete?: boolean | null;
         };
         /**
-         * BrandInput
-         * @description The public brand; values are validated and trimmed so clients can apply them directly.
+         * BrandUpdate
+         * @description The brand as written; only writes cap the tagline, as a stored one may be longer.
          */
-        BrandInput: {
+        BrandUpdate: {
             /** Logo File Id */
             logo_file_id?: string | null;
+            /** Cover File Id */
+            cover_file_id?: string | null;
             /** Primary */
             primary?: string | null;
             /** Tagline */
             tagline?: string | null;
-            /** Cover Url */
-            cover_url?: string | null;
             /** About */
             about?: string | null;
             /** Address */
@@ -5214,7 +5214,7 @@ export interface components {
              * @description The business's legal contact phone; empty clears
              */
             legal_phone?: string | null;
-            brand?: components["schemas"]["BrandInput"] | null;
+            brand?: components["schemas"]["BrandUpdate"] | null;
         };
         /** CheckoutOut */
         CheckoutOut: {
@@ -5788,7 +5788,7 @@ export interface components {
             /** Content Type */
             content_type?: string | null;
             /** Size */
-            size?: number | null;
+            size: number;
         };
         /** FileLink */
         FileLink: {
@@ -7991,6 +7991,11 @@ export interface components {
             price_cents: number;
             /** Currency */
             currency: string;
+            /**
+             * Taxable
+             * @description False when the item's tax class is exempt
+             */
+            taxable: boolean;
             /** Image Url */
             image_url?: string | null;
             /** Description */
@@ -8124,6 +8129,16 @@ export interface components {
              */
             timezone: string;
             policy?: components["schemas"]["PublicPolicy"] | null;
+            /**
+             * Charges Tax
+             * @description Whether the business is registered to add sales tax
+             */
+            charges_tax: boolean;
+            /**
+             * Tax Starts On
+             * @description The first day it adds tax, when registration starts later
+             */
+            tax_starts_on?: string | null;
             /**
              * Subject
              * @description What a booking names besides the client; null asks for nothing
@@ -8451,7 +8466,7 @@ export interface components {
             /** Content Type */
             content_type?: string | null;
             /** Size */
-            size?: number | null;
+            size: number;
         };
         /** PublicFileUpload */
         PublicFileUpload: {
@@ -8783,12 +8798,20 @@ export interface components {
             timezone: string;
             policy?: components["schemas"]["PublicPolicy"] | null;
             /**
+             * Charges Tax
+             * @description Whether the business is registered to add sales tax
+             */
+            charges_tax: boolean;
+            /**
+             * Tax Starts On
+             * @description The first day it adds tax, when registration starts later
+             */
+            tax_starts_on?: string | null;
+            /**
              * Subject
              * @description What a booking names besides the client; null asks for nothing
              */
             subject?: ("pet" | "student" | "property" | "site" | "vehicle") | null;
-            /** Cover Url */
-            cover_url?: string | null;
             /** About */
             about?: string | null;
             /** Address */
@@ -8951,6 +8974,11 @@ export interface components {
             deposit_required: boolean;
             /** Deposit Amount Cents */
             deposit_amount_cents: number;
+            /**
+             * Taxable
+             * @description False when the item's tax class is exempt
+             */
+            taxable: boolean;
             /** Image Url */
             image_url?: string | null;
             /**
@@ -8990,6 +9018,11 @@ export interface components {
             items: components["schemas"]["PublicShopItem"][];
             /** Stripe Account Id */
             stripe_account_id?: string | null;
+            /**
+             * Charges Tax
+             * @description Whether an order placed today is charged sales tax
+             */
+            charges_tax: boolean;
         };
         /** PublicShopItem */
         PublicShopItem: {
@@ -9007,6 +9040,11 @@ export interface components {
             price_cents: number;
             /** Currency */
             currency: string;
+            /**
+             * Taxable
+             * @description False when the item's tax class is exempt
+             */
+            taxable: boolean;
             /** Image Url */
             image_url?: string | null;
             /**

@@ -790,7 +790,7 @@ def _profile(ctx: DemoContext) -> None:
             "website": demo_business(ctx.business_id).url,
             "neighbourhood": "Downtown Victoria",
             "gallery_urls": [],
-            "cover_url": None,
+            "cover_file_id": None,
             "public_staff_ids": [
                 s.id for s in ctx.all(Staff) if s.status == "active" and s.bookable_online
             ],

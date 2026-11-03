@@ -1,4 +1,10 @@
-import { strings, useAuthForm, useRecoveryForm, useVerificationForm } from "@clientbridge/app-core";
+import {
+    type SecondFactorForm,
+    strings,
+    useAuthForm,
+    useRecoveryForm,
+    useVerificationForm,
+} from "@clientbridge/app-core";
 import {
     Button,
     Checkbox,
@@ -173,12 +179,20 @@ function CredentialsCard({ auth, onForgot }: { auth: Auth; onForgot: () => void 
     );
 }
 
-function MfaCard({ auth }: { auth: Auth }) {
+function MfaCard({
+    auth,
+    subtitle = a.mfaSubtitle,
+    cancelLabel = a.notYou,
+}: {
+    auth: SecondFactorForm;
+    subtitle?: string;
+    cancelLabel?: string;
+}) {
     const others = auth.mfaMethods.filter((m) => m !== auth.mfaMethod);
     return (
         <>
             <h1 className="font-display text-2xl font-bold text-ink">{a.mfaTitle}</h1>
-            <p className="mt-1 text-sm text-muted">{a.mfaSubtitle}</p>
+            <p className="mt-1 text-sm text-muted">{subtitle}</p>
             <Form onSubmit={auth.submit}>
                 {auth.mfaMethod === "webauthn" ? (
                     <p className="text-sm text-ink-soft">{a.mfaWebauthn}</p>
@@ -213,7 +227,7 @@ function MfaCard({ auth }: { auth: Auth }) {
             ) : null}
             <div className="mt-6">
                 <Button variant="link" onPress={auth.cancel}>
-                    {a.notYou}
+                    {cancelLabel}
                 </Button>
             </div>
         </>
@@ -278,6 +292,8 @@ function CodeCard({
 }
 
 function RecoveryCard({ recovery, onBack }: { recovery: Recovery; onBack: () => void }) {
+    if (recovery.step === "mfa")
+        return <MfaCard auth={recovery} subtitle={a.resetMfaSubtitle} cancelLabel={a.startOver} />;
     if (recovery.step === "code")
         return (
             <>
@@ -452,6 +468,8 @@ function Recover({ onSuccess }: { onSuccess: () => void }) {
         },
         {
             defaultEmail: params.get("email") ?? "",
+            resetStorage: localStorage,
+            ...(webauthn ? { webauthn } : {}),
             ...(params.get("flow") ? { flowId: params.get("flow") ?? "" } : {}),
         },
     );

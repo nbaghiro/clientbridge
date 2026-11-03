@@ -254,7 +254,7 @@ test(
         }
         await walk.step("create: time off", async () => {
             await create(c.timeOff.label);
-            await expect(page).toHaveURL(/\/setup\/team$/);
+            await expect(page).toHaveURL(/\/setup\/team#hours$/);
             await expect(
                 main.getByRole("button", { name: strings.hours.addTimeOff }),
             ).toBeVisible();
@@ -293,7 +293,7 @@ test(
             const account = page.getByRole("menu");
             await expect(account.getByRole("menuitem", { name: n.signOut })).toBeVisible();
             await account.getByRole("menuitem", { name: n.yourHours }).click();
-            await expect(page).toHaveURL(/\/setup\/team$/);
+            await expect(page).toHaveURL(/\/setup\/team#hours$/);
             await expect(account).toBeHidden();
         });
 
@@ -1080,7 +1080,7 @@ test("staff: today, schedule and clients", async ({ page }) => {
         await escapeDialog(page);
         await sidebar.getByRole("button", { name: n.accountMenu }).click();
         await page.getByRole("menuitem", { name: n.yourHours }).click();
-        await expect(page).toHaveURL(/\/setup\/team$/);
+        await expect(page).toHaveURL(/\/setup\/team#hours$/);
     });
 
     const b = strings.bookings;

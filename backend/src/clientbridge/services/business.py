@@ -25,7 +25,7 @@ from clientbridge.integrations.stripe import (
 from clientbridge.models.billing import Estimate, Invoice, Line, Order
 from clientbridge.models.business import Business, ProvinceCode, Staff, User
 from clientbridge.models.ledger import Account, Entry
-from clientbridge.models.platform import Audit, File
+from clientbridge.models.platform import Audit, File, FilePurpose
 from clientbridge.schemas.business import BusinessSettingsUpdate, OnboardBody
 from clientbridge.schemas.payments import KycStatus
 
@@ -150,6 +150,10 @@ async def staff_names(db: AsyncSession, biz: str, ids: Iterable[str]) -> dict[st
 
 def local_today(business: Business) -> date:
     return clock.today(zone(business.timezone))
+
+
+def _iso(day: date | None) -> str | None:
+    return None if day is None else day.isoformat()
 
 
 async def businesses_at_hour(db: AsyncSession, now: datetime, hour: int) -> list[Business]:
@@ -395,19 +399,19 @@ class BusinessService:
             # the slug stays saved; Stripe shows the old page until the next change
             _log.exception("stripe business url update failed for %s", business.id)
 
-    async def _assert_logo(self, file_id: str) -> None:
-        logo = (
+    async def _assert_brand_image(self, file_id: str, purpose: FilePurpose) -> None:
+        image = (
             await self.db.execute(
                 scoped(File, self.principal.business_id).where(
                     File.id == file_id,
                     File.parent_type == "business",
-                    File.purpose == "logo",
+                    File.purpose == purpose,
                     File.uploaded_at.is_not(None),
                 )
             )
         ).scalar_one_or_none()
-        if logo is None:
-            raise NotFound("logo not found")
+        if image is None:
+            raise NotFound(f"{purpose} not found")
 
     async def update_settings(self, data: BusinessSettingsUpdate) -> Business:
         """Owner/admin edit of the acting business's account fields (the principal's business)."""
@@ -422,6 +426,8 @@ class BusinessService:
             raise NotFound("business not found")
         previous_province = business.province
         previous_slug = business.slug
+        previous_registered = (business.tax_registered, business.tax_registered_on)
+        previous_tax = (business.province, business.timezone, *previous_registered)
         if data.slug is not None and data.slug != business.slug:
             assert_public_slug(data.slug)
         fields = data.model_dump(exclude_unset=True, exclude={"brand", "setup_dismissed"})
@@ -453,7 +459,9 @@ class BusinessService:
             business.setup_dismissed_at = clock.now() if data.setup_dismissed else None
         if data.brand is not None:
             if data.brand.logo_file_id is not None:
-                await self._assert_logo(data.brand.logo_file_id)
+                await self._assert_brand_image(data.brand.logo_file_id, "logo")
+            if data.brand.cover_file_id is not None:
+                await self._assert_brand_image(data.brand.cover_file_id, "image")
             if data.brand.public_staff_ids:
                 staff = (
                     (
@@ -478,6 +486,12 @@ class BusinessService:
         for action, old, new in (
             ("business.province", previous_province, business.province),
             ("business.slug", previous_slug, business.slug),
+            ("business.tax_registered", previous_registered[0], business.tax_registered),
+            (
+                "business.tax_registered_on",
+                _iso(previous_registered[1]),
+                _iso(business.tax_registered_on),
+            ),
         ):
             if old == new:
                 continue
@@ -502,6 +516,11 @@ class BusinessService:
         except IntegrityError as exc:
             await self.db.rollback()
             raise Conflict("another business uses that address", code="slug_taken") from exc
+        registration = (business.tax_registered, business.tax_registered_on)
+        if (business.province, business.timezone, *registration) != previous_tax:
+            from clientbridge.services.billing import reprice_open_documents  # billing imports us
+
+            await reprice_open_documents(self.db, business.id, self.principal.user_id)
         await self.db.refresh(business)
         await self.db.commit()
         if moved:

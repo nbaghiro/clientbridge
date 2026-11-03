@@ -9,6 +9,7 @@ import type { NativeProps } from "./props";
 export function SwatchPicker({
     label,
     colours,
+    colourLabel,
     value: valueProp,
     defaultValue = "",
     onChange,
@@ -23,7 +24,7 @@ export function SwatchPicker({
                     <Pressable
                         key={colour}
                         accessibilityRole="radio"
-                        accessibilityLabel={colour}
+                        accessibilityLabel={colourLabel?.(colour) ?? colour}
                         accessibilityState={{ checked: on }}
                         onPress={() => {
                             setValue(colour);

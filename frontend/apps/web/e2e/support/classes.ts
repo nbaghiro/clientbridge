@@ -3,6 +3,7 @@ import { demoPerson } from "@clientbridge/config/e2e/demo";
 import { addDays, combineDayAndTime, strings } from "@clientbridge/app-core/public";
 import { expect, type Page } from "@playwright/test";
 import { bookingApi, cancelOwnedBooking, type BookingFixture } from "./bookings";
+import { connectUrl } from "./business";
 import { createClient, type ClientFixture } from "./clients";
 import { select } from "./db";
 import { requireLocalMail } from "./evidence";
@@ -192,16 +193,13 @@ export async function cleanupClass(page: Page, fixture: ClassFixture): Promise<v
 }
 
 export async function classManageUrl(fixture: ClassFixture): Promise<string> {
-    const port = process.env.CONNECT_E2E_PORT;
-    if (!port || !/^\d+$/.test(port))
-        throw new Error("Class journey needs the local Connect server");
     const [row] = await select<{ manage_token: string | null }>`
         SELECT b.manage_token FROM bookings b JOIN slots s ON s.id = b.slot_id
         WHERE s.item_id = ${fixture.itemId} AND b.id = ${fixture.bookingId}
             AND b.deleted_at IS NULL`;
     const token = row?.manage_token;
     if (!token) throw new Error("owned enrollment has no manage token");
-    return `http://book.localhost:${port}/m/${encodeURIComponent(token)}`;
+    return connectUrl("book", `m/${encodeURIComponent(token)}`);
 }
 
 interface SeatDelivery {

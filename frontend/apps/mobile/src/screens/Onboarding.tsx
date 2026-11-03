@@ -1,4 +1,5 @@
 import {
+    BUSINESS_NAME_MAX,
     PROVINCES,
     pageDomain,
     industryOptions,
@@ -11,17 +12,7 @@ import { StatusBar } from "expo-status-bar";
 import { type ReactNode, useEffect, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import {
-    Button,
-    Choice,
-    Field,
-    Lockup,
-    Logo,
-    Notice,
-    Panel,
-    Select,
-    TextField,
-} from "@clientbridge/ui";
+import { Button, Lockup, Logo, Notice, Panel, Select, TextField } from "@clientbridge/ui";
 
 import { api, identity } from "../lib/api";
 import { pageUrl } from "../lib/config";
@@ -146,6 +137,7 @@ export function OnboardingScreen({ onSignOut }: { onSignOut: () => void }) {
                 label={strings.business.onboarding.businessName}
                 value={form.name}
                 onChange={form.setName}
+                maxLength={BUSINESS_NAME_MAX}
                 size="lg"
                 surface="surface"
             />
@@ -159,14 +151,15 @@ export function OnboardingScreen({ onSignOut }: { onSignOut: () => void }) {
                 size="lg"
                 surface="surface"
             />
-            <Field label={strings.business.onboarding.province}>
-                <Choice
-                    label={strings.business.onboarding.province}
-                    options={PROVINCES.map((p) => ({ key: p.code, label: p.code }))}
-                    value={form.province}
-                    onChange={form.setProvince}
-                />
-            </Field>
+            <Select
+                label={strings.business.onboarding.province}
+                value={form.province ?? undefined}
+                placeholder={strings.business.onboarding.provincePlaceholder}
+                options={PROVINCES.map((p) => ({ key: p.code, label: p.name }))}
+                onChange={form.setProvince}
+                size="lg"
+                surface="surface"
+            />
             {form.taxSummary !== null ? (
                 <Panel style={styles.tax}>
                     <Text style={styles.taxTitle}>

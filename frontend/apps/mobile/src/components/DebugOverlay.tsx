@@ -5,11 +5,11 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { debugFacts, useClientState } from "@clientbridge/app-core";
 import { Modal } from "@clientbridge/ui";
 
-export function DebugOverlay({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+export function DebugOverlay({ onClose }: { onClose: () => void }) {
     const { status, queue, tables, totalRows } = useClientState();
 
     return (
-        <Modal open={visible} onClose={onClose} framed={false}>
+        <Modal open onClose={onClose} framed={false}>
             <View style={styles.panel}>
                 <View style={styles.header}>
                     <Text style={styles.title}>client state · debug</Text>

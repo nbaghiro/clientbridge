@@ -200,7 +200,7 @@ msgid "order_ready.body"
 msgstr "Your order from {business} is ready to pick up."
 
 msgid "order_reminder.body"
-msgstr "Your order is ready to collect from {business}. Please contact the studio if you need more time."
+msgstr "Your order is ready to collect from {business}. Please contact them if you need more time."
 
 msgid "payment_failed.body"
 msgstr "Your payment of {amount} to {business} failed. Please try again."

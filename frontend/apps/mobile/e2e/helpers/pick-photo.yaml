@@ -1,0 +1,37 @@
+appId: ${APP_ID}
+---
+- tapOn: ${OPENS}
+- waitForAnimationToEnd:
+      timeout: 5000
+# iOS's picker exposes no stable labels, so its photo is picked by where it sits
+- runFlow:
+      when:
+          platform: iOS
+      commands:
+          - tapOn:
+                point: "17%,43%"
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - extendedWaitUntil:
+                visible: "Photo taken on.*|No photos or videos"
+                timeout: 30000
+          # a picker opened before its index has a new photo stays empty until it is reopened
+          - repeat:
+                times: 12
+                while:
+                    visible: "No photos or videos"
+                commands:
+                    - tapOn: "Cancel"
+                    - waitForAnimationToEnd:
+                          timeout: 5000
+                    - tapOn: ${OPENS}
+                    - extendedWaitUntil:
+                          visible: "Photo taken on.*|No photos or videos"
+                          timeout: 30000
+          - tapOn: "Photo taken on.*"
+          # newer pickers ask to confirm the choice; older ones return straight away
+          - tapOn:
+                text: "Done"
+                optional: true

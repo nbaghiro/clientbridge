@@ -92,6 +92,7 @@ def cloud_stack() -> None:
     endpoint = cluster.dns_endpoint(gke)
     provider = namespace.provider("gke", endpoint)
     compute.create(provider)
+    gateway.auth_limits()
     gateway.create(ip, certificate_map, provider, stack.environments)
 
     shared: dict[str, object] = {}

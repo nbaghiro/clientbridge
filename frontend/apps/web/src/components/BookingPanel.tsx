@@ -328,7 +328,7 @@ function BookingPhotos({ event }: { event: ScheduleEvent }) {
     if (photos.photos.length === 0 && !photos.canAdd) return null;
     const onPick = (e: ChangeEvent<HTMLInputElement>): void => {
         const file = e.target.files?.[0];
-        if (file !== undefined) photos.add(file, file.type || "image/jpeg", file.size);
+        if (file !== undefined) photos.add(file);
         e.target.value = "";
     };
     return (
@@ -361,7 +361,13 @@ function BookingPhotos({ event }: { event: ScheduleEvent }) {
             )}
             <p className="mt-1.5 text-xs text-muted">{s.photosHint}</p>
             {photos.error !== null ? <Notice tone="danger">{photos.error}</Notice> : null}
-            <input ref={input} type="file" accept="image/*" hidden onChange={onPick} />
+            <input
+                ref={input}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                hidden
+                onChange={onPick}
+            />
         </DetailSection>
     );
 }

@@ -37,6 +37,7 @@ import type { ReactNode } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { api, apiBaseUrl } from "../lib/api";
+import { pickedPhoto } from "../lib/photos";
 
 const s = strings.catalog;
 const c = theme.colors;
@@ -271,8 +272,7 @@ function ProductFields({ ed }: { ed: ProductEditor }) {
                 });
                 const asset = result.assets?.[0];
                 if (!asset) return;
-                const blob = await (await fetch(asset.uri)).blob();
-                ed.photo.upload(blob, asset.mimeType ?? "image/jpeg", asset.fileSize);
+                ed.photo.upload(pickedPhoto(asset));
             },
             { errorMessage: strings.common.fileUploadError },
         );

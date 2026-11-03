@@ -1,6 +1,6 @@
 import { NavigationBar } from "expo-navigation-bar";
 import { StatusBar } from "expo-status-bar";
-import { type ReactElement, type ReactNode, useCallback, useState } from "react";
+import { type ReactElement, type ReactNode, useCallback, useEffect, useState } from "react";
 import {
     checkSession,
     strings,
@@ -168,9 +168,6 @@ const lifecycle = {
     },
     subscribe: onSignedOut,
     clearCredentials: endSession,
-    onReady: () => {
-        registerForPush().catch(() => undefined);
-    },
 };
 
 function Root() {
@@ -242,6 +239,10 @@ function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
     const business = useBusinessLoad();
     // A newer server zone table rerenders every formatted time once.
     const zones = useServerZones(api);
+    useEffect(() => {
+        // Not before a business exists, when nothing yet explains why it would notify anyone.
+        if (business.ready) registerForPush().catch(() => undefined);
+    }, [business.ready]);
     if (!business.ready) {
         if (business.state === "empty") return <OnboardingScreen onSignOut={onSignOut} />;
         return (

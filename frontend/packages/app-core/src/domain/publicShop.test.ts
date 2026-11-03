@@ -187,3 +187,18 @@ describe("a placed order survives a reload", () => {
         expect(placeOrder.mock.calls[0]?.[2]).not.toBe(first.mock.calls[0]?.[2]);
     });
 });
+
+describe("the shop's tax row", () => {
+    const order = (tax: number | null) => ({
+        subtotal_cents: 2400,
+        tax_total_cents: tax,
+        total_cents: 2400 + (tax ?? 0),
+    });
+
+    it("appears only when the order charged tax", () => {
+        const keys = (tax: number | null) => shopTotalLines(2400, order(tax)).map((l) => l.key);
+        expect(keys(288)).toEqual(["subtotal", "tax", "total"]);
+        expect(keys(0)).toEqual(["subtotal", "total"]);
+        expect(keys(null)).toEqual(["subtotal", "total"]);
+    });
+});

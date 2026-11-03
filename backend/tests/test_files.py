@@ -24,7 +24,7 @@ async def test_create_returns_presigned_upload_url(
     )
     assert res.status_code == 201, res.text
     body = res.json()
-    assert body["file"]["s3_key"].startswith(f"{BIZ}/")
+    assert body["file"]["s3_key"].startswith(f"uploads/{BIZ}/")
     assert body["upload_url"] == f"https://files.test/{body['file']['s3_key']}"
     assert (body["file"]["s3_key"], "image/png") in storage.uploads
     row = (await db.execute(select(File).where(File.id == body["file"]["id"]))).scalar_one()
@@ -34,15 +34,27 @@ async def test_create_returns_presigned_upload_url(
 async def test_create_defaults_content_type(
     as_owner: httpx.AsyncClient, db: AsyncSession, storage: FakeFileStorage
 ) -> None:
-    res = await as_owner.post("/v1/files", json={"parent_type": "subject", "parent_id": PET})
+    res = await as_owner.post(
+        "/v1/files", json={"parent_type": "subject", "parent_id": PET, "size": 42}
+    )
     assert res.status_code == 201, res.text
     key = res.json()["file"]["s3_key"]
     assert (key, "application/octet-stream") in storage.uploads
 
 
 async def test_any_member_can_create(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:
-    res = await as_staff.post("/v1/files", json={"parent_type": "subject", "parent_id": PET})
+    res = await as_staff.post(
+        "/v1/files", json={"parent_type": "subject", "parent_id": PET, "size": 42}
+    )
     assert res.status_code == 201, res.text
+
+
+async def test_create_without_a_size_is_422(
+    as_owner: httpx.AsyncClient, storage: FakeFileStorage
+) -> None:
+    res = await as_owner.post("/v1/files", json={"parent_type": "subject", "parent_id": PET})
+    assert res.status_code == 422
+    assert storage.uploads == []
 
 
 async def test_create_requires_auth(unauth: httpx.AsyncClient) -> None:
@@ -70,10 +82,35 @@ async def test_complete_confirms_the_stored_bytes_once(
     assert again.json()["uploaded_at"] == first.json()["uploaded_at"]
 
 
+async def test_complete_moves_the_bytes_out_of_reach_of_the_upload_url(
+    as_owner: httpx.AsyncClient, db: AsyncSession, storage: FakeFileStorage
+) -> None:
+    image = await _pending(
+        as_owner,
+        {
+            "parent_type": "item",
+            "parent_id": "it_bath",
+            "purpose": "image",
+            "content_type": "image/png",
+            "size": 42,
+        },
+    )
+    upload = image["s3_key"]
+    storage.stored[upload] = 42
+    done = await as_owner.post(f"/v1/files/{image['id']}/complete")
+    assert done.status_code == 200, done.text
+    key = done.json()["s3_key"]
+    assert key == upload.removeprefix("uploads/")
+    storage.stored[upload], storage.starts[upload] = 42, b"<html><script>"
+    served = await as_owner.get(f"/media/{image['id']}", follow_redirects=False)
+    assert served.headers["location"] == f"https://files.test/{key}"
+    assert storage.read_start(key, 8) == b"\x89PNG\r\n\x1a\n"
+
+
 async def test_complete_before_the_bytes_arrive_is_409(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    file = await _pending(as_owner, {"parent_type": "subject", "parent_id": PET})
+    file = await _pending(as_owner, {"parent_type": "subject", "parent_id": PET, "size": 42})
     res = await as_owner.post(f"/v1/files/{file['id']}/complete")
     assert res.status_code == 409 and res.json()["error"] == "upload_missing"
 
@@ -125,11 +162,25 @@ async def test_a_pending_image_is_neither_served_nor_usable_as_a_logo(
     as_owner: httpx.AsyncClient,
 ) -> None:
     image = await _pending(
-        as_owner, {"parent_type": "item", "parent_id": "it_bath", "purpose": "image"}
+        as_owner,
+        {
+            "parent_type": "item",
+            "parent_id": "it_bath",
+            "purpose": "image",
+            "content_type": "image/png",
+            "size": 42,
+        },
     )
     assert (await as_owner.get(f"/media/{image['id']}", follow_redirects=False)).status_code == 404
     logo = await _pending(
-        as_owner, {"parent_type": "business", "parent_id": BIZ, "purpose": "logo"}
+        as_owner,
+        {
+            "parent_type": "business",
+            "parent_id": BIZ,
+            "purpose": "logo",
+            "content_type": "image/png",
+            "size": 42,
+        },
     )
     res = await as_owner.patch("/v1/business", json={"brand": {"logo_file_id": logo["id"]}})
     assert res.status_code == 404
@@ -162,6 +213,32 @@ async def test_stale_pending_uploads_are_pruned_with_their_bytes(
     )
     assert remaining == {"fl_recent", "fl_kept"}
     assert storage.deleted == [f"{BIZ}/fl_stale"]
+
+
+async def test_a_refused_picture_drops_its_copy_and_its_upload_is_pruned(
+    as_owner: httpx.AsyncClient, db: AsyncSession, storage: FakeFileStorage
+) -> None:
+    image = await _pending(
+        as_owner,
+        {
+            "parent_type": "item",
+            "parent_id": "it_bath",
+            "purpose": "image",
+            "content_type": "image/png",
+            "size": 42,
+        },
+    )
+    upload = image["s3_key"]
+    storage.stored[upload], storage.starts[upload] = 42, b"<!doctype html>"
+    res = await as_owner.post(f"/v1/files/{image['id']}/complete")
+    assert res.status_code == 422
+    assert storage.deleted == [upload.removeprefix("uploads/")]
+    row = await db.get(File, image["id"])
+    assert row is not None and row.uploaded_at is None and row.s3_key == upload
+    row.created_at = clock.now() - timedelta(hours=25)
+    await db.flush()
+    await run_prune_pending_files(db, storage, clock.now())
+    assert upload in storage.deleted
 
 
 async def test_storage_network_call_runs_outside_the_request_event_loop(

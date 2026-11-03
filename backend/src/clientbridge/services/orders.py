@@ -36,6 +36,7 @@ from clientbridge.schemas.orders import (
 )
 from clientbridge.schemas.public import PublicPickupWindow
 from clientbridge.services import ledger
+from clientbridge.services.billing import reprice_ticket, retotal
 from clientbridge.services.bookings import load_availability, windows_on
 from clientbridge.services.business import (
     business_tz,
@@ -47,7 +48,6 @@ from clientbridge.services.clients import assert_client_active
 from clientbridge.services.deliveries import delivery_key
 from clientbridge.services.inventory import assert_parent_stock
 from clientbridge.services.lines import (
-    apply_totals,
     discount_of,
     discount_total,
     fetch_lines,
@@ -67,7 +67,6 @@ from clientbridge.services.payments import (
     resolve_tip,
     sync_order,
 )
-from clientbridge.services.tax import tax_for_lines
 
 _PICKUP_STEPS = {"unfulfilled": 0, "preparing": 1, "ready": 2, "picked_up": 3}
 # a wrong PIN locks the desk out for a while, so four digits can't be guessed in a minute
@@ -187,6 +186,7 @@ class OrderService:
 
         async def run(cmd: Command) -> CheckoutOut:
             await self.db.execute(select(Order.id).where(Order.id == order_id).with_for_update())
+            await reprice_ticket(self.db, self.biz, order_id, self.principal.user_id)
             _, due = await self._chargeable(order_id)
             payment, client_secret = await open_terminal_payment(
                 self.db,
@@ -258,6 +258,7 @@ class OrderService:
 
         async def run(cmd: Command) -> CheckoutOut:
             await self.db.execute(select(Order.id).where(Order.id == order_id).with_for_update())
+            await reprice_ticket(self.db, self.biz, order_id, self.principal.user_id)
             _, due = await self._chargeable(order_id)
             payment, client_secret = await open_order_card_payment(
                 self.db,
@@ -295,6 +296,7 @@ class OrderService:
 
         async def run(cmd: Command) -> OrderCashOut:
             await self.db.execute(select(Order.id).where(Order.id == order_id).with_for_update())
+            await reprice_ticket(self.db, self.biz, order_id, self.principal.user_id)
             order, due = await self._chargeable(order_id)
             if await self._has_active_payment(order.id):
                 raise Conflict("this sale already has a payment")
@@ -352,6 +354,7 @@ class OrderService:
 
         async def run(cmd: Command) -> OrderOut:
             await self.db.execute(select(Order.id).where(Order.id == order_id).with_for_update())
+            await reprice_ticket(self.db, self.biz, order_id, self.principal.user_id)
             order, due = await self._chargeable(order_id)
             if await self._has_active_payment(order.id):
                 raise Conflict("this sale already has a payment")
@@ -520,7 +523,7 @@ class OrderService:
 
     async def _settle_terms(self, order: Order, lines: list[Line]) -> None:
         order.currency = await self._currency(lines)
-        apply_totals(order, await tax_for_lines(self.db, self.biz, lines))
+        await retotal(self.db, self.biz, order, lines)
         await self._link_visits(order, lines)
         await self.db.flush()
 

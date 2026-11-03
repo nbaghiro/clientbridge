@@ -134,7 +134,8 @@ async def test_public_missing_required_422(api: httpx.AsyncClient, db: AsyncSess
 async def test_public_unknown_token_404(api: httpx.AsyncClient) -> None:
     assert (await api.get("/form/nope")).status_code == 404
     assert (await api.post("/form/nope", json={"answers": {}})).status_code == 404
-    assert (await api.post("/form/nope/upload", json={})).status_code == 404
+    upload = {"content_type": "application/pdf", "size": 1}
+    assert (await api.post("/form/nope/upload", json=upload)).status_code == 404
 
 
 async def test_public_upload_attaches_a_file_to_the_response(
@@ -213,6 +214,8 @@ async def test_public_upload_counts_once_its_bytes_arrive(
     assert (await api.post(complete)).status_code == 409
     await _store(db, storage, file_id)
     assert (await api.post(complete)).json() == {"file_id": file_id}
+    file = await db.get(File, file_id)
+    assert file is not None and storage.types[file.s3_key] == "application/pdf"
 
 
 async def test_submit_refuses_a_file_that_has_not_finished_uploading(
@@ -225,6 +228,23 @@ async def test_submit_refuses_a_file_that_has_not_finished_uploading(
     await _store(db, storage, file_id)
     assert (await api.post(f"/form/{token}/upload/{file_id}/complete")).status_code == 200
     assert (await api.post(f"/form/{token}", json=answers)).status_code == 200
+
+
+async def test_a_form_picture_whose_bytes_are_not_one_is_never_attached(
+    api: httpx.AsyncClient, db: AsyncSession, storage: FakeFileStorage
+) -> None:
+    token = await _file_form(db)
+    up = await api.post(f"/form/{token}/upload", json={"content_type": "image/png", "size": 52000})
+    assert up.status_code == 200, up.text
+    file_id = up.json()["file_id"]
+    await _store(db, storage, file_id)
+    file = await db.get(File, file_id)
+    assert file is not None
+    storage.starts[file.s3_key] = b"%PDF-1.7"
+    res = await api.post(f"/form/{token}/upload/{file_id}/complete")
+    assert res.status_code == 422 and res.json()["error"] == "file_type_unsupported"
+    answers = {"answers": {"waiver": file_id}}
+    assert (await api.post(f"/form/{token}", json=answers)).status_code == 422
 
 
 async def test_public_complete_cannot_reach_another_responses_file(

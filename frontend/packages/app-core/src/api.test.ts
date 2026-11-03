@@ -5,6 +5,7 @@ import {
     attemptKey,
     failedCode,
     failedDetail,
+    failedFields,
     failedStatus,
     failureMessage,
     refusal,
@@ -134,5 +135,30 @@ describe("write attempts", () => {
             }),
         ).rejects.toMatchObject({ code: "idempotency_key_reused" });
         expect(calls).toBe(2);
+    });
+});
+
+describe("failedFields", () => {
+    const invalid = (detail: unknown): unknown =>
+        Object.assign(new Error("422"), { code: "invalid_request", detail });
+
+    it("names the request fields a validation refusal points at", () => {
+        expect(
+            failedFields(
+                invalid([
+                    { loc: ["body", "brand", "website"] },
+                    { loc: ["body", "postal_code"] },
+                    { loc: ["query", "page"] },
+                ]),
+            ),
+        ).toEqual(["brand.website", "postal_code"]);
+    });
+
+    it("finds nothing in any other failure", () => {
+        expect(failedFields(new Error("boom"))).toEqual([]);
+        expect(failedFields(invalid("not a list"))).toEqual([]);
+        expect(
+            failedFields(Object.assign(new Error("409"), { code: "slug_taken", detail: [] })),
+        ).toEqual([]);
     });
 });

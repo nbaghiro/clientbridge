@@ -1,4 +1,5 @@
 import {
+    BUSINESS_NAME_MAX,
     PROVINCES,
     pageDomain,
     industryOptions,
@@ -140,6 +141,7 @@ export function Onboarding({ onSignOut }: { onSignOut: () => void }) {
                     label={strings.business.onboarding.businessName}
                     value={form.name}
                     onChange={form.setName}
+                    maxLength={BUSINESS_NAME_MAX}
                     autoFocus
                     size="lg"
                 />
