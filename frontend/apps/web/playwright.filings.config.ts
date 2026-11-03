@@ -1,11 +1,12 @@
 import { defineConfig } from "@playwright/test";
+import { recorded } from "@clientbridge/config/e2e/recording";
 
 import base, { chromium } from "./playwright.config";
 import { runPreview, runPort } from "@clientbridge/config/e2e/run";
 
 const webPort = runPort("WEB_E2E_PORT");
 
-export default defineConfig({
+const config = defineConfig({
     ...base,
     testMatch: "*.filing.ts",
     projects: [
@@ -19,3 +20,5 @@ export default defineConfig({
         },
     ],
 });
+
+export default recorded(config);

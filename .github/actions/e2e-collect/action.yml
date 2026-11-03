@@ -18,6 +18,7 @@ runs:
           .scratchpad/e2e-*/run.json
           .scratchpad/e2e-*/browser-results
           .scratchpad/e2e-*/browser-report
+          .scratchpad/e2e-*/recordings
           .scratchpad/e2e-*/browser.log
           .scratchpad/e2e-*/setup.log
           .scratchpad/e2e-*/api.log

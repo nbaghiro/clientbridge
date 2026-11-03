@@ -18,6 +18,7 @@ from typing import IO, Literal
 
 from clientbridge.core import clock
 from e2e import tier
+from e2e.recordings import keep_recordings, recorded_flows, recording
 from e2e.results import (
     REQUIRED_CASES,
     validate_native_evidence,
@@ -280,6 +281,8 @@ def run_native(
     stack.start(processes, log, browser_fixtures=False)
     report = stack.directory / "native-results.xml"
     flows = native_flows(args.tests)
+    if recording():
+        flows = recorded_flows(flows, MOBILE, stack.directory / "native-flows")
     command = [
         "maestro",
         "--device",
@@ -355,5 +358,6 @@ def run_native(
             process.wait()
         finally:
             stack.stop_owned(process)
+            keep_recordings(stack.directory)
     required = [] if args.tests else REQUIRED_CASES[f"native-{args.platform}"]
     validate_native_evidence(report.read_text(), required)

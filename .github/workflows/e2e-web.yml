@@ -5,11 +5,15 @@ on:
 permissions:
   contents: read
 
+# a manual ci run with record keeps a video of every test; reusable workflows see the caller's event
+env:
+  E2E_RECORD: ${{ github.event.inputs.record == 'true' && '1' || '' }}
+
 jobs:
   lane:
     name: ${{ matrix.name }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: ${{ github.event.inputs.record == 'true' && 120 || 30 }}
     strategy:
       fail-fast: false
       matrix:
