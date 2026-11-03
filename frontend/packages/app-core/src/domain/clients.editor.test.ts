@@ -57,14 +57,37 @@ it("fills the form once the directory loads after the editor opened", () => {
     expect(result.current.dirty).toBe(false);
 });
 
-it("keeps what the person typed when the record refreshes", () => {
+it("keeps what the person typed when the record refreshes, and shows the fields they didn't", () => {
     const { result, rerender } = editor([ann]);
     act(() => {
         result.current.set("name", "Ann T.");
     });
-    rerender({ rows: [{ ...ann, phone: "+16045550002" }] });
+    rerender({ rows: [{ ...ann, phone: "+16045550002", tags: ["VIP"] }] });
     expect(result.current.draft.name).toBe("Ann T.");
-    expect(result.current.draft.phone).toBe("(604) 555-0001");
+    expect(result.current.draft.phone).toBe("(604) 555-0002");
+    expect(result.current.draft.tags).toEqual(["VIP"]);
+});
+
+it("saves only the fields edited, so a stale form can't undo another device's rename", async () => {
+    const patch = vi.fn((_path: string, body: Record<string, unknown>) =>
+        Promise.resolve({ name: "Ann Smith", phone: "+16045550001", tags: [], ...body }),
+    );
+    const { result, rerender } = renderHook(
+        ({ rows }: { rows: readonly ClientListRow[] }) =>
+            useClientEditor({ ...api, patch } as ApiLike, rows, "cl_ann", () => undefined),
+        { wrapper, initialProps: { rows: [ann] as readonly ClientListRow[] } },
+    );
+    act(() => {
+        result.current.set("tags", ["VIP"]);
+    });
+    rerender({ rows: [{ ...ann, name: "Ann Smith" }] });
+    expect(result.current.draft.name).toBe("Ann Smith");
+    await act(async () => {
+        result.current.submit();
+        await Promise.resolve();
+    });
+    expect(patch).toHaveBeenCalledTimes(1);
+    expect(patch.mock.calls[0]?.[1]).toEqual({ tags: ["VIP"] });
 });
 
 const bo: ClientListRow = { ...ann, id: "cl_bo", name: "Bo Diaz", phone: "+16045550009" };

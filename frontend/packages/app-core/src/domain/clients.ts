@@ -33,7 +33,7 @@ import {
     phoneDigits,
     BUSINESS_CURRENCY,
 } from "../format";
-import { useAsyncAction, useNow, useRemote } from "../hooks";
+import { useAsyncAction, useNow, useRemote, useSyncedDraft } from "../hooks";
 import type { Load } from "../hooks";
 import { type IconName, SUBJECT_ICON } from "../icons";
 import { strings } from "../strings";
@@ -733,15 +733,20 @@ export interface ClientEditor {
     firstSubject: { kind: SubjectKind; detail: SubjectField } | null;
 }
 
-function draftFor(client: ClientListRow | null, consent: boolean): ClientDraft {
-    return {
-        name: client?.name ?? "",
-        phone: client === null ? "" : formatPhone(client.phone),
-        tags: client?.tags ?? [],
-        consent,
-        subjectName: "",
-        subjectDetail: "",
-    };
+const EMPTY_DRAFT: ClientDraft = {
+    name: "",
+    phone: "",
+    tags: [],
+    consent: false,
+    subjectName: "",
+    subjectDetail: "",
+};
+
+type ContactFields = Pick<ClientDraft, "name" | "phone" | "tags">;
+const CONTACT_FIELDS: readonly string[] = ["name", "phone", "tags"];
+
+function contactOf(client: { name: string; phone: string | null; tags: string[] }): ContactFields {
+    return { name: client.name, phone: formatPhone(client.phone), tags: client.tags };
 }
 
 /** Add when `clientId` is null, edit otherwise. Errors show after the first submit. */
@@ -761,14 +766,15 @@ export function useClientEditor(
     }>(CLIENT_CONSENT_SQL, [clientId ?? ""]).data[0];
     const agreed = consentRow !== undefined && consentRow.status !== "withdrawn";
     const textsStopped = useTextsStopped(clientId ?? "");
-    const initial = useMemo(() => draftFor(client, agreed), [client, agreed]);
-    const [draft, setDraft] = useState<ClientDraft>(initial);
-    // the directory can load after the editor opens, so an untouched draft follows the record
-    const [shown, setShown] = useState(initial);
-    if (shown !== initial) {
-        setShown(initial);
-        if (JSON.stringify(draft) === JSON.stringify(shown)) setDraft(initial);
-    }
+    // an edited record keeps only the fields touched, so a field synced in meanwhile shows through
+    const synced = useSyncedDraft(client === null ? null : contactOf(client));
+    const [added, setAdded] = useState<ClientDraft>(EMPTY_DRAFT);
+    const [consent, setConsent] = useState<boolean | null>(null);
+    const draft: ClientDraft = {
+        ...added,
+        ...(synced.values ?? {}),
+        consent: consent ?? agreed,
+    };
     const [tried, setTried] = useState(false);
     const [ignored, setIgnored] = useState(false);
     const [taken, setTaken] = useState<{ phone: string; clientId: string } | null>(null);
@@ -776,18 +782,24 @@ export function useClientEditor(
     const lifecycle = useClientLifecycle(api, client?.id ?? null);
     const attempt = useRef<Attempt | null>(null);
     const set = <K extends keyof ClientDraft>(key: K, value: ClientDraft[K]): void => {
-        setDraft((d) => ({ ...d, [key]: value }));
+        if (key === "consent") setConsent(value as boolean);
+        else if (client !== null && CONTACT_FIELDS.includes(key))
+            synced.set(key as keyof ContactFields, value as ContactFields[keyof ContactFields]);
+        else setAdded((d) => ({ ...d, [key]: value }));
         setError(null);
     };
+    const consentChanged = consent !== null && consent !== agreed;
     const contactChanged =
-        client === null || draft.name !== initial.name || draft.phone !== initial.phone;
+        client === null || synced.changes.name !== undefined || synced.changes.phone !== undefined;
     const found = contactChanged ? findDuplicates(draft, directory, clientId) : [];
     const refused = takenMatch(taken, draft.phone, directory);
     const duplicates = [
         ...(refused !== null && !found.some((m) => m.phoneTaken) ? [refused] : []),
         ...found.filter((m) => m.phoneTaken || !ignored),
     ];
-    const dirty = JSON.stringify(draft) !== JSON.stringify(initial);
+    const dirty =
+        consentChanged ||
+        (client === null ? JSON.stringify(added) !== JSON.stringify(EMPTY_DRAFT) : synced.dirty);
 
     // a refusal naming a client this device knows shows as that match; any other stays an error
     const holdsPhone = (e: unknown, phone: string | null): boolean => {
@@ -832,14 +844,20 @@ export function useClientEditor(
                 onSaved(saved.id);
                 return;
             }
+            const sent = synced.changes;
             const input = {
-                ...body,
-                ...(draft.consent === initial.consent ? {} : { marketing_consent: draft.consent }),
+                ...(sent.name === undefined ? {} : { name: body.name }),
+                ...(sent.phone === undefined ? {} : { phone: body.phone }),
+                ...(sent.tags === undefined ? {} : { tags: body.tags }),
+                ...(consentChanged ? { marketing_consent: draft.consent } : {}),
             };
-            await api.patch(`/v1/clients/${client.id}`, input, {
-                idempotencyKey: attemptKey(attempt, [client.id, input]),
-            });
+            const saved = await api.patch<{ name: string; phone: string | null; tags: string[] }>(
+                `/v1/clients/${client.id}`,
+                input,
+                { idempotencyKey: attemptKey(attempt, [client.id, input]) },
+            );
             attempt.current = null;
+            synced.settle(sent, contactOf(saved));
             onSaved(client.id);
         };
         run(
