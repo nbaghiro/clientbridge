@@ -23,10 +23,10 @@ const execute = promisify(execFile);
 export const INQUIRY_CARD = "4000000000001976";
 export const DISPUTE_CARD = "4000000000000259";
 
-export async function stripeHarness<T>(args: string[]): Promise<T> {
+export async function stripeHarness<T>(args: string[], timeout = 360_000): Promise<T> {
     const { stdout } = await execute("uv", ["run", "python", "-m", "e2e.stripe", ...args], {
         cwd: fileURLToPath(new URL("../../../../../../backend", import.meta.url)),
-        timeout: 360_000,
+        timeout,
     });
     return JSON.parse(stdout) as T;
 }
