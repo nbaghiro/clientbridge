@@ -16,8 +16,11 @@ interface Book {
 const books: Book[] = [];
 let pseudoOn = false;
 
-export function activeLocale(): Locale {
-    return pseudoOn ? "en-XA" : "en-CA";
+/** Stripe's frames don't know the en-XA pseudo-locale, so they always get the real one. */
+export function activeLocale(): Locale;
+export function activeLocale(target: "stripe"): "en-CA";
+export function activeLocale(target?: "stripe"): Locale {
+    return pseudoOn && target !== "stripe" ? "en-XA" : "en-CA";
 }
 
 /** Development and test switch to the generated en-XA pseudo-locale; never offered to users. */

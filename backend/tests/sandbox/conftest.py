@@ -5,7 +5,7 @@ import json
 import os
 import re
 import socket
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from uuid import uuid4
@@ -15,6 +15,7 @@ import pytest
 import stripe
 import uvicorn
 from e2e import stripe_shapes
+from e2e.stripe_cleanup import unlocked
 from fastapi import FastAPI, Request, Response
 
 from clientbridge.integrations.stripe import (
@@ -176,20 +177,6 @@ class StripeRun:
                 errors.append(exc)
         if errors:
             raise ExceptionGroup("Stripe QA cleanup failed", errors)
-
-
-async def unlocked[T](request: Callable[[], Awaitable[T]]) -> T:
-    """Retries Stripe's lock_timeout, returned while Stripe itself is still updating the object."""
-    # a dispute can hold its charge for most of a minute while Stripe processes it
-    for attempt in range(9):
-        try:
-            return await request()
-        except stripe.RateLimitError as exc:
-            # the SDK leaves a 429's code off exc.code and keeps it on exc.error
-            if exc.error is None or exc.error.code != "lock_timeout" or attempt == 8:
-                raise
-            await asyncio.sleep(min(2**attempt, 10))
-    raise AssertionError("unreachable")
 
 
 @pytest.fixture

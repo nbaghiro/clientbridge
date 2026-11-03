@@ -138,6 +138,15 @@ flowchart LR
   components. That SDK has no account management component and Stripe does not support Connect.js inside
   a WebView, so mobile's Manage on web opens `/setup/getting-paid?manage=account` on the web. `payments` records each attempt and Stripe object; the ledger
   records what each one did to the money.
+- **Theming.** Stripe's frames can't read our CSS, so `@clientbridge/tokens` (`stripe.ts`) builds their
+  appearance from our tokens: `stripeConnectAppearance` for the Connect components on web and mobile, and
+  `stripeElementsAppearance` for the card form. Web resolves the CSS variables where the frame mounts, so a
+  business's brand colour on its public pages reaches the card form; mobile passes `theme.colors`. Both get
+  our locale (`baseLocale()`), Connect's details open as a drawer over our scrim, and the card form pins the
+  tabs layout, which draws no panel around the fields when card is the only method. Stripe sets tabular
+  figures, and in Schibsted Grotesk those make `,`, `.` and `:` as wide as a digit, so `STRIPE_FONTS` loads
+  the font without them and they come from the system font. Touch screens get 16px card inputs, because iOS
+  zooms into a smaller one. Link and Klarna keep the colours Stripe gives them.
 - The Stripe API version is pinned (`STRIPE_API_VERSION` in `integrations/stripe.py`), and the Connect
   webhook endpoint (snapshot events) must be created with that same version, because the handlers parse
   its payload shapes. Thin events are unversioned and signed with the event destination's own secret

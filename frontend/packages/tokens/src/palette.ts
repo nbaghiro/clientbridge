@@ -13,13 +13,18 @@ export const INTENT_COLORS: Record<IntentTone, { soft: ColorKey; ink: ColorKey; 
         neutral: { soft: "surface2", ink: "muted", line: "border" },
     };
 
+export function cssVarName(key: ColorKey): string {
+    return `--${key.replace(/[A-Z]/g, (ch) => `-${ch.toLowerCase()}`)}`;
+}
+
 export function cssVar(key: ColorKey): string {
-    return `var(--${key.replace(/[A-Z]/g, (ch) => `-${ch.toLowerCase()}`)})`;
+    return `var(${cssVarName(key)})`;
 }
 
 // Text and icons drawn over a data colour (a service, staff or brand colour) and the shadow of raised surfaces.
 export const ON_DATA = "#FFFFFF";
 export const SHADOW = "#14191E";
+export const SCRIM = "rgba(20, 25, 30, 0.35)";
 
 // The colours a business brand or a team member can take, by the name a screen reader says.
 export const BRAND_PALETTE = {

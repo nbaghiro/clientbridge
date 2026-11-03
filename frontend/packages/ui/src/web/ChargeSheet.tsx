@@ -7,6 +7,9 @@ import { Notice } from "./Notice";
 import { type WebProps, cx } from "./props";
 import { stripeAccount as currentStripeAccount } from "./stripe";
 
+// the method step and the card step that follows it sit in the same panel
+const FRAME = "rounded-md border border-line bg-bg p-4";
+
 export function ChargeSheet({
     checkout,
     methods,
@@ -23,7 +26,7 @@ export function ChargeSheet({
     if (checkout.clientSecret !== null) {
         return (
             <CardForm
-                className={className}
+                className={cx(FRAME, className)}
                 clientSecret={checkout.clientSecret}
                 stripeAccount={stripeAccount ?? currentStripeAccount()}
                 submitLabel={strings.checkout.charge(amountLabel)}
@@ -39,7 +42,7 @@ export function ChargeSheet({
                 e.preventDefault();
                 onSubmit();
             }}
-            className={cx("mt-3 space-y-3 rounded-md border border-line bg-bg p-4", className)}
+            className={cx("mt-3 space-y-3", FRAME, className)}
         >
             {title !== undefined ? (
                 <h3 className="text-sm font-semibold text-ink">{title}</h3>

@@ -17,13 +17,18 @@ import { ui } from "./styles";
 
 const c = theme.colors;
 
+// Drawn like Field's input on a box: same font, size, border and radius.
 const cardStyle: CardFieldInput.Styles = {
     backgroundColor: c.surface,
     textColor: c.ink,
     placeholderColor: c.muted,
+    textErrorColor: c.danFg,
+    cursorColor: c.accent,
     borderColor: c.border,
-    borderWidth: 1,
-    borderRadius: 8,
+    borderWidth: theme.borderWidth,
+    borderRadius: theme.radius,
+    fontFamily: theme.fonts.ui,
+    fontSize: 15,
 };
 
 /** Native card entry that confirms a server-minted client secret (a charge or a saved card). */
