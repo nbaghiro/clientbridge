@@ -908,7 +908,7 @@ def _assert_subject_fields(business: Business, data: PublicBookingCreate) -> Non
         )
 
 
-def _same_place(stored: object, given: str) -> bool:
+def _same_words(stored: object, given: str) -> bool:
     return (
         isinstance(stored, str)
         and " ".join(stored.split()).casefold() == " ".join(given.split()).casefold()
@@ -922,27 +922,31 @@ async def _subject(
     name: str | None,
     address: str | None,
 ) -> str | None:
-    """The client's subject of that name (and a place's address), filed when first booked."""
+    """The client's subject of that name, or a place at that address, filed when first booked."""
     if name is None or name.strip() == "":
         return None
-    clean = name.strip()
-    place = (address or "").strip()
-    named = (
+    clean = " ".join(name.split())
+    place = " ".join((address or "").split())
+    owned = (
         (
             await db.execute(
                 scoped(Subject, business.id, soft_delete=True)
-                .where(Subject.client_id == client_id, func.lower(Subject.name) == clean.lower())
+                .where(Subject.client_id == client_id)
                 .order_by(Subject.created_at, Subject.id)
             )
         )
         .scalars()
         .all()
     )
+    named = [s for s in owned if _same_words(s.name, clean)]
     found = named[0] if named else None
     if business.subject in PLACE_KINDS and place:
         found = next(
-            (s for s in named if _same_place(s.attributes.get("address"), place)),
-            next((s for s in named if not s.attributes.get("address")), None),
+            (s for s in named if _same_words(s.attributes.get("address"), place)),
+            next(
+                (s for s in owned if _same_words(s.attributes.get("address"), place)),
+                next((s for s in named if not s.attributes.get("address")), None),
+            ),
         )
     if found is not None:
         if place and not found.attributes.get("address"):

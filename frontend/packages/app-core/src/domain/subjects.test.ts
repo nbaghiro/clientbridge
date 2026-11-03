@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ApiLike } from "../api";
 import { zonedDate } from "../datetime";
-import { formatList, formatParts } from "../format";
+import { formatList, formatParts, formatPhone } from "../format";
 import { strings } from "../strings";
 import {
     PICKUP_PEOPLE_MAX,
@@ -12,6 +12,7 @@ import {
     leadField,
     pickupLine,
     subjectAlerts,
+    subjectKindOf,
     subjectSummary,
     subjectTemperament,
     useSubjectForm,
@@ -31,28 +32,36 @@ const NOW = zonedDate(2026, 10, 7, 12, 0, ZONE);
 const s = strings.subjects;
 
 describe("subjectSummary", () => {
-    it("reads each kind's own details and ignores another kind's keys", () => {
-        const attributes = {
-            breed: "Collie",
-            weight_kg: 22,
-            birthday: "2020-03-01",
-            grade: "Grade 4",
-            school: "Oak Bay",
-            address: "12 Pine St",
-            rooms: 3,
-        };
-        expect(subjectSummary("pet", attributes, ZONE, NOW)).toBe(
+    it("reads each kind's own details", () => {
+        const pet = { breed: "Collie", weight_kg: 22, birthday: "2020-03-01" };
+        expect(subjectSummary("pet", pet, ZONE, NOW)).toBe(
             formatParts(["Collie", s.age(6), s.weight(22)]),
         );
-        expect(subjectSummary("student", attributes, ZONE, NOW)).toBe(
+        const student = { grade: "Grade 4", school: "Oak Bay", birthday: "2020-03-01" };
+        expect(subjectSummary("student", student, ZONE, NOW)).toBe(
             formatParts(["Grade 4", "Oak Bay", s.age(6)]),
         );
-        expect(subjectSummary("property", attributes, ZONE, NOW)).toBe(
+        const property = { address: "12 Pine St", rooms: 3 };
+        expect(subjectSummary("property", property, ZONE, NOW)).toBe(
             formatParts(["12 Pine St", s.rooms(3)]),
         );
-        expect(subjectSummary("site", attributes, ZONE, NOW)).toBe("12 Pine St");
-        expect(subjectSummary("vehicle", attributes, ZONE, NOW)).toBe("");
-        expect(subjectSummary(null, attributes, ZONE, NOW)).toBe("");
+        expect(subjectSummary("site", { address: "12 Pine St" }, ZONE, NOW)).toBe("12 Pine St");
+        expect(subjectSummary("vehicle", { address: "12 Pine St" }, ZONE, NOW)).toBe("");
+        expect(subjectSummary(null, pet, ZONE, NOW)).toBe("");
+    });
+
+    it("keeps reading a subject as its own kind after the business changes kind", () => {
+        const pet = { species: "dog", breed: "Collie", weight_kg: 22, temperament: "anxious" };
+        expect(subjectKindOf("property", pet)).toBe("pet");
+        expect(subjectSummary("property", pet, ZONE, NOW)).toBe(
+            formatParts(["Collie", s.weight(22)]),
+        );
+        expect(subjectTemperament("property", pet)?.label).toBe(s.fields.pet.temperaments.anxious);
+        expect(subjectKindOf("property", { address: "12 Pine St", access: "Lockbox" })).toBe(
+            "property",
+        );
+        expect(subjectKindOf("site", {})).toBe("site");
+        expect(subjectKindOf(null, pet)).toBeNull();
     });
 
     it("counts a birthday later this year as one year younger", () => {
@@ -68,7 +77,9 @@ describe("subjectTemperament", () => {
         });
         expect(subjectTemperament("pet", { temperament: "calm" })?.nervous).toBe(false);
         expect(subjectTemperament("pet", {})).toBeNull();
-        expect(subjectTemperament("property", { temperament: "anxious" })).toBeNull();
+        expect(
+            subjectTemperament("property", { address: "12 Pine St", temperament: "anxious" }),
+        ).toBeNull();
     });
 });
 
@@ -162,7 +173,11 @@ describe("a student's pickups", () => {
             s.pickup.mayBePickedUpBy(formatList(["Ngozi Nwosu", "Tobi Adeyemi"])),
         );
         expect(pickupLine("student", {})).toBeNull();
-        expect(pickupLine("pet", attributes)).toBeNull();
+        const pet = { ...attributes, species: "dog", breed: "Collie", weight_kg: 22 };
+        expect(pickupLine("pet", pet)).toBeNull();
+        expect(pickupLine("pet", { pickups: attributes.pickups })).toBe(
+            s.pickup.mayBePickedUpBy(formatList(["Ngozi Nwosu", "Tobi Adeyemi"])),
+        );
     });
 
     it("raises a restriction as an alert for students only", () => {
@@ -174,7 +189,8 @@ describe("a student's pickups", () => {
             },
         ]);
         expect(subjectAlerts("student", { no_pickup: "  " }, NOW, ZONE)).toEqual([]);
-        expect(subjectAlerts("site", attributes, NOW, ZONE)).toEqual([]);
+        const site = { ...attributes, address: "1 Elm", building: "house", internet: "Fibre" };
+        expect(subjectAlerts("site", site, NOW, ZONE)).toEqual([]);
     });
 });
 
@@ -317,6 +333,38 @@ describe("the pickup editor", () => {
                 },
             },
         ]);
+    });
+});
+
+describe("editing after the business changes kind", () => {
+    afterEach(() => {
+        business.subject = "student";
+    });
+
+    it("shows a stored pickup phone as it is written", () => {
+        const withPhone = {
+            ...student,
+            attributes: { pickups: [{ name: "Rosa Lindqvist", phone: "+16135550144" }] },
+        };
+        const { result } = renderHook(() =>
+            useSubjectForm(recordingApi(), "cl_ann", withPhone, vi.fn()),
+        );
+        expect(result.current.pickups?.[0]?.phone).toBe(formatPhone("+16135550144"));
+    });
+
+    it("edits a pet with a pet's fields in a business that now books properties", () => {
+        business.subject = "property";
+        const pet = {
+            id: "sj_biscuit",
+            clientId: "cl_ann",
+            name: "Biscuit",
+            attributes: { species: "dog", breed: "Golden retriever", weight_kg: 31.5 },
+        };
+        const { result } = renderHook(() => useSubjectForm(recordingApi(), "cl_ann", pet, vi.fn()));
+        expect(result.current.kind).toBe("pet");
+        expect(result.current.values.breed).toBe("Golden retriever");
+        const added = renderHook(() => useSubjectForm(recordingApi(), "cl_ann", null, vi.fn()));
+        expect(added.result.current.kind).toBe("property");
     });
 });
 

@@ -16,7 +16,7 @@ streams:
       member: SELECT business_id FROM staff WHERE user_id = auth.user_id() AND status = 'active'
     queries:
       - SELECT created_by, name, phone, user_id, tags, status, custom_fields, archived_at, id, business_id, created_at, updated_at, deleted_at FROM clients WHERE business_id IN member AND deleted_at IS NULL
-      - SELECT client_id, name, attributes, id, business_id, created_at, updated_at, deleted_at FROM subjects WHERE business_id IN member AND deleted_at IS NULL
+      - SELECT client_id, name, attributes, id, business_id, created_at, updated_at, deleted_at FROM subjects WHERE business_id IN member
       - SELECT created_by, parent_type, parent_id, body, pinned, id, business_id, created_at, updated_at FROM notes WHERE business_id IN member
       - SELECT client_id, status, source, recorded_by, expires_at, phone, id, business_id, created_at, updated_at FROM consents WHERE business_id IN member
       - SELECT staff_id, basis, weekday, date, start_time, end_time, available, note, starts_at, ends_at, reason, id, business_id, created_at, updated_at FROM hours WHERE business_id IN member AND staff_id IS NULL

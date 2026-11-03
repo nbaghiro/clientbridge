@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatList } from "../format";
+import { formatList, formatParts } from "../format";
 import { strings } from "../strings";
 import {
     arrivalWords,
@@ -30,6 +30,7 @@ const row = (over: Record<string, unknown>) => ({
     client_id: "cl_ann",
     client_name: "Ann Lee",
     client_phone: null,
+    subject_name: null,
     subject_attributes: null,
     deposit_amount_cents: 2000,
     deposit_status: "collected",
@@ -210,7 +211,7 @@ describe("an agenda row's pickups", () => {
         );
     });
 
-    it("stays empty for a class, another kind or a student with no list", () => {
+    it("stays empty for a class, a pet or a student with no list", () => {
         const [cls] = buildAgenda(
             [row({ capacity: 4, item_kind: "class", subject_attributes: pickups })],
             now,
@@ -218,8 +219,27 @@ describe("an agenda row's pickups", () => {
             "student",
         );
         expect(cls?.pickup).toBeNull();
-        const [pet] = buildAgenda([row({ subject_attributes: pickups })], now, ZONE, "pet");
+        const dog = JSON.stringify({ species: "dog", breed: "Beagle" });
+        const [pet] = buildAgenda([row({ subject_attributes: dog })], now, ZONE, "pet");
         expect(pet?.pickup).toBeNull();
         expect(buildAgenda([row({})], now, ZONE, "student")[0]?.pickup).toBeNull();
+    });
+
+    it("still names them after the business stops booking students", () => {
+        const [visit] = buildAgenda([row({ subject_attributes: pickups })], now, ZONE, "pet");
+        expect(visit?.pickup).toBe(
+            strings.subjects.pickup.mayBePickedUpBy(formatList(["Ngozi Nwosu", "Tobi Adeyemi"])),
+        );
+    });
+});
+
+describe("an agenda row's title", () => {
+    const now = new Date("2026-10-06T16:30:00Z");
+
+    it("names the subject before the client, and only the client without one", () => {
+        const [pet] = buildAgenda([row({ subject_name: "Biscuit" })], now, ZONE, "pet");
+        expect(pet?.title).toBe(formatParts(["Biscuit", "Ann Lee"]));
+        expect(pet?.clientName).toBe("Ann Lee");
+        expect(buildAgenda([row({})], now, ZONE, "pet")[0]?.title).toBe("Ann Lee");
     });
 });

@@ -62,6 +62,8 @@ describe("visitPill", () => {
         start: zonedDate(2026, 10, 8, 10, 0, ZONE),
         end: zonedDate(2026, 10, 8, 11, 0, ZONE),
         service: "Groom",
+        subjectName: null,
+        title: "Groom",
         color: null,
         staffName: null,
         depositCents: 0,

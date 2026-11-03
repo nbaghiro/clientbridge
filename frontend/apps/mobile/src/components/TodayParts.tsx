@@ -350,7 +350,7 @@ export function NextCard({ item, children }: { item: AgendaItem; children?: Reac
                         />
                     </View>
                     <Text style={styles.nextClient} numberOfLines={1}>
-                        {item.clientName}
+                        {item.title}
                     </Text>
                     <View style={styles.nextWith}>
                         <ItemImage
@@ -509,7 +509,7 @@ export function AgendaRows({
                                 style={[styles.agendaClient, done && styles.muted]}
                                 numberOfLines={1}
                             >
-                                {item.clientName}
+                                {item.title}
                             </Text>
                             <Text style={styles.agendaSub} numberOfLines={1}>
                                 {showStaff

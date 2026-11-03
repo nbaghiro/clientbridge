@@ -81,7 +81,8 @@ SELECT t.id, t.client_id, t.status, t.created_at, c.name AS client_name, c.phone
         WHERE m.thread_id = t.id AND m.direction = 'in' AND m.status != 'read') AS unread_count,
        (SELECT m.body FROM messages m WHERE m.thread_id = t.id ORDER BY m.created_at DESC LIMIT 1)
            AS last_body,
-       (SELECT GROUP_CONCAT(s.name, ', ') FROM subjects s WHERE s.client_id = t.client_id)
+       (SELECT GROUP_CONCAT(s.name, ', ') FROM subjects s
+          WHERE s.client_id = t.client_id AND s.deleted_at IS NULL)
            AS subject_names
 FROM threads t
 LEFT JOIN clients c ON c.id = t.client_id
@@ -95,7 +96,8 @@ WHERE m.thread_id = ? ORDER BY m.created_at`;
 // The client beside a thread: contact, subjects, what they owe and their next visit after `?`.
 export const INBOX_CLIENT_SQL = `
 SELECT c.id, c.name, c.phone, c.status,
-       (SELECT GROUP_CONCAT(s.name, ', ') FROM subjects s WHERE s.client_id = c.id) AS subject_names,
+       (SELECT GROUP_CONCAT(s.name, ', ') FROM subjects s
+          WHERE s.client_id = c.id AND s.deleted_at IS NULL) AS subject_names,
        (SELECT SUM(a.balance_cents) FROM accounts a WHERE a.owner_type = 'client'
           AND a.owner_id = c.id AND a.category = 'receivable') AS balance_cents,
        (SELECT sl.starts_at FROM bookings b JOIN slots sl ON sl.id = b.slot_id

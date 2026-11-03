@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import type { ApiLike } from "../api";
 import { dateKey, formatDate, readDate } from "../datetime";
-import { formatList, formatParts, normalizePhone, parseNumber } from "../format";
+import { formatList, formatParts, formatPhone, normalizePhone, parseNumber } from "../format";
 import {
     type DraftRow,
     typedRows,
@@ -101,7 +101,7 @@ export function subjectTemperament(
     attributes: Record<string, unknown>,
 ): { label: string; nervous: boolean } | null {
     const value = text(attributes.temperament);
-    if (kind !== "pet" || value === "") return null;
+    if (subjectKindOf(kind, attributes) !== "pet" || value === "") return null;
     return { label: temperamentLabel(value), nervous: NERVOUS.has(value) };
 }
 
@@ -572,6 +572,7 @@ interface DraftGroup<K extends string> {
     required: K;
     requiredMessage: () => string;
     invalid: (key: K, value: string) => string | null;
+    shown: (key: K, value: string) => string;
 }
 
 const EQUIPMENT: DraftGroup<EquipmentKey> = {
@@ -584,6 +585,7 @@ const EQUIPMENT: DraftGroup<EquipmentKey> = {
     requiredMessage: () => s.equipment.modelRequired,
     invalid: (key, value) =>
         DATE_KEYS.has(key) && !/^\d{4}-\d{2}-\d{2}$/.test(value) ? s.dateInvalid : null,
+    shown: (_key, value) => value,
 };
 
 /** A group's stored list as drafts; entries that are not objects are dropped. */
@@ -595,7 +597,12 @@ function storedRows<K extends string>(
     if (!Array.isArray(list)) return [];
     return list
         .filter((e): e is Record<string, unknown> => typeof e === "object" && e !== null)
-        .map((e) => Object.fromEntries(group.keys.map((k) => [k, text(e[k])])) as DraftRow<K>);
+        .map(
+            (e) =>
+                Object.fromEntries(
+                    group.keys.map((k) => [k, group.shown(k, text(e[k]))]),
+                ) as DraftRow<K>,
+        );
 }
 
 /** Errors keyed `<attribute>.<row>.<key>`; a row left entirely blank is dropped, not checked. */
@@ -629,6 +636,31 @@ export interface EquipmentLine {
 }
 
 const WARRANTY_SOON_DAYS = 60;
+
+const LIST_KEYS: Record<SubjectKind, readonly string[]> = {
+    pet: [],
+    student: ["pickups"],
+    property: [],
+    site: ["equipment"],
+    vehicle: [],
+};
+
+/** The kind a subject's details belong to, which outlives a change of the business's kind. */
+export function subjectKindOf(
+    kind: SubjectKind | null,
+    attributes: Record<string, unknown>,
+): SubjectKind | null {
+    if (kind === null) return null;
+    const filled = Object.keys(attributes).filter(
+        (k) => attributes[k] !== null && attributes[k] !== "",
+    );
+    const score = (k: SubjectKind): number => {
+        const keys = new Set([...SUBJECT_FIELDS[k].map((f) => f.key), ...LIST_KEYS[k]]);
+        return filled.filter((key) => keys.has(key)).length;
+    };
+    const best = KINDS.reduce((a, b) => (score(b) > score(a) ? b : a), kind);
+    return score(best) > score(kind) ? best : kind;
+}
 
 /** One line per installed device, with its warranty and whether it has ended or ends soon. */
 export function equipmentLines(
@@ -728,6 +760,7 @@ const PICKUPS: DraftGroup<PickupKey> = {
     requiredMessage: () => s.pickup.nameRequired,
     invalid: (key, value) =>
         key === "phone" && normalizePhone(value) === null ? s.pickup.phoneInvalid : null,
+    shown: (key, value) => (key === "phone" && value !== "" ? formatPhone(value) : value),
 };
 
 /** "May be picked up by …" for a student with a pickup list; null for other kinds or an empty list. */
@@ -735,7 +768,7 @@ export function pickupLine(
     kind: SubjectKind | null,
     attributes: Record<string, unknown>,
 ): string | null {
-    if (kind !== "student") return null;
+    if (subjectKindOf(kind, attributes) !== "student") return null;
     const names = storedRows(PICKUPS, attributes)
         .map((p) => p.name.trim())
         .filter((n) => n !== "");
@@ -753,11 +786,12 @@ function ageYears(birthday: string, now: Date, zone: string): number | null {
 
 /** One line about a subject: a pet's breed and age, a student's grade, an address, a vehicle's make. */
 export function subjectSummary(
-    kind: SubjectKind | null,
+    businessKind: SubjectKind | null,
     attributes: Record<string, unknown>,
     zone: string,
     now: Date = new Date(),
 ): string {
+    const kind = subjectKindOf(businessKind, attributes);
     const birthday = text(attributes.birthday);
     const age = birthday === "" ? null : ageYears(birthday, now, zone);
     const ageLabel = age === null ? "" : s.age(age);
@@ -803,12 +837,13 @@ export interface SubjectAlert {
 
 /** What to watch for: allergies, a student's pickup restriction, a pet's temperament and rabies vaccine. */
 export function subjectAlerts(
-    kind: SubjectKind | null,
+    businessKind: SubjectKind | null,
     attributes: Record<string, unknown>,
     now: Date,
     zone: string,
 ): SubjectAlert[] {
     const out: SubjectAlert[] = [];
+    const kind = subjectKindOf(businessKind, attributes);
     const temperament = subjectTemperament(kind, attributes);
     if (temperament?.nervous === true)
         out.push({
@@ -876,7 +911,8 @@ export function useSubjectForm(
     subject: SubjectRow | null,
     onDone: () => void,
 ): SubjectForm {
-    const kind = useSubjectKind();
+    const businessKind = useSubjectKind();
+    const kind = subject === null ? businessKind : subjectKindOf(businessKind, subject.attributes);
     const word = kindWord(kind);
     const fields = kind === null ? [] : SUBJECT_FIELDS[kind];
     const [name, setNameRaw] = useState(subject?.name ?? "");

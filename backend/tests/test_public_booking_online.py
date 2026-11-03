@@ -459,6 +459,27 @@ async def test_a_place_is_matched_by_name_and_address(
     assert again.id == home.id and home.attributes == {"address": "4 Elm Rd"}
 
 
+async def test_a_place_name_matches_whatever_its_spacing_and_case(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _kind(db, "property")
+    cabin = await _booked_subject(api, db, subject_name="Lake cabin", subject_address="1 Lake Rd")
+    again = await _booked_subject(api, db, subject_name=" lake  CABIN ")
+    assert again.id == cabin.id and cabin.name == "Lake cabin"
+    fresh = await _booked_subject(api, db, subject_name="  Boat   house ")
+    assert fresh.name == "Boat house"
+
+
+async def test_a_new_name_at_a_known_address_books_that_place(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _kind(db, "property")
+    cabin = await _booked_subject(api, db, subject_name="Lake cabin", subject_address="1 Lake Rd")
+    home = await _booked_subject(api, db, subject_name="Home", subject_address=" 1  LAKE rd")
+    assert home.id == cabin.id and cabin.name == "Lake cabin"
+    assert cabin.attributes == {"address": "1 Lake Rd"}
+
+
 async def test_a_property_without_an_address_takes_the_first_one_booked(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
