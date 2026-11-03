@@ -83,12 +83,14 @@ async def test_archived_client_refuses_a_repeating_series(
     _refused(await as_owner.post("/v1/recurrences", json=series))
 
 
-@pytest.mark.parametrize("path", ["/v1/invoices", "/v1/estimates"])
-async def test_archived_client_refuses_new_documents(
-    as_owner: httpx.AsyncClient, db: AsyncSession, path: str
+async def test_archived_client_refuses_a_new_estimate_but_can_still_be_invoiced(
+    as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     client_id = await _archived(as_owner, db)
-    _refused(await as_owner.post(path, json={"client_id": client_id, "lines": [_line()]}))
+    body = {"client_id": client_id, "lines": [_line()]}
+    _refused(await as_owner.post("/v1/estimates", json=body))
+    invoiced = await as_owner.post("/v1/invoices", json=body)
+    assert invoiced.status_code == 201, invoiced.text
 
 
 async def test_archived_client_refuses_a_new_sale_and_a_sale_moved_to_them(
@@ -326,3 +328,19 @@ async def test_new_work_waits_for_an_archive_under_way_then_is_refused(db: Async
         async with SessionLocal() as cleanup:
             await cleanup.execute(delete(Client).where(Client.id == client.id))
             await cleanup.commit()
+
+
+async def test_a_merge_waits_for_new_work_already_under_way_on_either_client(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    kept, gone = await new_client(db), await new_client(db)
+    async with SessionLocal() as work:
+        await hold_client(work, gone, shared=True)
+        merging = asyncio.create_task(
+            as_owner.post(f"/v1/clients/{kept}/merge", json={"from_client_id": gone})
+        )
+        await asyncio.sleep(0.3)
+        assert not merging.done()
+        await work.commit()
+    merged = await asyncio.wait_for(merging, 5)
+    assert merged.status_code == 200, merged.text

@@ -64,7 +64,7 @@ function Heading({ children }: { children: string }) {
     return <Text style={styles.heading}>{children}</Text>;
 }
 
-function DiscountFields({ editor, baseCents }: { editor: DiscountEditor; baseCents: number }) {
+function DiscountFields({ editor }: { editor: DiscountEditor }) {
     const known = editor.reasons.includes(editor.reason);
     return (
         <View style={styles.stack}>
@@ -97,14 +97,7 @@ function DiscountFields({ editor, baseCents }: { editor: DiscountEditor; baseCen
                 value={known ? "" : editor.reason}
                 onChange={editor.setReason}
             />
-            {editor.previewCents > 0 ? (
-                <Text style={styles.soft}>
-                    {d.discountPreview(
-                        formatMoney(editor.previewCents, BUSINESS_CURRENCY),
-                        formatMoney(baseCents - editor.previewCents, BUSINESS_CURRENCY),
-                    )}
-                </Text>
-            ) : null}
+            {editor.preview !== null ? <Text style={styles.soft}>{editor.preview}</Text> : null}
             {editor.error !== null ? <Notice tone="danger">{editor.error}</Notice> : null}
         </View>
     );
@@ -115,19 +108,21 @@ export function DiscountForm({
     title,
     initial,
     baseCents,
+    taxed,
     onApply,
     onCancel,
 }: {
     title: string;
     initial: SaleDiscount | null;
     baseCents: number;
+    taxed: boolean;
     onApply: (discount: SaleDiscount | null) => void;
     onCancel: () => void;
 }) {
-    const editor = useDiscountEditor(initial, baseCents);
+    const editor = useDiscountEditor(initial, baseCents, taxed);
     return (
         <Panel title={title} style={styles.card}>
-            <DiscountFields editor={editor} baseCents={baseCents} />
+            <DiscountFields editor={editor} />
             <View style={styles.row}>
                 {initial !== null ? (
                     <Button
@@ -230,12 +225,6 @@ function ClientPicker({ sale }: { sale: SaleTicket }) {
 function DiscountSheetBody({ sale, onDone }: { sale: SaleTicket; onDone: () => void }) {
     const sheet = useDiscountSheet(sale);
     const p = sheet.preview;
-    const base =
-        sheet.scope === "sale"
-            ? sale.totals.subtotalCents + sale.totals.saleDiscountCents
-            : sale.lines
-                  .filter((l) => sheet.keys.includes(l.key))
-                  .reduce((n, l) => n + l.grossCents, 0);
     return (
         <View style={styles.stack}>
             <SheetHeader title={d.discountTitle} />
@@ -272,7 +261,7 @@ function DiscountSheetBody({ sale, onDone }: { sale: SaleTicket; onDone: () => v
                       />
                   ))
                 : null}
-            <DiscountFields editor={sheet.editor} baseCents={base} />
+            <DiscountFields editor={sheet.editor} />
             <DocTotals
                 currency={BUSINESS_CURRENCY}
                 density="compact"
@@ -837,6 +826,7 @@ export function TicketSheet({
                                 title={d.discountLine(v.title)}
                                 initial={sale.lines.find((l) => l.key === v.key)?.discount ?? null}
                                 baseCents={v.grossCents}
+                                taxed={sale.totals.taxes.length > 0}
                                 onApply={(next) => {
                                     sale.setLineDiscount(v.key, next);
                                     setSelected(null);

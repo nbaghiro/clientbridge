@@ -1,6 +1,6 @@
 import secrets
 from collections.abc import Sequence
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 
 from sqlalchemy import ColumnElement, and_, func, select, text
 from sqlalchemy.exc import IntegrityError
@@ -13,6 +13,7 @@ from clientbridge.core.errors import Conflict, NotFound, Unauthorized, Unprocess
 from clientbridge.core.ids import new_id
 from clientbridge.core.locale import currency_for
 from clientbridge.core.scoping import scoped
+from clientbridge.core.zones import zone
 from clientbridge.integrations.s3 import FileStorage
 from clientbridge.integrations.stripe import PaymentGateway
 from clientbridge.models.billing import Estimate, Invoice, Line, Order
@@ -549,11 +550,11 @@ class PublicBookingService:
             )
             if slot is None:
                 raise Conflict(_UNOFFERED, code="slot_unavailable")
+            client, subject_id = await self._booker(cmd, business, data)
             await lock_staff(self.db, business.id, slot.staff_id)
             if not await seats_closed(self.db, slot.id):
                 raise Conflict("that class has a seat open; book it instead", code="class_open")
             addons = await self._addons(business, item, data)
-            client, subject_id = await self._booker(cmd, business, data)
             if await has_seat(self.db, business.id, slot.id, client.id, subject_id):
                 raise Conflict(ALREADY_IN_CLASS)
             deposit = deposit_cents(item) if item.deposit_type != "none" else 0
@@ -1887,12 +1888,17 @@ async def _tip_names(db: AsyncSession, business_id: str, lines: list[Line]) -> l
 
 
 async def estimate_tax(
-    db: AsyncSession, estimate: Estimate, lines: list[Line]
+    db: AsyncSession, estimate: Estimate, lines: list[Line], business: Business
 ) -> tuple[datetime, TaxResult]:
     """A quote still open is priced live; anything else shows the tax stored on its lines."""
-    if estimate.status == "sent" and estimate.converted_invoice_id is None:
+    status = estimate_status(estimate, local_today(business))
+    if status == "sent" and estimate.converted_invoice_id is None:
         now = clock.now()
         return now, await tax_breakdown(db, estimate.business_id, lines, now)
+    if status == "expired" and estimate.valid_until is not None:
+        # repricing stops once the quote's last day ends, so its stored tax is from then
+        last_day = datetime.combine(estimate.valid_until, time.max, tzinfo=zone(business.timezone))
+        return last_day, await issued_tax(db, estimate.business_id, lines, last_day)
     fixed_at = estimate.accepted_at or estimate.declined_at or estimate.created_at
     return fixed_at, await issued_tax(db, estimate.business_id, lines, fixed_at)
 
@@ -2014,7 +2020,7 @@ class PublicEstimateService:
     ) -> PublicEstimate:
         client = await self.db.get(Client, estimate.client_id)
         lines = lines if lines is not None else await self._lines(estimate)
-        priced = await estimate_tax(self.db, estimate, lines)
+        priced = await estimate_tax(self.db, estimate, lines, business)
         doc_lines, taxes = await public_doc_lines(self.db, estimate, lines, priced)
         totals = included_totals(lines, priced[1])
         return PublicEstimate(

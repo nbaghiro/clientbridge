@@ -23,6 +23,7 @@ import {
     saleTotalLines,
     tipCentsFor,
     tipShares,
+    useDiscountEditor,
     useSale,
     useTerminalConnection,
 } from "./pos";
@@ -471,4 +472,22 @@ it("only says a tip carries no tax on a sale that charged tax", () => {
         taxes: [{ code: "GST", label: "GST 5%", baseCents: 2000, cents: 100 }],
     };
     expect(tip(taxed)?.hint).toBe(strings.pos.desk.tipNoTax);
+});
+
+describe("useDiscountEditor", () => {
+    const d = strings.pos.desk;
+    const money = (cents: number) => formatMoney(cents, BUSINESS_CURRENCY);
+
+    it("says the amount left is before tax only when the sale is taxed", () => {
+        const ten = { kind: "percent" as const, value: 10, reason: null };
+        const taxed = renderHook(() => useDiscountEditor(ten, 5000, true));
+        expect(taxed.result.current.preview).toBe(d.discountPreview(money(500), money(4500)));
+        const untaxed = renderHook(() => useDiscountEditor(ten, 5000, false));
+        expect(untaxed.result.current.preview).toBe(
+            d.discountPreviewNoTax(money(500), money(4500)),
+        );
+        expect(renderHook(() => useDiscountEditor(null, 5000, false)).result.current.preview).toBe(
+            null,
+        );
+    });
 });

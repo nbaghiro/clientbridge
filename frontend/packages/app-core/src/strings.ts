@@ -678,6 +678,7 @@ interface Strings {
             readonly applyDiscount: string;
             readonly removeDiscount: string;
             readonly discountPreview: (off: string, after: string) => string;
+            readonly discountPreviewNoTax: (off: string, after: string) => string;
             readonly discountInvalid: (percent: string, amount: string) => string;
             readonly discountPercentMax: (max: string) => string;
             readonly discountTooBig: (money: string) => string;

@@ -298,6 +298,8 @@ class ClientService:
             raise Conflict("a client can't be merged into itself")
 
         async def run(cmd: Command) -> ClientOut:
+            for held in sorted((client_id, data.from_client_id)):
+                await hold_client(self.db, held)
             locked = list(
                 await self.db.scalars(
                     scoped(Client, self.biz, soft_delete=True)

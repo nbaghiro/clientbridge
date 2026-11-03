@@ -132,7 +132,7 @@
         "message": "[Åñöţĥéŕ çļîéñţ åļŕéåðý ĥåš ţĥîš þĥöñé ñûɱƀéŕ. Éåçĥ ñûɱƀéŕ ƀéļöñĝš ţö öñé çļîéñţ. one two three four five six]"
     },
     "api.clientArchived": {
-        "message": "[Ţĥîš çļîéñţ îš åŕçĥîṽéð. Ŕéšţöŕé ţĥéɱ ƒŕöɱ ţĥéîŕ ŕéçöŕð ƒîŕšţ. one two three four]"
+        "message": "[Ţĥîš çļîéñţ îš åŕçĥîṽéð. Åñ öŵñéŕ öŕ åðɱîñ çåñ ŕéšţöŕé ţĥéɱ ƒŕöɱ ţĥéîŕ ŕéçöŕð. one two three four five]"
     },
     "api.slotUnavailable": {
         "message": "[Ţĥåţ ţîɱé îš ñö ļöñĝéŕ öþéñ. Þîçķ åñöţĥéŕ ţîɱé. one two three]"
@@ -1900,6 +1900,9 @@
     },
     "pos.desk.discountPreview": {
         "message": "[{off} öƒƒ, {after} ƀéƒöŕé ţåẋ one two]"
+    },
+    "pos.desk.discountPreviewNoTax": {
+        "message": "[{off} öƒƒ, ñöŵ {after} one]"
     },
     "pos.desk.discountInvalid": {
         "message": "[Éñţéŕ å ðîšçöûñţ ļîķé {percent} öŕ {amount} one two]"
@@ -5382,7 +5385,7 @@
         "message": "[Þîçķûþ ŕéšţŕîçţîöñ: {what} one two]"
     },
     "subjects.tooLong": {
-        "message": "[Ķééþ ţĥîš ûñðéŕ {max, number} çĥåŕåçţéŕš. one two three]"
+        "message": "[Ķééþ ţĥîš ţö {max, number} çĥåŕåçţéŕš öŕ ƒéŵéŕ. one two three]"
     },
     "subjects.fields.birthday": {
         "message": "[Ɓîŕţĥðåý one]"

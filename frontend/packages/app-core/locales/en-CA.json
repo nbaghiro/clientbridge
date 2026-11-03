@@ -155,7 +155,7 @@
         "message": "Another client already has this phone number. Each number belongs to one client."
     },
     "api.clientArchived": {
-        "message": "This client is archived. Restore them from their record first."
+        "message": "This client is archived. An owner or admin can restore them from their record."
     },
     "api.slotUnavailable": {
         "message": "That time is no longer open. Pick another time."
@@ -2067,6 +2067,10 @@
     },
     "pos.desk.discountPreview": {
         "message": "{off} off, {after} before tax",
+        "args": ["off", "after"]
+    },
+    "pos.desk.discountPreviewNoTax": {
+        "message": "{off} off, now {after}",
         "args": ["off", "after"]
     },
     "pos.desk.discountInvalid": {
@@ -5866,7 +5870,7 @@
         "args": ["what"]
     },
     "subjects.tooLong": {
-        "message": "Keep this under {max, number} characters.",
+        "message": "Keep this to {max, number} characters or fewer.",
         "args": ["max"]
     },
     "subjects.fields.birthday": {

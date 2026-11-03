@@ -1559,6 +1559,7 @@ interface DocComposer {
     docDiscount: SaleDiscount | null;
     setDocDiscount: (discount: SaleDiscount | null) => void;
     discountBaseCents: number;
+    taxed: boolean;
     addCatalogItem: (item: {
         id: string;
         kind: string;
@@ -1865,6 +1866,7 @@ export function useDocComposer(
             setDocDiscountState(discount);
         },
         discountBaseCents: docBase,
+        taxed: pricing.taxes.length > 0,
         addCatalogItem: (item) => {
             touch();
             const line = keyed({

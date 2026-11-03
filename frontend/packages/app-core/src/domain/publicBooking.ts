@@ -545,7 +545,14 @@ export function detailErrors(
                 : normalizePhone(d.phone) === null
                   ? s.phoneInvalid
                   : null,
-        subject: kind !== null && d.subjectName.trim() === "" ? s.subjectRequired(kind) : null,
+        subject:
+            kind === null
+                ? null
+                : d.subjectName.trim() === ""
+                  ? s.subjectRequired(kind)
+                  : nameTooLong(d.subjectName)
+                    ? strings.subjects.tooLong(NAME_MAX)
+                    : null,
         address:
             kind !== null && isPlace(kind) && !existingSubject && d.subjectAddress.trim() === ""
                 ? s.addressRequired(kind)
