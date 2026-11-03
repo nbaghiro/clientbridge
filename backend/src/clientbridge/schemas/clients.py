@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
 
 from clientbridge.core.mirrors import Mirror
 from clientbridge.core.phones import Phone
@@ -10,6 +10,9 @@ from clientbridge.models.clients import Client, ClientStatus, Subject
 MergeSide = Literal["kept", "other"]
 # short enough for a broadcast audience to name it
 Tag = Annotated[str, StringConstraints(max_length=100)]
+RequiredName = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)
+]
 
 
 class ClientBase(Mirror):
@@ -24,13 +27,14 @@ class ClientBase(Mirror):
 class FirstSubject(Mirror):
     mirrors = Subject
 
-    name: str = Field(min_length=1)
+    name: RequiredName
     attributes: dict[str, object] = Field(default_factory=dict)
 
 
 class ClientCreate(ClientBase):
     model_config = ConfigDict(extra="forbid")
 
+    name: RequiredName
     phone: Phone = None
     tags: list[Tag] = Field(default_factory=list)
     marketing_consent: bool = Field(
@@ -43,11 +47,18 @@ class ClientUpdate(Mirror):
     mirrors = Client
     model_config = ConfigDict(extra="forbid")
 
-    name: str | None = Field(default=None, min_length=1)
+    name: RequiredName | None = None
     phone: Phone = None
     tags: list[Tag] | None = None
     custom_fields: dict[str, object] | None = None
     marketing_consent: bool | None = None
+
+    @field_validator("name")
+    @classmethod
+    def name_stays(cls, value: str | None) -> str:
+        if value is None:
+            raise ValueError("a client always has a name")
+        return value
 
 
 class ClientOut(ClientBase):

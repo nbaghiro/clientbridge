@@ -276,6 +276,17 @@ async def test_book_requires_contact(api: httpx.AsyncClient) -> None:
     assert (await api.post(f"/book/{SLUG}", json=body)).status_code == 422
 
 
+async def test_book_refuses_a_blank_or_overlong_name(api: httpx.AsyncClient) -> None:
+    for name in ("   ", "Z" * 201):
+        body = {
+            "item_id": GROOM_SM,
+            "staff_id": ST_OWNER,
+            "starts_at": "2027-03-02T18:50:00Z",
+            "client": {"name": name, "phone": "+16045550393"},
+        }
+        assert (await api.post(f"/book/{SLUG}", json=body)).status_code == 422
+
+
 async def test_page_says_when_tax_is_charged(api: httpx.AsyncClient, db: AsyncSession) -> None:
     page = (await api.get(f"/book/{SLUG}/services")).json()
     assert (page["charges_tax"], page["tax_starts_on"]) == (True, None)

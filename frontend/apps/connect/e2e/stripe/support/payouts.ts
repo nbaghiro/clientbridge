@@ -41,9 +41,14 @@ export interface PayoutSchedule {
 /** The Stripe-hosted frame (embedded component or its dialog layer) showing this button. */
 export async function stripeFrame(page: Page, button: RegExp, overlay = false): Promise<Frame> {
     let found: Frame | undefined;
+    const retry = page
+        .getByRole("button", { name: strings.paymentAccount.retry, exact: true })
+        .first();
     await expect
         .poll(
             async () => {
+                // Stripe's component sometimes fails a load; the page then offers a retry
+                if (await retry.isVisible().catch(() => false)) await retry.click();
                 for (const frame of page.frames()) {
                     if (!frame.url().startsWith("https://connect-js.stripe.com/")) continue;
                     // a component's dialogs open in its accessory layer, apart from the component

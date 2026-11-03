@@ -16,7 +16,7 @@ name: NATIVE-CRM-01 Native client creation and editing survive process restarts
 - inputText: ${output.clientName}
 - tapOn: "250 555 0100"
 - inputText: ${output.clientPhone}
-- hideKeyboard
+# the number pad has no key that dismisses it, and Add stays above it
 - tapOn: "Add"
 - extendedWaitUntil:
       visible: "Book"
@@ -44,12 +44,17 @@ name: NATIVE-CRM-01 Native client creation and editing survive process restarts
 - eraseText: 100
 - inputText: ${output.editedName}
 - assertVisible: ${output.editedName}
-- hideKeyboard
-- tapOn: "Done"
+# above the form, because Android's keyboard has a Done key of its own
+- tapOn:
+      text: "Done"
+      above: "Add photo"
+# the name also shows in the editor's own field, so only the sheet closing proves the save
+- extendedWaitUntil:
+      notVisible: "Edit client"
+      timeout: 60000
 - extendedWaitUntil:
       visible: ${output.editedName}
       timeout: 60000
-- assertNotVisible: "Edit client"
 - stopApp
 - runFlow: helpers/owner.yaml
 - tapOn: "Clients"
@@ -61,7 +66,9 @@ name: NATIVE-CRM-01 Native client creation and editing survive process restarts
       timeout: 60000
 - assertNotVisible: ${".*" + output.clientName + ".*"}
 - tapOn: ${".*" + output.editedName + ".*"}
-- assertVisible: "Book"
+- extendedWaitUntil:
+      visible: "Book"
+      timeout: 60000
 - tapOn: "Edit"
 - assertVisible: "Edit client"
 - assertVisible: ${output.clientPhoneLabel}

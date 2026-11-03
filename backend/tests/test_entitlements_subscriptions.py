@@ -1222,6 +1222,44 @@ async def test_restoring_a_client_keeps_their_memberships_renewing(
     assert gateway.kept_subscriptions == ["sub_restore"]
 
 
+async def test_an_archived_client_cannot_start_a_membership(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    cid = await _new_client(db)
+    pm = await _saved_method(db, cid)
+    item = await _sub_item(db)
+    assert (await as_owner.post(f"/v1/clients/{cid}/archive")).status_code == 200
+    res = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id), headers=key())
+    assert (res.status_code, res.json()["error"]) == (409, "client_archived")
+    assert gateway.created_subscriptions == []
+
+
+async def test_a_client_who_books_online_after_an_archive_leaves_their_memberships_ending(
+    as_owner: httpx.AsyncClient,
+    api: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+) -> None:
+    await enable_payments(db)
+    sub = await _active_sub(db, "sub_back_online")
+    phone = await db.scalar(select(Client.phone).where(Client.id == sub.client_id))
+    archived = await as_owner.post(f"/v1/clients/{sub.client_id}/archive", headers=key())
+    assert archived.status_code == 200, archived.text
+    booked = await api.post(
+        "/book/birchbark",
+        json={
+            "item_id": "it_groom_sm",
+            "staff_id": "st_owner",
+            "starts_at": "2027-03-02T18:50:00Z",
+            "client": {"name": "Back Again", "phone": phone},
+        },
+    )
+    assert booked.status_code == 200, booked.text
+    assert await db.scalar(select(Client.status).where(Client.id == sub.client_id)) == "active"
+    assert gateway.kept_subscriptions == []
+
+
 async def test_restoring_leaves_a_membership_the_archive_didnt_end(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:

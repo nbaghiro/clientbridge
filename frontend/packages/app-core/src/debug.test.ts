@@ -1,6 +1,25 @@
-import { describe, expect, it } from "vitest";
+// @vitest-environment happy-dom
+import { act, renderHook } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
-import { debugFacts } from "./debug";
+import { debugFacts, useClientState } from "./debug";
+
+const replica = vi.hoisted(() => ({
+    get: vi.fn(() => Promise.resolve({})),
+    getAll: vi.fn(() => Promise.resolve([])),
+}));
+vi.mock("@powersync/react", async (original) => ({
+    ...(await original<object>()),
+    usePowerSync: () => replica,
+}));
+vi.mock("./domain/sync", async (original) => ({
+    ...(await original<object>()),
+    useSyncStatus: () => ({
+        get lastSyncedAt() {
+            return new Date(2026, 9, 20, 16, 40, 11);
+        },
+    }),
+}));
 
 const NOW = new Date(2026, 9, 20, 16, 40, 30).getTime();
 const idle = {
@@ -65,5 +84,16 @@ describe("debugFacts", () => {
         expect(fact(facts, "rejected")).toEqual({ label: "rejected", value: "1", tone: "bad" });
         expect(fact(facts, "download error")?.value).toBe("token expired");
         expect(fact(facts, "replication delay")?.value).toBe("not measured");
+    });
+});
+
+describe("useClientState", () => {
+    it("reads once per sync, though the status hands out a new Date on every read", async () => {
+        renderHook(() => useClientState(60_000));
+        await act(async () => {
+            await new Promise((resolve) => setTimeout(resolve, 50));
+        });
+        expect(replica.get).toHaveBeenCalledTimes(1);
+        expect(replica.getAll).toHaveBeenCalledTimes(1);
     });
 });

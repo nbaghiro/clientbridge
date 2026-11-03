@@ -26,6 +26,10 @@ const MAESTRO_GLOBALS = {
         "CONTROL_URL",
         "ACTION",
         "PAYLOAD",
+        "API_URL",
+        "METHOD",
+        "PATH",
+        "BODY",
     ]),
     output: "writable",
 };

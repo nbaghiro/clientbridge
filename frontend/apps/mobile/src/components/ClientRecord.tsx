@@ -13,6 +13,7 @@ import {
     strings,
     useClientDirectory,
     useClientRecord,
+    useClientLifecycle,
     useNoteActions,
     visitPill,
     formatParts,
@@ -151,6 +152,7 @@ export function ClientRecordView({
     const kind = useSubjectKind();
     const viewer = useViewer();
     const { load, record } = useClientRecord(api, clientId, viewer?.staffId ?? null);
+    const restoring = useClientLifecycle(api, clientId);
     const nav = useNavigation<Nav>();
     const open = useOpenLink();
     const variant = inline ? "inline" : "drawer";
@@ -201,25 +203,35 @@ export function ClientRecordView({
             onClose={onClose}
             actions={
                 <View style={styles.actions}>
-                    <Button
-                        grow
-                        onPress={() => {
-                            leave();
-                            openTask({ kind: "booking", clientId: cl.id });
-                        }}
-                    >
-                        {r.book}
-                    </Button>
-                    <Button
-                        grow
-                        variant="outline"
-                        onPress={() => {
-                            leave();
-                            open("message", cl.id);
-                        }}
-                    >
-                        {r.message}
-                    </Button>
+                    {cl.archived ? (
+                        manager ? (
+                            <Button grow busy={restoring.busy} onPress={restoring.restore}>
+                                {strings.clients.edit.restore}
+                            </Button>
+                        ) : null
+                    ) : (
+                        <>
+                            <Button
+                                grow
+                                onPress={() => {
+                                    leave();
+                                    openTask({ kind: "booking", clientId: cl.id });
+                                }}
+                            >
+                                {r.book}
+                            </Button>
+                            <Button
+                                grow
+                                variant="outline"
+                                onPress={() => {
+                                    leave();
+                                    open("message", cl.id);
+                                }}
+                            >
+                                {r.message}
+                            </Button>
+                        </>
+                    )}
                     <Button
                         variant="outline"
                         onPress={() => {
@@ -232,43 +244,46 @@ export function ClientRecordView({
             }
         >
             <View style={styles.overview}>
-                {cl.phone !== null ? (
-                    <View style={styles.actions}>
-                        <Button
-                            grow
-                            size="sm"
-                            variant="quiet"
-                            icon="phone"
-                            onPress={() => {
-                                Linking.openURL(`tel:${cl.phone ?? ""}`).catch(() => undefined);
-                            }}
-                        >
-                            {r.call}
-                        </Button>
-                        <Button
-                            grow
-                            size="sm"
-                            variant="quiet"
-                            icon="message"
-                            onPress={() => {
-                                Linking.openURL(`sms:${cl.phone ?? ""}`).catch(() => undefined);
-                            }}
-                        >
-                            {r.text}
-                        </Button>
-                        <Button
-                            grow
-                            size="sm"
-                            variant="quiet"
-                            icon="history"
-                            onPress={() => {
-                                push("ClientHistory");
-                            }}
-                        >
-                            {r.history}
-                        </Button>
-                    </View>
-                ) : null}
+                {restoring.error !== null ? <Notice tone="danger">{restoring.error}</Notice> : null}
+                <View style={styles.actions}>
+                    {cl.phone !== null ? (
+                        <>
+                            <Button
+                                grow
+                                size="sm"
+                                variant="quiet"
+                                icon="phone"
+                                onPress={() => {
+                                    Linking.openURL(`tel:${cl.phone ?? ""}`).catch(() => undefined);
+                                }}
+                            >
+                                {r.call}
+                            </Button>
+                            <Button
+                                grow
+                                size="sm"
+                                variant="quiet"
+                                icon="message"
+                                onPress={() => {
+                                    Linking.openURL(`sms:${cl.phone ?? ""}`).catch(() => undefined);
+                                }}
+                            >
+                                {r.text}
+                            </Button>
+                        </>
+                    ) : null}
+                    <Button
+                        grow
+                        size="sm"
+                        variant="quiet"
+                        icon="history"
+                        onPress={() => {
+                            push("ClientHistory");
+                        }}
+                    >
+                        {r.history}
+                    </Button>
+                </View>
                 {record.textsStopped !== null ? (
                     <Notice tone="info" banner>
                         {record.textsStopped}
@@ -304,7 +319,10 @@ export function ClientRecordView({
                                       },
                                   ]
                                 : []),
-                            { label: r.visits, value: String(record.visits) },
+                            {
+                                label: manager ? r.visits : r.yourVisits,
+                                value: String(record.visits),
+                            },
                             { label: r.since, value: formatDate(cl.since, zone) },
                         ]}
                     />
@@ -371,7 +389,7 @@ export function ClientRecordView({
                     ) : null}
                 </DetailSection>
             ) : null}
-            <DetailSection title={r.upcoming}>
+            <DetailSection title={manager ? r.upcoming : r.yourUpcoming}>
                 {record.upcoming.length === 0 ? (
                     <Text style={styles.muted}>{r.noUpcoming}</Text>
                 ) : null}
@@ -406,7 +424,9 @@ export function ClientRecordView({
                 })}
                 {record.lastVisitAt !== null ? (
                     <Text style={styles.muted}>
-                        {r.lastVisit(formatDate(record.lastVisitAt, zone))}
+                        {(manager ? r.lastVisit : r.yourLastVisit)(
+                            formatDate(record.lastVisitAt, zone),
+                        )}
                     </Text>
                 ) : null}
             </DetailSection>

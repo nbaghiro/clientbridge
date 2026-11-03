@@ -16,6 +16,11 @@ import { type Photo, useFileLinks } from "./files";
 
 const s = strings.subjects;
 
+export const NAME_MAX = 200;
+
+/** Counts characters as the server does, so a name of emoji isn't refused early. */
+export const nameTooLong = (v: string): boolean => Array.from(v.trim()).length > NAME_MAX;
+
 export type SubjectKind = "pet" | "student" | "property" | "site" | "vehicle";
 
 /** A business's answer to what it books: one of the kinds, or "none" for only the client. */
@@ -890,6 +895,7 @@ export function useSubjectForm(
     const check = (): Record<string, string> => {
         const e: Record<string, string> = {};
         if (name.trim() === "") e.name = s.nameRequired(word);
+        else if (nameTooLong(name)) e.name = s.tooLong(NAME_MAX);
         for (const f of fields) {
             const v = values[f.key] ?? "";
             if (v === "") continue;

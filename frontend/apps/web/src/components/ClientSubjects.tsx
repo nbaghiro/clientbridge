@@ -9,6 +9,7 @@ import {
     PICKUP_PERSON_FIELDS,
     PICKUP_PEOPLE_MAX,
     SUBJECT_ICON,
+    canManagePayments,
     formatDate,
     kindWord,
     relativeDay,
@@ -38,6 +39,7 @@ import {
 import { useState } from "react";
 
 import { api } from "../lib/api";
+import { useRole } from "../lib/auth";
 import { PhotoGrid } from "./BookingPanel";
 
 const s = strings.subjects;
@@ -277,6 +279,7 @@ export function SubjectDialog({
 
 function SubjectCardView({ card, onEdit }: { card: SubjectCard; onEdit: () => void }) {
     const zone = useBusinessZone();
+    const manager = canManagePayments(useRole());
     const photos = useSubjectPhotos(api, card.subject.id);
     const alerts = card.alerts.filter((a) => a.key !== "temp");
     return (
@@ -338,11 +341,11 @@ function SubjectCardView({ card, onEdit }: { card: SubjectCard; onEdit: () => vo
             ) : null}
             <dl className="mt-auto grid grid-cols-3 gap-2 border-t border-line-soft px-4 py-3 text-xs">
                 <div>
-                    <dt className="text-muted">{s.visits}</dt>
+                    <dt className="text-muted">{manager ? s.visits : s.yourVisits}</dt>
                     <dd className="mt-0.5 font-semibold text-ink">{card.visits}</dd>
                 </div>
                 <div>
-                    <dt className="text-muted">{s.lastVisit}</dt>
+                    <dt className="text-muted">{manager ? s.lastVisit : s.yourLastVisit}</dt>
                     <dd className="mt-0.5 font-semibold text-ink">
                         {card.lastVisit === null
                             ? strings.clients.dash
@@ -350,7 +353,7 @@ function SubjectCardView({ card, onEdit }: { card: SubjectCard; onEdit: () => vo
                     </dd>
                 </div>
                 <div>
-                    <dt className="text-muted">{s.nextVisit}</dt>
+                    <dt className="text-muted">{manager ? s.nextVisit : s.yourNextVisit}</dt>
                     <dd className="mt-0.5 font-semibold text-ink">
                         {card.next === null ? s.nothingBooked : relativeDay(card.next, zone)}
                     </dd>

@@ -17,9 +17,11 @@ appId: ${APP_ID}
           - eraseText
           - inputText: "demo1234"
           - hideKeyboard
+          # iOS can submit the form as it hides the keyboard, so the button may already be gone
           - tapOn:
                 text: "Sign in"
                 below: "Forgot password\\?"
+                optional: true
           - runFlow: decline-save-password.yaml
 - extendedWaitUntil:
       visible: "Today"

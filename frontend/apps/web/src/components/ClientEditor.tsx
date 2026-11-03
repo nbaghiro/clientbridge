@@ -148,6 +148,7 @@ function FirstSubjectFields({
                     label={sj.firstName(first.kind)}
                     optional
                     value={editor.draft.subjectName}
+                    error={editor.errors.subject}
                     onChange={(v) => {
                         editor.set("subjectName", v);
                     }}

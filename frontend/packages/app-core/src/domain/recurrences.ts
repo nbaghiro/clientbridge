@@ -46,7 +46,7 @@ import {
 } from "./bookings";
 import { useNow } from "../hooks";
 import { bookableItems, useCatalogItems } from "./catalog";
-import { useClients } from "./clients";
+import { clientOption, fold, useClients } from "./clients";
 import { type StaffRow, staffName, useStaff } from "./staff";
 import { kindWord, useSubjectKind } from "./subjects";
 import { useReplicaLoad } from "./sync";
@@ -377,11 +377,7 @@ export function useSeriesComposer(api: ApiLike, viewer: Viewer | null): SeriesCo
         setClientId,
         clientOptions: clients
             .filter((c) => c.status === "active")
-            .map((c) => ({
-                key: c.id,
-                label: c.name,
-                media: personMedia(c.name, null, photos.client(c.id)),
-            })),
+            .map((c) => clientOption(c, photos.client(c.id))),
         subjectHint: subject === null ? null : s.subject(kindWord(kind), subject.name),
         itemId,
         setItemId,
@@ -691,7 +687,7 @@ export function useSeriesList(): SeriesList {
             "";
         return summarize(r, dates, ctx.staff, ctx.now, subject, ctx.avail.zone);
     });
-    const t = q.trim().toLowerCase();
+    const t = fold(q);
     const load = useReplicaLoad(sources, all.length === 0);
     const count = (f: SeriesFilter): number => all.filter((r) => inFilter(r, f)).length;
     return {
@@ -700,9 +696,7 @@ export function useSeriesList(): SeriesList {
             .filter(
                 (r) =>
                     t === "" ||
-                    [r.clientName, r.subjectName, r.serviceName].some((v) =>
-                        v.toLowerCase().includes(t),
-                    ),
+                    [r.clientName, r.subjectName, r.serviceName].some((v) => fold(v).includes(t)),
             )
             .sort((a, b) =>
                 filter === "stopped"

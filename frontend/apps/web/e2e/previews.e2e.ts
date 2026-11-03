@@ -88,7 +88,8 @@ test("BILL-DOC-04 the send preview shows word for word the invoice and reminder 
     expect(sentResponse.status(), await sentResponse.text()).toBe(200);
     const issued = (await sentResponse.json()) as { number: number; status: string };
     expect(issued.status).toBe("sent");
-    expect(String(issued.number)).toBe(promised?.[1]);
+    // the preview names the next free number; a parallel case on the business can issue it first
+    expect(issued.number).toBeGreaterThanOrEqual(Number(promised?.[1]));
     await expect
         .poll(async () => (await textsTo(page.request, client.phone)).length, {
             timeout: 30_000,
@@ -97,7 +98,9 @@ test("BILL-DOC-04 the send preview shows word for word the invoice and reminder 
     const [invoiceText] = await deliveredTexts(page.request, client.phone);
     expect(invoiceText?.to).toEqual([textInbox(client.phone)]);
     // a draft's pay link is minted only when it goes out, so the preview holds its place
-    const [before, after, ...rest] = (sendPreview.text?.body ?? "").split("…");
+    const [before, after, ...rest] = (sendPreview.text?.body ?? "")
+        .replace(`#${promised?.[1] ?? ""} `, `#${String(issued.number)} `)
+        .split("…");
     expect(rest).toEqual([]);
     expect(before).toContain(formatMoney(4480, "CAD"));
     expect(invoiceText?.text).toMatch(

@@ -71,6 +71,7 @@ const FAILURES: Record<string, (detail: FailureDetail) => string> = {
     mixed_currencies: () => strings.api.mixedCurrencies,
     slot_unavailable: () => strings.api.slotUnavailable,
     phone_taken: () => strings.api.phoneTaken,
+    client_archived: () => strings.api.clientArchived,
     class_seat: () => strings.api.classSeat,
     class_move: () => strings.api.classMove,
     recurrence_too_long: () => strings.api.recurrenceTooLong,

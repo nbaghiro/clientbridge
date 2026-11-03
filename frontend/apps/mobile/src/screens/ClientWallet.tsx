@@ -139,7 +139,12 @@ export function ClientWalletScreen() {
                     </Panel>
                 ) : null}
                 <Text style={styles.hint}>{w.defaultHint}</Text>
-                {wallet.load.hasData ? (
+                {wallet.archived ? (
+                    <Notice tone="info" banner>
+                        {w.archived}
+                    </Notice>
+                ) : null}
+                {wallet.load.hasData && !wallet.archived ? (
                     <View style={styles.group}>
                         <Button
                             full
@@ -154,7 +159,7 @@ export function ClientWalletScreen() {
                         </Button>
                     </View>
                 ) : null}
-                {wallet.load.hasData ? (
+                {wallet.load.hasData && !wallet.archived ? (
                     <Button
                         full
                         variant="outline"
@@ -172,7 +177,9 @@ export function ClientWalletScreen() {
                         {wallet.error}
                     </Notice>
                 ) : null}
-                {wallet.load.hasData ? <Plans clientId={clientId} /> : null}
+                {wallet.load.hasData ? (
+                    <Plans clientId={clientId} archived={wallet.archived} />
+                ) : null}
             </ScrollView>
             <ActionMenu
                 open={menuFor !== null}
@@ -305,7 +312,7 @@ function PackageLine({ pkg }: { pkg: PackageRow }) {
     );
 }
 
-function Plans({ clientId }: { clientId: string }) {
+function Plans({ clientId, archived }: { clientId: string; archived: boolean }) {
     const subs = useClientSubscriptions(clientId);
     const packages = useClientPackages(clientId);
     const [selling, setSelling] = useState<"package" | "subscription" | null>(null);
@@ -318,15 +325,17 @@ function Plans({ clientId }: { clientId: string }) {
                 title={strings.clients.subscriptions}
                 flush
                 actions={
-                    <Button
-                        size="sm"
-                        variant="link"
-                        onPress={() => {
-                            setSelling("subscription");
-                        }}
-                    >
-                        {strings.clients.startSubscriptionLink}
-                    </Button>
+                    archived ? undefined : (
+                        <Button
+                            size="sm"
+                            variant="link"
+                            onPress={() => {
+                                setSelling("subscription");
+                            }}
+                        >
+                            {strings.clients.startSubscriptionLink}
+                        </Button>
+                    )
                 }
             >
                 {subs.length === 0 ? (
@@ -339,15 +348,17 @@ function Plans({ clientId }: { clientId: string }) {
                 title={strings.clients.packages}
                 flush
                 actions={
-                    <Button
-                        size="sm"
-                        variant="link"
-                        onPress={() => {
-                            setSelling("package");
-                        }}
-                    >
-                        {strings.clients.sellPackageLink}
-                    </Button>
+                    archived ? undefined : (
+                        <Button
+                            size="sm"
+                            variant="link"
+                            onPress={() => {
+                                setSelling("package");
+                            }}
+                        >
+                            {strings.clients.sellPackageLink}
+                        </Button>
+                    )
                 }
             >
                 {packages.length === 0 ? (

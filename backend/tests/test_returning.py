@@ -143,6 +143,23 @@ async def test_challenge_and_session_are_tenant_bound(
     assert (await _book(api, returning_token=verified.json()["token"])).status_code == 401
 
 
+async def test_an_archived_client_gets_no_profile_and_is_restored_by_booking_with_their_phone(
+    api: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
+) -> None:
+    client = await _client(db)
+    client.status, client.archived_at = "inactive", clock.now()
+    await db.flush()
+    challenge, code = await _request(api, sms)
+    verified = await _verify(api, challenge, code)
+    assert verified.json() == {"token": None, "profile": None}
+    booked = await _book(api, client={"name": "Back Again", "phone": PHONE})
+    assert booked.status_code == 200, booked.text
+    booking = await db.get(Booking, booked.json()["booking_id"])
+    assert booking is not None and booking.client_id == client.id
+    await db.refresh(client)
+    assert (client.status, client.archived_at) == ("active", None)
+
+
 async def test_verified_booking_binds_client_and_pet_not_forged_contact(
     api: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:

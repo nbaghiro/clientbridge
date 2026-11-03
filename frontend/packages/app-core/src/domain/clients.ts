@@ -37,7 +37,8 @@ import { useAsyncAction, useNow, useRemote } from "../hooks";
 import type { Load } from "../hooks";
 import { type IconName, SUBJECT_ICON } from "../icons";
 import { strings } from "../strings";
-import type { Intent, TimelineEntry } from "../ui";
+import type { Intent, SelectOption, TimelineEntry } from "../ui";
+import { personMedia } from "./files";
 import { utcSql } from "../datetime";
 import { TEXTS_STOPPED_SQL } from "./broadcasts";
 import { clientValueSql, invoiceStatusSql } from "./ledger";
@@ -61,6 +62,8 @@ import {
     kindWord,
     equipmentLines,
     leadField,
+    NAME_MAX,
+    nameTooLong,
     subjectAlerts,
     subjectSummary,
     subjectTemperament,
@@ -79,20 +82,47 @@ export interface ClientRow {
     phone: string | null;
     status: string;
     lifetime_value_cents: number | null;
+    tags: string[];
+    subjectNames: string[];
 }
 
 export const CLIENTS_SQL = `
-SELECT c.id, c.name, c.phone, c.status, ${clientValueSql("c.id")} AS lifetime_value_cents
+SELECT c.id, c.name, c.phone, c.status, c.tags, ${clientValueSql("c.id")} AS lifetime_value_cents,
+       (SELECT json_group_array(sj.name) FROM subjects sj
+          WHERE sj.client_id = c.id AND sj.deleted_at IS NULL) AS subject_names
 FROM clients c WHERE c.status = 'active' ORDER BY c.name COLLATE NOCASE`;
 
+type ClientDbRow = Omit<ClientRow, "tags" | "subjectNames"> & {
+    tags: string | null;
+    subject_names: string | null;
+};
+
 export function useClients(): ClientRow[] {
-    return useQuery<ClientRow>(CLIENTS_SQL).data;
+    const { data } = useQuery<ClientDbRow>(CLIENTS_SQL);
+    return useMemo(
+        () =>
+            data.map(({ subject_names, ...c }) => ({
+                ...c,
+                tags: parseTags(c.tags),
+                subjectNames: parseTags(subject_names),
+            })),
+        [data],
+    );
+}
+
+/** A client in a picker, found by the same name, phone, subject and tag search as the client list. */
+export function clientOption(c: ClientRow, photo: string | null): SelectOption<string> {
+    return {
+        key: c.id,
+        label: c.name,
+        media: personMedia(c.name, null, photo),
+        match: (q) => clientMatches(c, q),
+    };
 }
 
 export function filterClients(rows: ClientRow[], q: string): ClientRow[] {
-    const t = q.trim().toLowerCase();
-    if (!t) return rows;
-    return rows.filter((c) => c.name.toLowerCase().includes(t) || (c.phone ?? "").includes(t));
+    if (fold(q) === "") return rows;
+    return rows.filter((c) => clientMatches(c, q));
 }
 
 export function createClient(
@@ -106,7 +136,7 @@ export function createClient(
 }
 
 /** A Postgres text[] synced as JSON text; an unreadable value reads as no tags. */
-function parseTags(raw: string | null): string[] {
+export function parseTags(raw: string | null): string[] {
     if (raw === null || raw === "") return [];
     try {
         const parsed: unknown = JSON.parse(raw);
@@ -122,7 +152,29 @@ function parseTags(raw: string | null): string[] {
     }
 }
 
-const fold = (v: string): string => v.normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase();
+export const fold = (v: string): string =>
+    v.normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase();
+
+/** Client search: name, subject or tag without case or accents, or any phone format. */
+export function clientMatches(
+    client: {
+        name: string;
+        phone: string | null;
+        subjectNames?: readonly string[];
+        tags?: readonly string[];
+    },
+    q: string,
+): boolean {
+    const t = fold(q);
+    if (t === "") return true;
+    const digits = phoneDigits(q);
+    return (
+        fold(client.name).includes(t) ||
+        (digits.length >= 3 && phoneDigits(client.phone).includes(digits)) ||
+        (client.subjectNames ?? []).some((name) => fold(name).includes(t)) ||
+        (client.tags ?? []).some((tag) => fold(tag).includes(t))
+    );
+}
 
 const nextVisitSql = (clientExpr: string): string => `(SELECT s.starts_at FROM bookings b
     JOIN slots s ON s.id = b.slot_id
@@ -133,7 +185,7 @@ const nextVisitSql = (clientExpr: string): string => `(SELECT s.starts_at FROM b
 const DIRECTORY_SELECT = `
 SELECT c.id, c.name, c.phone, c.status, c.tags, c.archived_at,
        c.created_at, ${clientValueSql("c.id")} AS lifetime_value_cents,
-       (SELECT group_concat(sj.name, ', ') FROM subjects sj
+       (SELECT json_group_array(sj.name) FROM subjects sj
           WHERE sj.client_id = c.id AND sj.deleted_at IS NULL) AS subject_names,
        ${nextVisitSql("c.id")} AS next_visit_at,
        (SELECT SUM(a.balance_cents) FROM accounts a WHERE a.owner_type = 'client'
@@ -167,6 +219,7 @@ export interface ClientListRow {
     archived: boolean;
     archivedAt: Date | null;
     tags: string[];
+    subjectNames: string[];
     subjects: string;
     next: Date | null;
     balanceCents: number;
@@ -175,6 +228,7 @@ export interface ClientListRow {
 }
 
 function toListRow(r: DirectoryRow): ClientListRow {
+    const subjectNames = parseTags(r.subject_names);
     return {
         id: r.id,
         name: r.name,
@@ -183,25 +237,13 @@ function toListRow(r: DirectoryRow): ClientListRow {
         archived: r.status !== "active",
         archivedAt: r.archived_at === null ? null : parseTimestamp(r.archived_at),
         tags: parseTags(r.tags),
-        subjects: r.subject_names ?? "",
+        subjectNames,
+        subjects: formatList(subjectNames, "unit"),
         next: r.next_visit_at === null ? null : parseTimestamp(r.next_visit_at),
         balanceCents: r.balance_cents ?? 0,
         lifetimeCents: r.lifetime_value_cents,
         since: parseTimestamp(r.created_at),
     };
-}
-
-/** Search by name, any phone format or subject name. */
-function matchesClient(row: ClientListRow, q: string): boolean {
-    const t = fold(q);
-    if (t === "") return true;
-    const digits = phoneDigits(q);
-    return (
-        fold(row.name).includes(t) ||
-        (digits.length >= 3 && phoneDigits(row.phone).includes(digits)) ||
-        fold(row.subjects).includes(t) ||
-        row.tags.some((tag) => tag.includes(t))
-    );
 }
 
 export type ClientSegment = "active" | "archived";
@@ -226,7 +268,7 @@ export function useClientDirectory(): ClientDirectory {
     const [segment, setSegment] = useState<ClientSegment>("active");
     const [q, setQ] = useState("");
     const rows = useMemo(
-        () => all.filter((c) => (segment === "archived") === c.archived && matchesClient(c, q)),
+        () => all.filter((c) => (segment === "archived") === c.archived && clientMatches(c, q)),
         [all, segment, q],
     );
     const counts = {
@@ -399,6 +441,8 @@ FROM payment_methods pm
 WHERE pm.client_id = ?
 ORDER BY pm.preferred DESC, pm.created_at`;
 
+const CLIENT_STATUS_SQL = `SELECT status FROM clients WHERE id = ?`;
+
 interface MethodDbRow extends SavedCardRow {
     exp_month: number | null;
     exp_year: number | null;
@@ -464,6 +508,35 @@ function toPlan(r: PlanDbRow, zone: string): ClientPlan {
             r.renews_at === null
                 ? ""
                 : s.record.renews(formatDate(parseTimestamp(r.renews_at), zone)),
+    };
+}
+
+/** Archives or restores a client, from the editor or their record. */
+export function useClientLifecycle(
+    api: ApiLike,
+    clientId: string | null,
+): { archive: () => void; restore: () => void; busy: boolean; error: string | null } {
+    const { busy, error, run } = useAsyncAction();
+    const attempt = useRef<Attempt | null>(null);
+    const act = (path: "archive" | "restore", message: string): void => {
+        if (clientId === null) return;
+        const key = attemptKey(attempt, [clientId, path]);
+        run(() => api.post(`/v1/clients/${clientId}/${path}`, {}, { idempotencyKey: key }), {
+            errorMessage: message,
+            onSuccess: () => {
+                attempt.current = null;
+            },
+        });
+    };
+    return {
+        busy,
+        error,
+        archive: () => {
+            act("archive", s.edit.archiveError);
+        },
+        restore: () => {
+            act("restore", s.edit.restoreError);
+        },
     };
 }
 
@@ -606,11 +679,13 @@ interface ClientDraft {
     subjectDetail: string;
 }
 
-type DraftErrors = Partial<Record<"name" | "phone" | "contact", string>>;
+type DraftErrors = Partial<Record<"name" | "phone" | "contact" | "subject", string>>;
 
 function validateDraft(d: ClientDraft): DraftErrors {
     const e: DraftErrors = {};
     if (d.name.trim() === "") e.name = s.edit.nameRequired;
+    else if (nameTooLong(d.name)) e.name = s.edit.nameTooLong(NAME_MAX);
+    if (nameTooLong(d.subjectName)) e.subject = strings.subjects.tooLong(NAME_MAX);
     if (d.phone.trim() !== "" && normalizePhone(d.phone) === null) e.phone = s.edit.phoneInvalid;
     if (d.phone.trim() === "") e.contact = s.edit.contactRequired;
     return e;
@@ -683,6 +758,7 @@ export function useClientEditor(
     const [ignored, setIgnored] = useState(false);
     const [taken, setTaken] = useState<{ phone: string; clientId: string } | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
+    const lifecycle = useClientLifecycle(api, client?.id ?? null);
     const attempt = useRef<Attempt | null>(null);
     const set = <K extends keyof ClientDraft>(key: K, value: ClientDraft[K]): void => {
         setDraft((d) => ({ ...d, [key]: value }));
@@ -761,14 +837,6 @@ export function useClientEditor(
         );
     };
 
-    const lifecycle = (path: "archive" | "restore", message: string): void => {
-        if (client === null) return;
-        const key = attemptKey(attempt, [client.id, path]);
-        run(() => api.post(`/v1/clients/${client.id}/${path}`, {}, { idempotencyKey: key }), {
-            errorMessage: message,
-        });
-    };
-
     const tags = tagDirectory(directory);
     return {
         mode: client === null ? "add" : "edit",
@@ -795,15 +863,11 @@ export function useClientEditor(
                     ? s.edit.archivedNoDate
                     : s.edit.archivedBanner(formatDate(client.archivedAt, zone))
                 : null,
-        busy,
-        error,
+        busy: busy || lifecycle.busy,
+        error: error ?? lifecycle.error,
         submit,
-        archive: () => {
-            lifecycle("archive", s.edit.archiveError);
-        },
-        restore: () => {
-            lifecycle("restore", s.edit.restoreError);
-        },
+        archive: lifecycle.archive,
+        restore: lifecycle.restore,
         tagSuggestions: tags.filter((t) => !draft.tags.includes(t.tag)),
         firstSubject: client === null && kind !== null ? { kind, detail: leadField(kind) } : null,
     };
@@ -1270,11 +1334,14 @@ export interface ClientWallet {
     makeDefault: (id: string) => void;
     remove: (id: string) => void;
     removeMessage: (m: WalletMethod) => string;
+    /** An archived client keeps what they have but takes on nothing new. */
+    archived: boolean;
 }
 
 /** A client's saved cards and bank accounts with the details that cause problems: expiry, mandate, plans. */
 export function useClientWallet(api: ApiLike, clientId: string): ClientWallet {
     const query = useQuery<MethodDbRow>(CLIENT_METHODS_SQL, [clientId]);
+    const status = useQuery<{ status: string }>(CLIENT_STATUS_SQL, [clientId]).data[0]?.status;
     const zone = useBusinessZone();
     const methods = useMemo(() => {
         const now = new Date();
@@ -1303,6 +1370,7 @@ export function useClientWallet(api: ApiLike, clientId: string): ClientWallet {
             m.pays.length > 0
                 ? s.wallet.removeBodyInUse(formatList(m.pays, "unit"))
                 : s.wallet.removeBody,
+        archived: status !== undefined && status !== "active",
     };
 }
 

@@ -7,6 +7,8 @@ import {
     sellableItems,
     strings,
     useCatalogItems,
+    type ClientRow,
+    clientOption,
     useClients,
     useDocComposer,
     useDocDraft,
@@ -14,7 +16,6 @@ import {
     formatParts,
     BUSINESS_CURRENCY,
     currencyAffix,
-    personMedia,
     usePeoplePhotos,
 } from "@clientbridge/app-core";
 import {
@@ -454,7 +455,7 @@ function ClientPicker({
     error,
     onChange,
 }: {
-    clients: readonly { id: string; name: string }[];
+    clients: readonly ClientRow[];
     value: string;
     editing: boolean;
     error: string | null;
@@ -481,11 +482,7 @@ function ClientPicker({
             value={value}
             error={error}
             placeholder={s.chooseClient}
-            options={clients.map((x) => ({
-                key: x.id,
-                label: x.name,
-                media: personMedia(x.name, null, photos.client(x.id)),
-            }))}
+            options={clients.map((x) => clientOption(x, photos.client(x.id)))}
             onChange={onChange}
         />
     );

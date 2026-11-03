@@ -3,12 +3,13 @@ import { useBusinessQuery as useQuery } from "../hooks";
 import { useMemo, useState } from "react";
 
 import { formatDayTime, parseTimestamp, sameDay, startOfDay, useBusinessZone } from "../datetime";
-import { formatMoney, formatParts, formatPhone, phoneDigits, BUSINESS_CURRENCY } from "../format";
+import { formatList, formatMoney, formatParts, formatPhone, BUSINESS_CURRENCY } from "../format";
 import type { Load } from "../hooks";
 import type { IconName } from "../icons";
 import { strings } from "../strings";
 import type { Intent } from "../ui";
 import type { Viewer } from "./auth";
+import { clientMatches, fold, parseTags } from "./clients";
 import { invoiceStatusSql } from "./ledger";
 import { utcSql } from "../datetime";
 import { type CreateAction, type ShellTarget, createActionsFor } from "./navigation";
@@ -40,8 +41,11 @@ interface SearchGroup {
     total: number;
 }
 
-export const SEARCH_CLIENTS_SQL =
-    "SELECT id, name, phone, status FROM clients WHERE status = 'active' ORDER BY name COLLATE NOCASE";
+export const SEARCH_CLIENTS_SQL = `
+SELECT c.id, c.name, c.phone, c.status, c.tags,
+       (SELECT json_group_array(sj.name) FROM subjects sj
+          WHERE sj.client_id = c.id AND sj.deleted_at IS NULL) AS subject_names
+FROM clients c WHERE c.status = 'active' ORDER BY c.name COLLATE NOCASE`;
 
 // Param: the start of today (ISO); earlier visits are found through the client.
 export const SEARCH_BOOKINGS_SQL = `
@@ -66,6 +70,8 @@ interface ClientHitRow {
     name: string;
     phone: string | null;
     status: string;
+    tags: string | null;
+    subject_names: string | null;
 }
 
 interface BookingHitRow {
@@ -99,7 +105,7 @@ interface ItemHitRow {
 }
 
 const has = (q: string, ...values: (string | null | undefined)[]): boolean =>
-    values.some((v) => v?.toLowerCase().includes(q) ?? false);
+    values.some((v) => (v === null || v === undefined ? false : fold(v).includes(q)));
 
 const INVOICE_INTENT: Record<string, Intent> = {
     paid: "success",
@@ -123,7 +129,7 @@ export function searchHits(
     zone: string,
 ): Record<SearchKind, SearchHit[]> {
     const s = strings.search;
-    const q = raw.trim().toLowerCase().replace(/^#/, "");
+    const q = fold(raw).replace(/^#/, "");
     const out: Record<SearchKind, SearchHit[]> = {
         actions: [],
         clients: [],
@@ -132,10 +138,9 @@ export function searchHits(
         items: [],
     };
     if (q.length === 0) return out;
-    const digits = q.replace(/\D/g, "");
-    const clients = data.clients.filter(
-        (c) => has(q, c.name) || (digits.length >= 3 && phoneDigits(c.phone).includes(digits)),
-    );
+    const clients = data.clients
+        .map((c) => ({ ...c, pets: parseTags(c.subject_names) }))
+        .filter((c) => clientMatches({ ...c, subjectNames: c.pets, tags: parseTags(c.tags) }, q));
     out.clients = clients.map((c) => ({
         id: c.id,
         kind: "clients",
@@ -144,7 +149,7 @@ export function searchHits(
         target: "client",
         refId: c.id,
         title: c.name,
-        detail: formatPhone(c.phone),
+        detail: formatParts([formatPhone(c.phone), formatList(c.pets, "unit")]),
         meta: c.status === "active" ? null : s.inactiveClient,
         metaIntent: c.status === "active" ? null : "neutral",
     }));

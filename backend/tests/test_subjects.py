@@ -13,6 +13,19 @@ async def _client(api: httpx.AsyncClient) -> str:
     return str((await api.post("/v1/clients", json={"name": "Pet Owner"})).json()["id"])
 
 
+@pytest.mark.parametrize("name", ["   ", "Z" * 201])
+async def test_a_blank_or_overlong_pet_name_is_refused(
+    as_staff: httpx.AsyncClient, name: str
+) -> None:
+    cid = await _client(as_staff)
+    created = await as_staff.post("/v1/subjects", json={"client_id": cid, "name": name})
+    assert created.status_code == 422, created.text
+    pet = await as_staff.post("/v1/subjects", json={"client_id": cid, "name": "Z" * 200})
+    assert pet.status_code == 201, pet.text
+    edited = await as_staff.patch(f"/v1/subjects/{pet.json()['id']}", json={"name": name})
+    assert edited.status_code == 422, edited.text
+
+
 async def test_add_edit_and_remove_a_pet(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:
     cid = await _client(as_staff)
     res = await as_staff.post(

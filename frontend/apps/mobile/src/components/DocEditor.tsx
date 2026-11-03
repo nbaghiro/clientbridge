@@ -8,6 +8,7 @@ import {
     sellableItems,
     strings,
     useCatalogItems,
+    clientMatches,
     useClients,
     useDocComposer,
     useDocDraft,
@@ -182,6 +183,7 @@ function DocForm({ kind, draft, clientId, onClose }: DocFormProps) {
                                 ...clients.map((x) => ({
                                     key: x.id,
                                     label: x.name,
+                                    match: (q: string) => clientMatches(x, q),
                                 })),
                             ]}
                             onChange={form.setClientId}

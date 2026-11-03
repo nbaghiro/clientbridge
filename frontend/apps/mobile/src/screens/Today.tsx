@@ -69,12 +69,14 @@ export function TodayScreen() {
             ) : (
                 <StaffToday bell={notifications.unread} onSecretTap={onSecretTap} />
             )}
-            <DebugOverlay
-                visible={debugOpen}
-                onClose={() => {
-                    setDebugOpen(false);
-                }}
-            />
+            {debugOpen ? (
+                <DebugOverlay
+                    visible
+                    onClose={() => {
+                        setDebugOpen(false);
+                    }}
+                />
+            ) : null}
         </SafeAreaView>
     );
 }

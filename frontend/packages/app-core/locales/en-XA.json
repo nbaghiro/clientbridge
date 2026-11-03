@@ -131,6 +131,9 @@
     "api.phoneTaken": {
         "message": "[Åñöţĥéŕ çļîéñţ åļŕéåðý ĥåš ţĥîš þĥöñé ñûɱƀéŕ. Éåçĥ ñûɱƀéŕ ƀéļöñĝš ţö öñé çļîéñţ. one two three four five six]"
     },
+    "api.clientArchived": {
+        "message": "[Ţĥîš çļîéñţ îš åŕçĥîṽéð. Ŕéšţöŕé ţĥéɱ ƒŕöɱ ţĥéîŕ ŕéçöŕð ƒîŕšţ. one two three four]"
+    },
     "api.slotUnavailable": {
         "message": "[Ţĥåţ ţîɱé îš ñö ļöñĝéŕ öþéñ. Þîçķ åñöţĥéŕ ţîɱé. one two three]"
     },
@@ -4994,6 +4997,9 @@
     "clients.record.visits": {
         "message": "[Ṽîšîţš one]"
     },
+    "clients.record.yourVisits": {
+        "message": "[Ýöûŕ ṽîšîţš one two]"
+    },
     "clients.record.balance": {
         "message": "[Ɓåļåñçé ðûé one two]"
     },
@@ -5003,8 +5009,14 @@
     "clients.record.upcoming": {
         "message": "[Ûþçöɱîñĝ one]"
     },
+    "clients.record.yourUpcoming": {
+        "message": "[Ýöûŕ ûþçöɱîñĝ ṽîšîţš one two]"
+    },
     "clients.record.lastVisit": {
         "message": "[Ļåšţ ṽîšîţ {when} one two]"
+    },
+    "clients.record.yourLastVisit": {
+        "message": "[Ýöûŕ ļåšţ ṽîšîţ {when} one two]"
     },
     "clients.record.notes": {
         "message": "[Ñöţéš one]"
@@ -5084,6 +5096,9 @@
     "clients.record.colNext": {
         "message": "[Ñéẋţ ṽîšîţ one two]"
     },
+    "clients.record.colYourNext": {
+        "message": "[Ýöûŕ ñéẋţ ṽîšîţ one two]"
+    },
     "clients.record.colBalance": {
         "message": "[Ɓåļåñçé one]"
     },
@@ -5137,6 +5152,9 @@
     },
     "clients.edit.nameRequired": {
         "message": "[Éñţéŕ ţĥé çļîéñţ'š ñåɱé. one two]"
+    },
+    "clients.edit.nameTooLong": {
+        "message": "[Ķééþ ţĥé ñåɱé ţö {max, number} çĥåŕåçţéŕš öŕ ƒéŵéŕ. one two three]"
     },
     "clients.edit.contactRequired": {
         "message": "[Åðð å þĥöñé ñûɱƀéŕ šö ýöû çåñ ŕéåçĥ ţĥéɱ. one two three]"
@@ -5276,11 +5294,20 @@
     "subjects.visits": {
         "message": "[Ṽîšîţš one]"
     },
+    "subjects.yourVisits": {
+        "message": "[Ýöûŕ ṽîšîţš one two]"
+    },
     "subjects.lastVisit": {
         "message": "[Ļåšţ ṽîšîţ one two]"
     },
+    "subjects.yourLastVisit": {
+        "message": "[Ýöûŕ ļåšţ ṽîšîţ one two]"
+    },
     "subjects.nextVisit": {
         "message": "[Ñéẋţ ṽîšîţ one two]"
+    },
+    "subjects.yourNextVisit": {
+        "message": "[Ýöûŕ ñéẋţ ṽîšîţ one two]"
     },
     "subjects.nothingBooked": {
         "message": "[Ñöţĥîñĝ ƀööķéð one two]"
@@ -5858,6 +5885,9 @@
     "clients.wallet.onlyManagers": {
         "message": "[Öñļý öŵñéŕš åñð åðɱîñš çåñ åðð öŕ ŕéɱöṽé þåýɱéñţ ɱéţĥöðš. one two three four]"
     },
+    "clients.wallet.archived": {
+        "message": "[Ţĥîš çļîéñţ îš åŕçĥîṽéð. Ŕéšţöŕé ţĥéɱ ţö åðð å çåŕð öŕ ƀåñķ åççöûñţ, šéļļ å þåçķåĝé öŕ šţåŕţ å šûƀšçŕîþţîöñ. one two three four five six seven]"
+    },
     "clients.tidy.select": {
         "message": "[Šéļéçţ one]"
     },
@@ -6139,6 +6169,9 @@
     },
     "messaging.nextVisit": {
         "message": "[Ñéẋţ ṽîšîţ one two]"
+    },
+    "messaging.yourNextVisit": {
+        "message": "[Ýöûŕ ñéẋţ ṽîšîţ one two]"
     },
     "messaging.nothingBooked": {
         "message": "[Ñöţĥîñĝ ƀööķéð one two]"
@@ -11464,6 +11497,9 @@
     },
     "publicBooking.nameRequired": {
         "message": "[Åðð ýöûŕ ñåɱé. one two]"
+    },
+    "publicBooking.nameTooLong": {
+        "message": "[Ķééþ ýöûŕ ñåɱé ţö {max, number} çĥåŕåçţéŕš öŕ ƒéŵéŕ. one two three]"
     },
     "publicBooking.contactRequired": {
         "message": "[Åðð ýöûŕ ɱöƀîļé ñûɱƀéŕ. one two]"

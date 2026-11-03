@@ -34,6 +34,7 @@ from clientbridge.schemas.entitlements import (
 from clientbridge.services import ledger
 from clientbridge.services.bookings import assert_subject
 from clientbridge.services.business import merchant_account
+from clientbridge.services.clients import assert_client_active
 from clientbridge.services.earnings import accrue_covered_visit
 from clientbridge.services.payments import (
     cancel_open_deposits,
@@ -119,6 +120,7 @@ class GiftCardService:
         )
 
         async def run(cmd: Command) -> GiftCardPurchaseOut:
+            await assert_client_active(self.db, client)
             card_id = new_id("gift_card")
             client_secret: str | None = None
             if account_id is None:
@@ -334,6 +336,7 @@ class PackageService:
         )
 
         async def run(cmd: Command) -> PackagePurchaseOut:
+            await assert_client_active(self.db, client)
             package_id = new_id("package")
             client_secret: str | None = None
             if account_id is None:
@@ -639,6 +642,7 @@ class SubscriptionService:
         pm_ref = pm.provider_ref
 
         async def run(cmd: Command) -> SubscriptionOut:
+            await assert_client_active(self.db, client)
             # Stripe charges the first period on create, so two creates for a client never overlap
             await self.db.execute(select(Client.id).where(Client.id == client.id).with_for_update())
             live = await self.db.scalar(
