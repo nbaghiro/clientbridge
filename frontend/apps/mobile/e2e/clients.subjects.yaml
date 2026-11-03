@@ -46,7 +46,7 @@ onFlowComplete:
 - scrollUntilVisible:
       element: "Edit Juniper"
       direction: DOWN
-- assertVisible: "Juniper · .*"
+- assertVisible: ".*Bernese mountain dog · 41 kg.*"
 - takeScreenshot: pet-on-record
 - tapOn: "Edit Juniper"
 - extendedWaitUntil:
