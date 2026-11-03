@@ -420,12 +420,8 @@ async def assert_client_active(db: AsyncSession, client: Client) -> None:
         raise Conflict("restore this client before starting new work", code="client_archived")
 
 
-async def welcome_back(
-    db: AsyncSession, gateway: PaymentGateway, cmd: Command, client: Client
-) -> None:
-    """A client who books or orders on their own is restored as a manager would restore them."""
-    if client.status == "active":
-        return
+async def welcome_back(db: AsyncSession, cmd: Command, client: Client) -> None:
+    """A client who books or orders on their own is active again; only a manager resumes billing."""
     await hold_client(db, client.id)
     await db.refresh(client)
     if client.archived_at is None:
@@ -434,7 +430,6 @@ async def welcome_back(
     client.archived_at = None
     await db.flush()
     cmd.record("client.restore", entity_type="client", entity_id=client.id)
-    await keep_memberships(db, gateway, cmd, client.business_id, client.id)
 
 
 async def load_client(db: AsyncSession, biz: str, client_id: str) -> Client:

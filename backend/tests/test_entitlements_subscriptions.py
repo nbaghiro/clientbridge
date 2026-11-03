@@ -1235,7 +1235,7 @@ async def test_an_archived_client_cannot_start_a_membership(
     assert gateway.created_subscriptions == []
 
 
-async def test_a_client_who_books_online_after_an_archive_keeps_their_memberships(
+async def test_a_client_who_books_online_after_an_archive_leaves_their_memberships_ending(
     as_owner: httpx.AsyncClient,
     api: httpx.AsyncClient,
     db: AsyncSession,
@@ -1256,7 +1256,8 @@ async def test_a_client_who_books_online_after_an_archive_keeps_their_membership
         },
     )
     assert booked.status_code == 200, booked.text
-    assert gateway.kept_subscriptions == ["sub_back_online"]
+    assert await db.scalar(select(Client.status).where(Client.id == sub.client_id)) == "active"
+    assert gateway.kept_subscriptions == []
 
 
 async def test_restoring_leaves_a_membership_the_archive_didnt_end(

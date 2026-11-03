@@ -622,7 +622,7 @@ class PublicBookingService:
             if data.returning_token is not None
             else await self._find_or_create_client(business.id, data.client)
         )
-        await welcome_back(self.db, self.gateway, cmd, client)
+        await welcome_back(self.db, cmd, client)
         subject_id = (
             await returning.subject(client, chosen)
             if chosen is not None
@@ -2449,7 +2449,7 @@ class PublicShopService:
                 phone=data.client.phone,
                 source="online_shop",
             )
-            await welcome_back(self.db, self.gateway, cmd, client)
+            await welcome_back(self.db, cmd, client)
             order = Order(
                 id=new_id("order"),
                 business_id=business.id,
