@@ -952,11 +952,14 @@ async def _subject(
     named = [s for s in owned if _same_words(s.name, clean)]
     found = named[0] if named else None
     if business.subject in PLACE_KINDS and place:
+        at_place = [s for s in owned if _same_words(s.attributes.get("address"), place)]
+        # a vehicle is only parked at its address, and one address can hold several units
+        alone = not named and business.subject != "vehicle" and len(at_place) == 1
         found = next(
             chain(
                 (s for s in named if _same_words(s.attributes.get("address"), place)),
                 (s for s in named if not s.attributes.get("address")),
-                (s for s in owned if _same_words(s.attributes.get("address"), place)),
+                at_place if alone else (),
             ),
             None,
         )

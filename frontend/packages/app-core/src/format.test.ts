@@ -82,6 +82,8 @@ describe("phone numbers", () => {
     it("formats ten digits and leaves anything else as entered", () => {
         expect(formatPhone("+12505550201")).toBe("(250) 555-0201");
         expect(formatPhone("+44 20 7946 0958")).toBe("+44 20 7946 0958");
+        expect(formatPhone("+6491234567")).toBe("+6491234567");
+        expect(normalizePhone(formatPhone("+6491234567"))).toBe("+6491234567");
         expect(formatPhone(null)).toBe("");
     });
 

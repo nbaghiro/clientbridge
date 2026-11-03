@@ -29,7 +29,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 1. Get set up | Plan billing: trial, purchase, seats and read-only | [CB-6](https://linear.app/clientbridgeca/issue/CB-6) | Partly automated |
 | 1. Get set up | Sales tax by province | [CB-7](https://linear.app/clientbridgeca/issue/CB-7) | Partly automated |
 | 2. Clients and catalog | Client records: add, edit and search | [CB-8](https://linear.app/clientbridgeca/issue/CB-8) | Automated |
-| 2. Clients and catalog | Client subjects: who or what is booked | [CB-9](https://linear.app/clientbridgeca/issue/CB-9) | Automated |
+| 2. Clients and catalog | Client subjects: who or what is booked | [CB-9](https://linear.app/clientbridgeca/issue/CB-9) | Partly automated |
 | 2. Clients and catalog | Client notes, photos and history | [CB-10](https://linear.app/clientbridgeca/issue/CB-10) | Partly automated |
 | 2. Clients and catalog | Client tags and duplicate merge | [CB-11](https://linear.app/clientbridgeca/issue/CB-11) | Partly automated |
 | 2. Clients and catalog | Services, classes and resources | [CB-13](https://linear.app/clientbridgeca/issue/CB-13) | Partly automated |
@@ -515,8 +515,8 @@ The business loads its clients, what they book for, and the services and product
    **Expect:** it shows on the record on web and mobile.
 2. Book the dog.
    **Expect:** the groomer sees the dog on the booking and on Today on their phone.
-3. At Brightwater, book online with a new property name and address, then book again with the same name in different case and spacing.
-   **Expect:** the property and address appear once on the client record, with both bookings on it.
+3. At Northlight, book online with a new site name and address, book again with the same name in different case and spacing, then book with a new name at that address.
+   **Expect:** the site and its address appear once on the client record, with all three bookings on it.
 4. At Lakeside, add a student with grade and school, and set who may collect them with one must-not-collect person.
    **Expect:** the composer offers the student; their visits show who may collect them and the must-not-collect alert.
 5. At Northlight, add equipment to a site.
@@ -539,6 +539,10 @@ The business loads its clients, what they book for, and the services and product
 * `NATIVE-CRM-04 (native-ios, native-android)`
 * `CRM-E2E-05 (journeys)`
 * `CRM-E2E-11 (journeys)`
+
+**To automate**
+
+* `NATIVE-CRM-04` in `apps/mobile/e2e/clients.subjects.yaml`: The groomer sees the booked dog on Today on their phone.
 
 **Depends on:** Nothing
 

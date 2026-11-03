@@ -7,6 +7,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
+from clientbridge.core.ids import new_id
 from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Note, Subject
@@ -478,6 +479,47 @@ async def test_a_new_name_at_a_known_address_books_that_place(
     home = await _booked_subject(api, db, subject_name="Home", subject_address=" 1  LAKE rd")
     assert home.id == cabin.id and cabin.name == "Lake cabin"
     assert cabin.attributes == {"address": "1 Lake Rd"}
+
+
+async def test_a_new_name_at_an_address_with_several_places_files_a_new_one(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _kind(db, "site")
+    first = await _booked_subject(api, db, subject_name="Unit 1", subject_address="5 Main St")
+    second = Subject(
+        id=new_id("subject"),
+        business_id=BIZ,
+        client_id=first.client_id,
+        name="Unit 2",
+        attributes={"address": "5 Main St"},
+    )
+    db.add(second)
+    await db.flush()
+    third = await _booked_subject(api, db, subject_name="Unit 3", subject_address="5 Main St")
+    assert third.id not in {first.id, second.id} and third.name == "Unit 3"
+
+
+async def test_a_new_vehicle_parked_at_a_known_address_is_filed_as_its_own(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _kind(db, "vehicle")
+    civic = await _booked_subject(api, db, subject_name="Honda Civic", subject_address="12 Pine St")
+    tesla = await _booked_subject(
+        api, db, subject_name="Tesla Model 3", subject_address="12 Pine St"
+    )
+    assert tesla.id != civic.id and tesla.name == "Tesla Model 3"
+
+
+async def test_another_clients_place_at_the_same_address_is_never_booked(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _kind(db, "property")
+    theirs = await _booked_subject(api, db, subject_name="Cabin", subject_address="1 Lake Rd")
+    other = {"name": "Second Booker", "phone": "+16045550262"}
+    mine = await _booked_subject(
+        api, db, client=other, subject_name="Home", subject_address="1 Lake Rd"
+    )
+    assert mine.id != theirs.id and mine.client_id != theirs.client_id
 
 
 async def test_the_typed_name_wins_over_another_place_at_that_address(

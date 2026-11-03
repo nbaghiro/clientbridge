@@ -399,7 +399,7 @@ FROM notes n
 LEFT JOIN subjects sj ON n.parent_type = 'subject' AND sj.id = n.parent_id
 LEFT JOIN staff st ON st.user_id = n.created_by
 WHERE (n.parent_type = 'client' AND n.parent_id = ?)
-   OR (n.parent_type = 'subject' AND sj.client_id = ?)
+   OR (n.parent_type = 'subject' AND sj.client_id = ? AND sj.deleted_at IS NULL)
 ORDER BY n.pinned DESC, n.created_at DESC`;
 
 interface NoteDbRow {

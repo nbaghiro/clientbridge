@@ -88,7 +88,7 @@ const text = (v: unknown): string =>
     typeof v === "string" ? v : typeof v === "number" ? String(v) : "";
 
 const TEMPERAMENTS = ["calm", "friendly", "energetic", "anxious", "reactive"];
-const NERVOUS = new Set(["anxious", "reactive", "skittish"]);
+const NERVOUS = new Set(["anxious", "reactive"]);
 
 /** A stored temperament (an English word) shown through the catalog; unknown values as stored. */
 function temperamentLabel(value: string): string {
@@ -637,25 +637,6 @@ export interface EquipmentLine {
 
 const WARRANTY_SOON_DAYS = 60;
 
-const LIST_KEYS: Record<SubjectKind, readonly string[]> = {
-    pet: [],
-    student: ["pickups"],
-    property: [],
-    site: ["equipment"],
-    vehicle: [],
-};
-
-const keysOf = (k: SubjectKind): ReadonlySet<string> =>
-    new Set([...SUBJECT_FIELDS[k].map((f) => f.key), ...LIST_KEYS[k]]);
-
-const KIND_KEYS: Record<SubjectKind, ReadonlySet<string>> = {
-    pet: keysOf("pet"),
-    student: keysOf("student"),
-    property: keysOf("property"),
-    site: keysOf("site"),
-    vehicle: keysOf("vehicle"),
-};
-
 /** The kind a subject's details belong to, which outlives a change of the business's kind. */
 export function subjectKindOf(
     kind: SubjectKind | null,
@@ -770,6 +751,20 @@ const PICKUPS: DraftGroup<PickupKey> = {
     shown: (key, value) => (key === "phone" && value !== "" ? formatPhone(value) : value),
 };
 
+const keysOf = (k: SubjectKind): ReadonlySet<string> =>
+    new Set([
+        ...SUBJECT_FIELDS[k].map((f) => f.key),
+        ...[PICKUPS, EQUIPMENT].filter((g) => g.kind === k).map((g) => g.attribute),
+    ]);
+
+const KIND_KEYS: Record<SubjectKind, ReadonlySet<string>> = {
+    pet: keysOf("pet"),
+    student: keysOf("student"),
+    property: keysOf("property"),
+    site: keysOf("site"),
+    vehicle: keysOf("vehicle"),
+};
+
 /** "May be picked up by …" for a student with a pickup list; null for other kinds or an empty list. */
 export function pickupLine(
     kind: SubjectKind | null,
@@ -837,7 +832,7 @@ export function subjectSummary(
 }
 
 export interface SubjectAlert {
-    key: string;
+    key: "temp" | "allergy" | "noPickup" | "rabies";
     label: string;
     intent: Intent;
 }
