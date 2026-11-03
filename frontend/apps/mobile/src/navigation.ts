@@ -24,9 +24,9 @@ export type RootStackParamList = {
     Setup: undefined;
     Business: undefined;
     Services: undefined;
-    Team: undefined;
+    Team: { hours?: boolean } | undefined;
     GettingPaid: undefined;
-    GetSetUp: undefined;
+    GetSetUp: { brand?: boolean } | undefined;
     Taxes: undefined;
     ClientHistory: { clientId: string; name: string };
     ClientSubjects: { clientId: string; name: string; kind: SubjectKind };

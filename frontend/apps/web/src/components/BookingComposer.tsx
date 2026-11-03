@@ -152,6 +152,7 @@ export function BookingComposer({
                 <SearchSelect
                     label={s.composerService}
                     placeholder={s.composerServicePlaceholder}
+                    emptyLabel={s.noServicesYet}
                     value={form.item?.id ?? ""}
                     options={form.services.map((i) => ({
                         key: i.id,

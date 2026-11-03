@@ -1,5 +1,6 @@
 import { createHmac, randomInt, randomUUID } from "node:crypto";
-import type { APIRequestContext } from "@playwright/test";
+import { strings } from "@clientbridge/app-core/public";
+import { type APIRequestContext, type Page, expect } from "@playwright/test";
 import { demoPerson } from "@clientbridge/config/e2e/demo";
 import { demoId, runEmail, runUrl } from "@clientbridge/config/e2e/run";
 
@@ -28,6 +29,21 @@ export async function mailedCode(
         const code = /\b(\d{6})\b/.exec(text)?.[1];
         return code !== previous ? code : undefined;
     });
+}
+
+/** Sends a reset code to `email` from the reset screen and returns it, once it differs from `previous`. */
+export async function requestResetCode(
+    page: Page,
+    request: APIRequestContext,
+    email: string,
+    previous?: string,
+): Promise<string> {
+    const a = strings.auth;
+    await expect(page.getByRole("heading", { name: a.resetTitle })).toBeVisible();
+    await page.getByRole("textbox", { name: a.email, exact: true }).fill(email);
+    await page.getByRole("button", { name: a.sendCode, exact: true }).click();
+    await expect(page.getByRole("heading", { name: a.resetCodeTitle })).toBeVisible();
+    return mailedCode(request, email, "password reset", previous);
 }
 
 /** The code mailed for one verification flow, whichever other codes reached `email`. */
@@ -174,6 +190,50 @@ export function totp(secret: string, at = Date.now()): string {
     const offset = (hmac[hmac.length - 1] ?? 0) & 0xf;
     const value = (hmac.readUInt32BE(offset) & 0x7fffffff) % 1_000_000;
     return value.toString().padStart(6, "0");
+}
+
+/** An account made over the native flows, so the test's browser holds nothing of it. */
+export async function registerAccount(
+    request: APIRequestContext,
+    account: { email: string; password: string; name: string },
+): Promise<void> {
+    const flow = (await (await request.get(`${AUTH}/self-service/registration/api`)).json()) as {
+        id: string;
+    };
+    const created = await request.post(`${AUTH}/self-service/registration?flow=${flow.id}`, {
+        data: {
+            method: "password",
+            traits: { email: account.email, name: account.name },
+            password: account.password,
+        },
+    });
+    if (!created.ok()) throw new Error(`registration failed: ${String(created.status())}`);
+}
+
+/** Signs `email` in on the browser's cookie behind the app's back, as another tab would. */
+export async function browserSession(page: Page, email: string, password: string): Promise<void> {
+    const request = page.context().request;
+    const headers = { Accept: "application/json" };
+    const flow = (await (
+        await request.get(`${AUTH}/self-service/login/browser`, { headers })
+    ).json()) as {
+        id: string;
+        ui: { nodes: { attributes: { name?: string; value?: unknown } }[] };
+    };
+    const csrf = flow.ui.nodes.find((n) => n.attributes.name === "csrf_token")?.attributes.value;
+    const login = await request.post(`${AUTH}/self-service/login?flow=${flow.id}`, {
+        headers,
+        data: { method: "password", identifier: email, password, csrf_token: csrf },
+    });
+    if (!login.ok()) throw new Error(`browser sign-in failed: ${String(login.status())}`);
+}
+
+/** Whose session the browser's cookie holds, or null. */
+export async function signedInEmail(page: Page): Promise<string | null> {
+    const session = await page.context().request.get(`${AUTH}/sessions/whoami`);
+    if (!session.ok()) return null;
+    const { identity } = (await session.json()) as { identity: { traits: { email: string } } };
+    return identity.traits.email;
 }
 
 /** A session token from a native sign-in, as a second device (the mobile app) would hold. */

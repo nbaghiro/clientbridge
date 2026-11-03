@@ -272,4 +272,4 @@ def test_public_profile_uses_brand_contract_and_only_active_team(engagement: Dem
     profile = BrandInput.model_validate(brand)
     assert profile.about and profile.address and profile.phone and profile.email
     assert profile.public_staff_ids == ["st_owner"]
-    assert profile.gallery_urls == [] and profile.cover_url is None
+    assert profile.gallery_urls == [] and profile.cover_file_id is None

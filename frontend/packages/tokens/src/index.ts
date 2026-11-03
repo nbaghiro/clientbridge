@@ -1,5 +1,16 @@
 // Clientbridge design tokens — single source for web (Tailwind theme + themes.css) and React Native.
 export { THEME_KEYS, THEME_LABELS, themes } from "./themes";
 export type { ThemeKey, ThemeTokens } from "./themes";
-export { INTENT_COLORS, ON_DATA, SHADOW, cssVar, shade, shadeHex, tint, tintHex } from "./palette";
+export {
+    BRAND_PALETTE,
+    INTENT_COLORS,
+    ON_DATA,
+    SHADOW,
+    cssVar,
+    readableInk,
+    shade,
+    shadeHex,
+    tint,
+    tintHex,
+} from "./palette";
 export type { ColorKey, IntentTone } from "./palette";

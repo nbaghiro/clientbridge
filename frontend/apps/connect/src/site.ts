@@ -6,7 +6,7 @@ import { config } from "./config";
 /** The business a page belongs to: its own subdomain, else the slug in the path. */
 export function useSlug(): string {
     const { slug } = useParams<{ slug: string }>();
-    return slug ?? (config.site?.kind === "page" ? config.site.slug : "");
+    return (slug ?? (config.site?.kind === "page" ? config.site.slug : "")).toLowerCase();
 }
 
 export const links = {

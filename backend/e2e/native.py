@@ -39,6 +39,9 @@ NATIVE_PORTS = {"api": 8794, "auth": 8795, "powersync": 8796}
 DRIVER_PORT = 8797
 
 
+STORAGE_PORT = f"tcp:{tier.PORTS['s3']}"
+
+
 NATIVE_BUILDS = {
     "ios": ROOT / ".scratchpad" / "native" / "ClientbridgeE2E.app",
     "android": ROOT / ".scratchpad" / "native" / "clientbridge-e2e.apk",
@@ -111,6 +114,8 @@ class NativeDevice:
         else:
             self.run("uninstall", NATIVE_APP_ID, check=False)
             self.run("install", str(build))
+            # a presigned link names localhost, which on an emulator is the emulator itself
+            self.run("reverse", STORAGE_PORT, STORAGE_PORT)
         try:
             yield
         finally:
@@ -118,6 +123,7 @@ class NativeDevice:
                 self.run("terminate", self.device, NATIVE_APP_ID, check=False)
                 self.run("uninstall", self.device, NATIVE_APP_ID, check=False)
             else:
+                self.run("reverse", "--remove", STORAGE_PORT, check=False)
                 self.run("uninstall", NATIVE_APP_ID, check=False)
 
 
@@ -261,7 +267,8 @@ def build_native(platform: str) -> None:
 def native_flows(tests: list[str]) -> list[str]:
     """The named flows, or every walkthrough in name order."""
     names = tests or sorted(flow.name for flow in (MOBILE / "e2e").glob("*.yaml"))
-    return [str(Path("e2e") / name) for name in names]
+    # with several inputs, Maestro accepts a flow's media file only when an input contains it
+    return [str(Path("e2e") / name) for name in [*names, "assets"]]
 
 
 def run_native(

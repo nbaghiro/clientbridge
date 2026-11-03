@@ -388,6 +388,12 @@
     "api.ownPay": {
         "message": "Only the owner can approve or pay your own earnings."
     },
+    "api.fileTypeUnsupported": {
+        "message": "Use a PNG, JPEG or WebP picture."
+    },
+    "api.fileTooLarge": {
+        "message": "That file is too big. Use one up to 10 MB."
+    },
     "common.amountWithCurrency": {
         "message": "{amount} {currency}",
         "args": ["amount", "currency"],
@@ -1130,6 +1136,9 @@
     },
     "billing.startAnother": {
         "message": "Start another"
+    },
+    "billing.noClientsYet": {
+        "message": "Add a client in Clients first."
     },
     "billing.discardTitle": {
         "message": "Close without saving?"
@@ -2318,7 +2327,7 @@
         "message": "No services or products yet"
     },
     "pos.desk.noItemsBody": {
-        "message": "Add what you sell in Setup, Catalog, and it appears here."
+        "message": "Add what you sell in Setup, Services & products, and it appears here."
     },
     "pos.desk.addCatalog": {
         "message": "Open the catalog"
@@ -3175,7 +3184,7 @@
         "message": "Open time"
     },
     "bookings.chairTime": {
-        "message": "Chair time"
+        "message": "Time booked"
     },
     "bookings.hoursOpen": {
         "message": "{h, number, ::.#} h",
@@ -3266,6 +3275,12 @@
     },
     "bookings.emptyDayWeb": {
         "message": "Click an open time on the board to add a visit, or share your booking link."
+    },
+    "bookings.noServicesYet": {
+        "message": "Add a service in Setup, Services & products first."
+    },
+    "bookings.emptyDayNotReady": {
+        "message": "Add a service and set your hours in Setup, then clients can book you online."
     },
     "bookings.closedNote": {
         "message": "Closed · {reason}. {count, plural, =0 {Nothing is booked this day.} one {# visit still booked needs a new time.} other {# visits still booked need a new time.}}",
@@ -6586,6 +6601,9 @@
     "messaging.clientLabel": {
         "message": "To"
     },
+    "messaging.noClientsYet": {
+        "message": "Add a client in Clients first."
+    },
     "messaging.chooseClient": {
         "message": "Choose a client"
     },
@@ -7392,7 +7410,10 @@
         "message": "Logo"
     },
     "business.getSetUp.logoHint": {
-        "message": "PNG or SVG, square works best."
+        "message": "PNG, JPEG, WebP or SVG, up to 10 MB. Square works best."
+    },
+    "business.getSetUp.logoHintPhone": {
+        "message": "A square picture works best."
     },
     "business.getSetUp.colour": {
         "message": "Brand colour"
@@ -7404,7 +7425,34 @@
         "message": "Calm, careful work, close to home."
     },
     "business.getSetUp.save": {
-        "message": "Save changes"
+        "message": "Save brand"
+    },
+    "business.getSetUp.unsaved": {
+        "message": "You have unsaved brand changes."
+    },
+    "business.getSetUp.editBrand": {
+        "message": "Edit brand"
+    },
+    "business.getSetUp.colourNames.forest": {
+        "message": "Forest green"
+    },
+    "business.getSetUp.colourNames.slate": {
+        "message": "Slate blue"
+    },
+    "business.getSetUp.colourNames.teal": {
+        "message": "Teal"
+    },
+    "business.getSetUp.colourNames.plum": {
+        "message": "Plum"
+    },
+    "business.getSetUp.colourNames.terracotta": {
+        "message": "Terracotta"
+    },
+    "business.getSetUp.colourNames.ochre": {
+        "message": "Ochre"
+    },
+    "business.getSetUp.colourNames.charcoal": {
+        "message": "Charcoal"
     },
     "business.getSetUp.saving": {
         "message": "Saving…"
@@ -7526,6 +7574,45 @@
     },
     "business.saveError": {
         "message": "Could not save account settings"
+    },
+    "business.saveDetails": {
+        "message": "Save business details"
+    },
+    "business.unsaved": {
+        "message": "You have unsaved business details."
+    },
+    "business.checkFields": {
+        "message": "Check the fields marked below."
+    },
+    "business.fieldErrors.name": {
+        "message": "Enter a name of up to 100 characters."
+    },
+    "business.fieldErrors.email": {
+        "message": "Enter a valid email address, like you@example.com."
+    },
+    "business.fieldErrors.postalCode": {
+        "message": "Enter the postal code like V8W 1Y9."
+    },
+    "business.fieldErrors.legalPhone": {
+        "message": "Enter a full phone number, with its area code."
+    },
+    "business.fieldErrors.website": {
+        "message": "Enter the full address, starting with https://."
+    },
+    "business.fieldErrors.gallery": {
+        "message": "Put one link on each line, each starting with https://. You can add up to 12."
+    },
+    "business.fieldErrors.tooLong": {
+        "message": "That's too long. Shorten it and try again."
+    },
+    "business.fieldErrors.pickupPrep": {
+        "message": "Enter the minutes as a whole number, up to one week."
+    },
+    "business.fieldErrors.pickupHold": {
+        "message": "Enter a whole number of days, from 1 to 30."
+    },
+    "business.fieldErrors.pickupCapacity": {
+        "message": "Enter a whole number from 1 to 100."
     },
     "business.onboarding.provinceAB": {
         "message": "Alberta"
@@ -9789,7 +9876,7 @@
         "args": ["province"]
     },
     "taxes.provinceConfirmBody": {
-        "message": "New prices, sales and invoices will charge the sales tax of {province}. Invoices, sales and receipts already issued keep the tax they charged.",
+        "message": "New prices, sales and invoices will charge the sales tax of {province}. Invoices, sales and receipts already issued keep the tax they charged. Your time zone stays the same; you can change it in Setup, Business.",
         "args": ["province"]
     },
     "taxes.provinceSaveError": {
@@ -10419,6 +10506,9 @@
     },
     "today.quietTitle": {
         "message": "A quiet day"
+    },
+    "today.quietBodyNotLive": {
+        "message": "Nothing is booked and nothing is waiting on you. Add a booking, or finish Get set up so clients can book online."
     },
     "today.quietBody": {
         "message": "Nothing is booked and nothing is waiting on you. Share your booking page or add a booking."
@@ -11518,11 +11608,20 @@
     "auth.backToSignIn": {
         "message": "Back to sign in"
     },
-    "auth.resetError": {
-        "message": "Couldn't reset your password. Check the code and try again."
-    },
     "auth.resendFailed": {
-        "message": "Couldn't send a new code. Check your connection and try again."
+        "message": "Couldn't send the code. Check your connection and try again."
+    },
+    "auth.savePasswordFailed": {
+        "message": "Couldn't save your password. Check your connection and try again."
+    },
+    "auth.codeTooOften": {
+        "message": "Too many wrong codes. Send a new one to keep going."
+    },
+    "auth.codeExpired": {
+        "message": "That code has expired. Send a new one to keep going."
+    },
+    "auth.tooManyAttempts": {
+        "message": "Too many attempts. Wait a minute and try again."
     },
     "auth.verifyTitle": {
         "message": "Confirm your email"
@@ -11605,7 +11704,7 @@
         "message": "That took a little too long. Please try again."
     },
     "auth.unavailable": {
-        "message": "Sign-in is unavailable right now. Check your connection and try again."
+        "message": "Sign-in is unavailable right now. Check your connection, wait a minute and try again."
     },
     "auth.googleFailed": {
         "message": "Couldn't continue with Google. Try again or use your email."
@@ -11681,6 +11780,10 @@
     "auth.securityConfirmCodes": {
         "message": "I saved these codes"
     },
+    "auth.backupCodeUsed": {
+        "message": "Used {date}",
+        "args": ["date"]
+    },
     "auth.securityKeys": {
         "message": "Security keys and passkeys"
     },
@@ -11717,6 +11820,12 @@
     },
     "auth.securityReauthOnWeb": {
         "message": "Confirm it's you in the web app to change sign-in settings."
+    },
+    "auth.resetMfaSubtitle": {
+        "message": "Confirm it's you before choosing a new password."
+    },
+    "auth.startOver": {
+        "message": "Start over"
     },
     "auth.providerError": {
         "message": "Something went wrong. Please try again."
@@ -11769,11 +11878,20 @@
     "auth.flowMessages.4000034": {
         "message": "That password has appeared in a data breach. Choose a different one."
     },
+    "auth.flowMessages.4000039": {
+        "message": "Choose a password that's different from your current one."
+    },
     "auth.flowMessages.4000012": {
         "message": "That backup code has already been used. Try another one."
     },
     "auth.flowMessages.4000016": {
         "message": "That backup code isn't right. Check it and try again."
+    },
+    "auth.flowMessages.4060005": {
+        "message": "That code has expired. Send a new one to keep going."
+    },
+    "auth.flowMessages.4070005": {
+        "message": "That code has expired. Send a new one to keep going."
     },
     "auth.flowMessages.4060006": {
         "message": "That code isn't right or has expired. Request a new one."
@@ -12299,7 +12417,7 @@
         "args": ["day"]
     },
     "publicBooking.noTimesWeek": {
-        "message": "Nothing is open this week. Try later dates or call the studio."
+        "message": "Nothing is open this week. Try later dates or call the business."
     },
     "publicBooking.closedDay": {
         "message": "Closed for {reason}.",
@@ -12473,7 +12591,7 @@
         "message": "Request sent"
     },
     "publicBooking.pendingBody": {
-        "message": "The studio confirms new clients first. You'll hear back about {when} once they've looked at your request.",
+        "message": "The business confirms new clients first. You'll hear back about {when} once they've looked at your request.",
         "args": ["when"]
     },
     "publicBooking.waitlistTitle": {
@@ -12539,7 +12657,7 @@
         "args": ["day", "time"]
     },
     "publicBooking.nothingBookable": {
-        "message": "Nothing can be booked online right now. Call the studio to book."
+        "message": "Nothing can be booked online right now. Call the business to book."
     },
     "publicBooking.timesIn": {
         "message": "Times are in {zone}",
@@ -12565,7 +12683,7 @@
         "message": "Need a hand?"
     },
     "publicOrder.contactBody": {
-        "message": "Contact the studio if you have a question about your order."
+        "message": "Contact the business if you have a question about your order."
     },
     "publicOrder.refundPending": {
         "message": "Your refund is being processed"
@@ -12696,7 +12814,7 @@
         "message": "Shop"
     },
     "publicShop.subtitle": {
-        "message": "Order online, pick up at the studio."
+        "message": "Order online, pick up in person."
     },
     "publicShop.all": {
         "message": "All"
@@ -12731,7 +12849,7 @@
         "message": "Remove"
     },
     "publicShop.pickupTitle": {
-        "message": "Pick up at the studio"
+        "message": "Pick up in person"
     },
     "publicShop.pickupWhen": {
         "message": "We'll let you know when it's ready to pick up during opening hours."
@@ -12770,7 +12888,7 @@
         "message": "Order placed"
     },
     "publicShop.doneBody": {
-        "message": "Order {number} is with the studio. We'll let you know as soon as it's ready to pick up.",
+        "message": "Order {number} is with the business. We'll let you know as soon as it's ready to pick up.",
         "args": ["number"]
     },
     "publicShop.whatNext": {
@@ -12798,7 +12916,7 @@
         "message": "Shop not found"
     },
     "publicShop.notFoundBody": {
-        "message": "This link is invalid or the studio isn't selling online right now."
+        "message": "This link is invalid or the business isn't selling online right now."
     },
     "publicShop.loadErrorTitle": {
         "message": "We couldn't load the shop"
@@ -13081,7 +13199,7 @@
         "args": ["cancel", "move", "keepLate"]
     },
     "onlineBooking.policy.clientTextOff": {
-        "message": "To change or cancel, call or text the studio."
+        "message": "To change or cancel, call or text the business."
     },
     "onlineBooking.policy.examples": {
         "message": "How this plays out"
@@ -13180,7 +13298,7 @@
         "message": "Message"
     },
     "publicManage.messageTitle": {
-        "message": "Message the studio"
+        "message": "Message the business"
     },
     "publicManage.messageLabel": {
         "message": "Your message"
@@ -13189,7 +13307,7 @@
         "message": "Send message"
     },
     "publicManage.messageSent": {
-        "message": "Message sent. The studio can reply to your booking contact details."
+        "message": "Message sent. The business can reply to your booking contact details."
     },
     "publicManage.messageError": {
         "message": "We couldn't send your message. Try again."
@@ -13273,7 +13391,7 @@
         "args": ["cancel", "move"]
     },
     "publicManage.policyOff": {
-        "message": "To change or cancel, call or text the studio."
+        "message": "To change or cancel, call or text the business."
     },
     "publicManage.countdown": {
         "message": "Your visit is {label}",
@@ -13382,7 +13500,7 @@
         "message": "Booking not found"
     },
     "publicManage.notFoundBody": {
-        "message": "This link has expired or the booking was already changed. Check your latest message from the studio."
+        "message": "This link has expired or the booking was already changed. Check your latest message from the business."
     },
     "publicManage.canceledAlready": {
         "message": "This booking was cancelled."
@@ -13392,19 +13510,19 @@
         "description": "Why the client can't change a visit that is no longer pending or confirmed."
     },
     "publicManage.blocked.by_phone": {
-        "message": "This business takes changes by phone. Please call the studio."
+        "message": "This business takes changes by phone. Please call them."
     },
     "publicManage.blocked.class_session": {
-        "message": "Class sessions are shared with other clients. Please call the studio to move."
+        "message": "Class sessions are shared with other clients. Please call the business to move."
     },
     "publicManage.blocked.reschedule_limit": {
         "message": "This visit has been moved as many times as the policy allows."
     },
     "publicManage.blocked.member_unavailable": {
-        "message": "The team member for this visit is no longer available. You can cancel it, or message the studio to find a new time."
+        "message": "The team member for this visit is no longer available. You can cancel it, or message the business to find a new time."
     },
     "publicManage.blocked.cutoff": {
-        "message": "{hours, plural, one {It's less than # hour away.} other {It's less than # hours away.}} Please call the studio.",
+        "message": "{hours, plural, one {It's less than # hour away.} other {It's less than # hours away.}} Please call the business.",
         "args": ["hours"],
         "description": "The visit is inside the business's change cutoff."
     },
@@ -13437,6 +13555,24 @@
     },
     "navigation.main": {
         "message": "Main"
+    },
+    "navigation.leaveTitle": {
+        "message": "Leave without saving?"
+    },
+    "navigation.leave": {
+        "message": "Leave"
+    },
+    "navigation.closeTitle": {
+        "message": "Close without saving?"
+    },
+    "navigation.close": {
+        "message": "Close"
+    },
+    "navigation.unsavedLost": {
+        "message": "Changes since the last save are lost."
+    },
+    "navigation.keepEditing": {
+        "message": "Keep editing"
     },
     "navigation.finishSetup": {
         "message": "Finish setting up"
@@ -13796,7 +13932,7 @@
         "message": "Booking policies"
     },
     "publicLanding.gallery": {
-        "message": "Around the studio"
+        "message": "Gallery"
     },
     "publicLanding.jumpTo": {
         "message": "Explore this business"
@@ -13821,6 +13957,9 @@
     },
     "publicLanding.noServices": {
         "message": "Contact us to arrange your visit."
+    },
+    "publicLanding.noServicesYet": {
+        "message": "Services will appear here soon."
     },
     "publicLanding.loadingOpenings": {
         "message": "Checking availability…"
@@ -13865,6 +14004,9 @@
     },
     "files.uploadLogo": {
         "message": "Upload logo"
+    },
+    "files.removeLogo": {
+        "message": "Remove logo"
     },
     "files.replaceLogo": {
         "message": "Replace logo"

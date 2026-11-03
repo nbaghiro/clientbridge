@@ -299,9 +299,40 @@ def test_api_host_sends_the_auth_prefix_to_the_auth_service(stacks: dict[str, Bu
 
 def test_sync_keeps_streams_open_for_an_hour(stacks: dict[str, Built]) -> None:
     for built in stacks.values():
-        (policy,) = of_type(built, "kubernetes:networking.gke.io/v1:GCPBackendPolicy")
+        policy = named(built, "kubernetes:networking.gke.io/v1:GCPBackendPolicy", "powersync")
         assert dig(policy.inputs, "spec", "default", "timeoutSec") == 3600
         assert dig(policy.inputs, "spec", "targetRef", "name") == "powersync"
+
+
+def test_auth_paths_are_rate_limited_per_address_at_the_edge(
+    cloud: Built, stacks: dict[str, Built]
+) -> None:
+    (armor,) = of_type(cloud, "gcp:compute/securityPolicy:SecurityPolicy")
+    name = dig(armor.inputs, "name")
+    for built in stacks.values():
+        attached = named(built, "kubernetes:networking.gke.io/v1:GCPBackendPolicy", "auth")
+        assert dig(attached.inputs, "spec", "default", "securityPolicy") == name
+        assert dig(attached.inputs, "spec", "targetRef", "name") == "auth"
+    *throttles, default = listed(dig(armor.inputs, "rules"))
+    assert dig(default, "action") == "allow"
+    assert [dig(each, "action") for each in throttles] == ["throttle"] * 3
+    limits = {
+        str(dig(each, "match", "expr", "expression")): dig(
+            each, "rateLimitOptions", "rateLimitThreshold", "count"
+        )
+        for each in throttles
+    }
+    (mail, password, flows) = limits
+    # a request counts only on the first rule it matches, so the tightest must come first
+    assert "/recovery" in mail and "/verification" in mail and limits[mail] == 10
+    assert "/login" in password and "/registration" in password and limits[password] == 30
+    assert "POST" not in flows and limits[flows] == 120
+    # Cloud Armor refuses an expression with a regex capture group
+    assert not any(".matches(" in expression for expression in limits)
+    for each in throttles:
+        assert dig(each, "rateLimitOptions", "exceedAction") == "deny(429)"
+        assert dig(each, "rateLimitOptions", "enforceOnKey") == "IP"
+        assert dig(each, "rateLimitOptions", "rateLimitThreshold", "intervalSec") == 60
 
 
 def test_staging_runs_on_spot_and_production_only_its_worker(stacks: dict[str, Built]) -> None:
@@ -1053,6 +1084,13 @@ def test_buckets_take_uploads_only_from_the_app_and_connect(cloud: Built) -> Non
         assert dig(read, "origins") == ["*"]
         assert dig(read, "methods") == ["GET", "HEAD"]
         assert {dig(rule, "maxAgeSeconds") for rule in (upload, read)} == {3600}
+
+
+def test_buckets_expire_uploads_left_after_completion(cloud: Built) -> None:
+    for bucket in of_type(cloud, "gcp:storage/bucket:Bucket"):
+        rules = listed(dig(bucket.inputs, "lifecycleRules"))
+        conditions = [dig(rule, "condition") for rule in rules]
+        assert {"age": 1, "matchesPrefixes": ["uploads/"]} in conditions
 
 
 @pytest.fixture(scope="module")

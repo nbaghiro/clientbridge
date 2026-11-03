@@ -2,6 +2,7 @@ import { useBusinessFavicon } from "../branding";
 import { BusinessShopAction, BusinessSections } from "../components/BusinessNavigation";
 import {
     createPublicProfileClient,
+    landingSections,
     mapsUrl,
     serviceSummary,
     strings,
@@ -50,7 +51,9 @@ export function PublicLanding() {
         return <PublicStatus kind="notFound" title={s.notFoundTitle} body={s.notFoundBody} />;
     if (view.status === "error" || page === null) return <PublicStatus kind="error" />;
     const style = brandStyle(page.brand);
-    const hasServices = page.services.length > 0;
+    const sections = landingSections(page);
+    const hasAside = sections.booking || sections.visit;
+    const takesDeposits = page.services.some((service) => service.deposit_required);
     const contact = (
         <div className="space-y-5">
             {page.address ? <p className="text-sm text-ink-soft">{page.address}</p> : null}
@@ -143,7 +146,7 @@ export function PublicLanding() {
                             <p className="mt-3 text-lg text-muted">{page.brand.tagline}</p>
                         ) : null}
                         <div className="mt-6 flex flex-col gap-3 min-[400px]:flex-row min-[400px]:flex-wrap">
-                            {hasServices ? (
+                            {sections.booking ? (
                                 <Button
                                     tone="inverse"
                                     size="lg"
@@ -160,7 +163,9 @@ export function PublicLanding() {
                 </div>
             </BusinessCover>
             <BusinessSections />
-            <div className="mx-auto grid max-w-6xl gap-10 px-4 py-10 sm:px-6 md:grid-cols-[minmax(0,1fr)_330px]">
+            <div
+                className={`mx-auto grid max-w-6xl gap-10 px-4 py-10 sm:px-6 ${hasAside ? "md:grid-cols-[minmax(0,1fr)_330px]" : ""}`}
+            >
                 <main className="min-w-0 space-y-12">
                     {page.about ? (
                         <section aria-label={s.about}>
@@ -174,8 +179,10 @@ export function PublicLanding() {
                         {view.zoneNote !== null ? (
                             <p className="-mt-4 mb-6 text-sm text-muted">{view.zoneNote}</p>
                         ) : null}
-                        {!hasServices ? (
-                            <Notice tone="info">{s.noServices}</Notice>
+                        {!sections.booking ? (
+                            <Notice tone="info">
+                                {sections.contact ? s.noServices : s.noServicesYet}
+                            </Notice>
                         ) : (
                             view.categories.map((group) => (
                                 <div key={group.label} className="mb-6">
@@ -281,7 +288,7 @@ export function PublicLanding() {
                             </div>
                         </section>
                     ) : null}
-                    {page.staff.length > 0 ? (
+                    {sections.team ? (
                         <section id="team" className="scroll-mt-40">
                             <h2 className="mb-4 font-display text-2xl font-bold">{s.team}</h2>
                             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -306,7 +313,13 @@ export function PublicLanding() {
                             </div>
                         </section>
                     ) : null}
-                    {page.policy ? (
+                    {sections.visit ? (
+                        <section id="visit" className="scroll-mt-40 md:hidden">
+                            <h2 className="mb-4 font-display text-2xl font-bold">{s.visit}</h2>
+                            {contact}
+                        </section>
+                    ) : null}
+                    {page.policy && sections.policies ? (
                         <section id="policies" className="scroll-mt-40">
                             <h2 className="mb-4 font-display text-2xl font-bold">{s.policies}</h2>
                             <ul className="space-y-2 text-sm text-ink-soft">
@@ -322,53 +335,60 @@ export function PublicLanding() {
                                 ) : (
                                     <li>{s.contactPolicy}</li>
                                 )}
-                                <li>{s.lateCancelPolicy}</li>
+                                {takesDeposits ? <li>{s.lateCancelPolicy}</li> : null}
                             </ul>
                         </section>
                     ) : null}
                 </main>
-                <aside id="visit-desktop" className="hidden scroll-mt-40 md:block">
-                    <div className="sticky top-20 space-y-4">
-                        <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
-                            <h2 className="font-display text-lg font-bold">{s.visit}</h2>
-                            <ul className="mt-4 space-y-4 border-t border-line-soft pt-4">
-                                {page.services.slice(0, 3).map((service) => (
-                                    <li key={service.id}>
-                                        <p className="text-sm font-semibold">{service.name}</p>
-                                        <p className="mt-1 text-xs text-muted">
-                                            {serviceSummary(service)}
-                                        </p>
-                                        {view.openings[service.id]?.[0] ? (
-                                            <p className="mt-1 text-xs text-accent">
-                                                {view.openingLabel(
-                                                    view.openings[service.id]?.[0]?.starts_at ?? "",
-                                                )}
-                                            </p>
-                                        ) : null}
-                                    </li>
-                                ))}
-                            </ul>
-                            {hasServices ? (
-                                <Button
-                                    full
-                                    size="lg"
-                                    className="mt-5"
-                                    onPress={() => {
-                                        book();
-                                    }}
-                                >
-                                    {s.book}
-                                </Button>
+                {hasAside ? (
+                    <aside id="visit-desktop" className="hidden scroll-mt-40 md:block">
+                        <div className="sticky top-20 space-y-4">
+                            {sections.booking ? (
+                                <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
+                                    <h2 className="font-display text-lg font-bold">{s.visit}</h2>
+                                    <ul className="mt-4 space-y-4 border-t border-line-soft pt-4">
+                                        {page.services.slice(0, 3).map((service) => (
+                                            <li key={service.id}>
+                                                <p className="text-sm font-semibold">
+                                                    {service.name}
+                                                </p>
+                                                <p className="mt-1 text-xs text-muted">
+                                                    {serviceSummary(service)}
+                                                </p>
+                                                {view.openings[service.id]?.[0] ? (
+                                                    <p className="mt-1 text-xs text-accent">
+                                                        {view.openingLabel(
+                                                            view.openings[service.id]?.[0]
+                                                                ?.starts_at ?? "",
+                                                        )}
+                                                    </p>
+                                                ) : null}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                    <Button
+                                        full
+                                        size="lg"
+                                        className="mt-5"
+                                        onPress={() => {
+                                            book();
+                                        }}
+                                    >
+                                        {s.book}
+                                    </Button>
+                                </section>
                             ) : null}
-                        </section>
-                        <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
-                            {contact}
-                        </section>
-                    </div>
-                </aside>
+                            {sections.visit ? (
+                                <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
+                                    {contact}
+                                </section>
+                            ) : null}
+                        </div>
+                    </aside>
+                ) : null}
             </div>
             <PoweredBy />
-            {hasServices ? (
+            {sections.booking ? (
                 <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:hidden">
                     <Button
                         full

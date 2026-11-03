@@ -4994,18 +4994,18 @@ export interface components {
             auto_complete?: boolean | null;
         };
         /**
-         * BrandInput
-         * @description The public brand; values are validated and trimmed so clients can apply them directly.
+         * BrandUpdate
+         * @description The brand as written; only writes cap the tagline, as a stored one may be longer.
          */
-        BrandInput: {
+        BrandUpdate: {
             /** Logo File Id */
             logo_file_id?: string | null;
+            /** Cover File Id */
+            cover_file_id?: string | null;
             /** Primary */
             primary?: string | null;
             /** Tagline */
             tagline?: string | null;
-            /** Cover Url */
-            cover_url?: string | null;
             /** About */
             about?: string | null;
             /** Address */
@@ -5214,7 +5214,7 @@ export interface components {
              * @description The business's legal contact phone; empty clears
              */
             legal_phone?: string | null;
-            brand?: components["schemas"]["BrandInput"] | null;
+            brand?: components["schemas"]["BrandUpdate"] | null;
         };
         /** CheckoutOut */
         CheckoutOut: {
@@ -5788,7 +5788,7 @@ export interface components {
             /** Content Type */
             content_type?: string | null;
             /** Size */
-            size?: number | null;
+            size: number;
         };
         /** FileLink */
         FileLink: {
@@ -8466,7 +8466,7 @@ export interface components {
             /** Content Type */
             content_type?: string | null;
             /** Size */
-            size?: number | null;
+            size: number;
         };
         /** PublicFileUpload */
         PublicFileUpload: {
@@ -8812,8 +8812,6 @@ export interface components {
              * @description What a booking names besides the client; null asks for nothing
              */
             subject?: ("pet" | "student" | "property" | "site" | "vehicle") | null;
-            /** Cover Url */
-            cover_url?: string | null;
             /** About */
             about?: string | null;
             /** Address */

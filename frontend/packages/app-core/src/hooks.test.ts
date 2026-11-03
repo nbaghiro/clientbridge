@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 import { act, cleanup, renderHook } from "@testing-library/react";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { typedRows, useAsyncAction, useDraftList, useRemote } from "./hooks";
+import { typedRows, useAsyncAction, useDraftList, useRemote, useSyncedDraft } from "./hooks";
 
 afterEach(cleanup);
 
@@ -98,4 +98,109 @@ it("sends trimmed values and drops blank fields and blank rows", () => {
             { name: "", phone: "613-555-0181" },
         ]),
     ).toEqual([{ name: "Ngozi" }, { phone: "613-555-0181" }]);
+});
+
+describe("useSyncedDraft", () => {
+    interface Card {
+        city: string;
+        team: string[];
+    }
+    const stored: Card = { city: "Victoria", team: ["st_a"] };
+
+    function draftOver(first: Card | null) {
+        return renderHook(({ row }: { row: Card | null }) => useSyncedDraft(row), {
+            initialProps: { row: first },
+        });
+    }
+
+    it("shows the edits over the stored values and reports only what changed", () => {
+        const { result } = draftOver(stored);
+        expect(result.current.dirty).toBe(false);
+        act(() => {
+            result.current.set("city", "Nanaimo");
+            result.current.set("team", (team) => [...team, "st_b"]);
+        });
+        expect(result.current.values).toEqual({ city: "Nanaimo", team: ["st_a", "st_b"] });
+        expect(result.current.changes).toEqual({ city: "Nanaimo", team: ["st_a", "st_b"] });
+        expect(result.current.dirty).toBe(true);
+    });
+
+    it("lets a later change from another device through a value typed back to the stored one", () => {
+        const { result, rerender } = draftOver(stored);
+        act(() => {
+            result.current.set("city", "Nanaimo");
+            result.current.set("team", ["st_a", "st_b"]);
+        });
+        act(() => {
+            result.current.set("city", "Victoria");
+            result.current.set("team", ["st_a"]);
+        });
+        expect(result.current.dirty).toBe(false);
+        rerender({ row: { city: "Sidney", team: ["st_a", "st_c"] } });
+        expect(result.current.values).toEqual({ city: "Sidney", team: ["st_a", "st_c"] });
+        expect(result.current.dirty).toBe(false);
+    });
+
+    it("builds a change on what is shown once a value typed back lets the replica through", () => {
+        const { result, rerender } = draftOver(stored);
+        act(() => {
+            result.current.set("team", ["st_a", "st_b"]);
+        });
+        act(() => {
+            result.current.set("team", ["st_a"]);
+        });
+        rerender({ row: { city: "Victoria", team: ["st_a", "st_c"] } });
+        act(() => {
+            result.current.set("team", (team) => [...team, "st_d"]);
+        });
+        expect(result.current.changes).toEqual({ team: ["st_a", "st_c", "st_d"] });
+    });
+
+    it("follows the replica in a field not being edited", () => {
+        const { result, rerender } = draftOver(stored);
+        act(() => {
+            result.current.set("city", "Sidney");
+        });
+        rerender({ row: { city: "Victoria", team: ["st_z"] } });
+        expect(result.current.values).toEqual({ city: "Sidney", team: ["st_z"] });
+        expect(result.current.changes).toEqual({ city: "Sidney" });
+    });
+
+    it("keeps an edit made through a callback from before the replica changed", () => {
+        const { result, rerender } = draftOver(stored);
+        const early = result.current.set;
+        rerender({ row: { city: "Sidney", team: ["st_a"] } });
+        act(() => {
+            result.current.set("city", "Victoria");
+        });
+        act(() => {
+            early("team", ["st_b"]);
+        });
+        expect(result.current.changes).toEqual({ city: "Victoria", team: ["st_b"] });
+    });
+
+    it("shows what was saved until the replica moves on, and keeps edits made during the save", () => {
+        const { result, rerender } = draftOver(stored);
+        act(() => {
+            result.current.set("city", "Nanaimo");
+        });
+        const sent = result.current.changes;
+        act(() => {
+            result.current.set("team", ["st_b"]);
+        });
+        act(() => {
+            result.current.settle(sent, { city: "Nanaimo", team: ["st_a"] });
+        });
+        expect(result.current.base).toEqual({ city: "Nanaimo", team: ["st_a"] });
+        expect(result.current.changes).toEqual({ team: ["st_b"] });
+        rerender({ row: { city: "Duncan", team: ["st_a"] } });
+        expect(result.current.values).toEqual({ city: "Duncan", team: ["st_b"] });
+    });
+
+    it("holds no values until the stored row loads", () => {
+        const { result, rerender } = draftOver(null);
+        expect(result.current.values).toBeNull();
+        rerender({ row: stored });
+        expect(result.current.values).toEqual(stored);
+    });
 });

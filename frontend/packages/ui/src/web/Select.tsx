@@ -70,6 +70,7 @@ interface OptionListProps<K extends string> {
     options: readonly SelectOption<K>[];
     // How many options there are before filtering, to tell "no options" from "no matches".
     total: number;
+    emptyLabel?: string | undefined;
     value: K | undefined;
     active: K | null;
     optionId: (key: K) => string;
@@ -90,6 +91,7 @@ export function OptionList<K extends string>({
     onActive,
     onPick,
     ref,
+    emptyLabel,
 }: OptionListProps<K> & WithRef<HTMLDivElement>) {
     return (
         <div
@@ -102,7 +104,7 @@ export function OptionList<K extends string>({
         >
             {options.length === 0 ? (
                 <p className="px-3 py-5 text-center text-sm text-muted">
-                    {total === 0 ? strings.ui.noOptions : strings.ui.noMatches}
+                    {total === 0 ? (emptyLabel ?? strings.ui.noOptions) : strings.ui.noMatches}
                 </p>
             ) : (
                 sections(options).map((s, si) => {
@@ -213,6 +215,7 @@ export function PickerTrigger({
 }
 
 export function Select<K extends string>({
+    emptyLabel,
     label,
     name,
     hint,
@@ -421,6 +424,7 @@ export function Select<K extends string>({
                           </div>
                       ) : null}
                       <OptionList
+                          emptyLabel={emptyLabel}
                           ref={list}
                           id={id}
                           listId={listId}

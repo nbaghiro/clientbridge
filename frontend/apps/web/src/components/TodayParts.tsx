@@ -271,7 +271,7 @@ function QuietDay({ bookingLink }: { bookingLink: string | null }) {
         <Empty
             icon="calendar"
             message={t.quietTitle}
-            body={t.quietBody}
+            body={bookingLink === null ? t.quietBodyNotLive : t.quietBody}
             actions={
                 <>
                     <Button

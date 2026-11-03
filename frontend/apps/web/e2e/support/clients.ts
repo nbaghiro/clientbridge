@@ -6,6 +6,7 @@ import { navigate } from "./session";
 import { runUrl, demoSlug } from "@clientbridge/config/e2e/run";
 import { freshPhone, textedCode } from "./auth";
 import { bookingApi, createBookingFixture, type BookingFixture } from "./bookings";
+import { connectUrl } from "./business";
 import { select } from "./db";
 import { pastExtras } from "./visit";
 
@@ -240,8 +241,6 @@ export async function verifyReturning(
 ): Promise<void> {
     const b = strings.publicBooking;
     const t = strings.publicReturning;
-    const port = process.env.CONNECT_E2E_PORT;
-    if (!port) throw new Error("Returning journeys require CONNECT_E2E_PORT");
     const availableDays = () =>
         page.waitForResponse(
             (r) =>
@@ -250,7 +249,7 @@ export async function verifyReturning(
         );
     let loaded = availableDays();
     await page.goto(
-        `http://book.localhost:${port}/${demoSlug("birchbark")}?service=${f.itemId}&staff=${f.staffId}`,
+        connectUrl("book", `${demoSlug("birchbark")}?service=${f.itemId}&staff=${f.staffId}`),
     );
     await pastExtras(page);
     let response = await loaded;

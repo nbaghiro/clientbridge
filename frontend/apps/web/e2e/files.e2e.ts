@@ -29,7 +29,7 @@ test("FILES-E2E-01 client photo confirms real storage bytes and survives another
         });
         expect((await rejected).status()).toBe(422);
         await expect(
-            editor.getByText(strings.common.fileUploadError, { exact: true }),
+            editor.getByText(strings.api.fileTypeUnsupported, { exact: true }),
         ).toBeVisible();
         expect(await photoEvidence(client.id)).toEqual([]);
 

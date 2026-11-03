@@ -5,6 +5,7 @@ import { View } from "react-native";
 
 import { api } from "../lib/api";
 import { useUserId, useViewer } from "../lib/auth";
+import { pickedPhoto } from "../lib/photos";
 
 /** A client's or team member's photo, picked from the library and removable by whoever may change it. */
 export function PersonPhoto({
@@ -31,8 +32,7 @@ export function PersonPhoto({
                 });
                 const asset = result.assets?.[0];
                 if (!asset) return;
-                const blob = await (await fetch(asset.uri)).blob();
-                photo.upload(blob, asset.mimeType ?? "image/jpeg", asset.fileSize);
+                photo.upload(pickedPhoto(asset));
             },
             { errorMessage: strings.common.fileUploadError },
         );

@@ -710,7 +710,7 @@ test("BILL-DOC-21 golden tax matrix for ON, BC, QC and NS with exempt and GST-on
                 ? null
                 : await browser.newContext(baseURL === undefined ? {} : { baseURL });
         const tab = context === null ? page : await context.newPage();
-        opened = await newBusiness(tab, request, "tax-matrix", row.province);
+        opened = await newBusiness(tab, request, "tax-matrix", "beauty", row.province);
         await registerForTax(tab, "123456789RT0001");
         last = await issue(tab, row);
         const payPage = await request.get(`${runUrl("VITE_API_URL")}/pay/${last.token}`);

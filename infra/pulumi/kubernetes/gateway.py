@@ -20,6 +20,21 @@ from kubernetes import settings
 NAMESPACE = "gateway"
 NAME = "clientbridge"
 SYNC_TIMEOUT_SECONDS = 3600  # PowerSync streams stay open; the default 30 seconds would cut them
+AUTH_LIMITS = "auth-limits"
+
+
+def _posts_to(*flows: str) -> str:
+    """Cloud Armor refuses regex capture groups, so a rule names its paths as prefixes."""
+    paths = " || ".join(f"request.path.startsWith('/self-service/{flow}')" for flow in flows)
+    return f"request.method == 'POST' && ({paths})"
+
+
+# requests a minute per address, tightest first since a request counts on the first rule it matches
+AUTH_RULES: tuple[tuple[str, int], ...] = (
+    (_posts_to("recovery", "verification"), 10),
+    (_posts_to("login", "registration"), 30),
+    ("request.path.startsWith('/self-service/')", 120),
+)
 # each host's Service: the web image serves the site, app and Connect hosts by Host header
 BACKENDS: dict[Host, tuple[str, int]] = {
     "site": ("web", WEB_PORT),
@@ -42,6 +57,36 @@ HEALTH_CHECKS: dict[str, tuple[int, str]] = {
 
 def address() -> gcp.compute.GlobalAddress:
     return gcp.compute.GlobalAddress("gateway", address_type="EXTERNAL", ip_version="IPV4")
+
+
+def auth_limits() -> gcp.compute.SecurityPolicy:
+    """Kratos has no login lockout, so Cloud Armor throttles its self-service paths per address."""
+    return gcp.compute.SecurityPolicy(
+        AUTH_LIMITS,
+        name=AUTH_LIMITS,
+        type="CLOUD_ARMOR",
+        rules=[
+            *(
+                {
+                    "action": "throttle",
+                    "priority": 1000 + index,
+                    "match": {"expr": {"expression": expression}},
+                    "rate_limit_options": {
+                        "conform_action": "allow",
+                        "exceed_action": "deny(429)",
+                        "enforce_on_key": "IP",
+                        "rate_limit_threshold": {"count": per_minute, "interval_sec": 60},
+                    },
+                }
+                for index, (expression, per_minute) in enumerate(AUTH_RULES)
+            ),
+            {
+                "action": "allow",
+                "priority": 2147483647,
+                "match": {"versioned_expr": "SRC_IPS_V1", "config": {"src_ip_ranges": ["*"]}},
+            },
+        ],
+    )
 
 
 def section(env: Environment, host: str) -> str:
@@ -251,6 +296,17 @@ def routes(env: Environment, provider: k8s.Provider, depends_on: list[pulumi.Res
         spec={
             "default": {"timeoutSec": SYNC_TIMEOUT_SECONDS},
             "targetRef": {"group": "", "kind": "Service", "name": "powersync"},
+        },
+        opts=options,
+    )
+    k8s.apiextensions.CustomResource(
+        f"{env.name}-auth-limits",
+        api_version="networking.gke.io/v1",
+        kind="GCPBackendPolicy",
+        metadata=k8s.meta.v1.ObjectMetaArgs(name="auth", namespace=env.namespace),
+        spec={
+            "default": {"securityPolicy": AUTH_LIMITS},
+            "targetRef": {"group": "", "kind": "Service", "name": "auth"},
         },
         opts=options,
     )

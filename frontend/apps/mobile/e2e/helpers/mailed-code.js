@@ -4,7 +4,9 @@ if (typeof MAILPIT_URL === "undefined")
 var mailpit = MAILPIT_URL;
 var query = encodeURIComponent('to:"' + EMAIL + '" subject:"password reset"');
 var code = null;
-for (var attempt = 0; attempt < 200 && code === null; attempt++) {
+// Maestro's scripts can't sleep, so a count of polls can end before the courier's mail lands
+var deadline = Date.now() + 30000;
+while (code === null && Date.now() < deadline) {
     var found = json(http.get(mailpit + "/api/v1/search?query=" + query).body);
     if (found.messages && found.messages.length > 0) {
         var message = json(http.get(mailpit + "/api/v1/message/" + found.messages[0].ID).body);

@@ -104,11 +104,16 @@ export function useOpenLink(): (target: ShellTarget, refId?: string | null) => v
                     nav.navigate("Services");
                     return;
                 case "hours":
+                    nav.navigate("Team", { hours: true });
+                    return;
                 case "team":
                     nav.navigate("Team");
                     return;
                 case "business":
                     nav.navigate("Business");
+                    return;
+                case "brand":
+                    nav.navigate("GetSetUp", { brand: true });
                     return;
                 case "setup":
                     nav.navigate("GetSetUp");

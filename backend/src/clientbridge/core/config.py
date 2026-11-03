@@ -257,6 +257,11 @@ class Settings(BaseSettings):
         # in dev one browser plays every visitor of the e2e suites, all from one address
         return 1000 if self.env == "dev" else 30
 
+    def auth_email_hourly_limit(self) -> int:
+        """Auth emails of one template per hour to one address, whoever asks for them."""
+        # in dev the e2e suites and the seeded logins mail the same addresses again and again
+        return 1000 if self.env == "dev" else 10
+
     def app_origins(self) -> list[str]:
         """The only origins that may send the session cookie: the web app (and its e2e copy)."""
         return [

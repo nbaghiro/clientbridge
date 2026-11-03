@@ -413,6 +413,7 @@ function NewMessageSheet({
                     label={s.clientLabel}
                     value={msg.clientId}
                     placeholder={s.chooseClient}
+                    emptyLabel={s.noClientsYet}
                     options={msg.clients}
                     onChange={msg.setClientId}
                 />

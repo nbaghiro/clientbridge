@@ -70,7 +70,7 @@ import {
     toSubject,
     useSubjectKind,
 } from "./subjects";
-import { useReplicaLoad } from "./sync";
+import { expectArrival, useArrival, useReplicaLoad } from "./sync";
 import { staffNameSql } from "./staff";
 
 const s = strings.clients;
@@ -129,10 +129,19 @@ export function createClient(
     api: ApiLike,
     input: { name: string; phone?: string | null },
 ): Promise<{ id: string }> {
-    return api.post<{ id: string }>("/v1/clients", {
-        name: input.name.trim(),
-        phone: normalizePhone(input.phone),
-    });
+    return api
+        .post<{ id: string }>("/v1/clients", {
+            name: input.name.trim(),
+            phone: normalizePhone(input.phone),
+        })
+        .then(expectClient);
+}
+
+const clientArrival = (id: string): string => `client:${id}`;
+
+function expectClient(created: { id: string }): { id: string } {
+    expectArrival(clientArrival(created.id), (current) => current > 0);
+    return created;
 }
 
 /** A Postgres text[] synced as JSON text; an unreadable value reads as no tags. */
@@ -594,7 +603,13 @@ export function useClientRecord(
     const textsStopped = useTextsStopped(id);
     const zone = useBusinessZone();
     const row = client.data[0];
-    const load = useReplicaLoad([client, visits, subjects, notes], row === undefined);
+    const replica = useReplicaLoad([client, visits, subjects, notes], row === undefined);
+    // a record opened as soon as it was created reaches the replica a moment later
+    const arrival = useArrival(id === "" ? null : clientArrival(id), row === undefined ? 0 : 1);
+    const load: Load =
+        arrival === "arriving" && replica.state === "empty"
+            ? { ...replica, state: "loading" }
+            : replica;
     const record = useMemo(() => {
         if (row === undefined) return null;
         const now = new Date();
@@ -808,9 +823,11 @@ export function useClientEditor(
                                   },
                               },
                 };
-                const saved = await api.post<{ id: string }>("/v1/clients", input, {
-                    idempotencyKey: attemptKey(attempt, input),
-                });
+                const saved = expectClient(
+                    await api.post<{ id: string }>("/v1/clients", input, {
+                        idempotencyKey: attemptKey(attempt, input),
+                    }),
+                );
                 attempt.current = null;
                 onSaved(saved.id);
                 return;

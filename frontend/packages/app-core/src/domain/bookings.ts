@@ -2862,7 +2862,7 @@ export interface BookingPhotos {
     share: (fileId: string, shared: boolean) => void;
     busy: boolean;
     error: string | null;
-    add: (body: Blob, contentType: string, sizeBytes?: number) => void;
+    add: (body: Blob | Promise<Blob>) => void;
 }
 
 /** Before and after photos on a visit; the member on it or a manager can add more. */
@@ -2903,9 +2903,9 @@ export function useBookingPhotos(
         },
         busy: upload.busy,
         error: upload.error ?? sharing.error,
-        add: (body, contentType, sizeBytes) => {
+        add: (body) => {
             if (!canAdd) return;
-            upload.upload(body, bookingPhotoTarget(bookingId), contentType, sizeBytes);
+            upload.upload(body, bookingPhotoTarget(bookingId));
         },
     };
 }

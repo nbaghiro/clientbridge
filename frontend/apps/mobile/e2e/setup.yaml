@@ -53,6 +53,9 @@ name: Owner setup surfaces
 - assertVisible: "Let clients move or cancel from their confirmation link, within your rules."
 - takeScreenshot: booking-policy
 - tapOn: "Back|Go back|Navigate up"
+- scrollUntilVisible:
+      element: "Messages & reminders"
+      direction: DOWN
 - tapOn: "Messages & reminders"
 - assertVisible: "What clients hear before a visit, and closing visits when the day is over."
 - takeScreenshot: reminders

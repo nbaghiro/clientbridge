@@ -156,7 +156,7 @@ export function BusinessSections() {
                 {[
                     ...(available.booking ? [{ key: "services", label: s.servicesTitle }] : []),
                     ...(available.team ? [{ key: "team", label: s.team }] : []),
-                    { key: "visit", label: s.visit },
+                    ...(available.visit ? [{ key: "visit", label: s.visit }] : []),
                     ...(available.policies ? [{ key: "policies", label: s.policies }] : []),
                 ].map((section) => (
                     <Link

@@ -21,7 +21,7 @@ export function PersonPhoto({
     if (!photo.canEdit) return null;
     const onFile = (e: ChangeEvent<HTMLInputElement>): void => {
         const file = e.target.files?.[0];
-        if (file !== undefined) photo.upload(file, file.type || "image/jpeg", file.size);
+        if (file !== undefined) photo.upload(file);
         e.target.value = "";
     };
     return (

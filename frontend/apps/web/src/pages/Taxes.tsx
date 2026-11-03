@@ -55,6 +55,7 @@ function confirmProvince(form: TaxSettingsForm): void {
     })
         .then((ok) => {
             if (ok) form.changeProvince();
+            else form.cancelProvince();
         })
         .catch(() => undefined);
 }

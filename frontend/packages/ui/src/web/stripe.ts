@@ -1,8 +1,7 @@
-import { strings } from "@clientbridge/app-core/public";
 import { themes } from "@clientbridge/tokens";
 import { loadConnectAndInitialize, type StripeConnectInstance } from "@stripe/connect-js/pure";
 import { type Stripe, loadStripe } from "@stripe/stripe-js";
-import { type RefObject, useEffect, useState } from "react";
+import { type RefObject, useEffect, useRef, useState } from "react";
 
 let publishableKey = "";
 const byAccount = new Map<string, Promise<Stripe | null>>();
@@ -83,11 +82,14 @@ export function useConnectInstance(
     const [instance, setInstance] = useState<StripeConnectInstance | null>(null);
     const [failed, setFailed] = useState(false);
     const [attempt, setAttempt] = useState(0);
+    const current = useRef<StripeConnectInstance | null>(null);
     const key = publishableKey;
     useEffect(() => {
         if (key === "" || !enabled) return;
         let active = true;
         const isActive = (): boolean => active;
+        // Connect.js fails every later component with the page's first session error, so never reject
+        const closed = new Promise<string>(() => undefined);
         const style = root.current ? getComputedStyle(root.current) : null;
         const color = (name: string, fallback: string): string => {
             const value = style?.getPropertyValue(name).trim() ?? "";
@@ -99,17 +101,17 @@ export function useConnectInstance(
                 if (!isActive()) return;
                 next = loadConnectAndInitialize({
                     publishableKey: key,
-                    fetchClientSecret: async () => {
-                        if (!isActive()) throw new Error(strings.paymentAccount.expired);
-                        try {
-                            const secret = await fetchClientSecret();
-                            if (!isActive()) throw new Error(strings.paymentAccount.expired);
-                            return secret;
-                        } catch (error) {
-                            if (isActive()) setFailed(true);
-                            throw error;
-                        }
-                    },
+                    fetchClientSecret: () =>
+                        isActive()
+                            ? fetchClientSecret().then(
+                                  (secret) => (isActive() ? secret : closed),
+                                  (error: unknown) => {
+                                      if (!isActive()) return closed;
+                                      setFailed(true);
+                                      throw error;
+                                  },
+                              )
+                            : closed,
                     appearance: {
                         variables: {
                             colorPrimary: color("--accent", themes.pewter.color.accent),
@@ -120,6 +122,7 @@ export function useConnectInstance(
                         },
                     },
                 });
+                current.current = next;
                 setInstance(next);
             })
             .catch(() => {
@@ -127,6 +130,7 @@ export function useConnectInstance(
             });
         return () => {
             active = false;
+            current.current = null;
             if (next !== null) next.logout().catch(() => undefined);
         };
     }, [key, enabled, fetchClientSecret, attempt, root]);
@@ -134,7 +138,7 @@ export function useConnectInstance(
         instance,
         failed,
         fail: () => {
-            setFailed(true);
+            if (instance !== null && instance === current.current) setFailed(true);
         },
         retry: () => {
             setFailed(false);

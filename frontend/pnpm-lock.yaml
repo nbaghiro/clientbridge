@@ -454,6 +454,9 @@ importers:
 
   packages/app-core:
     dependencies:
+      '@clientbridge/tokens':
+        specifier: workspace:*
+        version: link:../tokens
       '@powersync/react':
         specifier: ^2.1.0
         version: 2.1.0(@powersync/common@2.4.0)(react@19.2.3)

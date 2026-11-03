@@ -1,5 +1,6 @@
 import { BusinessNavigation } from "./BusinessNavigation";
 import { type PublicBrand, strings } from "@clientbridge/app-core/public";
+import { readableInk } from "@clientbridge/tokens";
 import { IconButton } from "@clientbridge/ui";
 import { useState, type CSSProperties, type ReactNode } from "react";
 
@@ -10,15 +11,7 @@ const WIDTHS = { narrow: "max-w-3xl", wide: "max-w-6xl" } as const;
 export function brandStyle(brand: PublicBrand | null): CSSProperties | undefined {
     const primary = brand?.primary;
     if (!primary) return undefined;
-    const hex = primary.slice(1);
-    const full = hex.length === 3 ? hex.replace(/./g, "$&$&") : hex;
-    const channels = [0, 2, 4].map((at) => {
-        const value = parseInt(full.slice(at, at + 2), 16) / 255;
-        return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
-    });
-    const luminance =
-        (channels[0] ?? 0) * 0.2126 + (channels[1] ?? 0) * 0.7152 + (channels[2] ?? 0) * 0.0722;
-    const ink = luminance > 0.179 ? "#000000" : "#ffffff";
+    const ink = readableInk(primary);
     return {
         "--accent": primary,
         "--accent-ink": ink,

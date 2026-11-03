@@ -39,8 +39,18 @@ async function tiledIcon(url: string): Promise<string | null> {
     return tileIcon(await createImageBitmap(await response.blob()));
 }
 
+/** The tab shows the business rather than Clientbridge: its name, and its logo as the icon. */
 export function useBusinessFavicon(brand?: PublicBrand | null): void {
     const logo = brand?.logo_url;
+    const name = brand?.business_name;
+    useEffect(() => {
+        if (!name) return;
+        const previous = document.title;
+        document.title = name;
+        return () => {
+            document.title = previous;
+        };
+    }, [name]);
     useEffect(() => {
         if (!logo) return;
         const icons = Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel="icon"]'));

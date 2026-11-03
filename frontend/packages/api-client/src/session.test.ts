@@ -264,6 +264,128 @@ describe("identity client", () => {
         expect((await identity.submit(flow, {})).kind).toBe("flow");
     });
 
+    describe("a flow that can't take more codes", () => {
+        const identity = createIdentityClient({ baseUrl: "https://auth.test", mode: "native" });
+        const answer = (...replies: [unknown, number][]) => {
+            const fetched = vi.fn(() => {
+                const [body, status] = replies.shift() ?? [{}, 404];
+                return Promise.resolve(Response.json(body, { status }));
+            });
+            vi.stubGlobal("fetch", fetched);
+            return fetched;
+        };
+        const recoveryError = (reason: string): unknown => ({
+            error: {
+                code: 400,
+                reason,
+                details: { continue_with: [{ action: "show_recovery_ui", flow: { id: "new" } }] },
+            },
+        });
+        const replacement = (text: string): unknown => ({
+            id: "new",
+            ui: { nodes: [], messages: [{ id: 4000001, type: "error", text }] },
+        });
+
+        it("reads a reset's attempt limit from its bare error, which has no form to show", async () => {
+            answer([
+                recoveryError("The request was submitted too often. Please request another code."),
+                400,
+            ]);
+            expect(await identity.submit(flow, {})).toEqual({ kind: "restart", tooOften: true });
+        });
+
+        it("calls a reset's used code expired", async () => {
+            answer([recoveryError("The code was already used. Please request another code."), 400]);
+            expect(await identity.submit(flow, {})).toEqual({ kind: "restart" });
+        });
+
+        it("reads a confirmation's attempt limit from the flow that replaced it", async () => {
+            const fetched = answer(
+                [{ error: { id: "self_service_flow_replaced" }, use_flow_id: "new" }, 410],
+                [
+                    replacement(
+                        "The request was submitted too often. Please request another code.",
+                    ),
+                    200,
+                ],
+            );
+            const verification = parseFlow("verification", { id: "old" });
+            expect(await identity.submit(verification, {}, "tok")).toEqual({
+                kind: "restart",
+                tooOften: true,
+            });
+            expect(fetched).toHaveBeenLastCalledWith(
+                "https://auth.test/self-service/verification/flows?id=new",
+                expect.anything(),
+            );
+        });
+
+        it("calls a confirmation replaced for any other reason expired", async () => {
+            answer(
+                [{ error: { id: "self_service_flow_replaced" }, use_flow_id: "new" }, 410],
+                [replacement("The code was already used. Please request another code."), 200],
+            );
+            expect(await identity.submit(flow, {})).toEqual({ kind: "restart" });
+            answer([{ error: { id: "self_service_flow_replaced" }, use_flow_id: "new" }, 410]);
+            expect(await identity.submit(flow, {})).toEqual({ kind: "restart" });
+        });
+    });
+
+    it("refuses a bare error rather than showing an empty form", async () => {
+        const identity = createIdentityClient({ baseUrl: "https://auth.test", mode: "browser" });
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(() =>
+                Promise.resolve(
+                    Response.json({ error: { id: "session_already_available" } }, { status: 400 }),
+                ),
+            ),
+        );
+        await expect(identity.submit(flow, {})).rejects.toMatchObject({
+            status: 400,
+            code: "session_already_available",
+        });
+    });
+
+    it("says whether the session's email is verified", async () => {
+        const identity = createIdentityClient({ baseUrl: "https://auth.test", mode: "native" });
+        const answer = (verified: boolean) => {
+            vi.stubGlobal(
+                "fetch",
+                vi.fn(() =>
+                    Promise.resolve(
+                        Response.json({
+                            identity: {
+                                id: "id-1",
+                                traits: { email: "pat@test.ca" },
+                                verifiable_addresses: [{ value: "pat@test.ca", verified }],
+                            },
+                        }),
+                    ),
+                ),
+            );
+        };
+        answer(false);
+        expect(await identity.whoami("token")).toEqual({
+            id: "id-1",
+            sessionId: "",
+            email: "pat@test.ca",
+            verified: false,
+        });
+        answer(true);
+        expect((await identity.whoami("token"))?.verified).toBe(true);
+    });
+
+    it("carries the status of a rate limit, so the form can name it", async () => {
+        const identity = createIdentityClient({ baseUrl: "https://auth.test", mode: "native" });
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(() => Promise.resolve(new Response("too many requests", { status: 429 }))),
+        );
+        await expect(identity.submit(flow, {})).rejects.toMatchObject({ status: 429 });
+        await expect(identity.start("login")).rejects.toMatchObject({ status: 429 });
+    });
+
     it("tells a missing session from one that needs a second factor", async () => {
         const identity = createIdentityClient({ baseUrl: "https://auth.test", mode: "native" });
         vi.stubGlobal(
@@ -295,7 +417,12 @@ describe("identity client", () => {
                 ),
             ),
         );
-        expect(await identity.whoami("tok")).toEqual({ id: "id-1", email: "pat@test.ca" });
+        expect(await identity.whoami("tok")).toEqual({
+            id: "id-1",
+            sessionId: "s",
+            email: "pat@test.ca",
+            verified: false,
+        });
         vi.stubGlobal(
             "fetch",
             vi.fn(() => Promise.resolve(Response.json({}, { status: 401 }))),

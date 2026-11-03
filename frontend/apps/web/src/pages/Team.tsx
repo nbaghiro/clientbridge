@@ -10,6 +10,7 @@ import {
     type TeamMember,
     type TeamView,
     acceptInviteUrl,
+    brandColourName,
     memberRoleIntent,
     roleLabel,
     staffPaySummary,
@@ -251,6 +252,7 @@ function ProfileSection({ member }: { member: TeamMember }) {
                     <SwatchPicker
                         label={t.colour}
                         colours={form.colours}
+                        colourLabel={brandColourName}
                         value={form.colour}
                         onChange={form.setColour}
                     />

@@ -71,10 +71,11 @@ async def test_staff_adds_a_photo_to_their_booking_and_reads_it_back(
     storage.stored[file["s3_key"]] = 2048
     done = await as_staff.post(f"/v1/files/{file['id']}/complete")
     assert done.status_code == 200, done.text
+    key = done.json()["s3_key"]
     link = await as_staff.get(f"/v1/files/{file['id']}/link")
     assert link.status_code == 200, link.text
-    assert link.json()["url"] == f"https://files.test/{file['s3_key']}"
-    assert storage.downloads == [file["s3_key"]]
+    assert link.json()["url"] == f"https://files.test/{key}"
+    assert storage.downloads == [key]
 
 
 async def test_owner_adds_a_photo_to_any_booking(
@@ -108,16 +109,20 @@ async def test_staff_cannot_photograph_or_read_another_members_booking_403(
 
 
 @pytest.mark.parametrize(
-    "extra",
-    [{"purpose": "attachment"}, {"purpose": None}, {"content_type": "application/pdf"}],
+    ("extra", "code"),
+    [
+        ({"purpose": "attachment"}, "invalid_request"),
+        ({"purpose": None}, "invalid_request"),
+        ({"content_type": "application/pdf"}, "file_type_unsupported"),
+    ],
 )
 async def test_a_booking_takes_only_photos_422(
-    as_owner: httpx.AsyncClient, db: AsyncSession, extra: dict[str, object]
+    as_owner: httpx.AsyncClient, db: AsyncSession, extra: dict[str, object], code: str
 ) -> None:
     bid = await _booking(db, "st_owner")
     res = await as_owner.post("/v1/files", json=_photo(bid, **extra))
     assert res.status_code == 422
-    assert res.json()["error"] == "invalid_request"
+    assert res.json()["error"] == code
 
 
 async def test_unknown_deleted_or_foreign_booking_404(

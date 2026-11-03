@@ -2,6 +2,7 @@ import { strings } from "@clientbridge/app-core/public";
 import { type Page, expect } from "@playwright/test";
 import { test } from "./support/session";
 import {
+    browserSession,
     deleteIdentity,
     mailedCode,
     mailedCodeForFlow,
@@ -9,7 +10,10 @@ import {
     nativeSession,
     newAccount,
     ownerInvite,
+    registerAccount,
+    requestResetCode,
     sessionActive,
+    signedInEmail,
     totp,
 } from "./support/auth";
 import { signUp, openBusiness } from "./support/business";
@@ -148,12 +152,9 @@ test(
         await page.context().clearCookies();
         await page.goto("/login");
         await page.getByRole("button", { name: a.forgot, exact: true }).click();
-        await expect(page.getByRole("heading", { name: a.resetTitle })).toBeVisible();
-        await page.getByRole("textbox", { name: a.email, exact: true }).fill(account.email);
-        await page.getByRole("button", { name: a.sendCode, exact: true }).click();
         await page
             .getByLabel(a.code, { exact: true })
-            .fill(await mailedCode(request, account.email, "password reset"));
+            .fill(await requestResetCode(page, request, account.email));
         await page.getByRole("button", { name: a.checkCode, exact: true }).click();
         await expect(page.getByRole("heading", { name: a.resetPasswordTitle })).toBeVisible();
         await page.getByLabel(a.newPassword, { exact: true }).fill(`${account.password}-new`);
@@ -176,10 +177,15 @@ test(
         expect(await sessionActive(request, otherDevice)).toBe(true);
 
         await openSecurity(page);
-        await page
-            .getByLabel(a.securityNewPassword, { exact: true })
-            .fill(`${account.password}-new`);
-        await page.getByRole("button", { name: a.securityChangePassword, exact: true }).click();
+        const newPassword = page.getByLabel(a.securityNewPassword, { exact: true });
+        const change = page.getByRole("button", { name: a.securityChangePassword, exact: true });
+        await newPassword.fill(account.password);
+        await change.click();
+        await expect(page.getByText(a.flowMessages[4000039], { exact: true })).toBeVisible();
+        expect(await sessionActive(request, otherDevice)).toBe(true);
+
+        await newPassword.fill(`${account.password}-new`);
+        await change.click();
         await expect(page.getByText(a.flowMessages[1050001], { exact: true })).toBeVisible();
 
         expect(await sessionActive(request, otherDevice)).toBe(false);
@@ -229,7 +235,7 @@ test("ID-E2E-02 a wrong code then the mailed one confirms the email, and a secon
     const name = `${account.name}'s Beauty Studio`;
     await startSignUp(page, account);
     const mailed = await mailedCode(request, account.email, "verification");
-    const wrong = mailed.replace(/\d$/, (digit) => String((Number(digit) + 1) % 10));
+    const wrong = otherCode(mailed);
     await page.getByLabel(a.code, { exact: true }).fill(wrong);
     await page.getByRole("button", { name: a.verify, exact: true }).click();
     await expect(page.getByText(a.flowMessages[4070006], { exact: true })).toBeVisible();
@@ -269,12 +275,9 @@ test("ID-E2E-03 recovery refuses the old session's next business action once the
         const recovering = await second.newPage();
         await recovering.goto("/login");
         await recovering.getByRole("button", { name: a.forgot, exact: true }).click();
-        await expect(recovering.getByRole("heading", { name: a.resetTitle })).toBeVisible();
-        await recovering.getByRole("textbox", { name: a.email, exact: true }).fill(account.email);
-        await recovering.getByRole("button", { name: a.sendCode, exact: true }).click();
         await recovering
             .getByLabel(a.code, { exact: true })
-            .fill(await mailedCode(request, account.email, "password reset"));
+            .fill(await requestResetCode(recovering, request, account.email));
         await recovering.getByRole("button", { name: a.checkCode, exact: true }).click();
         await recovering.getByLabel(a.newPassword, { exact: true }).fill(`${account.password}-new`);
         await recovering.getByRole("button", { name: a.savePassword, exact: true }).click();
@@ -283,7 +286,7 @@ test("ID-E2E-03 recovery refuses the old session's next business action once the
         await page.waitForTimeout(IDENTITY_CACHE_MS);
         await page
             .locator("form", { has: nameField })
-            .getByRole("button", { name: strings.common.save, exact: true })
+            .getByRole("button", { name: strings.business.saveDetails, exact: true })
             .click();
         await expect(page.getByRole("heading", { name: a.signInTitle })).toBeVisible();
         const [business] = await select<{ name: string }>`
@@ -312,15 +315,6 @@ test("ID-E2E-04 a backup code works once, and new codes retire the old ones", as
         await page.getByLabel(a.mfaLookup, { exact: true }).fill(code);
         await page.getByRole("button", { name: a.confirm, exact: true }).click();
     };
-    const newCodes = async (): Promise<string[]> => {
-        await page.getByRole("button", { name: a.securityNewCodes, exact: true }).click();
-        const shown = page.locator("ul.font-mono li");
-        await expect(shown).not.toHaveCount(0);
-        const codes = await shown.allTextContents();
-        await page.getByRole("button", { name: a.securityConfirmCodes, exact: true }).click();
-        await expect(shown).toHaveCount(0);
-        return codes;
-    };
     const refused = page.getByText(a.flowMessages[4000016], { exact: true });
     const business = page
         .locator("aside")
@@ -329,7 +323,7 @@ test("ID-E2E-04 a backup code works once, and new codes retire the old ones", as
     await signUp(page, request, account);
     await openBusiness(page, `${account.name}'s Beauty Studio`);
     await openSecurity(page);
-    const [first = "", second = "", third = ""] = await newCodes();
+    const [first = "", second = "", third = ""] = await newBackupCodes(page);
 
     await useCode(first);
     await expect(business).toBeVisible({ timeout: 60_000 });
@@ -343,13 +337,220 @@ test("ID-E2E-04 a backup code works once, and new codes retire the old ones", as
     await expect(business).toBeVisible({ timeout: 60_000 });
 
     await openSecurity(page);
-    const [fresh = ""] = await newCodes();
+    await page.getByRole("button", { name: a.securityShowCodes, exact: true }).click();
+    const codes = page.locator("ul.font-mono li");
+    await expect(codes.filter({ hasText: a.backupCodeUsed("").trim() })).toHaveCount(2);
+    await expect(codes.filter({ hasText: third })).toHaveCount(1);
+    await expect(page.getByText("Secret was used")).toHaveCount(0);
+
+    await openSecurity(page);
+    const [fresh = ""] = await newBackupCodes(page);
     await useCode(third);
     await expect(refused).toBeVisible();
     await expect(business).toHaveCount(0);
     await page.getByLabel(a.mfaLookup, { exact: true }).fill(fresh);
     await page.getByRole("button", { name: a.confirm, exact: true }).click();
     await expect(business).toBeVisible({ timeout: 60_000 });
+});
+
+test("a reset left half-finished by a reload can start again", async ({ page, request }) => {
+    const account = newAccount("reset-reload");
+    await signUp(page, request, account);
+    await expect(
+        page.getByRole("heading", { name: strings.business.onboarding.title }),
+    ).toBeVisible();
+    await page.context().clearCookies();
+    await page.goto("/login");
+    const reset = async (previous?: string): Promise<string> => {
+        const code = await requestResetCode(page, request, account.email, previous);
+        await page.getByLabel(a.code, { exact: true }).fill(code);
+        await page.getByRole("button", { name: a.checkCode, exact: true }).click();
+        await expect(page.getByRole("heading", { name: a.resetPasswordTitle })).toBeVisible();
+        return code;
+    };
+    await page.getByRole("button", { name: a.forgot, exact: true }).click();
+    const first = await reset();
+    await page.reload();
+    await reset(first);
+});
+
+test("a reset closed at its last step leaves nobody signed in on the next load", async ({
+    context,
+    page,
+    request,
+}) => {
+    const account = newAccount("reset-closed");
+    await registerAccount(request, account);
+    await page.goto("/login");
+    await page.getByRole("button", { name: a.forgot, exact: true }).click();
+    await page
+        .getByLabel(a.code, { exact: true })
+        .fill(await requestResetCode(page, request, account.email));
+    await page.getByRole("button", { name: a.checkCode, exact: true }).click();
+    await expect(page.getByRole("heading", { name: a.resetPasswordTitle })).toBeVisible();
+    expect(await signedInEmail(page)).toBe(account.email);
+    await page.close();
+
+    const next = await context.newPage();
+    await next.goto("/");
+    await expect(next.getByRole("heading", { name: a.signInTitle })).toBeVisible();
+    await expect.poll(() => signedInEmail(next)).toBeNull();
+    await next.reload();
+    await expect(next.getByRole("heading", { name: a.signInTitle })).toBeVisible();
+    expect(await signedInEmail(next)).toBeNull();
+});
+
+test("the credentials typed decide the account, whatever session the browser still holds", async ({
+    page,
+    request,
+}) => {
+    const left = newAccount("typed-left");
+    const typed = newAccount("typed-other");
+    await registerAccount(request, left);
+    await registerAccount(request, typed);
+    // a full session the sign-in page knows nothing of, as another tab's sign-in leaves
+    const leaveSession = async (): Promise<void> => {
+        await browserSession(page, left.email, left.password);
+        await page.goto("/login");
+        await expect(page.getByRole("heading", { name: a.signInTitle })).toBeVisible();
+        expect(await signedInEmail(page)).toBe(left.email);
+    };
+    const signInAs = async (email: string, password: string): Promise<void> => {
+        await page.getByRole("textbox", { name: a.email, exact: true }).fill(email);
+        await page.getByLabel(a.password, { exact: true }).fill(password);
+        await page.getByRole("button", { name: a.signIn, exact: true }).click();
+    };
+
+    await leaveSession();
+    await signInAs(left.email, "not-the-password");
+    await expect(page.getByText(a.flowMessages[4000006], { exact: true })).toBeVisible();
+    expect(await signedInEmail(page)).toBeNull();
+
+    await leaveSession();
+    await signInAs(typed.email, typed.password);
+    await expect(page.getByRole("heading", { name: a.verifyTitle })).toBeVisible({
+        timeout: 60_000,
+    });
+    expect(await signedInEmail(page)).toBe(typed.email);
+});
+
+function otherCode(code: string): string {
+    return code.replace(/\d$/, (digit) => String((Number(digit) + 1) % 10));
+}
+
+/** Six wrong tries end a code's flow; each waits for the auth service, since the message repeats. */
+async function useUpCode(page: Page, wrong: string, submit: string): Promise<void> {
+    for (let attempt = 0; attempt < 6; attempt++) {
+        await page.getByLabel(a.code, { exact: true }).fill(wrong);
+        await Promise.all([
+            page.waitForResponse(
+                (r) => r.url().includes("/self-service/") && r.request().method() === "POST",
+            ),
+            page.getByRole("button", { name: submit, exact: true }).click(),
+        ]);
+    }
+}
+
+test("too many wrong codes at sign-up ask for a new one, and it confirms the email", async ({
+    page,
+    request,
+}) => {
+    const account = newAccount("too-often-signup");
+    await startSignUp(page, account);
+    const first = await mailedCode(request, account.email, "verification");
+    await useUpCode(page, otherCode(first), a.verify);
+    await expect(page.getByText(a.codeTooOften, { exact: true })).toBeVisible();
+
+    await page.getByLabel(a.code, { exact: true }).fill(first);
+    await page.getByRole("button", { name: a.verify, exact: true }).click();
+    await expect(page.getByText(a.codeTooOften, { exact: true })).toBeVisible();
+
+    const again = page.getByRole("button", { name: a.resendCode, exact: true });
+    await expect(again).toBeEnabled();
+    await again.click();
+    await expect(page.getByText(a.codeTooOften, { exact: true })).toHaveCount(0);
+    await page
+        .getByLabel(a.code, { exact: true })
+        .fill(await mailedCode(request, account.email, "verification", first));
+    await page.getByRole("button", { name: a.verify, exact: true }).click();
+    await expect(
+        page.getByRole("heading", { name: strings.business.onboarding.title }),
+    ).toBeVisible({ timeout: 60_000 });
+});
+
+test("too many wrong codes on a reset ask for a new one, and it resets the password", async ({
+    page,
+    request,
+}) => {
+    const account = newAccount("too-often-reset");
+    await registerAccount(request, account);
+    await page.goto("/login");
+    await page.getByRole("button", { name: a.forgot, exact: true }).click();
+    const first = await requestResetCode(page, request, account.email);
+    await useUpCode(page, otherCode(first), a.checkCode);
+    await expect(page.getByText(a.codeTooOften, { exact: true })).toBeVisible();
+
+    await page.getByLabel(a.code, { exact: true }).fill(first);
+    await page.getByRole("button", { name: a.checkCode, exact: true }).click();
+    await expect(page.getByText(a.codeTooOften, { exact: true })).toBeVisible();
+
+    const again = page.getByRole("button", { name: a.resendCode, exact: true });
+    await expect(again).toBeEnabled();
+    await again.click();
+    await expect(page.getByText(a.codeTooOften, { exact: true })).toHaveCount(0);
+    await page
+        .getByLabel(a.code, { exact: true })
+        .fill(await mailedCode(request, account.email, "password reset", first));
+    await page.getByRole("button", { name: a.checkCode, exact: true }).click();
+    await expect(page.getByRole("heading", { name: a.resetPasswordTitle })).toBeVisible();
+    await page.getByLabel(a.newPassword, { exact: true }).fill(account.password);
+    await page.getByRole("button", { name: a.savePassword, exact: true }).click();
+    await expect(page.getByText(a.flowMessages[4000039], { exact: true })).toBeVisible();
+});
+
+test("a password reset on an account with a second factor confirms it, then saves the new password", async ({
+    page,
+    request,
+}) => {
+    const account = newAccount("reset-second-factor");
+    await signUp(page, request, account);
+    await openBusiness(page, `${account.name}'s Beauty Studio`);
+    await openSecurity(page);
+    const [first = "", second = ""] = await newBackupCodes(page);
+
+    await page.context().clearCookies();
+    await page.goto("/login");
+    await page.getByRole("button", { name: a.forgot, exact: true }).click();
+    await page
+        .getByLabel(a.code, { exact: true })
+        .fill(await requestResetCode(page, request, account.email));
+    await page.getByRole("button", { name: a.checkCode, exact: true }).click();
+
+    await expect(page.getByRole("heading", { name: a.mfaTitle })).toBeVisible();
+    await expect(page.getByText(a.resetMfaSubtitle, { exact: true })).toBeVisible();
+    await page.getByLabel(a.mfaLookup, { exact: true }).fill("not-a-backup-code");
+    await page.getByRole("button", { name: a.confirm, exact: true }).click();
+    await expect(page.getByText(a.flowMessages[4000016], { exact: true })).toBeVisible();
+    await page.getByLabel(a.mfaLookup, { exact: true }).fill(first);
+    await page.getByRole("button", { name: a.confirm, exact: true }).click();
+
+    await expect(page.getByRole("heading", { name: a.resetPasswordTitle })).toBeVisible();
+    const replaced = `${account.password}-new`;
+    await page.getByLabel(a.newPassword, { exact: true }).fill(replaced);
+    await page.getByRole("button", { name: a.savePassword, exact: true }).click();
+    await expect(
+        page.locator("aside").getByRole("link", { name: strings.navigation.businessMenu }),
+    ).toBeVisible({ timeout: 60_000 });
+
+    await passwordStep(page, account);
+    await expect(page.getByText(a.flowMessages[4000006], { exact: true })).toBeVisible();
+    await passwordStep(page, { email: account.email, password: replaced });
+    await expect(page.getByRole("heading", { name: a.mfaTitle })).toBeVisible();
+    await page.getByLabel(a.mfaLookup, { exact: true }).fill(second);
+    await page.getByRole("button", { name: a.confirm, exact: true }).click();
+    await expect(
+        page.locator("aside").getByRole("link", { name: strings.navigation.businessMenu }),
+    ).toBeVisible({ timeout: 60_000 });
 });
 
 test("ID-E2E-05 add a security key, sign in with it, and a removed key is refused", async ({
@@ -483,6 +684,16 @@ async function passwordStep(
     await page.getByRole("textbox", { name: a.email, exact: true }).fill(account.email);
     await page.getByLabel(a.password, { exact: true }).fill(account.password);
     await page.getByRole("button", { name: a.signIn, exact: true }).click();
+}
+
+async function newBackupCodes(page: Page): Promise<string[]> {
+    await page.getByRole("button", { name: a.securityNewCodes, exact: true }).click();
+    const shown = page.locator("ul.font-mono li");
+    await expect(shown).not.toHaveCount(0);
+    const codes = await shown.allTextContents();
+    await page.getByRole("button", { name: a.securityConfirmCodes, exact: true }).click();
+    await expect(shown).toHaveCount(0);
+    return codes;
 }
 
 async function openSecurity(page: Page): Promise<void> {

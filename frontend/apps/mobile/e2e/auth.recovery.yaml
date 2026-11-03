@@ -26,7 +26,17 @@ onFlowComplete:
                 timeout: 30000
 - tapOn: "you@business.ca"
 - inputText: ${output.recovery.email}
-- hideKeyboard
+# the email field doesn't submit, so Return only puts the keyboard away where iOS's hideKeyboard can't
+- runFlow:
+      when:
+          platform: iOS
+      commands:
+          - pressKey: Enter
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - hideKeyboard
 - tapOn: "Forgot password\\?"
 - assertVisible: "Reset your password"
 - tapOn: "Send code"
@@ -39,8 +49,10 @@ onFlowComplete:
           EMAIL: ${output.recovery.email}
 - tapOn: "123456"
 - inputText: ${output.code}
-- hideKeyboard
-- tapOn: "Continue"
+- runFlow:
+      file: helpers/submit.yaml
+      env:
+          BUTTON: "Continue"
 - extendedWaitUntil:
       visible: "Choose a new password"
       timeout: 30000
@@ -49,8 +61,10 @@ onFlowComplete:
       text: "Create a password"
       index: 1
 - inputText: ${output.recovery.password}
-- hideKeyboard
-- tapOn: "Save password"
+- runFlow:
+      file: helpers/submit.yaml
+      env:
+          BUTTON: "Save password"
 - runFlow: helpers/decline-save-password.yaml
 - extendedWaitUntil:
       visible: "Create your business"

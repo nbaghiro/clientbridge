@@ -236,7 +236,7 @@ describe("useTaxSettingsForm registration date", () => {
         expect(result.current.dirty).toBe(true);
     });
 
-    it("keeps an edit when another device changes the record, and follows it untouched", () => {
+    it("keeps an edited field when another device changes the record, and follows the rest", () => {
         replica.rows = [stored];
         const { api } = saving();
         const { result, rerender } = renderHook(() => useTaxSettingsForm(api, (c) => c), {
@@ -251,7 +251,7 @@ describe("useTaxSettingsForm registration date", () => {
         replica.rows = [{ ...stored, filing_frequency: "quarterly" }];
         rerender();
         expect(result.current.registration).toBe("small");
-        expect(result.current.frequency).toBe("monthly");
+        expect(result.current.frequency).toBe("quarterly");
     });
 
     it("takes the saved values when the sync arrives before the response", async () => {
@@ -294,6 +294,26 @@ describe("useTaxSettingsForm registration date", () => {
         rerender();
         expect(result.current.gst).toBe("987654321RT0001");
         expect(result.current.dirty).toBe(false);
+    });
+
+    it("sends only the fields edited, so a stale form can't undo another device's change", async () => {
+        replica.rows = [stored];
+        const { api, bodies } = saving();
+        const { result, rerender } = renderHook(() => useTaxSettingsForm(api, (c) => c), {
+            wrapper,
+        });
+        act(() => {
+            result.current.setGst("987654321RT0001");
+        });
+        replica.rows = [{ ...stored, filing_frequency: "monthly" }];
+        rerender();
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(result.current.saved).toBe(true);
+        });
+        expect(bodies).toEqual([{ gst_hst_number: "987654321RT0001" }]);
     });
 
     it("loads the stored day and sends the one picked", async () => {

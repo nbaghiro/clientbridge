@@ -2,6 +2,7 @@ import { useBusinessQuery as useQuery } from "../hooks";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { formatDate, parseTimestamp, useBusinessZone } from "../datetime";
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import {
@@ -51,6 +52,44 @@ function nodeValue(flow: Flow | null, name: string): string {
     return typeof value === "string" ? value : "";
 }
 
+/** A phone can read the edge's 429; a browser can't across origins and shows `fallback`. */
+function refusal(fallback: string): (failure: unknown) => string {
+    return (failure) => (failedStatus(failure) === 429 ? strings.auth.tooManyAttempts : fallback);
+}
+
+/** Runs `work`, and `again` after ending a session this browser still holds if that blocks it. */
+async function clearingLeftover<T>(
+    identity: IdentityLike,
+    work: () => Promise<T>,
+    again: () => Promise<T> = work,
+): Promise<T> {
+    try {
+        return await work();
+    } catch (e) {
+        if (failedCode(e) !== "session_already_available") throw e;
+        await identity.signOut();
+        return again();
+    }
+}
+
+/** Sends a code on `current`, or on a new flow when that one can't go on. */
+async function mailCode(
+    identity: IdentityLike,
+    current: Flow | null,
+    start: () => Promise<Flow>,
+    email: string,
+): Promise<FlowStep> {
+    const body = { method: "code", email };
+    const step = await identity.submit(current ?? (await start()), body);
+    return step.kind === "restart" ? identity.submit(await start(), body) : step;
+}
+
+/** Whether the email's link, opened elsewhere, confirmed this address; the flow then refuses every code. */
+async function emailConfirmed(identity: IdentityLike, address: string): Promise<boolean> {
+    const me = await identity.whoami().catch(() => null);
+    return me?.verified === true && me.email.toLowerCase() === address.trim().toLowerCase();
+}
+
 function useCooldown(): [number, (s: number) => void] {
     const [cooldown, setCooldown] = useState(0);
     useEffect(() => {
@@ -63,6 +102,48 @@ function useCooldown(): [number, (s: number) => void] {
         };
     }, [cooldown]);
     return [cooldown, setCooldown];
+}
+
+const RESET_KEY = "cb_reset_session";
+
+/** Where a browser notes an unsaved reset's session; a phone's token is lost with the app instead. */
+interface ResetStorage {
+    getItem: (key: string) => string | null;
+    setItem: (key: string, value: string) => void;
+    removeItem: (key: string) => void;
+}
+
+function noteReset(storage: ResetStorage | undefined, sessionId: string | null): void {
+    try {
+        if (sessionId === null) storage?.removeItem(RESET_KEY);
+        else storage?.setItem(RESET_KEY, sessionId);
+    } catch {
+        return;
+    }
+}
+
+/** At a browser's load, ends the session of a reset closed before its password was saved. */
+export async function endAbandonedReset(
+    identity: IdentityLike,
+    storage: ResetStorage,
+): Promise<void> {
+    let marked: string | null;
+    try {
+        marked = storage.getItem(RESET_KEY);
+    } catch {
+        return;
+    }
+    if (marked === null) return;
+    const state = await identity.session();
+    // An empty mark is a reset stopped at its second factor, whose session can't name itself yet.
+    const abandoned =
+        state === "second_factor"
+            ? marked === ""
+            : state === "active" &&
+              marked !== "" &&
+              (await identity.whoami())?.sessionId === marked;
+    if (abandoned) await identity.signOut();
+    noteReset(storage, null);
 }
 
 type SessionCheck =
@@ -139,7 +220,23 @@ interface AuthOptions {
     webauthn?: WebAuthnLike;
 }
 
-interface AuthForm {
+interface SecondFactorStep {
+    mfaMethods: MfaMethod[];
+    mfaMethod: MfaMethod;
+    setMfaMethod: (m: MfaMethod) => void;
+}
+
+export interface SecondFactorForm extends SecondFactorStep {
+    code: string;
+    setCode: (v: string) => void;
+    fieldErrors: AuthFieldErrors;
+    error: string | null;
+    busy: boolean;
+    submit: () => void;
+    cancel: () => void;
+}
+
+interface AuthForm extends SecondFactorForm {
     mode: AuthMode;
     setMode: (m: "signin" | "signup") => void;
     name: string;
@@ -148,20 +245,10 @@ interface AuthForm {
     setEmail: (v: string) => void;
     password: string;
     setPassword: (v: string) => void;
-    code: string;
-    setCode: (v: string) => void;
     reveal: boolean;
     toggleReveal: () => void;
-    fieldErrors: AuthFieldErrors;
-    error: string | null;
     notice: string | null;
-    busy: boolean;
-    mfaMethods: MfaMethod[];
-    mfaMethod: MfaMethod;
-    setMfaMethod: (m: MfaMethod) => void;
-    submit: () => void;
     google: () => void;
-    cancel: () => void;
 }
 
 /** Sign in, sign up, and the second factor, over the auth service; mobile gets a token. */
@@ -179,10 +266,17 @@ export function useAuthForm(
     const [reveal, setReveal] = useState(false);
     const [fieldErrors, setFieldErrors] = useState<AuthFieldErrors>({});
     const [notice, setNotice] = useState<string | null>(null);
-    const [mfaMethod, setMfaMethod] = useState<MfaMethod>("totp");
     const [flow, setFlow] = useState<Flow | null>(null);
     const pending = useRef<string | undefined>(undefined);
     const { busy, error, setError, run } = useAsyncAction();
+    const mfa = useSecondFactor(identity, opts?.webauthn, {
+        flow,
+        code,
+        setCode,
+        setFieldErrors,
+        setError,
+    });
+    const { enter } = mfa;
 
     const show = useCallback(
         (next: Flow): void => {
@@ -192,7 +286,7 @@ export function useAuthForm(
                 email: errs.fields.identifier ?? errs.fields["traits.email"],
                 name: errs.fields["traits.name"],
                 password: errs.fields.password,
-                code: errs.fields.totp_code ?? errs.fields.lookup_secret ?? errs.fields.code,
+                code: codeFieldError(errs.fields),
             });
             setError(errs.form);
             const info = next.messages.find((m) => m.type !== "error");
@@ -203,12 +297,11 @@ export function useAuthForm(
 
     const secondStep = useCallback(
         (next: Flow): void => {
-            setMfaMethod(mfaMethodsOf(next, opts?.webauthn)[0] ?? "totp");
+            enter(next);
             setModeState("mfa");
-            setCode("");
             show(next);
         },
-        [opts?.webauthn, show],
+        [enter, show],
     );
 
     const finish = useCallback(
@@ -284,20 +377,7 @@ export function useAuthForm(
 
     const credentials = async (): Promise<void> => {
         const signup = mode === "signup";
-        let current: Flow;
-        try {
-            current =
-                flow?.kind === (signup ? "registration" : "login")
-                    ? flow
-                    : await identity.start(signup ? "registration" : "login", {
-                          returnTo: opts?.returnTo,
-                      });
-        } catch (e) {
-            // A session cookie the app didn't know about (say, a reload mid-verification).
-            if (failedCode(e) !== "session_already_available") throw e;
-            await finish();
-            return;
-        }
+        const kind = signup ? "registration" : "login";
         const body = signup
             ? {
                   method: "password",
@@ -305,42 +385,29 @@ export function useAuthForm(
                   password,
               }
             : { method: "password", identifier: email.trim(), password };
-        await handle(await identity.submit(current, body), () => undefined);
+        const fresh = async (): Promise<FlowStep> =>
+            identity.submit(await identity.start(kind, { returnTo: opts?.returnTo }), body);
+        // What's typed decides the account: a session this browser still holds never stands in for it.
+        const step = await clearingLeftover(
+            identity,
+            () => (flow?.kind === kind ? identity.submit(flow, body) : fresh()),
+            fresh,
+        );
+        await handle(step, () => undefined);
     };
 
     const secondFactor = async (): Promise<void> => {
-        const current = flow ?? (await identity.start("login", { secondFactor: true }));
-        let body: Record<string, unknown>;
-        if (mfaMethod === "webauthn") {
-            const options = nodeValue(current, "webauthn_login_trigger");
-            if (!opts?.webauthn || !options) throw new Error("webauthn unavailable");
-            let assertion: string;
-            try {
-                assertion = await opts.webauthn.login(options);
-            } catch {
-                setError(a.mfaKeyRefused);
-                return;
-            }
-            body = {
-                method: "webauthn",
-                identifier: nodeValue(current, "identifier"),
-                webauthn_login: assertion,
-            };
-        } else if (mfaMethod === "lookup_secret")
-            body = { method: "lookup_secret", lookup_secret: code.trim() };
-        else body = { method: "totp", totp_code: code.trim() };
-        const step = await identity.submit(current, body, pending.current);
+        const current =
+            flow ??
+            (await identity.start("login", { secondFactor: true, sessionToken: pending.current }));
+        const step = await mfa.confirm(current, pending.current);
+        if (step === null) return;
         if (step.kind === "done") {
             await onSignedIn(step.sessionToken ?? pending.current);
             return;
         }
         await handle(step, () => undefined);
-        if (step.kind === "flow" && mfaMethod === "webauthn") {
-            // This step shows no field, and the auth service's reasons all speak of a code.
-            const errs = flowErrors(step.flow);
-            const refused = errs.form !== null || Object.keys(errs.fields).length > 0;
-            setError(refused ? strings.auth.mfaKeyRefused : null);
-        }
+        mfa.refused(step);
     };
 
     const submit = (): void => {
@@ -352,17 +419,19 @@ export function useAuthForm(
             if (mode === "signup" && name.trim() === "") errs.name = a.nameRequired;
             if (mode === "signin" && password === "") errs.password = a.passwordRequired;
             if (mode === "signup" && password.length < 8) errs.password = a.passwordShort;
-        } else if (mfaMethod !== "webauthn" && code.trim() === "") errs.code = a.codeRequired;
+        } else if (mfa.codeMissing()) errs.code = a.codeRequired;
         setFieldErrors(errs);
         if (Object.keys(errs).length > 0) return;
         const work = mode === "mfa" ? secondFactor : credentials;
-        run(work, { errorMessage: a.unavailable });
+        run(work, { errorMessage: refusal(a.unavailable) });
     };
 
     const google = (): void => {
         run(
             async () => {
-                const current = await identity.start("login", { returnTo: opts?.returnTo });
+                const current = await clearingLeftover(identity, () =>
+                    identity.start("login", { returnTo: opts?.returnTo }),
+                );
                 const step = await identity.submit(current, { method: "oidc", provider: "google" });
                 if (step.kind !== "redirect") {
                     await handle(step, () => undefined);
@@ -372,7 +441,7 @@ export function useAuthForm(
                 const returned = callback ? queryParam(callback, "code") : null;
                 if (returned) await finish(await identity.exchange(current, returned));
             },
-            { errorMessage: a.googleFailed },
+            { errorMessage: refusal(a.googleFailed) },
         );
     };
 
@@ -395,19 +464,12 @@ export function useAuthForm(
         error,
         notice,
         busy,
-        mfaMethods: mfaMethodsOf(flow, opts?.webauthn),
-        mfaMethod,
-        setMfaMethod: (m) => {
-            setMfaMethod(m);
-            setCode("");
-            setFieldErrors({});
-            setError(null);
-        },
+        ...mfa.view,
         submit,
         google,
         cancel: () => {
             run(async () => {
-                await identity.signOut();
+                await identity.signOut(pending.current);
                 pending.current = undefined;
                 setMode("signin");
             });
@@ -422,28 +484,117 @@ function mfaMethodsOf(flow: Flow | null, webauthn: WebAuthnLike | undefined): Mf
     );
 }
 
-interface RecoveryForm {
-    step: "email" | "code" | "password";
-    email: string;
-    setEmail: (v: string) => void;
+/** What a second-factor login submits, or null when the browser refused the security key. */
+async function secondFactorBody(
+    current: Flow,
+    method: MfaMethod,
+    code: string,
+    webauthn: WebAuthnLike | undefined,
+): Promise<Record<string, unknown> | null> {
+    if (method === "lookup_secret") return { method, lookup_secret: code.trim() };
+    if (method === "totp") return { method, totp_code: code.trim() };
+    const options = nodeValue(current, "webauthn_login_trigger");
+    if (!webauthn || !options) throw new Error("webauthn unavailable");
+    try {
+        return {
+            method,
+            identifier: nodeValue(current, "identifier"),
+            webauthn_login: await webauthn.login(options),
+        };
+    } catch {
+        return null;
+    }
+}
+
+/** This step shows no field, and the auth service's reasons all speak of a code. */
+function keyRefusal(flow: Flow): string | null {
+    const errs = flowErrors(flow);
+    const refused = errs.form !== null || Object.keys(errs.fields).length > 0;
+    return refused ? strings.auth.mfaKeyRefused : null;
+}
+
+function codeFieldError(fields: Record<string, string>): string | undefined {
+    return fields.totp_code ?? fields.lookup_secret ?? fields.code;
+}
+
+interface SecondFactorHost {
+    flow: Flow | null;
     code: string;
     setCode: (v: string) => void;
+    setFieldErrors: (errors: AuthFieldErrors) => void;
+    setError: (error: string | null) => void;
+}
+
+/** The second factor that sign-in and a reset both confirm, over the form that shows it. */
+function useSecondFactor(
+    identity: IdentityLike,
+    webauthn: WebAuthnLike | undefined,
+    host: SecondFactorHost,
+) {
+    const [mfaMethod, setMethod] = useState<MfaMethod>("totp");
+    const { code, setCode, setFieldErrors, setError } = host;
+
+    const enter = useCallback(
+        (next: Flow): void => {
+            setMethod(mfaMethodsOf(next, webauthn)[0] ?? "totp");
+            setCode("");
+        },
+        [setCode, webauthn],
+    );
+
+    const view: SecondFactorStep = {
+        mfaMethods: mfaMethodsOf(host.flow, webauthn),
+        mfaMethod,
+        setMfaMethod: (m) => {
+            setMethod(m);
+            setCode("");
+            setFieldErrors({});
+            setError(null);
+        },
+    };
+
+    return {
+        view,
+        enter,
+        /** A security key needs no code; every other method does. */
+        codeMissing: (): boolean => mfaMethod !== "webauthn" && code.trim() === "",
+        /** Null when the browser refused the security key, which is then the form's error. */
+        confirm: async (current: Flow, sessionToken?: string): Promise<FlowStep | null> => {
+            const body = await secondFactorBody(current, mfaMethod, code, webauthn);
+            if (body === null) {
+                setError(strings.auth.mfaKeyRefused);
+                return null;
+            }
+            return identity.submit(current, body, sessionToken);
+        },
+        refused: (step: FlowStep): void => {
+            if (step.kind === "flow" && mfaMethod === "webauthn") setError(keyRefusal(step.flow));
+        },
+    };
+}
+
+interface RecoveryForm extends SecondFactorForm {
+    step: "email" | "code" | "mfa" | "password";
+    email: string;
+    setEmail: (v: string) => void;
     password: string;
     setPassword: (v: string) => void;
-    fieldErrors: AuthFieldErrors;
-    error: string | null;
     notice: string | null;
-    busy: boolean;
     cooldown: number;
-    submit: () => void;
     resend: () => void;
 }
 
-/** Email a code, enter it, then choose a new password; the user ends up signed in. */
+/** Email a code, enter it, confirm any second factor, then choose a new password; the user ends up signed in. */
 export function useRecoveryForm(
     identity: IdentityLike,
     onSignedIn: (sessionToken?: string) => void | Promise<void>,
-    opts?: { defaultEmail?: string; flowId?: string },
+    opts?: {
+        defaultEmail?: string;
+        flowId?: string;
+        webauthn?: WebAuthnLike;
+        /** Web: a closed tab can't end the reset's cookie session, so the next load does. */
+        resetStorage?: ResetStorage;
+    },
 ): RecoveryForm {
     const a = strings.auth;
     const [step, setStep] = useState<RecoveryForm["step"]>("email");
@@ -455,14 +606,62 @@ export function useRecoveryForm(
     const [cooldown, setCooldown] = useCooldown();
     const [flow, setFlow] = useState<Flow | null>(null);
     const token = useRef<string | undefined>(undefined);
+    const holding = useRef(false);
+    const closed = useRef(false);
+    const settingsId = useRef("");
     const { busy, error, setError, run } = useAsyncAction();
+    const mfa = useSecondFactor(identity, opts?.webauthn, {
+        flow,
+        code,
+        setCode,
+        setFieldErrors,
+        setError,
+    });
+
+    const endHeld = (): void => {
+        identity.signOut(token.current).then(
+            () => {
+                noteReset(opts?.resetStorage, null);
+            },
+            () => undefined,
+        );
+    };
+
+    const hold = async (sessionToken: string | undefined): Promise<void> => {
+        token.current = sessionToken;
+        holding.current = true;
+        // A code accepted after the screen closed gets a session nobody is left to end.
+        if (closed.current) {
+            endHeld();
+            return;
+        }
+        if (!opts?.resetStorage) return;
+        const me = await identity.whoami(sessionToken).catch(() => null);
+        noteReset(opts.resetStorage, me?.sessionId ?? "");
+    };
+
+    /** `ended` is false when the session may outlive this form, so its mark stays for the next load. */
+    const release = (ended = true): void => {
+        token.current = undefined;
+        holding.current = false;
+        if (ended) noteReset(opts?.resetStorage, null);
+    };
+
+    // Leaving before the password is saved (a back gesture, say) ends the reset's session too.
+    useEffect(() => {
+        closed.current = false;
+        return () => {
+            closed.current = true;
+            if (holding.current) endHeld();
+        };
+    }, []);
 
     const show = (next: Flow): void => {
         setFlow(next);
         const errs = flowErrors(next);
         setFieldErrors({
             email: errs.fields.email,
-            code: errs.fields.code,
+            code: codeFieldError(errs.fields),
             password: errs.fields.password,
         });
         setError(errs.form);
@@ -481,9 +680,12 @@ export function useRecoveryForm(
             .catch(() => undefined);
     }, []);
 
+    // A reset left half-finished (a reload, say) still holds its session, which blocks a new one.
+    const startRecovery = (): Promise<Flow> =>
+        clearingLeftover(identity, () => identity.start("recovery"));
+
     const sendCode = async (): Promise<void> => {
-        const current = flow ?? (await identity.start("recovery"));
-        const result = await identity.submit(current, { method: "code", email: email.trim() });
+        const result = await mailCode(identity, flow, startRecovery, email.trim());
         if (result.kind !== "flow") throw new Error("recovery did not continue");
         show(result.flow);
         if (result.flow.state === "sent_email") {
@@ -499,12 +701,73 @@ export function useRecoveryForm(
             show(result.flow);
             return;
         }
+        if (result.kind === "restart") {
+            setFlow(null);
+            setCooldown(0);
+            setError(result.tooOften ? a.codeTooOften : a.codeExpired);
+            return;
+        }
         if (result.kind !== "done" || result.next?.flow !== "settings")
             throw new Error("recovery did not continue");
-        token.current = result.sessionToken;
-        setFlow(await identity.resume("settings", result.next.id, result.sessionToken));
+        await hold(result.sessionToken);
+        settingsId.current = result.next.id;
+        try {
+            // The code was right, but an account with a second factor must confirm it before saving.
+            if ((await identity.session(token.current)) === "second_factor") {
+                const login = await identity.start("login", {
+                    secondFactor: true,
+                    sessionToken: token.current,
+                });
+                mfa.enter(login);
+                show(login);
+                setStep("mfa");
+            } else await openPassword();
+        } catch {
+            await startOver(a.unavailable);
+        }
+    };
+
+    const openPassword = async (): Promise<void> => {
+        setFlow(await identity.resume("settings", settingsId.current, token.current));
+        setFieldErrors({});
         setNotice(null);
         setStep("password");
+    };
+
+    // Ends the reset's session as well, so it never outlives an unsaved password.
+    const startOver = async (message: string | null): Promise<void> => {
+        release(
+            await identity.signOut(token.current).then(
+                () => true,
+                () => false,
+            ),
+        );
+        setFlow(null);
+        setCode("");
+        setPassword("");
+        setFieldErrors({});
+        setNotice(null);
+        setError(message);
+        setStep("email");
+    };
+
+    const confirmSecondFactor = async (): Promise<void> => {
+        if (!flow) return;
+        const result = await mfa.confirm(flow, token.current);
+        if (result === null) return;
+        if (result.kind === "flow") {
+            show(result.flow);
+            mfa.refused(result);
+            return;
+        }
+        if (result.kind !== "done") {
+            await startOver(a.flowExpired);
+            return;
+        }
+        await hold(result.sessionToken ?? token.current);
+        setCode("");
+        // The factor is spent, so this step can't be retried.
+        await openPassword().catch(() => startOver(a.unavailable));
     };
 
     const savePassword = async (): Promise<void> => {
@@ -512,7 +775,10 @@ export function useRecoveryForm(
         const result = await identity.submit(flow, { method: "password", password }, token.current);
         const outcome = passwordSaveOutcome(result);
         if (outcome === "saved") {
-            await onSignedIn(token.current);
+            const saved = token.current;
+            release();
+            // Closing the screen mid-save already ended this session.
+            if (!closed.current) await onSignedIn(saved);
             return;
         }
         if (outcome === "retry" && result.kind === "flow") {
@@ -520,22 +786,32 @@ export function useRecoveryForm(
             return;
         }
         // The recovery session's privileged window ran out: the password is unchanged, start again.
-        setFlow(null);
-        setCode("");
-        setPassword("");
-        setStep("email");
-        setError(a.flowExpired);
+        await startOver(a.flowExpired);
     };
 
     const submit = (): void => {
+        // A used-up flow takes no more codes; its message stays up until a new code is sent.
+        if (step === "code" && flow === null) return;
         const errs: AuthFieldErrors = {};
         if (step === "email" && !EMAIL.test(email.trim())) errs.email = a.emailInvalid;
         if (step === "code" && code.trim() === "") errs.code = a.codeRequired;
+        if (step === "mfa" && mfa.codeMissing()) errs.code = a.codeRequired;
         if (step === "password" && password.length < 8) errs.password = a.passwordShort;
         setFieldErrors(errs);
         if (Object.keys(errs).length > 0) return;
-        const work = step === "email" ? sendCode : step === "code" ? checkCode : savePassword;
-        run(work, { errorMessage: a.resetError });
+        const work = {
+            email: sendCode,
+            code: checkCode,
+            mfa: confirmSecondFactor,
+            password: savePassword,
+        }[step];
+        const failed = {
+            email: a.resendFailed,
+            code: a.unavailable,
+            mfa: a.unavailable,
+            password: a.savePasswordFailed,
+        }[step];
+        run(work, { errorMessage: refusal(failed) });
     };
 
     return {
@@ -551,20 +827,22 @@ export function useRecoveryForm(
         notice,
         busy,
         cooldown,
+        ...mfa.view,
         submit,
         resend: () => {
-            if (cooldown > 0 || !flow) return;
+            if (cooldown > 0) return;
             run(
                 async () => {
-                    const result = await identity.submit(flow, {
-                        method: "code",
-                        email: email.trim(),
-                    });
+                    const result = await mailCode(identity, flow, startRecovery, email.trim());
                     if (result.kind === "flow") show(result.flow);
+                    setCode("");
                     setCooldown(RESEND_SECONDS);
                 },
-                { errorMessage: a.resendFailed },
+                { errorMessage: refusal(a.resendFailed) },
             );
+        },
+        cancel: () => {
+            run(() => startOver(null));
         },
     };
 }
@@ -595,9 +873,10 @@ export function useVerificationForm(
 ): VerificationForm {
     const a = strings.auth;
     const [flow, setFlow] = useState<Flow | null>(null);
-    const [devPassed, setDevPassed] = useState(false);
     const [code, setCode] = useState("");
     const [notice, setNotice] = useState<string | null>(null);
+    // Confirmed without this flow passing: the API took its test code, or the emailed link got there first.
+    const [confirmed, setConfirmed] = useState(false);
     const [cooldown, setCooldown] = useCooldown();
     const { busy, error, setError, run } = useAsyncAction();
 
@@ -635,14 +914,24 @@ export function useVerificationForm(
                     );
                 if (accepted) {
                     setError(null);
-                    setDevPassed(true);
+                    setConfirmed(true);
                     return;
                 }
             }
             if (step.kind === "flow") show(step.flow);
-            else if (step.kind === "restart") setError(a.flowExpired);
+            else if (step.kind === "restart") {
+                const address = sentTo || nodeValue(current, "email");
+                setSentTo(address);
+                if (await emailConfirmed(identity, address)) {
+                    setConfirmed(true);
+                    return;
+                }
+                setFlow(null);
+                setCooldown(0);
+                setError(step.tooOften ? a.codeTooOften : a.codeExpired);
+            }
         },
-        [identity, opts.devApi, show, setError],
+        [identity, opts.devApi, sentTo, setCooldown, show, setError],
     );
 
     useEffect(() => {
@@ -667,8 +956,8 @@ export function useVerificationForm(
             if (email) await send(current, email);
             else show(current);
         };
-        begin().catch(() => {
-            if (live) setError(a.unavailable);
+        begin().catch((failure: unknown) => {
+            if (live) setError(refusal(a.unavailable)(failure));
         });
         return () => {
             live = false;
@@ -676,7 +965,7 @@ export function useVerificationForm(
     }, []);
 
     return {
-        verified: devPassed || flow?.state === "passed_challenge",
+        verified: confirmed || flow?.state === "passed_challenge",
         email: sentTo || nodeValue(flow, "email"),
         code,
         setCode,
@@ -690,7 +979,7 @@ export function useVerificationForm(
                 setError(a.codeRequired);
                 return;
             }
-            run(() => confirm(flow, code.trim()), { errorMessage: a.unavailable });
+            run(() => confirm(flow, code.trim()), { errorMessage: refusal(a.unavailable) });
         },
         resend: () => {
             const address = sentTo || nodeValue(flow, "email");
@@ -698,8 +987,9 @@ export function useVerificationForm(
             run(
                 async () => {
                     await send(await identity.start("verification"), address);
+                    setCode("");
                 },
-                { errorMessage: a.resendFailed },
+                { errorMessage: refusal(a.resendFailed) },
             );
         },
     };
@@ -728,6 +1018,12 @@ interface SecurityKey {
     name: string;
 }
 
+interface BackupCode {
+    key: string;
+    label: string;
+    used: boolean;
+}
+
 interface SecuritySettings {
     ready: boolean;
     error: string | null;
@@ -746,7 +1042,7 @@ interface SecuritySettings {
     setTotpCode: (v: string) => void;
     enableTotp: () => void;
     disableTotp: () => void;
-    backupCodes: { enabled: boolean; codes: string[] | null; unconfirmed: boolean };
+    backupCodes: { enabled: boolean; codes: BackupCode[] | null; unconfirmed: boolean };
     showBackupCodes: () => void;
     newBackupCodes: () => void;
     confirmBackupCodes: () => void;
@@ -768,14 +1064,26 @@ interface SecuritySettings {
 const hasNode = (flow: Flow | null, name: string): boolean =>
     flow?.nodes.some((n) => n.name === name) ?? false;
 
-function backupCodesOf(flow: Flow | null): string[] | null {
+function backupCodesOf(flow: Flow | null, zone: string): BackupCode[] | null {
     const node = flow?.nodes.find((n: FlowNode) => n.name === "lookup_secret_codes");
     const secrets = node?.context?.secrets;
     if (!Array.isArray(secrets)) return null;
-    return secrets.map((s: unknown) => {
+    return secrets.map((s: unknown, index) => {
         const entry = typeof s === "object" && s !== null ? (s as Record<string, unknown>) : {};
-        const nested = entry.text;
-        return typeof nested === "string" ? nested : "";
+        const context = entry.context;
+        const usedAt =
+            typeof context === "object" && context !== null
+                ? (context as Record<string, unknown>).used_at
+                : null;
+        // A used code's own text is the auth service's English; only its time is ours to show.
+        if (typeof usedAt === "string")
+            return {
+                key: `used-${String(index)}`,
+                label: strings.auth.backupCodeUsed(formatDate(parseTimestamp(usedAt), zone)),
+                used: true,
+            };
+        const code = typeof entry.text === "string" ? entry.text : "";
+        return { key: code, label: code, used: false };
     });
 }
 
@@ -795,6 +1103,7 @@ export function useSecuritySettings(
     },
 ): SecuritySettings {
     const a = strings.auth;
+    const zone = useBusinessZone();
     const [flow, setFlow] = useState<Flow | null>(null);
     const [email, setEmail] = useState("");
     const [name, setName] = useState("");
@@ -945,7 +1254,7 @@ export function useSecuritySettings(
         backupCodes: {
             enabled:
                 hasNode(flow, "lookup_secret_reveal") || hasNode(flow, "lookup_secret_disable"),
-            codes: backupCodesOf(flow),
+            codes: backupCodesOf(flow, zone),
             unconfirmed: hasNode(flow, "lookup_secret_confirm"),
         },
         showBackupCodes: () => {

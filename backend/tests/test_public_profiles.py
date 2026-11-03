@@ -16,7 +16,6 @@ async def test_profile_publishes_opted_in_team_without_internal_reviews(
             "brand": {
                 "about": " Our studio ",
                 "public_staff_ids": ["st_owner"],
-                "cover_url": "https://example.test/cover.jpg",
                 "gallery_urls": ["https://example.test/room.jpg"],
                 "address": "123 Main St",
                 "phone": "+12505550100",
@@ -28,7 +27,6 @@ async def test_profile_publishes_opted_in_team_without_internal_reviews(
     assert response.status_code == 200, response.text
     data = response.json()
     assert data["about"] == "Our studio"
-    assert data["cover_url"] == "https://example.test/cover.jpg"
     assert data["gallery_urls"] == ["https://example.test/room.jpg"]
     assert [person["id"] for person in data["staff"]] == ["st_owner"]
     assert data["hours"]
@@ -58,7 +56,7 @@ async def test_partial_brand_edits_preserve_profile_and_pickup_settings(
         json={
             "brand": {
                 "about": "Our studio",
-                "cover_url": "https://example.test/cover.jpg",
+                "website": "https://example.test/about",
                 "pickup_prep_minutes": 90,
                 "pickup_hold_days": 5,
                 "pickup_capacity": 8,
@@ -73,12 +71,12 @@ async def test_partial_brand_edits_preserve_profile_and_pickup_settings(
     assert brand["pickup_hold_days"] == 5 and brand["pickup_capacity"] == 8
     response = await as_owner.patch("/v1/business", json={"brand": {"about": ""}})
     assert "about" not in response.json()["brand"]
-    assert response.json()["brand"]["cover_url"] == "https://example.test/cover.jpg"
+    assert response.json()["brand"]["website"] == "https://example.test/about"
 
 
 async def test_profile_rejects_unsafe_and_unbounded_settings(as_owner: httpx.AsyncClient) -> None:
     for brand in [
-        {"cover_url": "javascript:alert(1)"},
+        {"website": "javascript:alert(1)"},
         {"website": "https://"},
         {"gallery_urls": ["data:image/png;base64,a"]},
         {"email": "not-email"},

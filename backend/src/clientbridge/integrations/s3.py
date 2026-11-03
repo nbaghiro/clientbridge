@@ -9,16 +9,20 @@ from botocore.exceptions import ClientError
 
 from clientbridge.core.config import get_settings
 
-# GCS's S3 interface rejects the checksums boto3 adds to every request by default
+# SigV4 everywhere, so an upload URL signs its length; GCS rejects boto3's default checksums
 S3_CONFIG = Config(
-    request_checksum_calculation="when_required", response_checksum_validation="when_required"
+    signature_version="s3v4",
+    request_checksum_calculation="when_required",
+    response_checksum_validation="when_required",
 )
 
 
 class FileStorage(Protocol):
-    def presign_upload(self, key: str, content_type: str) -> str: ...
+    def presign_upload(self, key: str, content_type: str, size: int) -> str: ...
     def presign_download(self, key: str) -> str: ...
     def head(self, key: str) -> int | None: ...
+    def read_start(self, key: str, length: int) -> bytes: ...
+    def promote(self, source: str, key: str, content_type: str) -> None: ...
     def delete(self, key: str) -> None: ...
 
 
@@ -44,11 +48,17 @@ class S3Storage:
             config=S3_CONFIG,
         )
 
-    def presign_upload(self, key: str, content_type: str) -> str:
+    def presign_upload(self, key: str, content_type: str, size: int) -> str:
+        """A PUT URL that storage accepts only with this type and exactly this many bytes."""
         return str(
             self._client.generate_presigned_url(
                 "put_object",
-                Params={"Bucket": self._bucket, "Key": key, "ContentType": content_type},
+                Params={
+                    "Bucket": self._bucket,
+                    "Key": key,
+                    "ContentType": content_type,
+                    "ContentLength": size,
+                },
                 ExpiresIn=self._ttl,
             )
         )
@@ -71,6 +81,22 @@ class S3Storage:
                 return None
             raise
         return int(response["ContentLength"])
+
+    def read_start(self, key: str, length: int) -> bytes:
+        response = self._client.get_object(
+            Bucket=self._bucket, Key=key, Range=f"bytes=0-{length - 1}"
+        )
+        return bytes(response["Body"].read())
+
+    def promote(self, source: str, key: str, content_type: str) -> None:
+        """Copies an object to a key no presigned URL reaches, stored as this type."""
+        self._client.copy_object(
+            Bucket=self._bucket,
+            Key=key,
+            CopySource={"Bucket": self._bucket, "Key": source},
+            ContentType=content_type,
+            MetadataDirective="REPLACE",
+        )
 
     def delete(self, key: str) -> None:
         self._client.delete_object(Bucket=self._bucket, Key=key)

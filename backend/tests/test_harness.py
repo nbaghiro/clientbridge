@@ -821,8 +821,8 @@ def test_every_walkthrough_lands_in_exactly_one_native_shard() -> None:
     shards = sharding.native_shards(5)
     assert sorted(flow for shard in shards for flow in shard["flows"]) == present
     assert [shard["id"] for shard in shards] == ["1", "2", "3", "4", "5"]
-    assert native.native_flows([]) == [f"e2e/{flow}" for flow in present]
-    assert native.native_flows(["clients.yaml"]) == ["e2e/clients.yaml"]
+    assert native.native_flows([]) == [*(f"e2e/{flow}" for flow in present), "e2e/assets"]
+    assert native.native_flows(["clients.yaml"]) == ["e2e/clients.yaml", "e2e/assets"]
     with pytest.raises(ValueError, match="use fewer shards"):
         sharding.native_shards(len(present) + 1)
 

@@ -7,6 +7,7 @@ import { type WebProps, cx } from "./props";
 export function SwatchPicker({
     label,
     colours,
+    colourLabel,
     value: valueProp,
     defaultValue = "",
     onChange,
@@ -31,7 +32,7 @@ export function SwatchPicker({
                         type="button"
                         role="radio"
                         aria-checked={on}
-                        aria-label={colour}
+                        aria-label={colourLabel?.(colour) ?? colour}
                         tabIndex={on || (!picked && i === 0) ? 0 : -1}
                         onClick={() => {
                             setValue(colour);

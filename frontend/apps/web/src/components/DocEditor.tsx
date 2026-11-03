@@ -482,6 +482,7 @@ function ClientPicker({
             value={value}
             error={error}
             placeholder={s.chooseClient}
+            emptyLabel={s.noClientsYet}
             options={clients.map((x) => clientOption(x, photos.client(x.id)))}
             onChange={onChange}
         />

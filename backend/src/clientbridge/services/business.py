@@ -25,7 +25,7 @@ from clientbridge.integrations.stripe import (
 from clientbridge.models.billing import Estimate, Invoice, Line, Order
 from clientbridge.models.business import Business, ProvinceCode, Staff, User
 from clientbridge.models.ledger import Account, Entry
-from clientbridge.models.platform import Audit, File
+from clientbridge.models.platform import Audit, File, FilePurpose
 from clientbridge.schemas.business import BusinessSettingsUpdate, OnboardBody
 from clientbridge.schemas.payments import KycStatus
 
@@ -399,19 +399,19 @@ class BusinessService:
             # the slug stays saved; Stripe shows the old page until the next change
             _log.exception("stripe business url update failed for %s", business.id)
 
-    async def _assert_logo(self, file_id: str) -> None:
-        logo = (
+    async def _assert_brand_image(self, file_id: str, purpose: FilePurpose) -> None:
+        image = (
             await self.db.execute(
                 scoped(File, self.principal.business_id).where(
                     File.id == file_id,
                     File.parent_type == "business",
-                    File.purpose == "logo",
+                    File.purpose == purpose,
                     File.uploaded_at.is_not(None),
                 )
             )
         ).scalar_one_or_none()
-        if logo is None:
-            raise NotFound("logo not found")
+        if image is None:
+            raise NotFound(f"{purpose} not found")
 
     async def update_settings(self, data: BusinessSettingsUpdate) -> Business:
         """Owner/admin edit of the acting business's account fields (the principal's business)."""
@@ -459,7 +459,9 @@ class BusinessService:
             business.setup_dismissed_at = clock.now() if data.setup_dismissed else None
         if data.brand is not None:
             if data.brand.logo_file_id is not None:
-                await self._assert_logo(data.brand.logo_file_id)
+                await self._assert_brand_image(data.brand.logo_file_id, "logo")
+            if data.brand.cover_file_id is not None:
+                await self._assert_brand_image(data.brand.cover_file_id, "image")
             if data.brand.public_staff_ids:
                 staff = (
                     (

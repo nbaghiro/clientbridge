@@ -14,6 +14,8 @@ AUTH_SECRETS = (
     "SELFSERVICE_METHODS_OIDC_CONFIG_PROVIDERS_0_CLIENT_SECRET",
 )
 POWERSYNC_SECRETS = ("PS_SOURCE_URI", "PS_STORAGE_URI")
+# presigned PUTs land here until completed; the bucket expires what is left after a day
+UPLOAD_PREFIX = "uploads/"
 
 
 def public_urls(base_domain: str) -> dict[str, str]:
