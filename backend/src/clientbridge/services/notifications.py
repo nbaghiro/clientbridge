@@ -1032,7 +1032,7 @@ class Notifier:
             return
         locale = locale_for(business=business)
         amount = format_money(locale, payment.amount_cents, payment.currency)
-        await self._alert_managers(
+        await self._alert_staff(
             db,
             business,
             refund_failed_alert_text(locale, amount),
@@ -1085,7 +1085,7 @@ class Notifier:
                 dispute_alert_text(locale, amount),
                 dispute_email(locale, amount, when, refunds_link()),
             )
-        await self._alert_managers(db, business, push, {"type": "dispute"}, mail)
+        await self._alert_staff(db, business, push, {"type": "dispute"}, mail)
 
     async def on_inbound_message(self, db: AsyncSession, message_id: str) -> None:
         """Alert the business's staff devices to a client's text or Connect message."""
@@ -1424,15 +1424,15 @@ class Notifier:
         sms = Sms(to=number, body=notice, from_number=business.sms_number if business else None)
         return Outcome.DELIVERED if await self._safe(self.sms.send(sms)) else Outcome.FAILED
 
-    async def _alert_managers(
+    async def _alert_staff(
         self,
         db: AsyncSession,
         business: Business,
         body: str,
         data: dict[str, str],
-        mail: Notice,
+        mail: Notice | None = None,
     ) -> None:
-        """Money alerts: push to the owners' and admins' phones and mail the owner's address."""
+        """Push to staff phones; a money alert, with mail, goes to managers and the owner."""
         members = (
             await db.execute(
                 scoped(Staff, business.id)
@@ -1440,9 +1440,9 @@ class Notifier:
                 .where(Staff.status == "active")
             )
         ).all()
-        managers = [user_id for user_id, role in members if is_manager(role)]
+        users = [user_id for user_id, role in members if mail is None or is_manager(role)]
         rows = (
-            (await db.execute(scoped(Device, business.id).where(Device.user_id.in_(managers))))
+            (await db.execute(scoped(Device, business.id).where(Device.user_id.in_(users))))
             .scalars()
             .all()
         )
@@ -1451,28 +1451,11 @@ class Notifier:
             await self._safe(
                 self.push.send(Push(tokens=tokens, title=business.name, body=body, data=data))
             )
+        if mail is None:
+            return
         to = await _owner_address(db, business)
         if to:
             await self._safe(self.email.send(business_email(business, to, mail)))
-
-    async def _alert_staff(
-        self, db: AsyncSession, business: Business, body: str, data: dict[str, str]
-    ) -> None:
-        members = (
-            scoped(Staff, business.id)
-            .with_only_columns(Staff.user_id)
-            .where(Staff.status == "active")
-        )
-        rows = (
-            (await db.execute(scoped(Device, business.id).where(Device.user_id.in_(members))))
-            .scalars()
-            .all()
-        )
-        tokens = [r.token for r in rows]
-        if tokens:
-            await self._safe(
-                self.push.send(Push(tokens=list(tokens), title=business.name, body=body, data=data))
-            )
 
     async def _safe(self, awaitable: Awaitable[object]) -> bool:
         try:

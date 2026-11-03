@@ -510,10 +510,7 @@ class OrderService:
         lines = await fetch_lines(self.db, self.biz, "order", order.id)
         if not lines:
             raise Conflict("add something to the sale first")
-        credits = await visit_deposits(self.db, order) + await ledger.order_gift_card_applied(
-            self.db, order
-        )
-        return order, order.total_cents - credits
+        return order, (await ledger.order_money(self.db, order, "open")).due
 
     async def _tip(self, order: Order, data: TipIn | None) -> TipTerms:
         if data is None:
@@ -613,37 +610,14 @@ async def next_order_number(db: AsyncSession, business_id: str) -> int:
     return (current or 0) + 1
 
 
-async def visit_deposits(db: AsyncSession, order: Order) -> int:
-    """Deposits held on the visits rung up on an open sale; paying the sale applies them."""
-    lines = await fetch_lines(db, order.business_id, "order", order.id)
-    held = 0
-    for booking_id in dict.fromkeys(ln.booking_id for ln in lines if ln.booking_id):
-        booking = await db.get(Booking, booking_id)
-        if booking is not None:
-            held += await ledger.deposit_held(db, booking)
-    return min(held, order.total_cents)
-
-
 async def _status(db: AsyncSession, order: Order) -> str:
     status, _ = await ledger.order_state(db, order)
     return status
 
 
 async def order_out(db: AsyncSession, order: Order, lines: list[Line]) -> OrderOut:
-    paid, _ = await ledger.collected(db, order.business_id, "order", order.id)
     status, paid_at = await ledger.order_state(db, order)
-    tips = await db.execute(
-        scoped(Payment, order.business_id)
-        .with_only_columns(func.coalesce(func.sum(Payment.tip_cents), 0))
-        .where(
-            Payment.order_id == order.id, Payment.kind == "payment", Payment.status == "succeeded"
-        )
-    )
-    tip = int(tips.scalar_one())
-    applied = await ledger.order_deposit_applied(db, order)
-    deposit = applied if status != "open" else await visit_deposits(db, order)
-    gift = await ledger.order_gift_card_applied(db, order)
-    due = order.total_cents - deposit - gift - (paid - tip) if status == "open" else 0
+    money = await ledger.order_money(db, order, status)
     return OrderOut(
         id=order.id,
         business_id=order.business_id,
@@ -655,8 +629,8 @@ async def order_out(db: AsyncSession, order: Order, lines: list[Line]) -> OrderO
         subtotal_cents=order.subtotal_cents,
         tax_total_cents=order.tax_total_cents,
         total_cents=order.total_cents,
-        amount_paid_cents=paid,
-        balance_cents=max(0, due),
+        amount_paid_cents=money.paid,
+        balance_cents=money.due,
         paid_at=paid_at,
         receipt_phone=order.receipt_phone,
         source=order.source,
@@ -666,10 +640,10 @@ async def order_out(db: AsyncSession, order: Order, lines: list[Line]) -> OrderO
         note=order.note,
         discount=discount_of(order),
         discount_cents=discount_total(lines),
-        deposit_cents=deposit,
-        gift_card_cents=gift,
-        due_cents=max(0, due),
-        tip_cents=tip,
+        deposit_cents=money.deposit,
+        gift_card_cents=money.gift,
+        due_cents=money.due,
+        tip_cents=money.tip,
         receipt_sent_at=order.receipt_sent_at,
         lines=[line_out(ln) for ln in lines],
     )

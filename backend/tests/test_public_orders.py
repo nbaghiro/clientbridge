@@ -8,6 +8,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
+from clientbridge.core.errors import AppError
 from clientbridge.models.billing import Order
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
@@ -204,6 +205,46 @@ async def test_unpaid_order_expires_only_after_intent_cancellation(
     assert await column(db, "orders", order.id, "status") == "void"
     assert await column(db, "payments", payment.id, "status") == "canceled"
     assert payment.provider_ref in gateway.canceled_intents
+
+
+async def test_the_order_reaper_skips_an_intent_stripe_cannot_cancel_and_voids_the_rest(
+    api: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await enable_payments(db)
+    orders: list[Order] = []
+    for phone in ("+16045550167", "+16045550168"):
+        response = await api.post(
+            "/book/birchbark/shop/orders",
+            headers={"Idempotency-Key": uuid.uuid4().hex},
+            json={
+                "client": {"name": "Abandoned", "phone": phone},
+                "lines": [{"item_id": "it_shampoo", "quantity": 1}],
+            },
+        )
+        order = await db.get(Order, response.json()["order_id"])
+        assert order is not None
+        order.created_at = clock.now() - timedelta(hours=1)
+        orders.append(order)
+    stuck, freed = orders
+    stuck_ref = await db.scalar(select(Payment.provider_ref).where(Payment.order_id == stuck.id))
+    cancel = gateway.cancel_payment_intent
+
+    async def timing_out(account_id: str, *, payment_intent_id: str) -> None:
+        if payment_intent_id == stuck_ref:
+            raise AppError(
+                "the payment provider couldn't cancel this payment",
+                code="payment_provider_error",
+                status_code=502,
+            )
+        await cancel(account_id, payment_intent_id=payment_intent_id)
+
+    monkeypatch.setattr(gateway, "cancel_payment_intent", timing_out)
+    assert await run_reap_unpaid_orders(db, gateway, clock.now()) == 1
+    assert await column(db, "orders", stuck.id, "status") == "open"
+    assert await column(db, "orders", freed.id, "status") == "void"
 
 
 async def test_ready_order_reminder_sent_once_and_respects_alert_choice(

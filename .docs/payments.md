@@ -214,10 +214,13 @@ An intent that nobody will finish is cancelled rather than left confirmable, so 
 - Canceling an intent Stripe already canceled counts as canceled, so a declined deposit attempt closed
   from Stripe's side no longer blocks paying the deposit again. An intent that is processing or
   succeeded still refuses, with `payment_in_progress`. Any other Stripe error on a cancel (a timeout, a
-  rate limit, a revoked account) answers `payment_provider_error`, so the jobs that release unpaid bookings
-  and orders and close past visits skip that one and go on to the rest.
-- Staff who close a desk deposit's card form and open it again get the same open payment instead of
-  "deposit already collected or pending"; after a decline the next attempt is a new charge.
+  rate limit, a revoked account) answers `payment_provider_error` (502). A staff or client action that
+  needed the cancel fails with it instead of reading the payment as already made, and the jobs that
+  release unpaid bookings and orders and close past visits skip that one and go on to the rest.
+- Staff who close a desk deposit's card form and open it again aren't blocked by the attempt they left:
+  each opening sends a new key, so the new attempt cancels the open one at Stripe and replaces it. Only a
+  deposit already paid refuses. If the old attempt went through or is processing, the new one is
+  canceled and refused with `deposit_in_progress`.
 - After a refusal such as a declined card, the desk's next press is a new attempt with a new key, so
   Stripe asks the bank again instead of replaying the decline. A request that got no answer keeps its
   key. Staff see the server's reason: a declined card, a card that needs the client to approve, or a
@@ -325,8 +328,8 @@ opens the original payment and emails the owner's address (the billing email, el
 sign-in), since the money still has to go back; the client is told only about a refund they had
 been told went through. That includes the full refund of a payment that reached a voided invoice or sale:
 if it bounces, the client stays charged until staff return the money another way. A card payment that
-settles on a desk sale or online order already paid another way (cash after a declined attempt the
-client later confirmed) is refunded in full the same way, with `payment.late_order_refund`.
+settles on a desk sale or online order for more than it still owes, tip aside (cash after a declined
+attempt the client later confirmed), is refunded in full the same way, with `payment.late_order_refund`.
 
 The sale detail shows the tax a sale charged, from its payment and redemption journals; like a refunded
 card sale, a sale returned to its gift card keeps showing what it charged.
@@ -347,8 +350,9 @@ sales.
 Dispute and payment-failure events find their payment within the business whose account sent the event,
 as settlement does, so an event can never touch another business's payment. An inquiry
 (`warning_needs_response`) alerts owners and admins once and books nothing; money moves only if it
-escalates. Dispute and inquiry alerts push to owners' and admins' phones and email the owner's address
-with the date the evidence is due, so an owner who only uses the web still hears in time. A `prevented`
+escalates. An inquiry keeps its answer-by date in `dispute_respond_by` until it escalates. Dispute and
+inquiry alerts push to owners' and admins' phones and email the owner's address with the date the
+evidence is due, so an owner who only uses the web still hears in time. A `prevented`
 dispute, which the card network settled before any funds left, also books
 nothing and leaves the payment refundable, as does a status we don't know, which is logged. A visit
 cancel skips refunding a disputed deposit, so the dispute decides that money and the cancel still goes

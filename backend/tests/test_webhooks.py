@@ -471,6 +471,26 @@ async def test_dispute_inquiry_withdraws_nothing(api: httpx.AsyncClient, db: Asy
     assert await _dispute_entries(db, payment.id) == 0
 
 
+async def test_a_bank_inquiry_keeps_and_mails_the_date_its_answer_is_due(
+    api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+) -> None:
+    payment = await _succeeded_payment(db, "pi_ask")
+    await db.execute(
+        update(Business).where(Business.id == BIZ).values(billing_email="owner@birchbark.ca")
+    )
+    due = datetime(2026, 10, 20, 12, tzinfo=UTC)
+    event = json.loads(
+        _dispute_event("evt_ask", "charge.dispute.created", "pi_ask", "warning_needs_response")
+    )
+    event["data"]["object"]["evidence_details"] = {"due_by": int(due.timestamp())}
+    res = await api.post("/webhooks/stripe", content=json.dumps(event), headers=GOOD)
+    assert res.status_code == 200
+    await db.refresh(payment)
+    assert (payment.dispute_status, payment.dispute_respond_by) == (None, due)
+    [mail] = [e for e in email.sent if "asked about" in e.subject]
+    assert "October 20" in mail.body
+
+
 async def test_dispute_withdraws_funds(api: httpx.AsyncClient, db: AsyncSession) -> None:
     await _succeeded_payment(db, "pi_chb")
     before = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category="stripe")

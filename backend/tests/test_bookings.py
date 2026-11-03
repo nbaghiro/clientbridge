@@ -2,10 +2,12 @@ import json
 from datetime import UTC, date, datetime, time, timedelta
 
 import httpx
+import pytest
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
+from clientbridge.core.errors import AppError
 from clientbridge.core.ids import new_id
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item
@@ -544,24 +546,23 @@ async def test_collect_deposit_interactive_returns_secret(
     assert booking.deposit_status == "pending"
 
 
-async def test_a_desk_deposit_card_form_closed_and_reopened_takes_the_same_payment(
+async def test_a_desk_deposit_card_form_reopened_replaces_the_open_payment(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
-    """Staff who close the card form and try again aren't blocked until the stale job runs."""
+    """Staff who close the card form and open it again aren't blocked until the stale job runs."""
     await enable_payments(db)
     bid = await deposit_booking(as_owner, db, starts="2027-06-02T11:00:00Z")
-    first = await as_owner.post(f"/v1/bookings/{bid}/deposit")
+    opened = retry_key()
+    first = await as_owner.post(f"/v1/bookings/{bid}/deposit", headers=opened)
     assert first.status_code == 200, first.text
-    again = await as_owner.post(f"/v1/bookings/{bid}/deposit")
-    assert again.status_code == 200, again.text
-    assert again.json() == first.json()
-    pending = await db.get(Payment, first.json()["payment_id"])
-    assert pending is not None
-    pending.status = "failed"  # the client's card was declined; the next try is a new charge
-    await db.flush()
-    retry = await as_owner.post(f"/v1/bookings/{bid}/deposit")
-    assert retry.status_code == 200, retry.text
-    assert retry.json()["payment_id"] != first.json()["payment_id"]
+    retried = await as_owner.post(f"/v1/bookings/{bid}/deposit", headers=opened)
+    assert retried.json() == first.json()
+    reopened = await as_owner.post(f"/v1/bookings/{bid}/deposit", headers=retry_key())
+    assert reopened.status_code == 200, reopened.text
+    assert reopened.json()["payment_id"] != first.json()["payment_id"]
+    left = await db.get(Payment, first.json()["payment_id"])
+    assert left is not None and left.status == "canceled"
+    assert left.provider_ref in gateway.canceled_intents
 
 
 async def test_collect_deposit_no_deposit_due_409(
@@ -953,6 +954,7 @@ async def _online_booking(
     deposit_required: bool = True,
     status: str = "confirmed",
     source: str = "online",
+    starts: datetime = NOW + timedelta(days=2),
 ) -> tuple[str, str]:
     cid = (
         (await db.execute(select(Client.id).where(Client.business_id == BIZ).limit(1)))
@@ -964,7 +966,6 @@ async def _online_booking(
         .scalars()
         .first()
     )
-    starts = NOW + timedelta(days=2)
     slot = Slot(
         id=new_id("slot"),
         business_id=BIZ,
@@ -1080,6 +1081,33 @@ async def test_reaper_keeps_a_booking_whose_payment_already_went_through(
     await _reap(db, gateway, now=clock.now())
     assert await _fresh(db, bid) == "pending"  # a new client's first visit waits for approval
     assert (await payment(db, await deposit_payment(db, bid))).status == "pending"
+
+
+async def test_reaper_skips_a_deposit_stripe_cannot_cancel_and_releases_the_rest(
+    db: AsyncSession, gateway: FakePaymentGateway, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    await enable_payments(db)
+    late = NOW - timedelta(hours=1)
+    stuck, _ = await _online_booking(db, created_at=late)
+    freed, _ = await _online_booking(db, created_at=late, starts=NOW + timedelta(days=3))
+    for bid, ref in ((stuck, "pi_stuck"), (freed, "pi_freed")):
+        (await payment(db, await deposit_payment(db, bid))).provider_ref = ref
+    await db.flush()
+    cancel = gateway.cancel_payment_intent
+
+    async def timing_out(account_id: str, *, payment_intent_id: str) -> None:
+        if payment_intent_id == "pi_stuck":
+            raise AppError(
+                "the payment provider couldn't cancel this payment",
+                code="payment_provider_error",
+                status_code=502,
+            )
+        await cancel(account_id, payment_intent_id=payment_intent_id)
+
+    monkeypatch.setattr(gateway, "cancel_payment_intent", timing_out)
+    assert await _reap(db, gateway) == 1
+    assert await _fresh(db, stuck) == "confirmed"
+    assert await _fresh(db, freed) == "canceled"
 
 
 async def test_reaps_stale_unpaid_online_booking(db: AsyncSession) -> None:

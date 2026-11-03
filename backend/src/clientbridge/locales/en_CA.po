@@ -89,7 +89,7 @@ msgid "dispute_email.how"
 msgstr "Send your evidence from Payments as soon as you can. If none arrives by the bank's deadline, it decides for the client."
 
 msgid "dispute_email.lead"
-msgstr "A client's bank opened a dispute on a {amount} card payment. Stripe has taken the amount and its dispute fee from your balance while the dispute is open."
+msgstr "A client's bank opened a dispute on a {amount} payment. Stripe has taken the amount and its dispute fee from your balance while the dispute is open."
 
 msgid "dispute_email.subject"
 msgstr "A client disputed a {amount} payment"
@@ -104,7 +104,7 @@ msgid "dispute_inquiry_email.how"
 msgstr "Answer it from Payments soon so it doesn't become a dispute."
 
 msgid "dispute_inquiry_email.lead"
-msgstr "A client's bank asked about a {amount} card payment. No money has moved yet."
+msgstr "A client's bank asked about a {amount} payment. No money has moved yet."
 
 msgid "dispute_inquiry_email.subject"
 msgstr "A client's bank asked about a {amount} payment"

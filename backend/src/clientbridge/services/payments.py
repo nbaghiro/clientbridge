@@ -1110,7 +1110,7 @@ async def cancel_order_intents(
                 await gateway.cancel_payment_intent(
                     account_id, payment_intent_id=payment.provider_ref
                 )
-            except AppError as exc:
+            except Conflict as exc:
                 if payment.status == "pending":
                     raise Conflict(
                         "the card payment already went through", code="checkout_paid"
@@ -1464,7 +1464,7 @@ async def _cancel_open_card_attempts(
                 await gateway.cancel_payment_intent(
                     account_id, payment_intent_id=payment.provider_ref
                 )
-            except AppError:
+            except Conflict:
                 if payment.status == "pending":
                     raise
                 continue  # a failed attempt Stripe already closed has nothing left to confirm
@@ -2216,11 +2216,15 @@ async def _record_dispute(
     _track_dispute(payment, data)
     reason = data.get("reason")
     payment.dispute_reason = reason if isinstance(reason, str) else None
-    evidence = data.get("evidence_details")
-    due = evidence.get("due_by") if isinstance(evidence, dict) else None
-    payment.dispute_respond_by = datetime.fromtimestamp(due, UTC) if isinstance(due, int) else None
+    payment.dispute_respond_by = _respond_by(data)
     await db.flush()
     return payment.id
+
+
+def _respond_by(data: dict[str, object]) -> datetime | None:
+    evidence = data.get("evidence_details")
+    due = evidence.get("due_by") if isinstance(evidence, dict) else None
+    return datetime.fromtimestamp(due, UTC) if isinstance(due, int) else None
 
 
 def _track_dispute(payment: Payment, data: dict[str, object]) -> None:
@@ -2399,6 +2403,9 @@ async def _dispatch(
     elif event.type == "charge.dispute.created" and _inquiry(event.data):
         asked = await _disputed_payment(db, event.data, event.account)
         if asked is not None and event.data.get("status") == "warning_needs_response":
+            if asked.dispute_status is None:  # an escalated dispute keeps its own deadline
+                asked.dispute_respond_by = _respond_by(event.data)
+                await db.flush()
             return WebhookOutcome("dispute_inquiry", asked.id)
     elif event.type == "charge.dispute.created":
         disputed = await _record_dispute(db, event.data, event.account)
@@ -2519,7 +2526,9 @@ async def _unapplied(db: AsyncSession, payment: Payment, order: Order | None) ->
     if payment.kind != "payment":
         return False
     if order is not None:
-        return (await ledger.order_state(db, order))[0] in ("paid", "refunded")
+        status, _ = await ledger.order_state(db, order)
+        due = (await ledger.order_money(db, order, status)).due
+        return payment.amount_cents - payment.tip_cents > due
     if payment.invoice_id is None:
         return False
     invoice = await db.scalar(
@@ -3557,7 +3566,7 @@ async def cancel_open_deposits(db: AsyncSession, gateway: PaymentGateway, bookin
                 await gateway.cancel_payment_intent(
                     account_id, payment_intent_id=payment.provider_ref
                 )
-            except AppError:
+            except Conflict:
                 canceled = False
                 continue
         payment.status = "canceled"
