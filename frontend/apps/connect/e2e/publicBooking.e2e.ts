@@ -224,6 +224,30 @@ test(
     },
 );
 
+test("the booking summary mentions tax only when the business charges it", async ({ browser }) => {
+    const b = strings.publicBooking;
+    const business = demoSlug("birchbark");
+    const chooseGroom = async (page: Page): Promise<void> => {
+        await page.goto(`/${business}`);
+        await page.getByRole("button", { name: /^Full Groom — Large Dog/ }).click();
+        await expect(page.getByText(b.dueNow).first()).toBeVisible();
+    };
+    const options = { baseURL: on("book", "/") };
+    const charging = await browser.newContext(options);
+    const taxed = await charging.newPage();
+    await chooseGroom(taxed);
+    await expect(taxed.getByText(b.taxNote).first()).toBeVisible();
+    await charging.close();
+    const exempting = await browser.newContext(options);
+    const untaxed = await exempting.newPage();
+    await untaxed.route(`${runUrl("VITE_API_URL")}/book/${business}/services`, (route) =>
+        rewrite(route, (body) => ({ ...body, charges_tax: false })),
+    );
+    await chooseGroom(untaxed);
+    await expect(untaxed.getByText(b.taxNote)).toHaveCount(0);
+    await exempting.close();
+});
+
 test("a business with nothing bookable online says so", async ({ page }) => {
     await page.route(`${api}/book/${slug}/services`, (route) =>
         rewrite(route, (body) => ({ ...body, services: [] })),

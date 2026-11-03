@@ -11,6 +11,7 @@
     "BILL-DOC-03": {"lanes": ["web"], "browsers": false, "families": ["BILL02"], "status": "verified"},
     "BILL-DOC-04": {"lanes": ["web"], "browsers": false, "families": ["OPS09", "BILL01"], "status": "verified"},
     "BILL-DOC-20": {"lanes": ["web"], "browsers": false, "families": [], "status": "implemented"},
+    "BILL-DOC-21": {"lanes": ["web"], "browsers": false, "families": ["FIN02", "FIN03"], "status": "implemented"},
     "SEC-E2E-01": {"lanes": ["web"], "browsers": false, "families": ["ID02"], "status": "verified"},
     "SEC-E2E-02": {"lanes": ["web"], "browsers": false, "families": ["ID02", "BILL13", "SCH20"], "status": "verified"},
     "OFF-E2E-01": {"lanes": ["web"], "browsers": true, "families": ["CFG14", "SYN07"], "status": "verified"},

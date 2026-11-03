@@ -22,7 +22,7 @@ from clientbridge.integrations.resend import get_email_sender
 from clientbridge.integrations.s3 import get_file_storage
 from clientbridge.integrations.stripe import close_stripe_client, get_payment_gateway
 from clientbridge.integrations.twilio import get_sms_sender
-from clientbridge.services.billing import run_overdue_sweep
+from clientbridge.services.billing import run_overdue_sweep, run_reprice_open_documents
 from clientbridge.services.bookings import (
     run_complete_past_bookings,
     run_reap_unpaid_bookings,
@@ -76,6 +76,11 @@ async def send_due_broadcasts(ctx: Context) -> int:
 async def sweep_overdue_invoices(ctx: Context) -> int:
     async with SessionLocal() as db:
         return await run_overdue_sweep(db, _notifier(), clock.now())
+
+
+async def reprice_open_documents(ctx: Context) -> int:
+    async with SessionLocal() as db:
+        return await run_reprice_open_documents(db, clock.now())
 
 
 async def expire_entitlements(ctx: Context) -> int:
@@ -186,6 +191,7 @@ class WorkerSettings:
         cron(complete_past_bookings, minute={2, 17, 32, 47}),
         cron(send_due_broadcasts, second=0),
         cron(sweep_overdue_invoices, minute=0),
+        cron(reprice_open_documents, minute=0),
         cron(expire_entitlements, hour=3, minute=30),
         cron(prune_devices, hour=3, minute=30),
         cron(prune_receipts, minute={10, 40}),

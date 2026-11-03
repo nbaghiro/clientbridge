@@ -1,6 +1,6 @@
 import { useBusinessQuery as useQuery } from "../hooks";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { type ApiLike, failureMessage, newIdempotencyKey } from "../api";
 import { dateKey, wallTime, zonedDate, useBusinessZone } from "../datetime";
@@ -238,6 +238,30 @@ export interface TaxSettingsForm {
     changeProvince: () => void;
 }
 
+interface SavedTaxSettings {
+    tax_registered: boolean;
+    tax_registered_on: string | null;
+    gst_hst_number: string | null;
+    pst_number: string | null;
+    filing_frequency: string | null;
+}
+
+function settingsDraft(
+    registered: boolean,
+    since: string | null | undefined,
+    gst: string | null | undefined,
+    pst: string | null | undefined,
+    frequency: string | null | undefined,
+) {
+    return {
+        registration: registered ? ("registered" as const) : ("small" as const),
+        registeredSince: since ?? "",
+        gst: gst ?? "",
+        pst: pst ?? "",
+        frequency: (frequency ?? "annual") as FilingFrequency,
+    };
+}
+
 /** The registration switch, the numbers that print on invoices, and the next return. */
 export function useTaxSettingsForm(
     api: ApiLike,
@@ -247,24 +271,34 @@ export function useTaxSettingsForm(
     const row = query.data[0];
     const load = useReplicaLoad([query], row === undefined);
     const initial = useMemo(
-        () => ({
-            registration: row?.tax_registered === 1 ? ("registered" as const) : ("small" as const),
-            registeredSince: row?.tax_registered_on ?? "",
-            gst: row?.gst_hst_number ?? "",
-            pst: row?.pst_number ?? "",
-            frequency: (row?.filing_frequency ?? "annual") as FilingFrequency,
-        }),
-        [row],
+        () =>
+            settingsDraft(
+                row?.tax_registered === 1,
+                row?.tax_registered_on,
+                row?.gst_hst_number,
+                row?.pst_number,
+                row?.filing_frequency,
+            ),
+        [
+            row?.tax_registered,
+            row?.tax_registered_on,
+            row?.gst_hst_number,
+            row?.pst_number,
+            row?.filing_frequency,
+        ],
     );
     const [draft, setDraft] = useState(initial);
+    const [shown, setShown] = useState(initial);
+    // only an untouched draft follows the record, so a sync never drops an edit
+    if (shown !== initial) {
+        setShown(initial);
+        if (JSON.stringify(draft) === JSON.stringify(shown)) setDraft(initial);
+    }
     const [fieldErrors, setFieldErrors] = useState<TaxSettingsForm["fieldErrors"]>({});
     const [saved, setSaved] = useState(false);
     const { busy, error, run } = useAsyncAction();
     const provinceAction = useAsyncAction();
     const [nextProvince, setNextProvince] = useState<ProvinceCode | null>(null);
-    useEffect(() => {
-        setDraft(initial);
-    }, [initial]);
 
     const province = row?.province ?? null;
     const picked = nextProvince ?? province;
@@ -327,8 +361,8 @@ export function useTaxSettingsForm(
             setFieldErrors(errs);
             if (Object.keys(errs).length > 0) return;
             run(
-                () =>
-                    api.patch("/v1/business", {
+                async () => {
+                    const stored = await api.patch<SavedTaxSettings>("/v1/business", {
                         tax_registered: registered,
                         tax_registered_on:
                             registered && draft.registeredSince !== ""
@@ -337,7 +371,17 @@ export function useTaxSettingsForm(
                         gst_hst_number: draft.gst.trim(),
                         pst_number: draft.pst.trim(),
                         filing_frequency: draft.frequency,
-                    }),
+                    });
+                    setDraft(
+                        settingsDraft(
+                            stored.tax_registered,
+                            stored.tax_registered_on,
+                            stored.gst_hst_number,
+                            stored.pst_number,
+                            stored.filing_frequency,
+                        ),
+                    );
+                },
                 {
                     errorMessage: t.saveError,
                     onSuccess: () => {

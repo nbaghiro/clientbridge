@@ -152,6 +152,10 @@ def local_today(business: Business) -> date:
     return clock.today(zone(business.timezone))
 
 
+def _iso(day: date | None) -> str | None:
+    return None if day is None else day.isoformat()
+
+
 async def businesses_at_hour(db: AsyncSession, now: datetime, hour: int) -> list[Business]:
     """Businesses whose local clock reads `hour` at `now`, for daily client messages."""
     businesses = (await db.execute(select(Business))).scalars().all()
@@ -422,6 +426,8 @@ class BusinessService:
             raise NotFound("business not found")
         previous_province = business.province
         previous_slug = business.slug
+        previous_registered = (business.tax_registered, business.tax_registered_on)
+        previous_tax = (business.province, business.timezone, *previous_registered)
         if data.slug is not None and data.slug != business.slug:
             assert_public_slug(data.slug)
         fields = data.model_dump(exclude_unset=True, exclude={"brand", "setup_dismissed"})
@@ -480,6 +486,12 @@ class BusinessService:
         for action, old, new in (
             ("business.province", previous_province, business.province),
             ("business.slug", previous_slug, business.slug),
+            ("business.tax_registered", previous_registered[0], business.tax_registered),
+            (
+                "business.tax_registered_on",
+                _iso(previous_registered[1]),
+                _iso(business.tax_registered_on),
+            ),
         ):
             if old == new:
                 continue
@@ -504,6 +516,11 @@ class BusinessService:
         except IntegrityError as exc:
             await self.db.rollback()
             raise Conflict("another business uses that address", code="slug_taken") from exc
+        registration = (business.tax_registered, business.tax_registered_on)
+        if (business.province, business.timezone, *registration) != previous_tax:
+            from clientbridge.services.billing import reprice_open_documents  # billing imports us
+
+            await reprice_open_documents(self.db, business.id, self.principal.user_id)
         await self.db.refresh(business)
         await self.db.commit()
         if moved:
