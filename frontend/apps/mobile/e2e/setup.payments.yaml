@@ -22,8 +22,10 @@ onFlowComplete:
 - tapOn: "Getting paid"
 - assertVisible: "Payouts are paused"
 - assertVisible: "You can still take card payments, but your payouts are on hold until you send what's listed below."
+- scrollUntilVisible:
+      element: "Overdue"
+      direction: DOWN
 - assertVisible: "Bank account for payouts"
-- assertVisible: "Overdue"
 - takeScreenshot: getting-paid-paused
 - tapOn: "Back|Go back|Navigate up"
 - runScript:
@@ -34,6 +36,8 @@ onFlowComplete:
 - tapOn: "Getting paid"
 - assertVisible: "You're set up to get paid"
 - assertVisible: "Card payments, Tap to Pay and payouts are all on. Send what's listed below to keep them that way."
+- scrollUntilVisible:
+      element: "The name, date of birth and ID number didn't match. Check them and send them again."
+      direction: DOWN
 - assertVisible: "ID number \\(SIN\\)"
-- assertVisible: "The name, date of birth and ID number didn't match. Check them and send them again."
 - takeScreenshot: getting-paid-rejected
