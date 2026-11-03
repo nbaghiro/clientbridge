@@ -1,4 +1,11 @@
-import { themes } from "@clientbridge/tokens";
+import { baseLocale } from "@clientbridge/app-core/public";
+import {
+    type ColorKey,
+    STRIPE_FONTS,
+    cssVarName,
+    stripeConnectAppearance,
+    themes,
+} from "@clientbridge/tokens";
 import { loadConnectAndInitialize, type StripeConnectInstance } from "@stripe/connect-js/pure";
 import { type Stripe, loadStripe } from "@stripe/stripe-js";
 import { type RefObject, useEffect, useRef, useState } from "react";
@@ -35,6 +42,16 @@ export function stripeFor(account: string): Promise<Stripe | null> | null {
 
 export function stripePublishableKey(): string {
     return publishableKey;
+}
+
+/** Theme colours resolved at `element`, so a business's brand colour reaches Stripe's frames. */
+export function resolvedColors(element: HTMLElement | null): (key: ColorKey) => string {
+    const style = element ? getComputedStyle(element) : null;
+    return (key) => {
+        const value = style?.getPropertyValue(cssVarName(key)).trim() ?? "";
+        // Stripe takes plain colours only, not var() or color-mix() expressions
+        return /^(#|rgb)/.test(value) ? value : themes.pewter.color[key];
+    };
 }
 
 let connectScript: Promise<void> | null = null;
@@ -90,11 +107,6 @@ export function useConnectInstance(
         const isActive = (): boolean => active;
         // Connect.js fails every later component with the page's first session error, so never reject
         const closed = new Promise<string>(() => undefined);
-        const style = root.current ? getComputedStyle(root.current) : null;
-        const color = (name: string, fallback: string): string => {
-            const value = style?.getPropertyValue(name).trim() ?? "";
-            return value === "" ? fallback : value;
-        };
         let next: StripeConnectInstance | null = null;
         prepareConnect()
             .then(() => {
@@ -112,15 +124,9 @@ export function useConnectInstance(
                                   },
                               )
                             : closed,
-                    appearance: {
-                        variables: {
-                            colorPrimary: color("--accent", themes.pewter.color.accent),
-                            colorText: color("--ink", themes.pewter.color.ink),
-                            colorBackground: color("--surface", themes.pewter.color.surface),
-                            colorDanger: color("--dan-fg", themes.pewter.color.danFg),
-                            borderRadius: `${String(themes.pewter.radius.base)}px`,
-                        },
-                    },
+                    appearance: stripeConnectAppearance(resolvedColors(root.current)),
+                    fonts: STRIPE_FONTS,
+                    locale: baseLocale(),
                 });
                 current.current = next;
                 setInstance(next);

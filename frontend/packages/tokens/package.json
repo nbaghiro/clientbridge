@@ -12,9 +12,13 @@
         "./admin.css": "./src/admin.css"
     },
     "scripts": {
-        "typecheck": "tsc --noEmit"
+        "typecheck": "tsc --noEmit",
+        "test": "vitest run"
     },
     "peerDependencies": {
         "tailwindcss": "^4.3.3"
+    },
+    "devDependencies": {
+        "vitest": "^5.0.3"
     }
 }

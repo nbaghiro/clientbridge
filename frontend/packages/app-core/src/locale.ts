@@ -20,6 +20,11 @@ export function activeLocale(): Locale {
     return pseudoOn ? "en-XA" : "en-CA";
 }
 
+/** The real locale under the active one, for outside formatters such as Stripe: en-XA is pseudo text over en-CA. */
+export function baseLocale(): Exclude<Locale, "en-XA"> {
+    return "en-CA";
+}
+
 /** Development and test switch to the generated en-XA pseudo-locale; never offered to users. */
 export async function setPseudoLocale(on: boolean): Promise<void> {
     if (on) {
