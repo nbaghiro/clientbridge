@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { ApiLike } from "../api";
 import { BusinessZoneContext } from "../datetime";
 import { strings } from "../strings";
+import { BUSINESS_CURRENCY, formatMoney } from "../format";
 import { allocate, discountCents, withMemberDiscount } from "./billing";
 import { ratesOn } from "./taxes";
 import {
@@ -306,7 +307,7 @@ describe("useTerminalConnection", () => {
     });
 });
 
-describe("canceling a sale's checkout", () => {
+describe("a sale resumed from a held ticket", () => {
     const wrapper = ({ children }: { children: ReactNode }) =>
         createElement(BusinessZoneContext.Provider, { value: ZONE }, children);
     const held: OrderOut = {
@@ -406,6 +407,18 @@ describe("canceling a sale's checkout", () => {
         });
         expect(api.posted).toEqual([]);
     });
+
+    it("leaves the tax wording out of the tip note when the sale charges none", () => {
+        const { result } = renderHook(() => useSale(saleApi(null), { platform: "web" }), {
+            wrapper,
+        });
+        act(() => {
+            result.current.resume(held, []);
+        });
+        expect(result.current.tipNote).toBe(
+            strings.pos.desk.tipOnNoTax(formatMoney(1000, BUSINESS_CURRENCY)),
+        );
+    });
 });
 
 describe("the member discount", () => {
@@ -436,4 +449,26 @@ describe("the member discount", () => {
     it("comes off when the sale's client has no membership", () => {
         expect(withMemberDiscount(line("product", member), true, null).discount).toBeNull();
     });
+});
+
+it("only says a tip carries no tax on a sale that charged tax", () => {
+    const totals = {
+        lineDiscountCents: 0,
+        saleDiscountCents: 0,
+        subtotalCents: 2000,
+        taxes: [] as { code: string; label: string; baseCents: number; cents: number }[],
+        taxCents: 0,
+        tipCents: 300,
+        totalCents: 2300,
+        depositCents: 0,
+        giftCardCents: 0,
+        dueCents: 2300,
+    } as unknown as Parameters<typeof saleTotalLines>[0];
+    const tip = (t: typeof totals) => saleTotalLines(t).find((r) => r.key === "tip");
+    expect(tip(totals)?.hint).toBeUndefined();
+    const taxed = {
+        ...totals,
+        taxes: [{ code: "GST", label: "GST 5%", baseCents: 2000, cents: 100 }],
+    };
+    expect(tip(taxed)?.hint).toBe(strings.pos.desk.tipNoTax);
 });

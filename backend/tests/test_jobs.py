@@ -133,7 +133,12 @@ async def test_overdue_sweep_waits_for_each_business_morning(
 
 
 def test_daily_client_messages_run_hourly() -> None:
-    hourly = {"sweep_overdue_invoices", "send_review_requests", "send_pickup_reminders"}
+    hourly = {
+        "sweep_overdue_invoices",
+        "reprice_open_documents",
+        "send_review_requests",
+        "send_pickup_reminders",
+    }
     for job in WorkerSettings.cron_jobs:
         assert isinstance(job, CronJob)
         if job.name.removeprefix("cron:") in hourly:

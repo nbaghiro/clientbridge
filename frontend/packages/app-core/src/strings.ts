@@ -654,6 +654,7 @@ interface Strings {
             readonly tipCustomHint: string;
             readonly tipNone: string;
             readonly tipOn: (money: string) => string;
+            readonly tipOnNoTax: (money: string) => string;
             readonly tipAmount: string;
             readonly tipSplitEven: string;
             readonly tipToOne: string;
@@ -4062,6 +4063,8 @@ interface Strings {
         readonly tipTooBig: string;
         readonly tipRow: string;
         readonly tipBase: (money: string) => string;
+        readonly tipHintNoTax: string;
+        readonly tipBaseNoTax: (money: string) => string;
         readonly payWithTip: (money: string) => string;
         readonly notFoundTitle: string;
         readonly notFoundBody: string;
@@ -4336,6 +4339,7 @@ interface Strings {
         readonly continuePay: string;
         readonly placing: string;
         readonly payBody: (total: string) => string;
+        readonly payBodyNoTax: (total: string) => string;
         readonly pay: (amount: string) => string;
         readonly paying: string;
         readonly doneTitle: string;

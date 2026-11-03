@@ -7,9 +7,20 @@ import {
     useControllable,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import type { ReactNode } from "react";
-import { StyleSheet, Switch, Text, TextInput, View, type KeyboardTypeOptions } from "react-native";
+import { type ReactNode, useId } from "react";
+import {
+    InputAccessoryView,
+    Keyboard,
+    Platform,
+    StyleSheet,
+    Switch,
+    Text,
+    TextInput,
+    View,
+    type KeyboardTypeOptions,
+} from "react-native";
 
+import { Button } from "./Button";
 import { Notice } from "./Notice";
 import type { NativeProps, WithRef } from "./props";
 
@@ -104,9 +115,13 @@ export function TextField({
 }: NativeProps<TextFieldProps> & WithRef<TextInput>) {
     const [value, setValue] = useControllable(valueProp, defaultValue, onChange);
     const plain = type === "email" || type === "password" || type === "url" || type === "code";
+    const accessoryId = useId();
+    // iOS's number and phone pads have no return key to put the keyboard away
+    const needsDone = Platform.OS === "ios" && (type === "number" || type === "tel");
     const input: ReactNode = (
         <TextInput
             ref={ref}
+            inputAccessoryViewID={needsDone ? accessoryId : undefined}
             value={value}
             onChangeText={setValue}
             onSubmitEditing={onSubmit}
@@ -146,13 +161,29 @@ export function TextField({
                 {suffix !== undefined ? <Text style={fieldStyles.suffix}>{suffix}</Text> : null}
             </View>
         );
-    if (label === undefined && hint === undefined && (error ?? null) === null) return box;
+    const doneBar: ReactNode = needsDone ? (
+        <InputAccessoryView nativeID={accessoryId}>
+            <View style={fieldStyles.doneBar}>
+                <Button variant="link" onPress={Keyboard.dismiss} style={fieldStyles.doneButton}>
+                    {strings.common.done}
+                </Button>
+            </View>
+        </InputAccessoryView>
+    ) : null;
+    if (label === undefined && hint === undefined && (error ?? null) === null)
+        return (
+            <>
+                {box}
+                {doneBar}
+            </>
+        );
     return (
         <View style={style}>
             {label !== undefined ? (
                 <Label text={label} optional={optional} required={required === true} />
             ) : null}
             {box}
+            {doneBar}
             <Extras hint={hint} error={error} />
         </View>
     );
@@ -188,6 +219,14 @@ export function Toggle({
 }
 
 export const fieldStyles = StyleSheet.create({
+    doneBar: {
+        backgroundColor: c.surface,
+        borderTopColor: c.borderSoft,
+        borderTopWidth: StyleSheet.hairlineWidth,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+    },
+    doneButton: { alignSelf: "flex-end" },
     label: {
         color: c.inkSoft,
         fontFamily: theme.fonts.ui,

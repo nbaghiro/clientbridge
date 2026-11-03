@@ -191,7 +191,9 @@ export function PublicBooking() {
                                         currency={flow.currency}
                                         density="compact"
                                     />
-                                    <p className="pt-2 text-xs text-muted">{s.taxNote}</p>
+                                    {flow.taxNote !== null ? (
+                                        <p className="pt-2 text-xs text-muted">{flow.taxNote}</p>
+                                    ) : null}
                                 </div>
                             </div>
                         )}
@@ -320,7 +322,9 @@ export function PublicBooking() {
                                     currency={flow.currency}
                                     density="compact"
                                 />
-                                <p className="pt-2 text-xs text-muted">{s.taxNote}</p>
+                                {flow.taxNote !== null ? (
+                                    <p className="pt-2 text-xs text-muted">{flow.taxNote}</p>
+                                ) : null}
                             </div>
                         </div>
                     </StepCard>
@@ -453,7 +457,11 @@ function GuidedBooking({
                                             currency={flow.currency}
                                             density="compact"
                                         />
-                                        <p className="mt-2 text-xs text-muted">{s.taxNote}</p>
+                                        {flow.taxNote !== null ? (
+                                            <p className="mt-2 text-xs text-muted">
+                                                {flow.taxNote}
+                                            </p>
+                                        ) : null}
                                     </div>
                                 </>
                             ) : null}
