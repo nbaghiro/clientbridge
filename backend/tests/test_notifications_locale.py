@@ -102,6 +102,15 @@ def _builders() -> dict[str, Render]:
         "dispute_alert_text": lambda c: n.dispute_alert_text(c, amount(c)),
         "dispute_inquiry_alert_text": lambda c: n.dispute_inquiry_alert_text(c, amount(c)),
         "refund_failed_alert_text": lambda c: n.refund_failed_alert_text(c, amount(c)),
+        "dispute_email": lambda c: (
+            n.dispute_email(c, amount(c), when(c), LINK),
+            n.dispute_email(c, amount(c), None, LINK),
+        ),
+        "dispute_inquiry_email": lambda c: (
+            n.dispute_inquiry_email(c, amount(c), when(c), LINK),
+            n.dispute_inquiry_email(c, amount(c), None, LINK),
+        ),
+        "refund_failed_email": lambda c: n.refund_failed_email(c, amount(c), LINK),
         "invoice_sent_message": lambda c: (
             n.invoice_sent_message(c, 1001, amount(c), NAME, LINK),
             n.invoice_sent_message(c, 1001, amount(c), NAME, ""),

@@ -1320,7 +1320,9 @@ class BookingService:
             raise Conflict("no deposit due")
         business = await self._business()
         if not business.stripe_charges_enabled or business.stripe_account_id is None:
-            raise Conflict("set up card payments in Setup before taking payments")
+            raise Conflict(
+                "set up card payments in Setup before taking payments", code="card_payments_off"
+            )
         account_id = business.stripe_account_id
         client = await self._client(booking.client_id)
         amount = booking.deposit_amount_cents
@@ -1329,7 +1331,10 @@ class BookingService:
         )
 
         async def run(cmd: Command) -> DepositOut:
-            await self._assert_no_open_deposit(booking.id)
+            if pm_ref is not None:
+                await self._assert_no_open_deposit(booking.id)
+            elif await self._has_settled_deposit(booking.id):
+                raise Conflict("deposit already collected")
             payment, client_secret = await open_booking_deposit(
                 self.db,
                 self.gateway,
@@ -1340,6 +1345,8 @@ class BookingService:
                 amount=amount,
                 payment_method=pm_ref,
                 idempotency_key=idempotency_key,
+                # a card form staff closed gives way to this attempt instead of blocking it
+                supersede=pm_ref is None,
             )
             cmd.record("booking.deposit", entity_type="booking", entity_id=booking.id)
             return DepositOut(
@@ -1395,6 +1402,19 @@ class BookingService:
     async def _assert_no_open_deposit(self, booking_id: str) -> None:
         if await self._has_open_deposit(booking_id):
             raise Conflict("deposit already collected or pending")
+
+    async def _has_settled_deposit(self, booking_id: str) -> bool:
+        row = await self.db.scalar(
+            scoped(Payment, self.biz)
+            .with_only_columns(Payment.id)
+            .where(
+                Payment.booking_id == booking_id,
+                Payment.kind == "deposit",
+                Payment.status == "succeeded",
+            )
+            .limit(1)
+        )
+        return row is not None
 
     async def _has_open_deposit(self, booking_id: str) -> bool:
         row = (
@@ -3125,6 +3145,14 @@ _UNPAID_TTL = timedelta(minutes=30)
 _REMINDER_WINDOW = timedelta(hours=24)
 
 
+async def _deposits_released(db: AsyncSession, gateway: PaymentGateway, booking: Booking) -> bool:
+    """For the jobs: a visit whose deposit Stripe couldn't cancel now waits for the next run."""
+    try:
+        return await cancel_open_deposits(db, gateway, booking)
+    except AppError:
+        return False
+
+
 async def run_reap_unpaid_bookings(
     db: AsyncSession, gateway: PaymentGateway, notifier: Notifier, now: datetime
 ) -> int:
@@ -3165,7 +3193,7 @@ async def run_reap_unpaid_bookings(
     ).all()
     released: list[str] = []
     for booking, slot in rows:
-        if not await cancel_open_deposits(db, gateway, booking):
+        if not await _deposits_released(db, gateway, booking):
             continue
         booking.status = "canceled"
         booking.canceled_at = now
@@ -3290,7 +3318,7 @@ async def _close_past_visits(
             action = "booking.auto_complete"
         elif booking.deposit_status == "collected":
             continue  # a paid deposit on an unapproved visit is staff's to refund or keep
-        elif booking.deposit_status == "pending" and not await cancel_open_deposits(
+        elif booking.deposit_status == "pending" and not await _deposits_released(
             db, gateway, booking
         ):
             continue

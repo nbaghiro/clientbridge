@@ -214,6 +214,25 @@ def test_active_cards_with_payouts_held_over_a_past_due_bank_account_pause_payou
     status = account_status_from("acct_x", data)
     assert status.charges_enabled and not status.payouts_enabled
     assert status.past_due == ["external_account"]
+    assert status.payouts_hold == "requirements_past_due"
+    assert derive_kyc_status(status) == "payouts_paused"
+
+
+def test_a_past_due_detail_that_leaves_payouts_on_reads_ready() -> None:
+    data = _with(_account(), configuration=_payouts("active"))
+    status = account_status_from("acct_x", data)
+    assert status.past_due == ["external_account"] and status.payouts_hold is None
+    assert derive_kyc_status(status) == "enabled"
+
+
+def test_payouts_held_with_nothing_due_keep_stripes_reason() -> None:
+    data = _with(
+        _account(),
+        configuration=_payouts("restricted", "restricted_other", "contact_stripe"),
+        requirements=None,
+    )
+    status = account_status_from("acct_x", data)
+    assert status.payouts_hold == "restricted_other"
     assert derive_kyc_status(status) == "payouts_paused"
 
 
@@ -237,8 +256,8 @@ def _kyc(
     [
         (True, True, False, False, "enabled"),
         (True, True, False, True, "enabled"),
-        (True, True, True, False, "payouts_paused"),
-        (True, True, True, True, "payouts_paused"),
+        (True, True, True, False, "enabled"),
+        (True, True, True, True, "enabled"),
         (True, False, False, False, "payouts_paused"),
         (True, False, False, True, "payouts_paused"),
         (True, False, True, False, "payouts_paused"),
@@ -323,15 +342,14 @@ def test_restricted_cards_needing_info_are_restricted_with_the_business_entries(
         ("determining_status", "no_resolution"),
     ],
 )
-def test_pending_cards_are_a_review_with_the_entries_stripe_checks(
-    code: str, resolution: str
-) -> None:
+def test_pending_cards_list_only_what_the_business_must_send(code: str, resolution: str) -> None:
     data = _with(_account(), configuration=_cards("pending", code, resolution))
     status = account_status_from("acct_x", data)
     assert status.disabled_reason is None
     stripe_reviews = "identity.individual.documents.primary_verification"
     assert stripe_reviews not in [*status.currently_due, *status.past_due, *status.eventually_due]
-    assert derive_kyc_status(status) == "pending"
+    # pending cards with details still due wait on the business, not on Stripe's review
+    assert derive_kyc_status(status) == "restricted"
 
 
 def test_pending_cards_with_nothing_due_are_pending() -> None:
@@ -484,10 +502,12 @@ async def test_status_shows_deadline_and_available_balance(
             stripe_requirements={
                 "currently_due": ["external_account"],
                 "current_deadline": 1_800_000_000,
+                "payouts_hold": "requirements_past_due",
             },
         )
     )
     body = (await as_owner.get("/v1/connect/status")).json()
+    assert body["payouts_hold"] == "requirements_past_due"
     assert body["available_cents"] == 10_345
     assert body["pending_cents"] == 2_000
     assert body["current_deadline"].startswith("2027-01-15")

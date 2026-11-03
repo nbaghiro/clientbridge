@@ -7,10 +7,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Order
+from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking
 from clientbridge.services import ledger
 from clientbridge.services.consents import record_consent
-from tests.conftest import BIZ, Factory, FakeEmailSender, FakeSmsSender
+from tests.conftest import BIZ, Factory, FakeEmailSender, FakePaymentGateway, FakeSmsSender
 from tests.helpers import client_id, enable_payments, key, ok, settle
 
 BRUSH = {"description": "Brush", "unit_amount_cents": 2900, "tax_class": "standard"}
@@ -343,6 +344,25 @@ async def test_cash_on_a_sale_with_a_card_payment_open_409(
     ok(await as_owner.post(f"/v1/orders/{sale['id']}/pay", json={}))
     res = await _cash(as_owner, sale["id"], 9000)
     assert (res["status"], res["message"]) == (409, "this sale already has a payment")
+
+
+async def test_a_declined_card_confirmed_after_cash_paid_the_sale_is_refunded(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    sale = ok(await as_owner.post("/v1/orders", json={"lines": [BRUSH]}), 201).json()
+    card = ok(await as_owner.post(f"/v1/orders/{sale['id']}/pay", json={})).json()
+    declined = await db.get(Payment, card["payment_id"])
+    assert declined is not None
+    declined.status = "failed"
+    await db.flush()
+    assert (await _cash(as_owner, sale["id"], 5000))["status"] == 200
+    await settle(as_owner, db, card["payment_id"])
+    assert [amount for _, amount, _ in gateway.refunds] == [declined.amount_cents]
+    refund = await db.scalar(
+        select(Payment).where(Payment.parent_payment_id == declined.id, Payment.kind == "refund")
+    )
+    assert refund is not None and refund.reason == "unapplied_payment"
 
 
 async def test_cash_on_an_empty_sale_409(as_owner: httpx.AsyncClient) -> None:

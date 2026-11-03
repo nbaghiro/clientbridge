@@ -259,6 +259,7 @@ class PaymentService:
 
         reason = req.get("disabled_reason")
         deadline = req.get("current_deadline")
+        hold = req.get("payouts_hold")
         available: int | None = None
         pending: int | None = None
         if business.stripe_account_id is not None and business.stripe_charges_enabled:
@@ -282,6 +283,7 @@ class PaymentService:
             current_deadline=datetime.fromtimestamp(deadline, UTC)
             if isinstance(deadline, int)
             else None,
+            payouts_hold=hold if isinstance(hold, str) else None,
             available_cents=available,
             pending_cents=pending,
         )
@@ -434,7 +436,9 @@ class PaymentService:
         if data.payment_method_id is None:
             raise Unprocessable("choose the saved card to charge")
         if not business.stripe_charges_enabled or business.stripe_account_id is None:
-            raise Conflict("set up card payments in Setup before taking payments")
+            raise Conflict(
+                "set up card payments in Setup before taking payments", code="card_payments_off"
+            )
         account_id = business.stripe_account_id
         client = await self._client(invoice.client_id)
         pm_ref = await self._saved_method_ref(data.payment_method_id, invoice.client_id)
@@ -485,7 +489,9 @@ class PaymentService:
         business = await self._business()
         account_id = merchant_account(business)
         if account_id is None or not business.stripe_charges_enabled:
-            raise Conflict("set up card payments in Setup before saving cards")
+            raise Conflict(
+                "set up card payments in Setup before saving cards", code="card_payments_off"
+            )
         client = await self._client(client_id)
 
         async def run(cmd: Command) -> SetupIntentOut:
@@ -513,7 +519,9 @@ class PaymentService:
         client = await self._client(client_id)
         account_id = merchant_account(business)
         if account_id is None or not business.stripe_charges_enabled:
-            raise Conflict("set up payments before requesting bank authorization")
+            raise Conflict(
+                "set up payments before requesting bank authorization", code="card_payments_off"
+            )
         await self.gateway.ensure_pad_capability(account_id)
 
         async def run(cmd: Command) -> PaymentSetupLinkOut:
@@ -1102,7 +1110,7 @@ async def cancel_order_intents(
                 await gateway.cancel_payment_intent(
                     account_id, payment_intent_id=payment.provider_ref
                 )
-            except AppError as exc:
+            except Conflict as exc:
                 if payment.status == "pending":
                     raise Conflict(
                         "the card payment already went through", code="checkout_paid"
@@ -1456,7 +1464,7 @@ async def _cancel_open_card_attempts(
                 await gateway.cancel_payment_intent(
                     account_id, payment_intent_id=payment.provider_ref
                 )
-            except AppError:
+            except Conflict:
                 if payment.status == "pending":
                     raise
                 continue  # a failed attempt Stripe already closed has nothing left to confirm
@@ -1909,7 +1917,7 @@ async def record_failed_delivery(db: AsyncSession, event: GatewayEvent, exc: Exc
 
 ACCOUNT_CLOSED = "v2.core.account.closed"
 _OUR_VOID = "expired_order"  # we refund it in full and return our platform fee
-_UNAPPLIED = "unapplied_payment"  # it reached an invoice that no longer owed it; refunded in full
+_UNAPPLIED = "unapplied_payment"  # it reached a bill that no longer owed it; refunded in full
 _REPLAY_WINDOW = timedelta(days=7)
 _REPLAY_PER_ACCOUNT = 100
 _REPLAY_PER_RUN = 500
@@ -2141,8 +2149,8 @@ async def _reconcile_refund(
                 await _unapply_refund(db, refund, payment)
                 return WebhookOutcome("refund_failed", refund.id)
             return None
-        if refund.status in ("failed", "canceled") and status == "pending":
-            return None
+        if refund.status in ("failed", "canceled"):
+            return None  # final at Stripe: a late succeeded or pending snapshot is out of order
         stalled = refund.status == "pending" and status in ("failed", "canceled")
         refund.status = status
         if stalled:
@@ -2208,11 +2216,15 @@ async def _record_dispute(
     _track_dispute(payment, data)
     reason = data.get("reason")
     payment.dispute_reason = reason if isinstance(reason, str) else None
-    evidence = data.get("evidence_details")
-    due = evidence.get("due_by") if isinstance(evidence, dict) else None
-    payment.dispute_respond_by = datetime.fromtimestamp(due, UTC) if isinstance(due, int) else None
+    payment.dispute_respond_by = _respond_by(data)
     await db.flush()
     return payment.id
+
+
+def _respond_by(data: dict[str, object]) -> datetime | None:
+    evidence = data.get("evidence_details")
+    due = evidence.get("due_by") if isinstance(evidence, dict) else None
+    return datetime.fromtimestamp(due, UTC) if isinstance(due, int) else None
 
 
 def _track_dispute(payment: Payment, data: dict[str, object]) -> None:
@@ -2391,6 +2403,9 @@ async def _dispatch(
     elif event.type == "charge.dispute.created" and _inquiry(event.data):
         asked = await _disputed_payment(db, event.data, event.account)
         if asked is not None and event.data.get("status") == "warning_needs_response":
+            if asked.dispute_status is None:  # an escalated dispute keeps its own deadline
+                asked.dispute_respond_by = _respond_by(event.data)
+                await db.flush()
             return WebhookOutcome("dispute_inquiry", asked.id)
     elif event.type == "charge.dispute.created":
         disputed = await _record_dispute(db, event.data, event.account)
@@ -2471,7 +2486,7 @@ async def _settle_payment(
             if exc.code != "out_of_stock":
                 raise
             order.status, expired_order = "void", True
-    unapplied = await _unapplied(db, payment)
+    unapplied = await _unapplied(db, payment, None if expired_order else order)
     fees = await _fees(db, gateway, payment.business_id, intent_id)
     payment.status = "succeeded"
     payment.paid_at = occurred_at or clock.now()
@@ -2485,7 +2500,7 @@ async def _settle_payment(
             payment,
             key=f"unapplied:{payment.id}",
             reason=_UNAPPLIED,
-            action="payment.late_invoice_refund",
+            action="payment.late_order_refund" if order else "payment.late_invoice_refund",
         )
         return None
     if expired_order:
@@ -2506,9 +2521,15 @@ async def _settle_payment(
     return _Settled(payment.id, gift_card_id)
 
 
-async def _unapplied(db: AsyncSession, payment: Payment) -> bool:
-    """A card payment settling on an invoice that was voided or paid another way since."""
-    if payment.invoice_id is None or payment.kind != "payment":
+async def _unapplied(db: AsyncSession, payment: Payment, order: Order | None) -> bool:
+    """A card payment settling on an invoice or order that was voided or paid another way since."""
+    if payment.kind != "payment":
+        return False
+    if order is not None:
+        status, _ = await ledger.order_state(db, order)
+        due = (await ledger.order_money(db, order, status)).due
+        return payment.amount_cents - payment.tip_cents > due
+    if payment.invoice_id is None:
         return False
     invoice = await db.scalar(
         scoped(Invoice, payment.business_id)
@@ -3545,7 +3566,7 @@ async def cancel_open_deposits(db: AsyncSession, gateway: PaymentGateway, bookin
                 await gateway.cancel_payment_intent(
                     account_id, payment_intent_id=payment.provider_ref
                 )
-            except AppError:
+            except Conflict:
                 canceled = False
                 continue
         payment.status = "canceled"
@@ -3885,9 +3906,19 @@ async def queue_payment_outcome(db: AsyncSession, outcome: WebhookOutcome) -> No
     await notify_payment_outcome(queued_notifier(db, target.business_id, outcome.key), db, outcome)
 
 
+# still owed however late: a gift card's code, and the alerts that need the owner to act
+_OWED_NOTICES = (
+    "gift_card_issued",
+    "payment_disputed",
+    "dispute_inquiry",
+    "refund_failed",
+    "refund_stalled",
+)
+
+
 def _still_news(outcome: WebhookOutcome, occurred_at: datetime | None) -> bool:
-    """A notice about something a day old reads as noise; an issued gift card is still owed."""
-    return outcome.notify == "gift_card_issued" or (
+    """A notice about something a day old reads as noise, unless it is still owed."""
+    return outcome.notify in _OWED_NOTICES or (
         occurred_at is None or occurred_at >= clock.now() - timedelta(days=1)
     )
 
@@ -3895,7 +3926,7 @@ def _still_news(outcome: WebhookOutcome, occurred_at: datetime | None) -> bool:
 async def _notify_recovery(
     db: AsyncSession, outcome: WebhookOutcome, occurred_at: datetime | None
 ) -> None:
-    undated = occurred_at is None and outcome.notify != "gift_card_issued"
+    undated = occurred_at is None and outcome.notify not in _OWED_NOTICES
     if not undated and _still_news(outcome, occurred_at):
         await queue_payment_outcome(db, outcome)
 

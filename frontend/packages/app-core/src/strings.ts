@@ -81,6 +81,7 @@ interface Strings {
         readonly checkoutPaid: string;
         readonly depositInProgress: string;
         readonly cardPaymentsUnavailable: string;
+        readonly cardPaymentsOff: string;
         readonly staffHasFutureWork: string;
         readonly broadcastAddressMissing: string;
         readonly broadcastContactMissing: string;
@@ -3499,6 +3500,7 @@ interface Strings {
         readonly pausedBody: (date: string) => string;
         readonly pausedBodyNoDate: string;
         readonly pausedBodyReview: string;
+        readonly pausedBodyHeld: string;
         readonly restrictedTitle: string;
         readonly restrictedBody: string;
         readonly reqError: {
@@ -3513,6 +3515,7 @@ interface Strings {
         } & Labels;
         readonly readyTitle: string;
         readonly readyBody: string;
+        readonly readyBodyDue: string;
         readonly phaseNotConnected: string;
         readonly phaseInProgress: string;
         readonly phasePending: string;

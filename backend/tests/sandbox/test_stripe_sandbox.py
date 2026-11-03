@@ -7,7 +7,7 @@ import stripe
 from tests.sandbox.conftest import StripeRun
 
 from clientbridge.core import clock
-from clientbridge.core.errors import CardDeclined, Conflict
+from clientbridge.core.errors import AppError, CardDeclined, Conflict, PaymentActionRequired
 from clientbridge.integrations.stripe import TERMS_REQUIREMENT, StripeGateway, merchant_capability
 
 pytestmark = [pytest.mark.sandbox, pytest.mark.wall_clock]
@@ -135,6 +135,45 @@ async def test_subscription_period_fields_match_current_api(stripe_run: StripeRu
         application_fee_percent=0.3,
     )
     assert result.current_period_end > clock.wall()
+
+
+@pytest.mark.parametrize(
+    ("card", "refusal"),
+    [
+        ("pm_card_chargeCustomerFail", CardDeclined),
+        ("pm_card_authenticationRequired", PaymentActionRequired),
+    ],
+)
+async def test_a_membership_whose_first_charge_fails_is_never_created(
+    stripe_run: StripeRun, card: str, refusal: type[AppError]
+) -> None:
+    account = stripe_run.account
+    customer = await stripe_run.customer()
+    method = await stripe.PaymentMethod.attach_async(
+        card, customer=customer, stripe_account=account
+    )
+    price = await stripe_run.gateway.create_price(
+        account,
+        amount_cents=4500,
+        currency="cad",
+        interval_count=1,
+        frequency="month",
+        product_name="QA Membership",
+    )
+    stripe_run.prices.append((account, price))
+    with pytest.raises(refusal):
+        await stripe_run.gateway.create_subscription(
+            account,
+            customer_id=customer,
+            price_id=price,
+            payment_method_id=method.id,
+            metadata={"tax_class": "standard", "clientbridge_qa": stripe_run.namespace},
+            application_fee_percent=0.3,
+        )
+    started = await stripe.Subscription.list_async(
+        customer=customer, status="all", stripe_account=account
+    )
+    assert started.data == []
 
 
 async def test_customer_retry_after_rename_stays_on_the_same_account(stripe_run: StripeRun) -> None:

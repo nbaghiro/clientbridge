@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core import clock
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice, Order
-from clientbridge.models.business import User
+from clientbridge.models.business import Business, User
 from clientbridge.models.catalog import GiftCard, Package
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Device
@@ -643,6 +643,25 @@ async def test_a_refund_that_fails_later_retains_its_credit_note_and_tells_the_c
     assert await next_credit_note(db, payment) == "CN-9100-2"
 
 
+async def test_a_succeeded_snapshot_arriving_after_the_failure_keeps_the_refund_failed(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await enable_payments(db)
+    cid = await client_id(db)
+    inv_id = await sent_invoice(db, number=9101, total=8000)
+    payment = await _settled_charge(db, "pi_late", client=cid)
+    payment.invoice_id = inv_id
+    await db.flush()
+    await ledger.post_payment(db, payment)
+    await stripe_event(api, "refund.created", _refund_object("pi_late", "succeeded"))
+    await stripe_event(api, "refund.failed", _refund_object("pi_late", "failed"))
+    await stripe_event(api, "refund.updated", _refund_object("pi_late", "succeeded"))
+    refund = await payment_by_ref(db, "re_pi_late")
+    assert refund.status == "failed"
+    invoice = await db.get(Invoice, inv_id)
+    assert invoice is not None and (await ledger.invoice_state(db, invoice))[0] == "paid"
+
+
 async def test_a_refund_that_fails_later_restores_the_gift_card_it_voided(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
@@ -755,8 +774,12 @@ async def test_a_refund_failed_event_puts_the_money_back(
     assert invoice is not None and (await ledger.invoice_state(db, invoice))[0] == "paid"
 
 
-async def test_a_pending_refund_that_fails_alerts_staff_and_not_the_client(
-    api: httpx.AsyncClient, db: AsyncSession, push: FakePushSender, sms: FakeSmsSender
+async def test_a_pending_refund_that_fails_alerts_the_owners_and_not_the_client(
+    api: httpx.AsyncClient,
+    db: AsyncSession,
+    push: FakePushSender,
+    sms: FakeSmsSender,
+    email: FakeEmailSender,
 ) -> None:
     await enable_payments(db)
     cid = await client_id(db)
@@ -765,6 +788,9 @@ async def test_a_pending_refund_that_fails_alerts_staff_and_not_the_client(
         Device(id="dvt_refund", business_id=BIZ, user_id="us_dev", token="ExpoRef", platform="ios")
     )
     await db.flush()
+    await db.execute(
+        update(Business).where(Business.id == BIZ).values(billing_email="owner@birchbark.ca")
+    )
     texts = len(sms.sent)
     await stripe_event(api, "refund.created", _refund_object("pi_refund_stalled", "pending"))
     await stripe_event(api, "refund.updated", _refund_object("pi_refund_stalled", "failed"))
@@ -773,6 +799,8 @@ async def test_a_pending_refund_that_fails_alerts_staff_and_not_the_client(
     alerts = [p for p in push.sent if "didn't go through" in p.body]
     assert len(alerts) == 1 and alerts[0].data["payment_id"] == payment.id
     assert len(sms.sent) == texts
+    [mail] = [e for e in email.sent if "refund didn't go through" in e.subject]
+    assert mail.to == "owner@birchbark.ca" and "/payments/refunds" in mail.body
 
 
 async def test_sandbox_refund_refusals_reach_the_refund_with_their_retry_keys(

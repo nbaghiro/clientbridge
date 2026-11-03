@@ -4,7 +4,14 @@ from typing import cast
 import pytest
 import stripe
 
-from clientbridge.core.errors import Conflict, NotFound, PaymentsNotConfigured
+from clientbridge.core.errors import (
+    AppError,
+    CardDeclined,
+    Conflict,
+    NotFound,
+    PaymentActionRequired,
+    PaymentsNotConfigured,
+)
 from clientbridge.integrations import stripe as stripe_module
 from clientbridge.integrations.stripe import (
     PlanItem,
@@ -85,6 +92,36 @@ async def test_canceling_an_intent_the_account_doesnt_have_is_a_conflict(
     monkeypatch.setattr(stripe.PaymentIntent, "retrieve_async", _raises(_missing("intent")))
     with pytest.raises(Conflict):
         await gateway.cancel_payment_intent("acct_x", payment_intent_id="pi_gone")
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        stripe.APIConnectionError("timed out"),
+        stripe.RateLimitError("too many"),
+        stripe.PermissionError("revoked"),
+    ],
+)
+async def test_a_cancel_stripe_cant_answer_is_an_app_error(
+    gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch, failure: stripe.StripeError
+) -> None:
+    monkeypatch.setattr(stripe.PaymentIntent, "cancel_async", _raises(failure))
+    with pytest.raises(AppError) as refused:
+        await gateway.cancel_payment_intent("acct_x", payment_intent_id="pi_x")
+    assert refused.value.code == "payment_provider_error"
+
+
+async def test_a_cancel_whose_recheck_times_out_is_an_app_error(
+    gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    unexpected = stripe.InvalidRequestError("unexpected state", None)
+    monkeypatch.setattr(stripe.PaymentIntent, "cancel_async", _raises(unexpected))
+    monkeypatch.setattr(
+        stripe.PaymentIntent, "retrieve_async", _raises(stripe.APIConnectionError("timed out"))
+    )
+    with pytest.raises(AppError) as refused:
+        await gateway.cancel_payment_intent("acct_x", payment_intent_id="pi_x")
+    assert refused.value.code == "payment_provider_error"
 
 
 async def test_charge_of_a_card_from_another_account_is_a_conflict(
@@ -633,3 +670,29 @@ async def test_payout_list_reads_only_the_recent_page(
     assert calls == [
         {"stripe_account": "acct_business", "limit": 24, "starting_after": "po_previous"}
     ]
+
+
+@pytest.mark.parametrize(
+    ("code", "refusal"),
+    [
+        ("card_declined", CardDeclined),
+        ("subscription_payment_intent_requires_action", PaymentActionRequired),
+    ],
+)
+async def test_a_first_membership_charge_stripe_refuses_names_why(
+    gateway: StripeGateway,
+    monkeypatch: pytest.MonkeyPatch,
+    code: str,
+    refusal: type[AppError],
+) -> None:
+    failure = stripe.CardError("refused", None, code)
+    monkeypatch.setattr(stripe.Subscription, "create_async", _raises(failure))
+    with pytest.raises(refusal):
+        await gateway.create_subscription(
+            "acct_x",
+            customer_id="cus_x",
+            price_id="price_x",
+            payment_method_id="pm_x",
+            metadata={},
+            application_fee_percent=0.3,
+        )

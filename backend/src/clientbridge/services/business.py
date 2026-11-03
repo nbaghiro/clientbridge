@@ -234,12 +234,11 @@ def derive_kyc_status(status: ConnectAccount) -> KycStatus:
     if status.disabled_reason is not None:
         return "disabled"  # closed, unsupported, or only Stripe support can lift it
     if status.charges_enabled:
-        return "enabled" if status.payouts_enabled and not status.past_due else "payouts_paused"
+        # a past-due detail for another payment method leaves cards and payouts on
+        return "enabled" if status.payouts_enabled else "payouts_paused"
     # an account that only pays for its plan has no card capability yet
     if not status.details_submitted or status.card_status is None:
         return "not_started"
-    if status.card_status == "pending":
-        return "pending"
     if status.card_status == "restricted" or status.currently_due or status.past_due:
         return "restricted"
     return "pending"
@@ -289,6 +288,7 @@ def apply_account_status(business: Business, status: ConnectAccount) -> None:
         "disabled_reason": status.disabled_reason,
         "card_status": status.card_status,
         "current_deadline": status.current_deadline,
+        "payouts_hold": status.payouts_hold,
         "requirement_errors": [
             {"requirement": e.requirement, "code": e.code} for e in status.requirement_errors
         ],
