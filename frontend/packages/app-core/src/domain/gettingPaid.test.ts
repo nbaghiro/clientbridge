@@ -208,6 +208,28 @@ describe("useGettingPaid", () => {
         ]);
     });
 
+    it("lists the terms once though Stripe asks for their date and IP apart", async () => {
+        const api = connected({
+            kyc_status: "restricted",
+            charges_enabled: false,
+            payouts_enabled: false,
+            past_due: [
+                "external_account",
+                "identity.attestations.terms_of_service.account.date",
+                "identity.attestations.terms_of_service.account.ip",
+            ],
+            currently_due: ["identity.attestations.terms_of_service.account.ip"],
+        });
+        const { result } = renderHook(() => useGettingPaid(api), { wrapper });
+        await waitFor(() => {
+            expect(result.current.requirements).toHaveLength(2);
+        });
+        expect(result.current.requirements.map((r) => [r.label, r.pastDue])).toEqual([
+            [g.reqExternalAccount, true],
+            [g.reqTosAcceptance, true],
+        ]);
+    });
+
     it("says payouts wait on verification when nothing is due", async () => {
         const api = connected({ kyc_status: "payouts_paused", payouts_enabled: false });
         const { result } = renderHook(() => useGettingPaid(api), { wrapper });

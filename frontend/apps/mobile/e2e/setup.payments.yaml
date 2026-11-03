@@ -1,0 +1,39 @@
+appId: ${APP_ID}
+name: NATIVE-CFG-02 Getting paid names what Stripe needs while payouts are paused and why it rejected a detail
+tags:
+    - lane
+onFlowComplete:
+    - runScript:
+          file: helpers/control.js
+          env:
+              ACTION: account
+              PAYLOAD: ready
+---
+- runScript:
+      file: helpers/control.js
+      env:
+          ACTION: account
+          PAYLOAD: paused
+- runFlow: helpers/owner.yaml
+- tapOn: "Setup"
+- scrollUntilVisible:
+      element: "Getting paid"
+      direction: DOWN
+- tapOn: "Getting paid"
+- assertVisible: "Payouts are paused"
+- assertVisible: "You can still take card payments, but your payouts are on hold until you send what's listed below."
+- assertVisible: "Bank account for payouts"
+- assertVisible: "Overdue"
+- takeScreenshot: getting-paid-paused
+- tapOn: "Back|Go back|Navigate up"
+- runScript:
+      file: helpers/control.js
+      env:
+          ACTION: account
+          PAYLOAD: due
+- tapOn: "Getting paid"
+- assertVisible: "You're set up to get paid"
+- assertVisible: "Card payments, Tap to Pay and payouts are all on. Send what's listed below to keep them that way."
+- assertVisible: "ID number \\(SIN\\)"
+- assertVisible: "The name, date of birth and ID number didn't match. Check them and send them again."
+- takeScreenshot: getting-paid-rejected

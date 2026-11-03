@@ -219,7 +219,7 @@ class PaymentService:
             account_id = await self.gateway.create_connected_account(
                 business_name=business.name,
                 email=business.billing_email,
-                url=get_settings().page_url(business.slug),
+                url=get_settings().stripe_page_url(business.slug),
                 configurations=("merchant",),
                 idempotency_key=f"connected-account:{business.id}",
             )

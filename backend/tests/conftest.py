@@ -430,6 +430,7 @@ class FakePaymentGateway:
         self.account_sessions: list[tuple[str, ConnectComponent]] = []
         self.payment_domains: dict[str, set[str]] = {}
         self.created_accounts: list[str] = []
+        self.created_urls: list[str | None] = []
         self.configurations: dict[str, set[AccountConfiguration]] = {}
         self.merchant_added: list[str] = []
         self.account_addresses: list[tuple[str, PostalAddress]] = []
@@ -510,6 +511,7 @@ class FakePaymentGateway:
         self._seq += 1
         acct = f"acct_fake{self._seq}"
         self.created_accounts.append(acct)
+        self.created_urls.append(url)
         self.configurations[acct] = set(configurations)
         return acct
 

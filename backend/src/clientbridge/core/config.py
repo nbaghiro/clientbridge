@@ -252,6 +252,11 @@ class Settings(BaseSettings):
     def page_url(self, slug: str) -> str:
         return self.business_page_url.format(slug=slug)
 
+    def stripe_page_url(self, slug: str) -> str | None:
+        """The page for the business's Stripe profile, which takes only a public https address."""
+        url = self.page_url(slug)
+        return url if url.startswith("https://") else None
+
     def public_rate_limit(self) -> int:
         """Requests per minute from one IP on each unauthenticated endpoint group."""
         # in dev one browser plays every visitor of the e2e suites, all from one address

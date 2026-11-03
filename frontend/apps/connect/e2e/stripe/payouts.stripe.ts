@@ -252,7 +252,7 @@ test.describe("payouts", () => {
         });
 });
 
-test("STR-E09 Getting paid shows payouts paused, or held by Stripe, from the mirrored account and Check again reads it back from Stripe", async ({
+test("STR-E09 Getting paid shows payouts paused, held by Stripe or a detail Stripe rejected, from the mirrored account, and Check again reads it back from Stripe", async ({
     browser,
 }, info) => {
     await stripeReady();
@@ -277,6 +277,15 @@ test("STR-E09 Getting paid shows payouts paused, or held by Stripe, from the mir
         });
         await expect(page.getByText(g.pausedBodyHeld, { exact: true })).toBeVisible();
         await expect(page.getByText(g.reqExternalAccount, { exact: true })).toHaveCount(0);
+
+        const rejected = await merchant<{ kyc_status: string }>("mirror", "rejected");
+        expect(rejected).toMatchObject({ kyc_status: "enabled" });
+        await page.reload();
+        await expect(page.getByText(g.readyBodyDue, { exact: true })).toBeVisible({
+            timeout: 60_000,
+        });
+        await expect(page.getByText(g.reqIdNumber, { exact: true })).toBeVisible();
+        await expect(page.getByText(g.reqError.identity, { exact: true })).toBeVisible();
 
         const stripeSide = await merchant<{
             charges_enabled: boolean;

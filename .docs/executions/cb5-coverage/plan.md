@@ -1,7 +1,7 @@
 # Stripe payments setup: full coverage and recorded runs
 
-Status: in progress. A1 is done (see its result below). A2 runs in CI on the leased pair's slot b account. A3 passes on
-iOS, and C is done apart from its first recorded CI run. B is next.
+Status: in progress. A1, A3 and C are done (C merged as 95597559). B1, B3 and B5 are written; B2 is covered by existing
+tests. A2 and B4, a real payout hold, are next, then the ticket (D).
 
 CB-5 has five QA steps. Today two are covered by tests that run in CI (STR-E09 and STR-E13), and STR-E09 writes
 the paused state into our database instead of holding payouts in Stripe. This execution adds tests for the rest,
@@ -72,24 +72,33 @@ video for review.
 
 ### B. Tests
 
-1. **STR-E15, starting onboarding** (step 1, up to Stripe's sign-in), in `account.stripe.ts`. A new business
-   with no Stripe account starts onboarding from Getting paid. The app creates the account, lists what Stripe
-   needs in plain words, and shows Stripe's component with Add information. The test stops where Stripe's
-   sign-in opens, and the account is closed in `finally`. The reconciliation check (STR-E12) also sweeps accounts
-   a failed run left open.
-2. **STR-E16, a first payment** (step 5). On the leased pool account, which reads ready, take a $10 payment
-   with 4242 and find it in Payments with Stripe's charge behind it.
-3. **STR-E14, requirements in plain words** (step 2). Through the API, a fresh account is filled in apart from
-   its bank, and Getting paid names the bank and Stripe's terms. A detail submitted with a value Stripe's sandbox
-   rejects should show Stripe's reason; that part is checked while building the test, since Stripe may only judge
-   details once the terms are accepted. After the bank is added, Check again names only what is still due. A fresh
-   account can't reach ready (see A1), so ready is covered by STR-E09 on the pool account.
+1. **STR-E15, starting onboarding** (steps 1 and 2), in `account.stripe.ts`. Written and passing locally. A new
+   owner signs up, presses Set up payments, and the app creates the Stripe account. Stripe's component opens its
+   sign-in on `connect.stripe.com`, where the test stops. Getting paid then names each of Stripe's real
+   requirements in plain words, none as the generic one, and the terms once. `e2e.stripe onboarding close` closes
+   the account in `finally`, and the run's Stripe cleanup closes any account a business made during the run still
+   holds.
+
+   Building it found two faults, both fixed. The app sent the business page to Stripe as the account's website,
+   and Stripe refuses a `localhost` address, so creating an account failed locally and in e2e; the app now sends
+   only a public `https` page. Stripe also asks for the terms' date and IP apart, which Getting paid showed as two
+   identical rows; it now shows one row per thing the owner does.
+2. **First payment** (step 5). Covered by STRIPE-BROWSER-05, where the owner issues an invoice, the client pays it
+   with 4242 and the owner sees it paid under Payments, and by STR-E09, which reads the pool account back as ready.
+   A separate case would repeat them. The run's cleanup only accepts $20 fixture payments, so a $10 one would also
+   need its own cleanup.
+3. **STR-E14, requirements as they arrive** (step 2). Dropped. Once the app opens an account session, Stripe
+   refuses API writes to the account ("onboarded via an Account Link or Account Session"), so a test can't fill in
+   an account the way onboarding would. A probe without a session showed Stripe judges identity details only after
+   the terms are accepted, so a fresh account never carries a rejection reason either. Step 2 is covered instead
+   by STR-E15 (real requirement codes in plain words), STR-E09's `rejected` mirror (Stripe's reason for a rejected
+   SIN on web) and NATIVE-CFG-02 on mobile.
 4. **STR-E09 on a real hold** (step 3), if A2 passes. An onboarded account is put on hold in Stripe, Check again
    shows payouts paused, a card payment still goes through, and the bank is restored in `finally`.
-5. **Mobile states**, in Maestro on the Android lane. A run mutation writes the paused and the requirement-due
-   account state, as STR-E09 does today, and the flow checks the wording on Getting paid. The mobile lane has no
-   Stripe keys, so Stripe's side stays covered by B1 to B3; both apps take the wording from the same app-core
-   view-model.
+5. **NATIVE-CFG-02, mobile states**, in `apps/mobile/e2e/setup.payments.yaml`. Written. The native lane's control
+   endpoint takes `account` with `paused`, `due` or `ready` and writes that state on the run's business
+   (`e2e.actions payment-account`), and the flow checks Getting paid's wording for payouts paused and for a
+   rejected SIN. The mobile lane has no Stripe keys, so the screen's refresh falls back to the stored state.
 
 ### C. Recording
 
