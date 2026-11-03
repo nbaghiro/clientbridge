@@ -1,5 +1,5 @@
 import { historyStart } from "@clientbridge/sync";
-import { personMedia, usePeoplePhotos } from "./files";
+import { usePeoplePhotos } from "./files";
 
 import { useBusinessQuery as useQuery } from "../hooks";
 
@@ -23,7 +23,7 @@ import { isConnectionFailure, type Load, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { Intent, SelectOption } from "../ui";
 import { type MarketingConsent, consentFor, smsSegments, useConsents } from "./broadcasts";
-import { useClients } from "./clients";
+import { clientOption, useClients } from "./clients";
 import { staffNameSql } from "./staff";
 import { useReplicaLoad } from "./sync";
 
@@ -519,11 +519,7 @@ export function useNewMessage(
     const attempt = useRef<Attempt | null>(null);
     const smsBlocked = consents.stopped.has(clientId);
     return {
-        clients: clients.map((c) => ({
-            key: c.id,
-            label: c.name,
-            media: personMedia(c.name, null, photos.client(c.id)),
-        })),
+        clients: clients.map((c) => clientOption(c, photos.client(c.id))),
         clientId,
         setClientId: (id) => {
             setClientIdRaw(id);

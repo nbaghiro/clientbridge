@@ -210,6 +210,8 @@ export interface SelectOption<K extends string> {
     // Options sharing a group sit under one heading, in the order the groups first appear.
     group?: string | undefined;
     disabled?: boolean | undefined;
+    // Replaces the label search for an option found by more than its label, such as a client's phone.
+    match?: ((query: string) => boolean) | undefined;
 }
 
 export interface SelectProps<K extends string> {

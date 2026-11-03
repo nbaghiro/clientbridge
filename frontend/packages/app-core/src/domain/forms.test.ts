@@ -57,6 +57,8 @@ describe("sendOptions", () => {
             phone,
             status: "active",
             lifetime_value_cents: null,
+            tags: [],
+            subjectNames: [],
         });
         const options = sendOptions(
             [client("cl_1", "+12505550141"), client("cl_2", "+12505550142"), client("cl_3", null)],

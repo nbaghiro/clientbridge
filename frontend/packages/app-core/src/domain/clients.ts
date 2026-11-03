@@ -37,7 +37,8 @@ import { useAsyncAction, useNow, useRemote } from "../hooks";
 import type { Load } from "../hooks";
 import { type IconName, SUBJECT_ICON } from "../icons";
 import { strings } from "../strings";
-import type { Intent, TimelineEntry } from "../ui";
+import type { Intent, SelectOption, TimelineEntry } from "../ui";
+import { personMedia } from "./files";
 import { utcSql } from "../datetime";
 import { TEXTS_STOPPED_SQL } from "./broadcasts";
 import { clientValueSql, invoiceStatusSql } from "./ledger";
@@ -81,14 +82,42 @@ export interface ClientRow {
     phone: string | null;
     status: string;
     lifetime_value_cents: number | null;
+    tags: string[];
+    subjectNames: string[];
 }
 
 export const CLIENTS_SQL = `
-SELECT c.id, c.name, c.phone, c.status, ${clientValueSql("c.id")} AS lifetime_value_cents
+SELECT c.id, c.name, c.phone, c.status, c.tags, ${clientValueSql("c.id")} AS lifetime_value_cents,
+       (SELECT json_group_array(sj.name) FROM subjects sj
+          WHERE sj.client_id = c.id AND sj.deleted_at IS NULL) AS subject_names
 FROM clients c WHERE c.status = 'active' ORDER BY c.name COLLATE NOCASE`;
 
+type ClientDbRow = Omit<ClientRow, "tags" | "subjectNames"> & {
+    tags: string | null;
+    subject_names: string | null;
+};
+
 export function useClients(): ClientRow[] {
-    return useQuery<ClientRow>(CLIENTS_SQL).data;
+    const { data } = useQuery<ClientDbRow>(CLIENTS_SQL);
+    return useMemo(
+        () =>
+            data.map(({ subject_names, ...c }) => ({
+                ...c,
+                tags: parseTags(c.tags),
+                subjectNames: parseTags(subject_names),
+            })),
+        [data],
+    );
+}
+
+/** A client in a picker, found by the same name, phone, subject and tag search as the client list. */
+export function clientOption(c: ClientRow, photo: string | null): SelectOption<string> {
+    return {
+        key: c.id,
+        label: c.name,
+        media: personMedia(c.name, null, photo),
+        match: (q) => clientMatches(c, q),
+    };
 }
 
 export function filterClients(rows: ClientRow[], q: string): ClientRow[] {
@@ -131,7 +160,7 @@ export function clientMatches(
     client: {
         name: string;
         phone: string | null;
-        subjects?: string | null;
+        subjectNames?: readonly string[];
         tags?: readonly string[];
     },
     q: string,
@@ -142,7 +171,7 @@ export function clientMatches(
     return (
         fold(client.name).includes(t) ||
         (digits.length >= 3 && phoneDigits(client.phone).includes(digits)) ||
-        fold(client.subjects ?? "").includes(t) ||
+        (client.subjectNames ?? []).some((name) => fold(name).includes(t)) ||
         (client.tags ?? []).some((tag) => fold(tag).includes(t))
     );
 }
@@ -190,6 +219,7 @@ export interface ClientListRow {
     archived: boolean;
     archivedAt: Date | null;
     tags: string[];
+    subjectNames: string[];
     subjects: string;
     next: Date | null;
     balanceCents: number;
@@ -198,6 +228,7 @@ export interface ClientListRow {
 }
 
 function toListRow(r: DirectoryRow): ClientListRow {
+    const subjectNames = parseTags(r.subject_names);
     return {
         id: r.id,
         name: r.name,
@@ -206,7 +237,8 @@ function toListRow(r: DirectoryRow): ClientListRow {
         archived: r.status !== "active",
         archivedAt: r.archived_at === null ? null : parseTimestamp(r.archived_at),
         tags: parseTags(r.tags),
-        subjects: formatList(parseTags(r.subject_names), "unit"),
+        subjectNames,
+        subjects: formatList(subjectNames, "unit"),
         next: r.next_visit_at === null ? null : parseTimestamp(r.next_visit_at),
         balanceCents: r.balance_cents ?? 0,
         lifetimeCents: r.lifetime_value_cents,

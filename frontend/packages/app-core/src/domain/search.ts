@@ -140,9 +140,7 @@ export function searchHits(
     if (q.length === 0) return out;
     const clients = data.clients
         .map((c) => ({ ...c, pets: parseTags(c.subject_names) }))
-        .filter((c) =>
-            clientMatches({ ...c, subjects: c.pets.join(" "), tags: parseTags(c.tags) }, q),
-        );
+        .filter((c) => clientMatches({ ...c, subjectNames: c.pets, tags: parseTags(c.tags) }, q));
     out.clients = clients.map((c) => ({
         id: c.id,
         kind: "clients",

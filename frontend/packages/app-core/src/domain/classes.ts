@@ -128,7 +128,11 @@ export function seatMatches(
         if (seen.has(key) || seated.has(key)) continue;
         seen.add(key);
         const subjectName = booksSubjects ? (c.subject_name ?? "") : "";
-        const client = { ...c, subjects: subjectName, tags: parseTags(c.tags) };
+        const client = {
+            ...c,
+            subjectNames: subjectName === "" ? [] : [subjectName],
+            tags: parseTags(c.tags),
+        };
         if (!clientMatches(client, query)) continue;
         out.push({
             key,

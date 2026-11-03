@@ -2252,7 +2252,7 @@ export function useBookingComposer(
     const matches = clients
         .filter((c) => c.status === "active")
         .map((c) => ({ client: c, subjects: subjectsOf(c.id).map((p) => p.name) }))
-        .filter((x) => clientMatches({ ...x.client, subjects: x.subjects.join(" ") }, query))
+        .filter((x) => clientMatches({ ...x.client, subjectNames: x.subjects }, query))
         .slice(0, 6);
     const now = new Date();
     const rooms = useResources();
