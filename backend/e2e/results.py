@@ -128,10 +128,18 @@ def matches(title: str, identity: str) -> bool:
     return title == identity or title.startswith(f"{identity} ")
 
 
+class Attachment(BaseModel):
+    name: str
+    contentType: str = ""
+    path: str = ""
+
+
 class Attempt(BaseModel):
     status: str
     retry: int
     duration: int = 0
+    startTime: str = ""
+    attachments: list[Attachment] = Field(default_factory=list)
 
 
 class Test(BaseModel):

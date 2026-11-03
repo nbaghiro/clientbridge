@@ -5,6 +5,10 @@ on:
 permissions:
   contents: read
 
+# a manual ci run with record keeps a video of every flow; reusable workflows see the caller's event
+env:
+  E2E_RECORD: ${{ github.event.inputs.record == 'true' && '1' || '' }}
+
 jobs:
   shards:
     # Splits the walkthroughs into shards of about equal length by their measured seconds, for android.
@@ -209,6 +213,7 @@ jobs:
             .scratchpad/e2e-*/run.json
             .scratchpad/e2e-*/native-*
             .scratchpad/e2e-*/native.log
+            .scratchpad/e2e-*/recordings
             .scratchpad/e2e-*/control.log
             .scratchpad/e2e-*/setup.log
             .scratchpad/e2e-*/api.log

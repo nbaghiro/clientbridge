@@ -1,9 +1,10 @@
 import { defineConfig } from "@playwright/test";
+import { recorded } from "@clientbridge/config/e2e/recording";
 
 const output = process.env.SMOKE_OUTPUT_DIR ?? "test-results/smoke";
 
 // Read-only checks of a deployed environment; `make test-staging-smoke` runs them against staging.
-export default defineConfig({
+const config = defineConfig({
     testDir: "e2e/smoke",
     testMatch: "*.smoke.ts",
     outputDir: output,
@@ -24,3 +25,5 @@ export default defineConfig({
         ...(process.env.CI ? {} : { channel: "chrome" }),
     },
 });
+
+export default recorded(config);

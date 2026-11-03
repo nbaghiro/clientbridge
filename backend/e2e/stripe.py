@@ -29,6 +29,7 @@ from clientbridge.integrations.stripe import (
 )
 from e2e import tier
 from e2e.builds import source_snapshot
+from e2e.recordings import keep_recordings
 from e2e.results import REQUIRED_CASES, Report, browser_cases
 from e2e.shards import case_seconds, listed_cases, shard, shard_filters
 from e2e.stack import Stack, owned_processes, stop
@@ -335,6 +336,7 @@ def run_lane(args: argparse.Namespace, directory: Path, lease: tier.Lease) -> No
                             REQUIRED_CASES["stripe"], browser_cases("stripe")
                         )
                 finally:
+                    keep_recordings(directory)
                     record.update(stack.finish_worker())
                 stack.require_worker()
                 record["outcome"] = "passed"
