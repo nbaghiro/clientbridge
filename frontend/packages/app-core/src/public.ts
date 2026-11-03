@@ -14,7 +14,7 @@ export * from "./format";
 export * from "./payCode";
 export * from "./runtime";
 export { strings } from "./strings";
-export { activeLocale, baseLocale, catalog, setPseudoLocale } from "./locale";
+export { activeLocale, catalog, setPseudoLocale } from "./locale";
 export * from "./icons";
 export { useAsyncAction, useControllable, useFlash, useMonthGrid } from "./hooks";
 export type * from "./ui";

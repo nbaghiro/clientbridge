@@ -16,15 +16,11 @@ interface Book {
 const books: Book[] = [];
 let pseudoOn = false;
 
-const BASE_LOCALE = "en-CA" satisfies Locale;
-
-export function activeLocale(): Locale {
-    return pseudoOn ? "en-XA" : BASE_LOCALE;
-}
-
-/** The real locale under the active one, for outside formatters such as Stripe: en-XA is pseudo text over en-CA. */
-export function baseLocale(): typeof BASE_LOCALE {
-    return BASE_LOCALE;
+/** Stripe's frames don't know the en-XA pseudo-locale, so they always get the real one. */
+export function activeLocale(): Locale;
+export function activeLocale(target: "stripe"): "en-CA";
+export function activeLocale(target?: "stripe"): Locale {
+    return pseudoOn && target !== "stripe" ? "en-XA" : "en-CA";
 }
 
 /** Development and test switch to the generated en-XA pseudo-locale; never offered to users. */

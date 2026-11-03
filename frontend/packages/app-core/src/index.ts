@@ -59,5 +59,5 @@ export * from "./domain/search";
 export * from "./domain/publicLanding";
 
 export * from "./domain/publicReturning";
-export { activeLocale, baseLocale, setPseudoLocale } from "./locale";
+export { activeLocale, setPseudoLocale } from "./locale";
 export * from "./domain/previews";

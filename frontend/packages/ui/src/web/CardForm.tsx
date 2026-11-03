@@ -1,5 +1,5 @@
 import {
-    baseLocale,
+    activeLocale,
     strings,
     useAsyncAction,
     type CardFormProps,
@@ -58,7 +58,7 @@ export function CardForm(props: WebProps<CardFormProps>) {
                         clientSecret: props.clientSecret,
                         appearance,
                         fonts: STRIPE_FONTS,
-                        locale: baseLocale(),
+                        locale: activeLocale("stripe"),
                     }}
                 >
                     <ConfirmForm

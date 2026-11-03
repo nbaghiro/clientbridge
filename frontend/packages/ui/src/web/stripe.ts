@@ -1,4 +1,4 @@
-import { baseLocale } from "@clientbridge/app-core/public";
+import { activeLocale } from "@clientbridge/app-core/public";
 import {
     type ColorKey,
     STRIPE_FONTS,
@@ -126,7 +126,7 @@ export function useConnectInstance(
                             : closed,
                     appearance: stripeConnectAppearance(resolvedColors(root.current)),
                     fonts: STRIPE_FONTS,
-                    locale: baseLocale(),
+                    locale: activeLocale("stripe"),
                 });
                 current.current = next;
                 setInstance(next);

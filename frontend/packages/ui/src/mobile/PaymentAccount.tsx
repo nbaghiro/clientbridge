@@ -1,4 +1,4 @@
-import { type PaymentAccountProps, baseLocale, strings } from "@clientbridge/app-core/public";
+import { type PaymentAccountProps, activeLocale, strings } from "@clientbridge/app-core/public";
 import { STRIPE_FONTS, stripeConnectAppearance } from "@clientbridge/tokens";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -57,7 +57,7 @@ function AccountSession({
             },
             appearance: stripeConnectAppearance((key) => c[key]),
             fonts: STRIPE_FONTS,
-            locale: baseLocale(),
+            locale: activeLocale("stripe"),
         });
         setInstance(next);
         return () => {
