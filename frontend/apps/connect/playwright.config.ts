@@ -1,4 +1,5 @@
 import { defineConfig } from "@playwright/test";
+import { recorded } from "@clientbridge/config/e2e/recording";
 
 import { PORTS, on } from "./e2e/support/hosts";
 import { runPreview, runNamespace } from "@clientbridge/config/e2e/run";
@@ -13,7 +14,7 @@ const pageUrl = process.env.BUSINESS_PAGE_URL;
 const otherLanes = ["stripe/**", "smoke/**"];
 
 // Needs the API on :8701 over a migrated, seeded Postgres: `make up migrate seed dev-api` first.
-export default defineConfig({
+const config = defineConfig({
     testDir: "e2e",
     outputDir: process.env.E2E_OUTPUT_DIR ?? "test-results",
     testMatch: "*.e2e.ts",
@@ -83,3 +84,5 @@ export default defineConfig({
             : []),
     ],
 });
+
+export default recorded(config);

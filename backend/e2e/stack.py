@@ -50,7 +50,18 @@ def environment() -> dict[str, str]:
     result = {
         key: value
         for key, value in os.environ.items()
-        if key in ("PATH", "HOME", "TMPDIR", "SYSTEMROOT", "CI", "DOCKER_HOST", "DOCKER_CONTEXT")
+        if key
+        in (
+            "PATH",
+            "HOME",
+            "TMPDIR",
+            "SYSTEMROOT",
+            "CI",
+            "DOCKER_HOST",
+            "DOCKER_CONTEXT",
+            "E2E_RECORD",
+            "E2E_RECORD_SLOWMO",
+        )
     }
     for name, field in Settings.model_fields.items():
         value = field.get_default(call_default_factory=True)

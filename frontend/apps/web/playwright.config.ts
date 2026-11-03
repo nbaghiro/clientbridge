@@ -1,4 +1,5 @@
 import { defineConfig } from "@playwright/test";
+import { recorded } from "@clientbridge/config/e2e/recording";
 import { runPreview, runPort } from "@clientbridge/config/e2e/run";
 
 const port = runPort("WEB_E2E_PORT");
@@ -11,7 +12,7 @@ export const chromium = process.env.CI ? {} : { channel: "chrome" };
 const adminUrl = process.env.VITE_ADMIN_URL;
 
 // Needs the local stack (API, PowerSync, seeded Postgres): `make up migrate seed dev-api` first.
-export default defineConfig({
+const config = defineConfig({
     testDir: "e2e",
     outputDir: process.env.E2E_OUTPUT_DIR ?? "test-results",
     testMatch: "*.e2e.ts",
@@ -27,7 +28,7 @@ export default defineConfig({
     use: {
         viewport: { width: 1440, height: 900 },
         trace: "retain-on-failure",
-        video: process.env.E2E_RECORD === "1" ? "on" : "off",
+        video: "off",
         screenshot: "only-on-failure",
     },
     projects: [
@@ -83,3 +84,5 @@ export default defineConfig({
             : []),
     ],
 });
+
+export default recorded(config);

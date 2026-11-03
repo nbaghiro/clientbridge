@@ -17,6 +17,7 @@ from clientbridge.core import clock
 from e2e import tier
 from e2e.builds import ensure_builds, filing_seed_anchor, seed_timestamp, source_snapshot
 from e2e.native import build_native, native_ports_free, run_native
+from e2e.recordings import keep_recordings
 from e2e.results import (
     BROWSERS,
     REQUIRED_CASES,
@@ -91,6 +92,7 @@ def run_browsers(
         with (stack.directory / "browser.log").open("wb") as browser_log:
             stack.command(command, browser_log, frontend=True)
     finally:
+        keep_recordings(stack.directory)
         if args.shuffle_seed is not None:
             shutil.rmtree(Path(config).parent)
         if measuring and report_path.is_file():

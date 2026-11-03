@@ -189,8 +189,8 @@ missed-event replay, which backend tests cover), and the sandbox checks are reco
 No checklist group is declared fully covered. All IDs and variants in [payments.md](payments.md) remain
 the release inventory. The payout browser test in `frontend/apps/web/e2e/paymentAccount.e2e.ts` covers
 payout-detail pagination and switching to manual payouts through real app login, with intercepted payout
-responses, so it is browser regression evidence rather than a Stripe sign-off. Set `E2E_RECORD=1` when
-running web Playwright to keep videos of passing tests as well as failures.
+responses, so it is browser regression evidence rather than a Stripe sign-off. [Recording a run](../engineering.md#recording-a-run) explains how to keep
+watchable videos of any e2e run.
 
 Automation should start with regression coverage, then dedicated sandbox fixture setup and signed-event
 isolation (batches 1 and 2). First real-app recordings should cover invoice payment, a withheld webhook

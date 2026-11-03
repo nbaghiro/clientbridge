@@ -10,6 +10,10 @@ on:
 permissions:
   contents: read
 
+# a manual ci run with record keeps a video of every test; reusable workflows see the caller's event
+env:
+  E2E_RECORD: ${{ github.event.inputs.record == 'true' && '1' || '' }}
+
 # Real Stripe test mode: the API suite and the browser lane's shards, each on its own merchant pair.
 # Every job sets continue-on-error until two weeks pass without a Stripe-caused failure; then drop it.
 jobs:
@@ -40,8 +44,8 @@ jobs:
             echo "::notice title=Real Stripe skipped::no sandbox key (a fork, or before the cloud stack sets it)"
           fi
           changed=""
-          # every main commit runs the whole lane; a pull request runs the browser shards when it touches them
-          if [ "$EVENT" = push ]; then
+          # main commits and manual runs run the whole lane; a pull request runs the browser shards it touches
+          if [ "$EVENT" != pull_request ]; then
             flags+=(--every-path)
           else
             changed="$(git diff --name-only HEAD^1 HEAD)"
@@ -86,7 +90,7 @@ jobs:
     needs: shards
     if: needs.shards.outputs.browser != '[]' && needs.shards.outputs.browser != ''
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: ${{ github.event.inputs.record == 'true' && 160 || 40 }}
     continue-on-error: true
     permissions:
       contents: read

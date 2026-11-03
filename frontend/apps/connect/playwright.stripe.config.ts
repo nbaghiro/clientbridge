@@ -1,9 +1,10 @@
 import { defineConfig } from "@playwright/test";
+import { recorded } from "@clientbridge/config/e2e/recording";
 
 import { on, PORTS } from "./e2e/support/hosts";
 import { runPreview, runPort } from "@clientbridge/config/e2e/run";
 
-export default defineConfig({
+const config = defineConfig({
     testDir: "e2e/stripe",
     testMatch: "*.stripe.ts",
     testIgnore: "reconciliation.stripe.ts",
@@ -58,3 +59,5 @@ export default defineConfig({
         },
     ],
 });
+
+export default recorded(config);

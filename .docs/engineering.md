@@ -314,6 +314,20 @@ An e2e run works on its own copy of the core demo businesses in the shared tier,
 
 Browser lanes preview production builds of web, Connect and admin. The runner builds each app once per source fingerprint (the tracked frontend files other than tests, the mobile app and the site) into the tier's `builds/` folder, and every lane on that source serves the same build with `vite preview`, which answers `/config.js` with the run's URLs. The `en-XA` pass keeps a dev server, since the pseudo-locale is a development switch. `make test-prepare` does both ahead of time, which is what CI's prepare job runs.
 
+### Recording a run
+
+`E2E_RECORD=1` on any Playwright run keeps a video of every test, slowed so a person can follow it. `recorded()` in `packages/config/e2e/recording.ts` wraps each Playwright config: when the variable is set it records every context, draws a cursor and a label for each action, shows the test's title and current `test.step` in the corner, waits 500ms between actions (`E2E_RECORD_SLOWMO` changes it), and runs one test at a time with no retries and four times the timeout. Contexts a test opens itself record through `contextOptions`, without the title overlay.
+
+After a recorded run, `backend/e2e/recordings.py` converts the videos to mp4 with ffmpeg and writes them with an `index.html` to the run's `recordings/` folder, matching a context's video to its test by time. The runner prints the index's path. For example:
+
+```sh
+E2E_RECORD=1 make test-connect ARGS="-- -g XB-E2E-09"
+```
+
+In CI, `gh workflow run ci.yml --ref <branch> -f record=true` runs the whole pipeline with recording on: the web, Connect and Stripe browser lanes set `E2E_RECORD=1`, get a longer timeout, and upload `recordings/` with each lane's run records for 7 days. The Stripe lane runs all its cases on a manual run.
+
+Maestro flows record the same way. With `E2E_RECORD=1`, `e2e/native.py` runs each flow through a wrapper in the run's `native-flows/` folder that keeps the flow's name and tags, starts Maestro's `startRecording` and stops it in `onFlowComplete`, so a failed flow keeps its video too. Maestro runs at its normal pace, and the videos join the same `recordings/` index. The mobile lane uploads them on a recorded CI run.
+
 ### Where an e2e test goes
 
 The browser and device suites follow the same one-name-per-concept rule as the rest of the code, so the file for a test is the one named after the concept you changed: the app-core domain file, the strings group, the service and the page share that name.
