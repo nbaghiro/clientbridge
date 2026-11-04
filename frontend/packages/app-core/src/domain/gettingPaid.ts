@@ -150,6 +150,30 @@ export function requirementErrorCopy(code: string): string {
     return match?.() ?? g.reqError.other;
 }
 
+/** One row per thing the owner does, since Stripe splits some, such as the terms' date and IP. */
+function requirementRows(
+    keys: string[],
+    past: ReadonlySet<string>,
+    errors: { requirement: string; code: string }[],
+): ConnectRequirement[] {
+    const rows = new Map<string, ConnectRequirement>();
+    for (const key of keys) {
+        const copy = requirementCopy(key);
+        const found = errors
+            .filter((e) => e.requirement === key)
+            .map((e) => requirementErrorCopy(e.code));
+        const row = rows.get(copy.label);
+        rows.set(copy.label, {
+            key: row?.key ?? key,
+            ...copy,
+            errors: [...new Set([...(row?.errors ?? []), ...found])],
+            pastDue: (row?.pastDue ?? false) || past.has(key),
+            icon: key === "external_account" ? "bank" : "user",
+        });
+    }
+    return [...rows.values()];
+}
+
 type ConnectPhase =
     | "loading"
     | "error"
@@ -274,19 +298,7 @@ export function useGettingPaid(api: ApiLike): GettingPaidView {
         phase,
         title: TITLES[phase] ?? "",
         message,
-        requirements: keys.map((key) => ({
-            key,
-            ...requirementCopy(key),
-            errors: [
-                ...new Set(
-                    errors
-                        .filter((e) => e.requirement === key)
-                        .map((e) => requirementErrorCopy(e.code)),
-                ),
-            ],
-            pastDue: past.has(key),
-            icon: key === "external_account" ? "bank" : "user",
-        })),
+        requirements: requirementRows(keys, past, errors),
         deadline,
         canFinish: canFinish(phase, keys.length),
         chargesEnabled: s?.charges_enabled ?? false,

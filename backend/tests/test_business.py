@@ -6,6 +6,7 @@ import pytest
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core.config import get_settings
 from clientbridge.core.zones import SUPPORTED_ZONES
 from clientbridge.integrations.stripe import PostalAddress
 from clientbridge.models.business import Business
@@ -462,16 +463,30 @@ async def test_each_demo_business_has_a_complete_legal_address(
 
 
 async def test_owner_moves_the_public_page_to_a_new_slug(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(get_settings(), "business_page_url", "https://{slug}.clientbridge.test")
+    await db.execute(update(Business).where(Business.id == BIZ).values(stripe_account_id="acct_1"))
+    await db.flush()
+    res = await as_owner.patch("/v1/business", json={"slug": "birch-bark-pets"})
+    assert res.status_code == 200, res.text
+    assert res.json()["slug"] == "birch-bark-pets"
+    assert gateway.account_urls == [("acct_1", "https://birch-bark-pets.clientbridge.test")]
+    audit = await db.scalar(select(Audit).where(Audit.action == "business.slug"))
+    assert audit is not None and audit.changes == {"old": "birchbark", "new": "birch-bark-pets"}
+
+
+async def test_a_local_page_never_reaches_stripe(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
     await db.execute(update(Business).where(Business.id == BIZ).values(stripe_account_id="acct_1"))
     await db.flush()
     res = await as_owner.patch("/v1/business", json={"slug": "birch-bark-pets"})
     assert res.status_code == 200, res.text
-    assert res.json()["slug"] == "birch-bark-pets"
-    assert gateway.account_urls == [("acct_1", "http://birch-bark-pets.localhost:8709")]
-    audit = await db.scalar(select(Audit).where(Audit.action == "business.slug"))
-    assert audit is not None and audit.changes == {"old": "birchbark", "new": "birch-bark-pets"}
+    assert gateway.account_urls == []
 
 
 async def test_saving_the_same_slug_changes_nothing(

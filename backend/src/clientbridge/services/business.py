@@ -390,9 +390,9 @@ class BusinessService:
             _log.exception("stripe terminal location delete failed for %s", business.id)
 
     async def _move_page_url(self, business: Business) -> None:
-        if business.stripe_account_id is None:
+        url = get_settings().stripe_page_url(business.slug)
+        if business.stripe_account_id is None or url is None:
             return
-        url = get_settings().page_url(business.slug)
         try:
             await self.gateway.update_account_url(business.stripe_account_id, url=url)
         except Exception:

@@ -340,18 +340,22 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **By hand only**
 
-* Completing Stripe-hosted identity verification as a person.
+* Completing Stripe-hosted identity verification as a person, including Stripe's sign-in and its terms.
+* Entering the code Stripe's sign-in sends before it shows bank details.
 
 **Automated by**
 
+* `STR-E15 (stripe)`
 * `STR-E09 (stripe)`
 * `STR-E13 (stripe)`
+* `STRIPE-BROWSER-05 (stripe)`
+* `NATIVE-CFG-02 (native-ios, native-android)`
 * `web: payouts.e2e.ts › payment account entrypoints preserve navigation when payment tools are offline`
 * `connect: smoke/staff.smoke.ts › signs in to today and reads the payment account`
 
 **To automate**
 
-* `STR-E14` in `apps/connect/e2e/stripe/account.stripe.ts`: A new Accounts v2 merchant with one requirement due shows its wording, then ready after the requirement is met (PAY-E16).
+* `STR-E09` in `apps/connect/e2e/stripe/payouts.stripe.ts`: Payouts held in Stripe itself, by a failing test bank and a manual payout, instead of the mirrored state, while a card payment still goes through.
 
 **Depends on:** CB-3
 

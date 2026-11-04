@@ -117,7 +117,8 @@ test("STR-E02 a part refund made during an inquiry fails when it escalates, and 
                 timeout: 60_000,
             })
             .toBe("failed");
-        const escalated = await stripeDispute("show", intentId);
+        let escalated = await stripeDispute("show", intentId);
+        let disputed = await clientMoney(fixture.client.id);
         expect(escalated.refunds).toEqual([
             expect.objectContaining({
                 amount: 500,
@@ -125,13 +126,20 @@ test("STR-E02 a part refund made during an inquiry fails when it escalates, and 
                 failure_reason: "charge_for_pending_refund_disputed",
             }),
         ]);
+        // Stripe books the dispute's withdrawal after the refund fails, so both sides are reread
         await expect
             .poll(
                 async () => {
-                    const money = await clientMoney(fixture.client.id);
+                    escalated = await stripeDispute("show", intentId);
+                    disputed = await clientMoney(fixture.client.id);
                     return {
-                        payments: money.payments.map((p) => [p.kind, p.status, p.dispute_status]),
-                        stripe: categoryTotals(money.entries).stripe,
+                        payments: disputed.payments.map((p) => [
+                            p.kind,
+                            p.status,
+                            p.dispute_status,
+                        ]),
+                        unmatched:
+                            (categoryTotals(disputed.entries).stripe ?? 0) - escalated.net_cents,
                     };
                 },
                 { timeout: 90_000 },
@@ -141,9 +149,8 @@ test("STR-E02 a part refund made during an inquiry fails when it escalates, and 
                     ["payment", "succeeded", "needs_response"],
                     ["refund", "failed", null],
                 ],
-                stripe: escalated.net_cents,
+                unmatched: 0,
             });
-        const disputed = await clientMoney(fixture.client.id);
         expectLedgerMatchesStripe(disputed.entries, escalated);
         await expectRefundBlocked(owner, paid);
         await expectDisputeListed(owner, fixture.client, "needs_response");
