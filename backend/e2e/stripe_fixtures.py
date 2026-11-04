@@ -6,6 +6,7 @@ import json
 import stripe
 from sqlalchemy import select
 
+from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import SessionLocal, engine
 from clientbridge.integrations.stripe import (
@@ -21,6 +22,7 @@ from e2e.stripe_cleanup import cleanup_intent
 from e2e.stripe_clients import client_fixtures
 from e2e.stripe_context import BUSINESS, identity, save, state_path, tags, validate_context
 from e2e.stripe_deposits import cleanup_deposits, deposit_fixtures
+from e2e.stripe_onboarding import close_fresh_accounts
 from e2e.stripe_reconcile import reconciled_at_prepare
 from e2e.stripe_recovery import clean_client
 
@@ -45,7 +47,7 @@ async def setup_action(action: str, invoice_id: str | None) -> dict[str, object]
             raise ValueError("fixture manifest belongs to another run/database/merchant")
     elif action == "prepare":
         path.parent.mkdir(parents=True, exist_ok=True)
-        state = {**expected, "fixtures": []}
+        state = {**expected, "fixtures": [], "prepared_at": int(clock.wall().timestamp())}
         with path.open("x") as file:
             file.write(json.dumps(state))
         path.chmod(0o600)
@@ -185,6 +187,7 @@ async def setup_action(action: str, invoice_id: str | None) -> dict[str, object]
         expected_customers = {f["customer"] for f in fixtures if "customer" in f}
         if not expected_customers.issubset(seen_customers):
             raise ValueError("registered provider customer is missing; cannot prove cleanup")
+        actions.extend(await close_fresh_accounts(state))
         state["cleanup"] = actions
         save(path, state)
         # Retain tagged customers for diagnostics. Never delete application or unrelated data.

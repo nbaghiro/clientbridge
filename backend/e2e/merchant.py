@@ -10,7 +10,7 @@ import stripe
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import SessionLocal, engine
-from clientbridge.integrations.stripe import StripeGateway, close_stripe_client
+from clientbridge.integrations.stripe import RequirementError, StripeGateway, close_stripe_client
 from clientbridge.models.business import Business
 from clientbridge.services.business import apply_account_status, kyc_status
 from e2e.stripe_context import BUSINESS, guard, validate_context
@@ -143,7 +143,7 @@ async def banks() -> dict[str, object]:
 
 
 async def mirror(state: str) -> dict[str, object]:
-    """Mirror a paused or Stripe-held payouts state onto the run's business, or read it back."""
+    """Mirror a paused, Stripe-held or rejected state onto the run's business, or read it back."""
     account = await validate_context()
     settings = get_settings()
     gateway = StripeGateway(settings.stripe_secret_key, settings.stripe_webhook_secret, "CA")
@@ -165,6 +165,19 @@ async def mirror(state: str) -> dict[str, object]:
                 past_due=[],
                 current_deadline=None,
                 payouts_hold="restricted_other",
+            )
+        elif state == "rejected":
+            # Stripe judged the SIN and still takes payments while it waits for another
+            status = replace(
+                status,
+                currently_due=["identity.individual.id_numbers"],
+                past_due=[],
+                current_deadline=None,
+                requirement_errors=(
+                    RequirementError(
+                        "identity.individual.id_numbers", "verification_failed_id_number_match"
+                    ),
+                ),
             )
         apply_account_status(business, status)
         await db.commit()
@@ -194,8 +207,8 @@ async def main() -> None:
     parser.add_argument("command", choices=sorted(COMMANDS))
     parser.add_argument("id", nargs="?", default="")
     args = parser.parse_args()
-    if args.command == "mirror" and args.id not in ("paused", "held", "stripe"):
-        parser.error("mirror takes paused, held or stripe")
+    if args.command == "mirror" and args.id not in ("paused", "held", "rejected", "stripe"):
+        parser.error("mirror takes paused, held, rejected or stripe")
     try:
         print(json.dumps(await COMMANDS[args.command](args)))
     finally:

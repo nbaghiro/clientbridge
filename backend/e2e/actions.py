@@ -134,6 +134,58 @@ async def trial_clock_main(argv: list[str]) -> None:
         await engine.dispose()
 
 
+# what Stripe would report, for a lane with no Stripe keys: (charges, payouts, requirements)
+ACCOUNT_STATES: dict[str, tuple[bool, bool, dict[str, object]]] = {
+    "paused": (True, False, {"past_due": ["external_account"]}),
+    "due": (
+        True,
+        True,
+        {
+            "currently_due": ["identity.individual.id_numbers"],
+            "requirement_errors": [
+                {
+                    "requirement": "identity.individual.id_numbers",
+                    "code": "verification_failed_id_number_match",
+                }
+            ],
+        },
+    ),
+    "ready": (True, True, {}),
+}
+
+
+async def payment_account(state: str) -> dict[str, object]:
+    """Put the run's demo business in a payment account state, as its Stripe events would."""
+    charges, payouts, requirements = ACCOUNT_STATES[state]
+    business_id = run_id(FIXTURE_BUSINESS)
+    if business_id == FIXTURE_BUSINESS or get_settings().stripe_secret_key:
+        raise RuntimeError("only a run's own business on a lane without Stripe keys")
+    async with SessionLocal() as db:
+        business = await db.get(Business, business_id, with_for_update=True)
+        if business is None:
+            raise RuntimeError("the run's demo business is missing")
+        business.stripe_charges_enabled = charges
+        business.stripe_payouts_enabled = payouts
+        business.stripe_requirements = {
+            **business.stripe_requirements,
+            "currently_due": [],
+            "past_due": [],
+            "requirement_errors": [],
+            "current_deadline": None,
+            "payouts_hold": None,
+            **requirements,
+        }
+        await db.commit()
+        return {"business": business_id, "state": state}
+
+
+def payment_account_main(argv: list[str]) -> None:
+    parser = argparse.ArgumentParser(prog="python -m e2e.actions payment-account")
+    parser.add_argument("state", choices=sorted(ACCOUNT_STATES))
+    args = parser.parse_args(argv)
+    print(json.dumps(asyncio.run(payment_account(args.state))))
+
+
 async def payload(client_id: str, preview: str) -> dict[str, object]:
     async with engine.connect() as db:
         await db.execute(text("SET TRANSACTION READ ONLY"))
@@ -598,6 +650,7 @@ COMMANDS: dict[str, Callable[[list[str]], None]] = {
     "plan": lambda argv: asyncio.run(plan_main(argv)),
     "trial-clock": lambda argv: asyncio.run(trial_clock_main(argv)),
     "native-push": native_push_main,
+    "payment-account": payment_account_main,
     "outreach": lambda argv: asyncio.run(outreach_main(argv)),
     "files": lambda argv: asyncio.run(files_main(argv)),
     "web-fixtures": web_fixtures_main,

@@ -131,6 +131,21 @@ async def test_embedded_onboarding_reuses_an_account_that_only_pays_for_its_plan
     assert gateway.merchant_added == ["acct_customer"]
 
 
+async def test_a_new_account_gets_the_business_page_only_when_it_is_public(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await _reset_account(db)
+    assert (await _onboard(as_owner)).status_code == 200
+    await _reset_account(db)
+    monkeypatch.setattr(get_settings(), "business_page_url", "https://{slug}.clientbridge.test")
+    assert (await _onboard(as_owner)).status_code == 200
+    # Stripe refuses a local address, so its onboarding asks the owner for a website instead
+    assert gateway.created_urls == [None, "https://birchbark.clientbridge.test"]
+
+
 async def test_onboarding_registers_the_payment_domains_on_the_account(
     as_owner: httpx.AsyncClient,
     db: AsyncSession,

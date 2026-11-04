@@ -197,8 +197,13 @@ class NativeLink:
 
 
 @contextmanager
-def native_control(link: NativeLink, push: Callable[[bytes], None], log: Path) -> Iterator[str]:
-    """A local endpoint a flow calls to go offline, come back or receive a push."""
+def native_control(
+    link: NativeLink,
+    push: Callable[[bytes], None],
+    account: Callable[[bytes], None],
+    log: Path,
+) -> Iterator[str]:
+    """A local endpoint a flow calls to go offline, come back, receive a push or set an account."""
 
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self) -> None:
@@ -207,6 +212,7 @@ def native_control(link: NativeLink, push: Callable[[bytes], None], log: Path) -
                 "/offline": link.offline,
                 "/online": link.online,
                 "/push": lambda: push(body),
+                "/account": lambda: account(body),
             }
             action = actions.get(self.path)
             try:
@@ -345,9 +351,20 @@ def run_native(
         ).stdout
         device.push(payload)
 
+    def payment_account(body: bytes) -> None:
+        subprocess.run(
+            [sys.executable, "-m", "e2e.actions", "payment-account", body.decode()],
+            cwd=ROOT / "backend",
+            env=stack.env,
+            capture_output=True,
+            check=True,
+        )
+
     with (
         device.installed(build),
-        native_control(link, message_push, stack.directory / "control.log") as control,
+        native_control(
+            link, message_push, payment_account, stack.directory / "control.log"
+        ) as control,
         (stack.directory / "native.log").open("wb") as native_log,
     ):
         command += ["-e", f"CONTROL_URL={control}"]

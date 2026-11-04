@@ -38,6 +38,7 @@ from e2e.stripe_deposits import deposits_evidence_main, deposits_main
 from e2e.stripe_disputes import disputes_main
 from e2e.stripe_evidence import browser_main
 from e2e.stripe_fixtures import setup_main
+from e2e.stripe_onboarding import onboarding_main
 from e2e.stripe_pool import lease_file, pair, pairs
 from e2e.stripe_reconcile import plan_main, reconcile_main
 from e2e.stripe_recovery import recover_main
@@ -331,7 +332,7 @@ def run_lane(args: argparse.Namespace, directory: Path, lease: tier.Lease) -> No
                     if args.shard:
                         reconciled = reconciliation_results(directory) / "results.json"
                         Report.model_validate_json(reconciled.read_text()).validate_evidence([])
-                    else:
+                    elif not args.tests:
                         Report.model_validate_json(report.read_text()).validate_evidence(
                             REQUIRED_CASES["stripe"], browser_cases("stripe")
                         )
@@ -457,6 +458,7 @@ COMMANDS: dict[str, Callable[[list[str]], int | None]] = {
     "recover": lambda argv: asyncio.run(recover_main(argv)),
     "clients": lambda argv: asyncio.run(clients_main(argv)),
     "disputes": lambda argv: asyncio.run(disputes_main(argv)),
+    "onboarding": lambda argv: asyncio.run(onboarding_main(argv)),
     "reconcile": lambda argv: asyncio.run(reconcile_main(argv)),
     "plan": lambda argv: asyncio.run(plan_main(argv)),
     "stack": stack_main,
