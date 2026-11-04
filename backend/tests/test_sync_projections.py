@@ -236,3 +236,15 @@ def test_role_checks_name_every_role_they_admit() -> None:
         "business_full": managers,
         "history_full": managers,
     }
+
+
+def test_a_removed_subject_reaches_devices_without_its_details() -> None:
+    removed = [
+        sql
+        for stream in stream_statements().values()
+        for sql in stream.queries
+        if re.search(r"\bFROM subjects\b", sql) and "deleted_at IS NULL" not in sql
+    ]
+    assert removed, "no stream sends removed subjects"
+    for sql in removed:
+        assert "deleted_at IS NOT NULL" in sql and "attributes" not in sql, sql

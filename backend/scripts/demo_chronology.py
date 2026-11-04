@@ -75,7 +75,6 @@ def align_chronology(ctx: DemoContext) -> None:
             "coat": "Short coat"
             if pet.attributes.get("species") == "cat"
             else "Regular brushing required",
-            "allergies": "None reported",
             "vet": "Island Animal Clinic (demo)",
             "style": f"{prior}. Discuss preferred trim at drop-off.",
         }

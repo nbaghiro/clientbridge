@@ -69,8 +69,11 @@ import { type VisitReceipt, type VisitReceiptView, useVisitReceipt } from "./pub
 import { type ResourceRow, activePool, resourceName, useResources } from "./resources";
 import { type StaffRow, staffName, useStaff } from "./staff";
 import {
+    type SubjectAlert,
     type SubjectKind,
     parseAttributes,
+    pickupLine,
+    subjectAlerts,
     subjectSummary,
     subjectTemperament,
     useSubjectKind,
@@ -1640,6 +1643,9 @@ export interface BookingDetail {
     subjectLine: string | null;
     directions: { address: string; url: string } | null;
     temperament: { label: string; nervous: boolean } | null;
+    /** What to watch for on this visit, besides the temperament the badge already shows. */
+    alerts: SubjectAlert[];
+    pickup: string | null;
     tags: string[];
     notes: NoteRow[];
     series: string | null;
@@ -1768,6 +1774,13 @@ function useBookingDetail(event: ScheduleEvent | null, now: Date): BookingDetail
         subjectLine:
             subject === null ? null : subjectSummary(kind, subject.attributes, zone, now) || null,
         temperament: subject === null ? null : subjectTemperament(kind, subject.attributes),
+        alerts:
+            subject === null
+                ? []
+                : subjectAlerts(kind, subject.attributes, now, zone).filter(
+                      (a) => a.key !== "temp",
+                  ),
+        pickup: subject === null ? null : pickupLine(kind, subject.attributes),
         tags: parseTags(client?.tags ?? null),
         notes,
         series: series

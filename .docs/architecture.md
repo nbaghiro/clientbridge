@@ -281,7 +281,9 @@ owner/admin/staff/contractor, payout config `payee`/`rate_type` with the rate in
 `status=invited` + hashed `invite_token`).
 
 **clients (4)** — `clients` _(soft-del)_ (`tags[]`, `status`, `custom_fields`, `stripe_customer_id`), `subjects` _(soft-del)_ (no kind of their own: the business's `subject` says what they are, and
-`attributes` JSONB holds that kind's details, validated per kind in `schemas/subjects.py` with unknown keys kept), `notes` (polymorphic
+`attributes` JSONB holds that kind's details, validated per kind in `schemas/subjects.py` with unknown keys kept;
+after the business changes kind, clients read a subject as the kind its details belong to, so a pet keeps showing as a
+pet), `notes` (polymorphic
 `parent_type`/`parent_id` over client/subject/booking, `created_by`), `consents` (one row per change to a
 client's marketing consent, with its `source`; the newest row holds, and a STOP or START reply
 also records the `phone` it came from, where the newest one decides whether that number gets texts).
@@ -588,7 +590,8 @@ Four auto-subscribed streams and three history streams implement the read model 
   slots and bookings, and every member's slots and bookings for owner/admin, each limited to the months
   the device subscribes (see the history window above).
 
-`business_shared` also carries `subjects` (pets, students or properties, as the business's `subject` says),
+`business_shared` also carries `subjects` (pets, students or properties, as the business's `subject` says,
+removed ones included so past and booked visits still name them; lists of a client's subjects skip them),
 `notes` and closures (hours rows with no `staff_id`), so every member's calendar can name the subject and
 the day the business is shut;
 `recurrences` follow their member like slots do.

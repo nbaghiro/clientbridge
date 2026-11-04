@@ -506,7 +506,7 @@ class Pet:
     born: str
     sex: Literal["female", "male"]
     temperament: Temperament
-    allergies: str = "None known"
+    allergies: str | None = None
     feeding: str | None = None
     species: Literal["dog", "cat"] = "dog"
 
@@ -537,7 +537,7 @@ def _dog(
     born: str,
     sex: Literal["female", "male"],
     temperament: Temperament = "friendly",
-    allergies: str = "None known",
+    allergies: str | None = None,
 ) -> Pet:
     return Pet(name, breed, born, sex, temperament, allergies)
 
@@ -1617,9 +1617,7 @@ class Cedar(Demo):
                 "recall": home.recall,
                 "off_leash": home.off_leash,
             }
-        allergies = [
-            f"{p.name}: no {p.allergies.lower()}" for p in home.pets if p.allergies != "None known"
-        ]
+        allergies = [f"{p.name}: no {p.allergies.lower()}" for p in home.pets if p.allergies]
         if allergies:
             answers["health"] = "; ".join(allergies) + "."
         if home.alarm:

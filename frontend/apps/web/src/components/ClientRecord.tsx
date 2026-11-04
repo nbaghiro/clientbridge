@@ -505,6 +505,7 @@ export function ClientRecordView({
                                         </div>
                                         <div className="text-xs text-muted">
                                             {formatParts([
+                                                v.subjectName,
                                                 formatWeekday(v.start, zone),
                                                 formatDate(v.start, zone),
                                                 formatTime(v.start, zone),

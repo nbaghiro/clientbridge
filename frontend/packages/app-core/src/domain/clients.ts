@@ -65,6 +65,7 @@ import {
     NAME_MAX,
     nameTooLong,
     subjectAlerts,
+    subjectKindOf,
     subjectSummary,
     subjectTemperament,
     toSubject,
@@ -176,7 +177,8 @@ export function clientMatches(
 ): boolean {
     const t = fold(q);
     if (t === "") return true;
-    const digits = phoneDigits(q);
+    // only a query that reads as a number searches phones, so digits in a name don't
+    const digits = /^[\d\s+().-]+$/.test(q.trim()) ? phoneDigits(q) : "";
     return (
         fold(client.name).includes(t) ||
         (digits.length >= 3 && phoneDigits(client.phone).includes(digits)) ||
@@ -306,12 +308,13 @@ const cleanTag = (t: string): string => t.trim().toLowerCase().replace(/\s+/g, "
 export const CLIENT_VISITS_SQL = `
 SELECT b.id, b.status, b.subject_id, b.staff_id, b.deposit_amount_cents, b.deposit_status,
        s.starts_at, s.ends_at, i.name AS item_name, i.color AS item_color,
-       ${staffNameSql("st")} AS staff_name,
+       sj.name AS subject_name, ${staffNameSql("st")} AS staff_name,
        (b.status = 'canceled' AND b.confirmed_at IS NULL AND s.capacity > 1
           AND ${utcSql("b.canceled_at")} >= ${utcSql("s.ends_at")}) AS waitlist_closed
 FROM bookings b
 JOIN slots s ON s.id = b.slot_id
 LEFT JOIN items i ON i.id = s.item_id
+LEFT JOIN subjects sj ON sj.id = b.subject_id
 LEFT JOIN staff st ON st.id = b.staff_id
 WHERE b.client_id = ? AND b.deleted_at IS NULL
 ORDER BY ${utcSql("s.starts_at")} DESC`;
@@ -327,6 +330,7 @@ export interface VisitRow {
     ends_at: string;
     item_name: string | null;
     item_color: string | null;
+    subject_name: string | null;
     staff_name: string | null;
     waitlist_closed: number | null;
 }
@@ -338,6 +342,10 @@ interface ClientVisit {
     start: Date;
     end: Date;
     service: string;
+    /** The subject the visit is for, named even after it was removed. */
+    subjectName: string | null;
+    /** The service and the subject's name, as history lists a visit. */
+    title: string;
     color: string | null;
     staffName: string | null;
     depositCents: number;
@@ -353,6 +361,11 @@ function toVisit(r: VisitRow): ClientVisit {
         start: parseTimestamp(r.starts_at),
         end: parseTimestamp(r.ends_at),
         service: r.item_name ?? "",
+        subjectName: r.subject_name,
+        title:
+            r.subject_name === null
+                ? (r.item_name ?? "")
+                : s.history.visit(r.item_name ?? "", r.subject_name),
         color: r.item_color,
         staffName: r.staff_name,
         depositCents: r.deposit_amount_cents ?? 0,
@@ -387,7 +400,7 @@ FROM notes n
 LEFT JOIN subjects sj ON n.parent_type = 'subject' AND sj.id = n.parent_id
 LEFT JOIN staff st ON st.user_id = n.created_by
 WHERE (n.parent_type = 'client' AND n.parent_id = ?)
-   OR (n.parent_type = 'subject' AND sj.client_id = ?)
+   OR (n.parent_type = 'subject' AND sj.client_id = ? AND sj.deleted_at IS NULL)
 ORDER BY n.pinned DESC, n.created_at DESC`;
 
 interface NoteDbRow {
@@ -1119,11 +1132,6 @@ export interface ClientHistory {
     subjects: SubjectRow[];
 }
 
-function visitLabel(v: ClientVisit, subjects: readonly SubjectRow[]): string {
-    const name = subjects.find((x) => x.id === v.subjectId)?.name ?? null;
-    return name === null ? v.service : s.history.visit(v.service, name);
-}
-
 /** Every visit, invoice, payment, message, review and note for one client, newest first. */
 export function useClientHistory(clientId: string, viewerStaffId: string | null): ClientHistory {
     const zone = useBusinessZone();
@@ -1161,7 +1169,7 @@ export function useClientHistory(clientId: string, viewerStaffId: string | null)
         const out: HistoryEntry[] = [];
         const ahead: HistoryEntry[] = [];
         for (const v of visits.data.map(toVisit)) {
-            const label = visitLabel(v, subjectRows);
+            const label = v.title;
             if (isAhead(v, now)) {
                 ahead.push(
                     entry("booked", {
@@ -1260,7 +1268,7 @@ export function useClientHistory(clientId: string, viewerStaffId: string | null)
             all: out.sort((a, b) => +b.at - +a.at),
             upcoming: ahead.sort((a, b) => +a.at - +b.at),
         };
-    }, [visits.data, invoices.data, payments.data, messages.data, noteRows, subjectRows]);
+    }, [visits.data, invoices.data, payments.data, messages.data, noteRows]);
 
     const load = useReplicaLoad(
         [visits, notes, invoices, payments, messages],
@@ -1712,7 +1720,10 @@ function subjectCard(
     return {
         subject,
         line: subjectSummary(kind, subject.attributes, zone, now),
-        equipment: kind === "site" ? equipmentLines(subject.attributes, zone, now) : [],
+        equipment:
+            subjectKindOf(kind, subject.attributes) === "site"
+                ? equipmentLines(subject.attributes, zone, now)
+                : [],
         temperament: subjectTemperament(kind, subject.attributes),
         alerts: subjectAlerts(kind, subject.attributes, now, zone),
         visits: done.length,

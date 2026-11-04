@@ -204,6 +204,20 @@ function BookingClient({ detail }: { detail: BookingDetail }) {
                         ) : null}
                     </div>
                 ) : null}
+                {detail.pickup !== null || detail.alerts.length > 0 ? (
+                    <div className="space-y-1.5 border-t border-line-soft px-3 py-2">
+                        {detail.pickup !== null ? (
+                            <p className="text-xs text-muted">{detail.pickup}</p>
+                        ) : null}
+                        {detail.alerts.length > 0 ? (
+                            <div className="flex flex-wrap gap-1.5">
+                                {detail.alerts.map((a) => (
+                                    <StatusPill key={a.key} status={a.label} intent={a.intent} />
+                                ))}
+                            </div>
+                        ) : null}
+                    </div>
+                ) : null}
                 {detail.directions !== null ? (
                     <div className="flex items-center gap-2 border-t border-line-soft px-3 py-2 text-xs text-muted">
                         <Icon name="pin" size={14} />

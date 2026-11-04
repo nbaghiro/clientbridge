@@ -609,6 +609,24 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
                                 ) : null}
                             </View>
                         ) : null}
+                        {detail.pickup !== null || detail.alerts.length > 0 ? (
+                            <View style={[styles.watch, styles.divider]}>
+                                {detail.pickup !== null ? (
+                                    <Text style={styles.sub}>{detail.pickup}</Text>
+                                ) : null}
+                                {detail.alerts.length > 0 ? (
+                                    <View style={styles.alerts}>
+                                        {detail.alerts.map((a) => (
+                                            <StatusPill
+                                                key={a.key}
+                                                status={a.label}
+                                                intent={a.intent}
+                                            />
+                                        ))}
+                                    </View>
+                                ) : null}
+                            </View>
+                        ) : null}
                         {detail.directions !== null ? (
                             <View style={[styles.cardRow, styles.divider]}>
                                 <Icon name="pin" size={15} color={c.muted} />
@@ -1323,6 +1341,8 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
     },
     divider: { borderTopWidth: 1, borderTopColor: c.borderSoft },
+    watch: { gap: 6, paddingHorizontal: 12, paddingVertical: 8 },
+    alerts: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
     flex: { flex: 1, minWidth: 0 },
     rowGap: { flexDirection: "row", alignItems: "center", gap: 6 },
     name: {

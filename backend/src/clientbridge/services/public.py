@@ -1,6 +1,7 @@
 import secrets
 from collections.abc import Sequence
 from datetime import UTC, date, datetime, time, timedelta
+from itertools import chain
 
 from sqlalchemy import ColumnElement, and_, func, select, text
 from sqlalchemy.exc import IntegrityError
@@ -918,7 +919,7 @@ def _assert_subject_fields(business: Business, data: PublicBookingCreate) -> Non
         )
 
 
-def _same_place(stored: object, given: str) -> bool:
+def _same_words(stored: object, given: str) -> bool:
     return (
         isinstance(stored, str)
         and " ".join(stored.split()).casefold() == " ".join(given.split()).casefold()
@@ -932,27 +933,35 @@ async def _subject(
     name: str | None,
     address: str | None,
 ) -> str | None:
-    """The client's subject of that name (and a place's address), filed when first booked."""
+    """The client's subject of that name, or a place at that address, filed when first booked."""
     if name is None or name.strip() == "":
         return None
-    clean = name.strip()
-    place = (address or "").strip()
-    named = (
+    clean = " ".join(name.split())
+    place = " ".join((address or "").split())
+    owned = (
         (
             await db.execute(
                 scoped(Subject, business.id, soft_delete=True)
-                .where(Subject.client_id == client_id, func.lower(Subject.name) == clean.lower())
+                .where(Subject.client_id == client_id)
                 .order_by(Subject.created_at, Subject.id)
             )
         )
         .scalars()
         .all()
     )
+    named = [s for s in owned if _same_words(s.name, clean)]
     found = named[0] if named else None
     if business.subject in PLACE_KINDS and place:
+        at_place = [s for s in owned if _same_words(s.attributes.get("address"), place)]
+        # a vehicle is only parked at its address, and one address can hold several units
+        alone = not named and business.subject != "vehicle" and len(at_place) == 1
         found = next(
-            (s for s in named if _same_place(s.attributes.get("address"), place)),
-            next((s for s in named if not s.attributes.get("address")), None),
+            chain(
+                (s for s in named if _same_words(s.attributes.get("address"), place)),
+                (s for s in named if not s.attributes.get("address")),
+                at_place if alone else (),
+            ),
+            None,
         )
     if found is not None:
         if place and not found.attributes.get("address"):

@@ -22,7 +22,7 @@ import {
     wallTime,
     useBusinessZone,
 } from "../datetime";
-import { firstName, formatList, formatMoney, BUSINESS_CURRENCY } from "../format";
+import { firstName, formatList, formatMoney, formatParts, BUSINESS_CURRENCY } from "../format";
 import { type Load, type Remote, useAsyncAction, useFlash, useRemote } from "../hooks";
 import type { IconName } from "../icons";
 import type { Intent } from "../ui";
@@ -81,6 +81,7 @@ interface AgendaRow {
     client_id: string | null;
     client_name: string | null;
     client_phone: string | null;
+    subject_name: string | null;
     subject_attributes: string | null;
     deposit_amount_cents: number | null;
     deposit_status: string | null;
@@ -98,14 +99,15 @@ SELECT s.id AS slot_id, s.starts_at, s.ends_at, s.staff_id, s.capacity,
        i.name AS item_name, i.kind AS item_kind, i.color AS item_color, ${itemImageSql("i")} AS item_image_file_id,
        i.price_cents AS item_price_cents,
        b.id AS booking_id, b.status AS booking_status, b.price_cents, b.client_id,
-       c.name AS client_name, c.phone AS client_phone, sj.attributes AS subject_attributes,
+       c.name AS client_name, c.phone AS client_phone, sj.name AS subject_name,
+       sj.attributes AS subject_attributes,
        b.deposit_amount_cents, b.deposit_status, b.departed_at, b.checked_in_at,
        ${staffNameSql("st")} AS staff_name, st.title AS staff_title, st.role AS staff_role, st.color AS staff_color
 FROM slots s
 JOIN items i ON i.id = s.item_id
 ${slotBookingsJoin("AND x.deleted_at IS NULL AND x.status != 'canceled'")}
 LEFT JOIN clients c ON c.id = b.client_id
-LEFT JOIN subjects sj ON sj.id = b.subject_id AND sj.deleted_at IS NULL
+LEFT JOIN subjects sj ON sj.id = b.subject_id
 LEFT JOIN staff st ON st.id = s.staff_id
 WHERE s.status != 'canceled' AND ${slotOverlapSql("?2", "?1")}
 ORDER BY ${utcSql("s.starts_at")}, s.id`;
@@ -123,6 +125,8 @@ export interface AgendaItem {
     endTime: string;
     clientId: string | null;
     clientName: string;
+    /** The subject and the client, as the calendar names a visit; the class for a class. */
+    title: string;
     clientPhone: string | null;
     serviceName: string;
     serviceImageId: string | null;
@@ -176,6 +180,7 @@ export function buildAgenda(
                 endTime: formatTime(end, zone),
                 clientId: isClass ? null : r.client_id,
                 clientName: isClass ? r.item_name : (r.client_name ?? ""),
+                title: isClass ? r.item_name : formatParts([r.subject_name, r.client_name]),
                 clientPhone: isClass ? null : r.client_phone,
                 serviceName: isClass
                     ? strings.today.classBooked(seats.length, r.capacity)
@@ -884,7 +889,7 @@ SELECT b.status, b.client_id, b.deposit_status, b.deposit_amount_cents, s.starts
 FROM bookings b
 JOIN slots s ON s.id = b.slot_id
 JOIN clients c ON c.id = b.client_id
-LEFT JOIN subjects sub ON sub.id = b.subject_id AND sub.deleted_at IS NULL
+LEFT JOIN subjects sub ON sub.id = b.subject_id
 LEFT JOIN items i ON i.id = s.item_id
 LEFT JOIN staff st ON st.id = b.staff_id
 WHERE b.id = ? AND b.deleted_at IS NULL`;

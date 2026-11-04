@@ -288,3 +288,30 @@ async def test_changing_the_kind_keeps_existing_subjects_and_details(
     assert (await as_owner.delete(f"/v1/subjects/{pet['id']}")).status_code == 204
     kept = await db.scalar(text("SELECT count(*) FROM subjects WHERE id = :i"), {"i": pet["id"]})
     assert kept == 1
+
+
+async def test_details_are_checked_against_the_kind_they_belong_to_after_a_change(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _kind(db, "student")
+    cid = await _client(as_owner)
+    student = (
+        await as_owner.post(
+            "/v1/subjects",
+            json={"client_id": cid, "name": "Mia", "attributes": {"grade": "Grade 4"}},
+        )
+    ).json()
+    await _kind(db, "pet")
+    refused = await as_owner.patch(
+        f"/v1/subjects/{student['id']}",
+        json={"attributes": {"grade": "Grade 4", "pickups": [{"name": "Rosa", "phone": "x"}]}},
+    )
+    assert refused.status_code == 422, refused.text
+    saved = await as_owner.patch(
+        f"/v1/subjects/{student['id']}",
+        json={
+            "attributes": {"grade": "Grade 4", "pickups": [{"name": "Rosa", "phone": "6135550181"}]}
+        },
+    )
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["attributes"]["pickups"] == [{"name": "Rosa", "phone": "+16135550181"}]

@@ -197,7 +197,7 @@ function AgendaRow({
                             <Icon name="check" size={15} />
                         </span>
                     ) : null}
-                    <span className="truncate">{item.clientName}</span>
+                    <span className="truncate">{item.title}</span>
                 </div>
                 <div className="mt-0.5 flex items-center gap-2 truncate text-xs text-muted">
                     <span className="truncate">{item.serviceName}</span>
@@ -434,7 +434,7 @@ export function FocusCard({ item, actions }: { item: AgendaItem; actions: TodayA
                         />
                     </div>
                     <h3 className="truncate font-display text-xl font-bold text-ink">
-                        {item.clientName}
+                        {item.title}
                     </h3>
                     <div className="mt-1 flex items-center gap-2 text-sm text-muted">
                         <ItemImage

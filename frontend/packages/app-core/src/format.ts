@@ -175,7 +175,8 @@ export function normalizePhone(value: string | null | undefined): string | null 
 /** "(250) 555-0201" for a North American number, stored local or as +1; anything else as entered. */
 export function formatPhone(raw: string | null | undefined): string {
     const d = phoneDigits(raw);
-    if (d.length !== 10) return raw ?? "";
+    const elsewhere = /^\+(?!1)/.test((raw ?? "").trim());
+    if (d.length !== 10 || elsewhere) return raw ?? "";
     return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
 }
 

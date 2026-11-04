@@ -77,6 +77,13 @@ describe("filterClients", () => {
         expect(option.match?.("bob")).toBe(false);
     });
 
+    it("searches phones only with a query that reads as a number", () => {
+        const dee = { name: "Dee", phone: "+12505554610" };
+        expect(clientMatches(dee, "461")).toBe(true);
+        expect(clientMatches(dee, "+1 250-555-4610")).toBe(true);
+        expect(clientMatches(dee, "no client 4b61ff")).toBe(false);
+    });
+
     it("finds an accented tag typed with or without its accent", () => {
         const regular = { name: "Ann", phone: null, tags: ["Café regular"] };
         expect(clientMatches(regular, "café")).toBe(true);
@@ -95,6 +102,8 @@ describe("visitPill", () => {
         start: zonedDate(2026, 10, 8, 10, 0, ZONE),
         end: zonedDate(2026, 10, 8, 11, 0, ZONE),
         service: "Groom",
+        subjectName: null,
+        title: "Groom",
         color: null,
         staffName: null,
         depositCents: 0,

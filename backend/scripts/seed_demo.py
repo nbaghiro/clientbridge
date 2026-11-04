@@ -679,7 +679,7 @@ CLIENTS = [
         ["regular"],
         720,
         "active",
-        [("sj_miso", "Miso", "Domestic Shorthair (cat)", 5, "skittish", "miso")],
+        [("sj_miso", "Miso", "Domestic Shorthair (cat)", 5, "anxious", "miso")],
         "Cat groom only. Books quarterly.",
     ),
     (

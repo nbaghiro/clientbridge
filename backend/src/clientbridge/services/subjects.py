@@ -33,6 +33,20 @@ def visit_address(business: Business, subject: Subject | None) -> str | None:
     )
 
 
+def kind_of(kind: SubjectKind | None, attributes: dict[str, object]) -> SubjectKind | None:
+    """The kind a subject's details belong to, read as the app reads it after a change of kind."""
+    if kind is None:
+        return None
+    filled = {k for k, v in attributes.items() if v not in (None, "")}
+    best = kind
+    for candidate, model in ATTRIBUTES.items():
+        if len(filled & model.model_fields.keys()) > len(
+            filled & ATTRIBUTES[best].model_fields.keys()
+        ):
+            best = candidate
+    return best
+
+
 def typed_attributes(kind: SubjectKind | None, attributes: dict[str, object]) -> dict[str, object]:
     if kind is None:
         return {k: v for k, v in attributes.items() if v is not None}
@@ -96,7 +110,7 @@ class SubjectService:
         if data.name is not None:
             subject.name = data.name.strip()
         if data.attributes is not None:
-            kind = await subject_kind(self.db, self.biz)
+            kind = kind_of(await subject_kind(self.db, self.biz), data.attributes)
             subject.attributes = typed_attributes(kind, data.attributes)
         await self.db.flush()
         await self.db.refresh(subject)

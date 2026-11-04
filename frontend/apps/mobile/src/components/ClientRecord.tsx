@@ -406,6 +406,7 @@ export function ClientRecordView({
                                 </Text>
                                 <Text style={styles.rowSub}>
                                     {formatParts([
+                                        v.subjectName,
                                         formatWeekday(v.start, zone),
                                         formatDate(v.start, zone),
                                         formatTime(v.start, zone),

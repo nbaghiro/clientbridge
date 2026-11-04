@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import type { ApiLike } from "../api";
 import { dateKey, formatDate, readDate } from "../datetime";
-import { formatList, formatParts, normalizePhone, parseNumber } from "../format";
+import { formatList, formatParts, formatPhone, normalizePhone, parseNumber } from "../format";
 import {
     type DraftRow,
     typedRows,
@@ -88,7 +88,7 @@ const text = (v: unknown): string =>
     typeof v === "string" ? v : typeof v === "number" ? String(v) : "";
 
 const TEMPERAMENTS = ["calm", "friendly", "energetic", "anxious", "reactive"];
-const NERVOUS = new Set(["anxious", "reactive", "skittish"]);
+const NERVOUS = new Set(["anxious", "reactive"]);
 
 /** A stored temperament (an English word) shown through the catalog; unknown values as stored. */
 function temperamentLabel(value: string): string {
@@ -101,7 +101,7 @@ export function subjectTemperament(
     attributes: Record<string, unknown>,
 ): { label: string; nervous: boolean } | null {
     const value = text(attributes.temperament);
-    if (kind !== "pet" || value === "") return null;
+    if (subjectKindOf(kind, attributes) !== "pet" || value === "") return null;
     return { label: temperamentLabel(value), nervous: NERVOUS.has(value) };
 }
 
@@ -572,6 +572,7 @@ interface DraftGroup<K extends string> {
     required: K;
     requiredMessage: () => string;
     invalid: (key: K, value: string) => string | null;
+    shown: (key: K, value: string) => string;
 }
 
 const EQUIPMENT: DraftGroup<EquipmentKey> = {
@@ -584,6 +585,7 @@ const EQUIPMENT: DraftGroup<EquipmentKey> = {
     requiredMessage: () => s.equipment.modelRequired,
     invalid: (key, value) =>
         DATE_KEYS.has(key) && !/^\d{4}-\d{2}-\d{2}$/.test(value) ? s.dateInvalid : null,
+    shown: (_key, value) => value,
 };
 
 /** A group's stored list as drafts; entries that are not objects are dropped. */
@@ -595,7 +597,12 @@ function storedRows<K extends string>(
     if (!Array.isArray(list)) return [];
     return list
         .filter((e): e is Record<string, unknown> => typeof e === "object" && e !== null)
-        .map((e) => Object.fromEntries(group.keys.map((k) => [k, text(e[k])])) as DraftRow<K>);
+        .map(
+            (e) =>
+                Object.fromEntries(
+                    group.keys.map((k) => [k, group.shown(k, text(e[k]))]),
+                ) as DraftRow<K>,
+        );
 }
 
 /** Errors keyed `<attribute>.<row>.<key>`; a row left entirely blank is dropped, not checked. */
@@ -629,6 +636,19 @@ export interface EquipmentLine {
 }
 
 const WARRANTY_SOON_DAYS = 60;
+
+/** The kind a subject's details belong to, which outlives a change of the business's kind. */
+export function subjectKindOf(
+    kind: SubjectKind | null,
+    attributes: Record<string, unknown>,
+): SubjectKind | null {
+    if (kind === null) return null;
+    const filled = Object.keys(attributes).filter(
+        (k) => attributes[k] !== null && attributes[k] !== "",
+    );
+    const score = (k: SubjectKind): number => filled.filter((key) => KIND_KEYS[k].has(key)).length;
+    return KINDS.reduce((a, b) => (score(b) > score(a) ? b : a), kind);
+}
 
 /** One line per installed device, with its warranty and whether it has ended or ends soon. */
 export function equipmentLines(
@@ -728,6 +748,21 @@ const PICKUPS: DraftGroup<PickupKey> = {
     requiredMessage: () => s.pickup.nameRequired,
     invalid: (key, value) =>
         key === "phone" && normalizePhone(value) === null ? s.pickup.phoneInvalid : null,
+    shown: (key, value) => (key === "phone" && value !== "" ? formatPhone(value) : value),
+};
+
+const keysOf = (k: SubjectKind): ReadonlySet<string> =>
+    new Set([
+        ...SUBJECT_FIELDS[k].map((f) => f.key),
+        ...[PICKUPS, EQUIPMENT].filter((g) => g.kind === k).map((g) => g.attribute),
+    ]);
+
+const KIND_KEYS: Record<SubjectKind, ReadonlySet<string>> = {
+    pet: keysOf("pet"),
+    student: keysOf("student"),
+    property: keysOf("property"),
+    site: keysOf("site"),
+    vehicle: keysOf("vehicle"),
 };
 
 /** "May be picked up by …" for a student with a pickup list; null for other kinds or an empty list. */
@@ -735,7 +770,7 @@ export function pickupLine(
     kind: SubjectKind | null,
     attributes: Record<string, unknown>,
 ): string | null {
-    if (kind !== "student") return null;
+    if (subjectKindOf(kind, attributes) !== "student") return null;
     const names = storedRows(PICKUPS, attributes)
         .map((p) => p.name.trim())
         .filter((n) => n !== "");
@@ -753,11 +788,12 @@ function ageYears(birthday: string, now: Date, zone: string): number | null {
 
 /** One line about a subject: a pet's breed and age, a student's grade, an address, a vehicle's make. */
 export function subjectSummary(
-    kind: SubjectKind | null,
+    businessKind: SubjectKind | null,
     attributes: Record<string, unknown>,
     zone: string,
     now: Date = new Date(),
 ): string {
+    const kind = subjectKindOf(businessKind, attributes);
     const birthday = text(attributes.birthday);
     const age = birthday === "" ? null : ageYears(birthday, now, zone);
     const ageLabel = age === null ? "" : s.age(age);
@@ -796,19 +832,20 @@ export function subjectSummary(
 }
 
 export interface SubjectAlert {
-    key: string;
+    key: "temp" | "allergy" | "noPickup" | "rabies";
     label: string;
     intent: Intent;
 }
 
 /** What to watch for: allergies, a student's pickup restriction, a pet's temperament and rabies vaccine. */
 export function subjectAlerts(
-    kind: SubjectKind | null,
+    businessKind: SubjectKind | null,
     attributes: Record<string, unknown>,
     now: Date,
     zone: string,
 ): SubjectAlert[] {
     const out: SubjectAlert[] = [];
+    const kind = subjectKindOf(businessKind, attributes);
     const temperament = subjectTemperament(kind, attributes);
     if (temperament?.nervous === true)
         out.push({
@@ -876,7 +913,8 @@ export function useSubjectForm(
     subject: SubjectRow | null,
     onDone: () => void,
 ): SubjectForm {
-    const kind = useSubjectKind();
+    const businessKind = useSubjectKind();
+    const kind = subject === null ? businessKind : subjectKindOf(businessKind, subject.attributes);
     const word = kindWord(kind);
     const fields = kind === null ? [] : SUBJECT_FIELDS[kind];
     const [name, setNameRaw] = useState(subject?.name ?? "");
@@ -937,7 +975,9 @@ export function useSubjectForm(
                 .map(([f, v]) => [f.key, f.type === "number" ? parseNumber(v) : v]),
         );
         const devicesTyped = typedRows(EQUIPMENT.keys, equipment);
-        const peopleTyped = typedRows(PICKUPS.keys, pickups);
+        const peopleTyped = typedRows(PICKUPS.keys, pickups).map((p) =>
+            p.phone === undefined ? p : { ...p, phone: normalizePhone(p.phone) ?? p.phone },
+        );
         const attributes = {
             ...kept,
             ...typed,

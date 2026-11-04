@@ -344,7 +344,7 @@ function StaffTodayPage() {
                                                     />
                                                     <div className="min-w-0 flex-1">
                                                         <div className="truncate text-sm font-semibold text-ink">
-                                                            {a.clientName}
+                                                            {a.title}
                                                         </div>
                                                         <div className="truncate text-xs text-muted">
                                                             {formatParts([
@@ -474,7 +474,7 @@ function NextClient({
                     color={item.color}
                 />
                 <div className="min-w-0 flex-1">
-                    <h3 className="font-display text-xl font-bold text-ink">{item.clientName}</h3>
+                    <h3 className="font-display text-xl font-bold text-ink">{item.title}</h3>
                     <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 text-sm xl:grid-cols-3">
                         <div>
                             <dt className="text-xs text-muted">{t.staff.service}</dt>

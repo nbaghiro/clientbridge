@@ -896,7 +896,7 @@ function seed(): void {
 
 function scheduleRows(): void {
     db.run("DELETE FROM subjects WHERE id IN ('sj_rex', 'sj_gone')");
-    db.run("DELETE FROM notes WHERE id IN ('nt_1', 'nt_2', 'nt_3')");
+    db.run("DELETE FROM notes WHERE id IN ('nt_1', 'nt_2', 'nt_3', 'nt_4')");
     db.run("DELETE FROM bookings WHERE id = 'bk_future'");
     db.run("DELETE FROM slots WHERE id = 'ss_future'");
     insert("users", [{ id: "us_cara", name: "Cara" }]);
@@ -2152,6 +2152,7 @@ describe("app-core SQL against the replica schema", () => {
                 created_by: "us_owner",
             },
             { id: "nt_2", parent_type: "subject", parent_id: "sj_rex", body: "Muzzle", pinned: 0 },
+            { id: "nt_4", parent_type: "subject", parent_id: "sj_gone", body: "Gone", pinned: 0 },
             { id: "nt_3", parent_type: "client", parent_id: "cl_ben", body: "Other", pinned: 0 },
         ]);
         scoped("consents", [
