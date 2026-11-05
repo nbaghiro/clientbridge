@@ -82,6 +82,15 @@ async def settle_disputes(
     return sum(dispute.amount for dispute in disputes if dispute.status == "lost")
 
 
+async def settled(account: str, refund: stripe.Refund, *, bank: bool) -> stripe.Refund:
+    """A bank debit's refund goes back through the bank, so Stripe holds it pending briefly."""
+    deadline = time.monotonic() + 300
+    while bank and refund.status == "pending" and time.monotonic() < deadline:
+        await asyncio.sleep(5)
+        refund = await stripe.Refund.retrieve_async(refund.id, stripe_account=account)
+    return refund
+
+
 async def cleanup_intent(
     account: str,
     intent: stripe.PaymentIntent,
@@ -97,6 +106,7 @@ async def cleanup_intent(
         charge = await stripe.Charge.retrieve_async(intent.latest_charge, stripe_account=account)
         if charge.livemode or charge.payment_intent != intent.id or charge.amount != intent.amount:
             raise ValueError("charge does not match the owned intent")
+        bank = (charge.to_dict().get("payment_method_details") or {}).get("type") == "acss_debit"
         lost = 0
         if charge.to_dict().get("disputed"):
             lost = await settle_disputes(account, charge.id, metadata, apply=apply)
@@ -104,7 +114,8 @@ async def cleanup_intent(
                 return {"intent": intent.id, "status": "planned_dispute_loss"}
         refunds = await stripe.Refund.list_async(charge=charge.id, stripe_account=account)
         refunded = 0
-        async for refund in refunds.auto_paging_iter():
+        async for listed in refunds.auto_paging_iter():
+            refund = await settled(account, listed, bank=bank)
             if refund.status == "succeeded":
                 refunded += refund.amount
             elif refund.status not in ("failed", "canceled"):
@@ -134,6 +145,7 @@ async def cleanup_intent(
             stripe_account=account,
             idempotency_key=f"browser:{metadata['clientbridge_qa_run']}:{intent.id}:cleanup:{remaining}",
         )
+        refund = await settled(account, refund, bank=bank)
         if refund.status != "succeeded":
             raise ValueError("owned refund is not settled; cleanup needs retry")
         return {"intent": intent.id, "refund": refund.id, "status": refund.status}

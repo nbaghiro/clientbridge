@@ -18,7 +18,9 @@ from clientbridge.schemas.payments import (
     ConnectStatus,
     DetachResult,
     PaymentMethodOut,
+    PaymentSetupLinkIn,
     PaymentSetupLinkOut,
+    PaymentSetupLinkStatus,
     PayoutContentsOut,
     PayoutsOut,
     RefundIn,
@@ -102,8 +104,24 @@ async def create_pad_link(
     principal: CurrentPrincipal,
     db: DbSession,
     gateway: GatewayDep,
+    email: EmailDep,
+    sms: SmsDep,
+    push: PushDep,
+    jobs: JobsDep,
+    body: PaymentSetupLinkIn | None = None,
 ) -> PaymentSetupLinkOut:
-    return await PaymentService(db, principal, gateway).create_pad_link(client_id)
+    result = await PaymentService(db, principal, gateway).create_pad_link(
+        client_id, text=body is not None and body.text
+    )
+    await send_queued(db, email, sms, push, jobs)
+    return result
+
+
+@payments_router.get("/pad-links/{client_id}", response_model=PaymentSetupLinkStatus | None)
+async def pad_link_status(
+    client_id: str, principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep
+) -> PaymentSetupLinkStatus | None:
+    return await PaymentService(db, principal, gateway).pad_link_status(client_id)
 
 
 @payments_router.delete("/pad-links/{link_id}", status_code=204)

@@ -1,0 +1,50 @@
+appId: ${APP_ID}
+name: NATIVE-PAY-01 On a phone, staff text a client the bank authorization link, and the text carries the link
+tags:
+    - stripe
+---
+# a number outside 555-01xx, which is set aside for fiction and never texted
+- evalScript: ${output.phone = "250" + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000))}
+- evalScript: ${output.shown = "(" + output.phone.slice(0, 3) + ") " + output.phone.slice(3, 6) + "-" + output.phone.slice(6)}
+- evalScript: ${output.name = "Marlowe Quinn"}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/clients
+          BODY: "${JSON.stringify({ name: output.name, phone: output.phone })}"
+- runFlow: helpers/owner.yaml
+- tapOn: "Clients"
+- tapOn: "Search name, phone or pet"
+- inputText: ${output.phone}
+- hideKeyboard
+- extendedWaitUntil:
+      visible: ${".*" + output.name + ".*"}
+      timeout: 60000
+- tapOn: ${".*" + output.name + ".*"}
+- extendedWaitUntil:
+      visible: "Book"
+      timeout: 60000
+# iOS calls Manage visible while it sits under the sticky actions, where a tap lands on Edit
+- swipe:
+      start: "50%,70%"
+      end: "50%,25%"
+      duration: 500
+- tapOn: "Manage"
+- assertVisible: "Payment methods"
+- scrollUntilVisible:
+      element: "Request bank authorization"
+      direction: DOWN
+- tapOn: "Request bank authorization"
+- assertVisible: "Bank authorization"
+- tapOn: ${"Text link to " + output.shown}
+- extendedWaitUntil:
+      visible: ${"Texted to " + output.shown + ". You can also share the link below."}
+      timeout: 30000
+- assertVisible: "Share authorization link"
+- takeScreenshot: client-wallet-bank-link
+- runScript:
+      file: helpers/texted-link.js
+      env:
+          PHONE: ${"1" + output.phone}
+- assertTrue: ${output.link.indexOf("/setup#token=") > 0}

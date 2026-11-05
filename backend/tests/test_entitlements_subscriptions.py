@@ -14,15 +14,16 @@ from clientbridge.models.billing import Invoice
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item, Subscription
 from clientbridge.models.clients import Client
-from clientbridge.models.payments import Payment, PaymentMethod
+from clientbridge.models.payments import Payment, PaymentMethod, PaymentSetupLink
 from clientbridge.models.platform import Audit
 from clientbridge.schemas.billing import InvoiceOut
 from clientbridge.services import ledger
-from clientbridge.services.payments import map_subscription_status
+from clientbridge.services.payments import map_subscription_status, subscription_fee_percent
 from tests.conftest import Factory, FakeEmailSender, FakePaymentGateway, FakeSmsSender
 from tests.helpers import (
     business_balance,
     client_id,
+    column,
     enable_payments,
     invoice,
     key,
@@ -360,35 +361,51 @@ async def test_cancel_cross_tenant_404(
     assert res.status_code == 404
 
 
-async def test_acss_debit_records_bank_eft_mandate(
+async def test_acss_debit_records_bank_eft_mandate_only_while_its_link_is_open(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     await enable_payments(db, account="acct_pad")
     cid = await client_id(db)
     await db.execute(update(Client).where(Client.id == cid).values(stripe_customer_id="cus_pad"))
     await db.flush()
-    event = json.dumps(
-        {
-            "id": "evt_pad1",
+    bank = {
+        "id": "pm_acss",
+        "customer": "cus_pad",
+        "type": "acss_debit",
+        "acss_debit": {"bank_name": "TD Canada Trust", "last4": "0001"},
+    }
+
+    async def attached(event_id: str) -> None:
+        event = {
+            "id": event_id,
             "type": "payment_method.attached",
             "account": "acct_pad",
-            "data": {
-                "object": {
-                    "id": "pm_acss",
-                    "customer": "cus_pad",
-                    "type": "acss_debit",
-                    "acss_debit": {"bank_name": "TD Canada Trust", "last4": "0001"},
-                }
-            },
+            "data": {"object": bank},
         }
+        res = await api.post("/webhooks/stripe", content=json.dumps(event), headers=GOOD)
+        assert res.status_code == 200
+
+    await attached("evt_pad_orphan")
+    saved = select(PaymentMethod).where(PaymentMethod.provider_ref == "pm_acss")
+    assert (await db.execute(saved)).scalar_one_or_none() is None
+    db.add(
+        PaymentSetupLink(
+            id=new_id("payment_setup_link"),
+            business_id=BIZ,
+            client_id=cid,
+            account_id="acct_pad",
+            customer_id="cus_pad",
+            purpose="pad_setup",
+            token_hash="0" * 64,
+            expires_at=clock.now() + timedelta(days=1),
+            setup_intent_id="seti_pad",
+        )
     )
-    res = await api.post("/webhooks/stripe", content=event, headers=GOOD)
-    assert res.status_code == 200
-    pm = (
-        await db.execute(select(PaymentMethod).where(PaymentMethod.provider_ref == "pm_acss"))
-    ).scalar_one()
+    await db.flush()
+    await attached("evt_pad1")
+    pm = (await db.execute(saved)).scalar_one()
     assert pm.method == "bank_eft"
-    assert pm.mandate_status == "pending"
+    assert pm.mandate_status == "pending" and pm.preferred is False
     assert pm.brand == "TD Canada Trust" and pm.last4 == "0001"
 
 
@@ -1324,28 +1341,75 @@ async def test_restoring_leaves_a_membership_the_archive_didnt_end(
     assert gateway.kept_subscriptions == []
 
 
-async def test_a_card_a_membership_bills_cannot_be_removed(
-    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+async def _member_with_card(db: AsyncSession, factory: Factory, ref: str) -> Subscription:
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    client = await factory.client(business=business, name="Card Member")
+    sub = await _active_sub(db, f"sub_{ref}")
+    sub.client_id = client.id
+    pm = await _saved_method(db, client.id, ref=ref)
+    pm.preferred = True
+    sub.payment_method_id = pm.id
+    await db.flush()
+    return sub
+
+
+async def test_a_card_a_membership_bills_moves_it_to_the_default_before_removal(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway, factory: Factory
 ) -> None:
     await enable_payments(db)
-    sub = await _active_sub(db, "sub_card_in_use")
-    pm = await _saved_method(db, sub.client_id, ref="pm_in_use")
-    sub.payment_method_id = pm.id
+    sub = await _member_with_card(db, factory, "pm_in_use")
+    sub_id, cid, old = sub.id, sub.client_id, sub.payment_method_id
     ended = await _seed_sub(db, ref="sub_card_ended", status="canceled")
-    ended.payment_method_id = pm.id
+    ended.client_id, ended.payment_method_id = cid, old
     await db.flush()
-    pm_id = pm.id
-    refused = await as_owner.delete(f"/v1/payments/methods/{pm_id}")
+    refused = await as_owner.delete(f"/v1/payments/methods/{old}")
     assert (refused.status_code, refused.json()["error"]) == (409, "payment_method_in_use")
-    assert gateway.detached == []
-    await db.execute(
-        update(Subscription)
-        .where(Subscription.provider_ref == "sub_card_in_use")
-        .values(status="canceled")
-    )
-    removed = await as_owner.delete(f"/v1/payments/methods/{pm_id}")
+    assert gateway.detached == [] and gateway.subscription_methods == {}
+    bank = await _saved_method(db, cid, ref="pm_bank_ok", method="bank_eft")
+    bank.mandate_status = "active"
+    await db.flush()
+    bank_id = bank.id
+    removed = await as_owner.delete(f"/v1/payments/methods/{old}")
     assert removed.status_code == 200, removed.text
     assert gateway.detached == ["pm_in_use"]
+    assert gateway.subscription_methods == {"sub_pm_in_use": "pm_bank_ok"}
+    assert gateway.subscription_fee_percents["sub_pm_in_use"] == subscription_fee_percent(
+        "bank_eft"
+    )
+    assert await column(db, "subscriptions", sub_id, "payment_method_id") == bank_id
+    assert await column(db, "payment_methods", bank_id, "preferred") is True
+
+
+async def test_a_new_default_takes_over_the_clients_memberships(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway, factory: Factory
+) -> None:
+    await enable_payments(db)
+    sub = await _member_with_card(db, factory, "pm_old_card")
+    new = await _saved_method(db, sub.client_id, ref="pm_new_card")
+    res = await as_owner.post(f"/v1/payments/methods/{new.id}/default")
+    assert res.status_code == 200, res.text
+    assert gateway.subscription_methods == {"sub_pm_old_card": "pm_new_card"}
+    assert await column(db, "subscriptions", sub.id, "payment_method_id") == new.id
+    again = await as_owner.post(f"/v1/payments/methods/{new.id}/default")
+    assert again.status_code == 200 and len(gateway.subscription_methods) == 1
+
+
+async def test_a_membership_the_new_default_cannot_take_keeps_its_card(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway, factory: Factory
+) -> None:
+    await enable_payments(db)
+    sub = await _member_with_card(db, factory, "pm_kept")
+    sub_id = sub.id
+    pending = await _saved_method(db, sub.client_id, ref="pm_pending", method="bank_eft")
+    pending.mandate_status = "pending"
+    await db.flush()
+    pending_id = pending.id
+    res = await as_owner.post(f"/v1/payments/methods/{pending_id}/default")
+    assert res.status_code == 409
+    assert res.json()["error"] == "payment_method_not_chargeable"
+    assert gateway.subscription_methods == {}
+    assert await column(db, "subscriptions", sub_id, "payment_method_id") != pending_id
 
 
 async def test_archiving_clients_in_bulk_ends_their_memberships_at_period_end(
@@ -1429,3 +1493,49 @@ async def test_a_new_attempt_with_another_card_is_not_replayed(
     assert refused.status_code == 402, refused.text
     ok = await as_owner.post("/v1/subscriptions", json=second, headers=key())
     assert ok.status_code == 201, ok.text
+
+
+async def test_a_membership_stripe_no_longer_has_still_follows_the_default_locally(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway, factory: Factory
+) -> None:
+    await enable_payments(db)
+    sub = await _member_with_card(db, factory, "pm_fixture")
+    sub_id = sub.id
+    gateway.missing_subscriptions.add("sub_pm_fixture")
+    new = await _saved_method(db, sub.client_id, ref="pm_real")
+    new_id_ = new.id
+    res = await as_owner.post(f"/v1/payments/methods/{new_id_}/default")
+    assert res.status_code == 200, res.text
+    assert gateway.subscription_methods == {}
+    assert await column(db, "subscriptions", sub_id, "payment_method_id") == new_id_
+
+
+async def test_a_refused_move_rolls_back_and_stripes_choice_is_copied_back(
+    as_owner: httpx.AsyncClient,
+    api: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+    factory: Factory,
+) -> None:
+    await enable_payments(db)
+    first = await _member_with_card(db, factory, "pm_first")
+    second = await _active_sub(db, "sub_refused")
+    second.client_id, second.payment_method_id = first.client_id, first.payment_method_id
+    new = await _saved_method(db, first.client_id, ref="pm_next")
+    await db.flush()
+    first_id, old, new_id_ = first.id, first.payment_method_id, new.id
+    gateway.refused_subscriptions.add("sub_refused")
+    refused = await as_owner.post(f"/v1/payments/methods/{new_id_}/default")
+    assert refused.status_code == 409
+    assert await column(db, "subscriptions", first_id, "payment_method_id") == old
+    assert await column(db, "payment_methods", new_id_, "preferred") is False
+    assert gateway.subscription_methods == {"sub_pm_first": "pm_next"}
+    current: dict[str, object] = {
+        "id": "sub_pm_first",
+        "status": "active",
+        "default_payment_method": "pm_next",
+    }
+    gateway.objects[("acct_test", "subscription", "sub_pm_first")] = current
+    event = _sub_event("evt_moved", "customer.subscription.updated", current)
+    assert (await api.post("/webhooks/stripe", content=event, headers=GOOD)).status_code == 200
+    assert await column(db, "subscriptions", first_id, "payment_method_id") == new_id_

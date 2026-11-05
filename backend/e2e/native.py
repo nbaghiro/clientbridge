@@ -27,6 +27,7 @@ from e2e.results import (
     validate_native_evidence,
 )
 from e2e.stack import Stack
+from e2e.stripe_fake import FAKE_KEY, fake_stripe
 from e2e.tier import ROOT
 from e2e.webauthn import register_key
 
@@ -321,6 +322,9 @@ def run_native(
     build = NATIVE_BUILDS[args.platform]
     if not build.exists():
         raise RuntimeError(f"no e2e build at {build}; run with --build-native {args.platform}")
+    if args.fake_stripe:
+        api_base = processes.enter_context(fake_stripe(stack.directory / "stripe-fake.log"))
+        stack.env.update({"STRIPE_SECRET_KEY": FAKE_KEY, "STRIPE_API_BASE": api_base})
     stack.start(processes, log, browser_fixtures=False)
     report = stack.directory / "native-results.xml"
     flows = native_flows(args.tests)
@@ -346,6 +350,8 @@ def run_native(
         f"AUTH_URL={tier.environment()['AUTH_PUBLIC_URL']}",
         "-e",
         f"API_URL={stack.api}",
+        # flows tagged stripe need the stand-in Stripe, and every other flow runs without one
+        *(["--include-tags", "stripe"] if args.fake_stripe else ["--exclude-tags", "stripe"]),
         # only the iOS simulator takes a push without a push service
         *(["--exclude-tags", "ios"] if args.platform == "android" else []),
         "--format",
@@ -413,5 +419,6 @@ def run_native(
         finally:
             stack.stop_owned(process)
             keep_recordings(stack.directory)
-    required = [] if args.tests else REQUIRED_CASES[f"native-{args.platform}"]
+    lane = "native-stripe" if args.fake_stripe else f"native-{args.platform}"
+    required = [] if args.tests else REQUIRED_CASES[lane]
     validate_native_evidence(report.read_text(), required)

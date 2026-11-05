@@ -346,9 +346,20 @@ class InvoicePaymentOut(Mirror):
     client_secret: str | None = None
 
 
+class PaymentSetupLinkIn(BaseModel):
+    text: bool = Field(default=False, description="Also text the link to the client's mobile")
+
+
 class PaymentSetupLinkOut(BaseModel):
     id: str
     url: str
+    expires_at: datetime
+    texted: bool = False
+
+
+class PaymentSetupLinkStatus(BaseModel):
+    id: str
+    verifying: bool = Field(description="The client entered the account and Stripe is checking it")
     expires_at: datetime
 
 

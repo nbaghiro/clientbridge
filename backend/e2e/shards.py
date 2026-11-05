@@ -130,24 +130,37 @@ class Shard(TypedDict):
     id: str
     name: str
     flows: list[str]
+    options: str
+
+
+def faked_stripe(flow: Path) -> bool:
+    return "    - stripe\n" in flow.read_text()
 
 
 def native_shards(count: int) -> list[Shard]:
-    """The Maestro flows in shards of about equal length; one device runs a shard in turn."""
+    """The Maestro flows in shards of about equal length, and the stand-in Stripe's in one more."""
     seconds = measured_seconds()["mobile"]
     usual = usual_seconds(seconds)
-    units = {flow.name: seconds.get(flow_name(flow), usual) for flow in FLOWS.glob("*.yaml")}
+    flows = sorted(FLOWS.glob("*.yaml"))
+    units = {
+        flow.name: seconds.get(flow_name(flow), usual) for flow in flows if not faked_stripe(flow)
+    }
     shards = [sorted(picked) for picked in balanced(units, count, workers=1)]
     if not all(shards):
         raise ValueError(f"{count} shards leave one without flows; use fewer shards")
-    return [
+    planned = [
         Shard(
             id=str(index),
             name=", ".join(flow.removesuffix(".yaml") for flow in picked),
             flows=picked,
+            options="",
         )
         for index, picked in enumerate(shards, 1)
     ]
+    if stripe := [flow.name for flow in flows if faked_stripe(flow)]:
+        name = ", ".join(flow.removesuffix(".yaml") for flow in stripe)
+        planned.append(Shard(id="stripe", name=name, flows=stripe, options="--fake-stripe"))
+    return planned
 
 
 def shuffled_config(stack: "Stack", args: argparse.Namespace, seed: int) -> str:

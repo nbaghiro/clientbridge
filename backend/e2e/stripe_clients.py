@@ -194,6 +194,68 @@ async def advance_clock(account: str, run: str, fixture: ClientFixture, seconds:
     return target
 
 
+async def saved_methods(account: str, fixture: ClientFixture) -> dict[str, object]:
+    """What Stripe holds for the client's wallet: attached methods, setups, mandates and charges."""
+    if fixture.customer is None:
+        raise ValueError("client fixture has no customer")
+    customer = await stripe.Customer.retrieve_async(fixture.customer, stripe_account=account)
+    settings = customer.to_dict().get("invoice_settings") or {}
+    methods: list[dict[str, object]] = []
+    listed = await stripe.Customer.list_payment_methods_async(
+        fixture.customer, stripe_account=account
+    )
+    async for method in listed.auto_paging_iter():
+        details = method.to_dict()
+        kind = str(details["type"])
+        methods.append(
+            {"id": method.id, "type": kind, "last4": (details.get(kind) or {}).get("last4")}
+        )
+    setups: list[dict[str, object]] = []
+    intents = await stripe.SetupIntent.list_async(customer=fixture.customer, stripe_account=account)
+    async for setup in intents.auto_paging_iter():
+        mandate = None
+        if isinstance(setup.mandate, str):
+            found = await stripe.Mandate.retrieve_async(setup.mandate, stripe_account=account)
+            mandate = {
+                "id": found.id,
+                "status": found.status,
+                "payment_method": found.payment_method,
+            }
+        setups.append(
+            {
+                "id": setup.id,
+                "status": setup.status,
+                "payment_method": setup.payment_method,
+                "mandate": mandate,
+            }
+        )
+    charges: list[dict[str, object]] = []
+    payments = await stripe.PaymentIntent.list_async(
+        customer=fixture.customer, stripe_account=account
+    )
+    async for intent in payments.auto_paging_iter():
+        charges.append(
+            {
+                "id": intent.id,
+                "status": intent.status,
+                "amount": intent.amount,
+                "payment_method": intent.payment_method,
+                "payment_method_types": list(intent.payment_method_types),
+                "invoice_id": intent.to_dict().get("metadata", {}).get("invoice_id"),
+                "charge": await charge_evidence(account, intent.latest_charge)
+                if isinstance(intent.latest_charge, str) and intent.status == "succeeded"
+                else None,
+            }
+        )
+    return {
+        "customer": fixture.customer,
+        "default": settings.get("default_payment_method"),
+        "methods": methods,
+        "setups": setups,
+        "intents": charges,
+    }
+
+
 async def client_action(action: str, client_id: str, seconds: int) -> dict[str, object]:
     account = await validate_context()
     path, state = run_state(account)
@@ -207,6 +269,8 @@ async def client_action(action: str, client_id: str, seconds: int) -> dict[str, 
     if len(matches) != 1:
         raise ValueError("client is not one registered client fixture")
     fixture = matches[0]
+    if action == "methods":
+        return await saved_methods(account, fixture)
     if action == "advance":
         return {
             "clock": fixture.clock,
@@ -268,10 +332,11 @@ async def client_action(action: str, client_id: str, seconds: int) -> dict[str, 
 
 
 async def clients_main(argv: list[str]) -> None:
-    """Register a gift card or membership client, move its test clock, or read its renewals."""
+    """Register a purchaser, move its test clock, or read its renewals or saved methods."""
     parser = argparse.ArgumentParser(prog="python -m e2e.stripe clients")
     parser.add_argument(
-        "action", choices=("register", "register-clock", "advance", "decline", "evidence")
+        "action",
+        choices=("register", "register-clock", "advance", "decline", "evidence", "methods"),
     )
     parser.add_argument("client_id")
     parser.add_argument("--seconds", type=int, default=0)

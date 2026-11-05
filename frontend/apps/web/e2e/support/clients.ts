@@ -44,6 +44,21 @@ export async function openClient(page: Page, client: ClientFixture): Promise<Loc
     return record;
 }
 
+export async function openWallet(page: Page, client: ClientFixture): Promise<Locator> {
+    await navigate(page, `/clients?open=${client.id}`);
+    const pane = page.getByRole("complementary", { name: client.name, exact: true });
+    const addCard = pane.getByRole("button", { name: strings.clients.addCard, exact: true });
+    const manage = pane.getByRole("button", {
+        name: strings.clients.record.manageWallet,
+        exact: true,
+    });
+    // the record keeps its wallet pane open across visits, so open it only when it is closed
+    await expect(addCard.or(manage)).toBeVisible({ timeout: 60_000 });
+    if (!(await addCard.isVisible())) await manage.click();
+    await expect(addCard).toBeVisible({ timeout: 60_000 });
+    return pane;
+}
+
 export async function editClient(page: Page, client: ClientFixture): Promise<Locator> {
     const record = await openClient(page, client);
     // a note's menu button is also named Edit; the record's own button shows the word

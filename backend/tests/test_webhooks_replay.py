@@ -1,20 +1,22 @@
 """Unapplied events are kept, missed ones replay from current state, and stale news stays quiet."""
 
 import json
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import httpx
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.integrations.stripe import MissedEvent
+from clientbridge.models.ledger import Entry
 from clientbridge.models.messaging import Delivery
 from clientbridge.models.payments import Payment
+from clientbridge.models.platform import Webhook
 from clientbridge.services import payments
-from clientbridge.services.payments import run_replay_missed_events
-from tests.conftest import FakePaymentGateway
+from clientbridge.services.payments import run_replay_missed_events, run_retry_deferred_payments
+from tests.conftest import BIZ, Factory, FakePaymentGateway
 from tests.helpers import STRIPE, card_pay, enable_payments, provider_ref, sent_invoice
 
 
@@ -135,3 +137,88 @@ async def test_events_already_applied_do_not_use_up_the_replay_budget(
     assert await run_replay_missed_events(db, gateway) == 1
     payment = await db.get(Payment, pay_id, populate_existing=True)
     assert payment is not None and payment.status == "succeeded"
+
+
+async def _deferred(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway, event_id: str
+) -> tuple[str, str]:
+    """A card payment whose success arrived before Stripe could show its fees."""
+    pay_id, pi = await _invoice_payment(api, db)
+    gateway.pending_fees.add(pi)
+    gateway.objects[("acct_test", "payment_intent", pi)] = {
+        "id": pi,
+        "object": "payment_intent",
+        "status": "succeeded",
+    }
+    body = json.dumps(
+        {
+            "id": event_id,
+            "type": "payment_intent.succeeded",
+            "account": "acct_test",
+            "data": {"object": {"id": pi, "metadata": {"business_id": BIZ}}},
+        }
+    )
+    res = await api.post("/webhooks/stripe", content=body, headers=STRIPE)
+    assert (res.status_code, res.json()["error"]) == (503, "retry_later")
+    await _received(db, event_id, clock.now())
+    return pay_id, pi
+
+
+async def _received(db: AsyncSession, event_id: str, at: datetime) -> None:
+    await db.execute(update(Webhook).where(Webhook.id == event_id).values(created_at=at))
+    await db.flush()
+
+
+async def _status(db: AsyncSession, payment_id: str) -> str:
+    payment = await db.get(Payment, payment_id, populate_existing=True)
+    assert payment is not None
+    return payment.status
+
+
+async def test_a_payment_deferred_for_its_fees_settles_within_a_minute_once(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    pay_id, pi = await _deferred(api, db, gateway, "evt_early")
+    assert await run_retry_deferred_payments(db, gateway) == 0
+    assert await _status(db, pay_id) == "pending"
+    gateway.pending_fees.discard(pi)
+    assert await run_retry_deferred_payments(db, gateway) == 1
+    assert await _status(db, pay_id) == "succeeded"
+    assert await run_retry_deferred_payments(db, gateway) == 0
+    late = _succeeded("evt_early", pi, int(clock.now().timestamp()))
+    assert (await api.post("/webhooks/stripe", content=late, headers=STRIPE)).status_code == 200
+    journals = await db.scalar(
+        select(func.count(func.distinct(Entry.journal_id))).where(Entry.ref == f"payment:{pay_id}")
+    )
+    assert journals == 1
+
+
+async def test_a_deferral_older_than_the_window_is_left_to_the_hourly_jobs(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    pay_id, pi = await _deferred(api, db, gateway, "evt_old")
+    gateway.pending_fees.discard(pi)
+    await _received(db, "evt_old", clock.now() - timedelta(minutes=31))
+    assert await run_retry_deferred_payments(db, gateway) == 0
+    assert await _status(db, pay_id) == "pending"
+
+
+async def test_a_deferred_intent_claiming_another_business_settles_nothing(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway, factory: Factory
+) -> None:
+    pay_id, pi = await _deferred(api, db, gateway, "evt_claim")
+    gateway.pending_fees.discard(pi)
+    other = await factory.business()
+    other.stripe_account_id = "acct_other"
+    await db.flush()
+    gateway.objects[("acct_other", "payment_intent", pi)] = {
+        "id": pi,
+        "object": "payment_intent",
+        "status": "succeeded",
+        "metadata": {"business_id": other.id},
+    }
+    claim = {"id": pi, "metadata": {"business_id": other.id}}
+    await db.execute(update(Webhook).where(Webhook.id == "evt_claim").values(payload=claim))
+    await db.flush()
+    assert await run_retry_deferred_payments(db, gateway) == 0
+    assert await _status(db, pay_id) == "pending"

@@ -104,8 +104,14 @@ flowchart LR
   in `bank`. There is no e-Transfer request or matching. Recording one, paying a desk sale in cash,
   applying a gift card and filing a tax remittance all require an `Idempotency-Key`, so a retry never
   records the money twice.
-- **PAD/EFT**: pre-authorized debit for recurring. Staff on web or mobile send the client a payment setup link,
-  and the client authorizes the bank account on Connect `pay.D/setup`. A charge on a saved bank account is
+- **PAD/EFT**: pre-authorized debit for recurring. Staff on web or mobile text the client a payment setup
+  link (or copy or share it), and the client authorizes the bank account on Connect `pay.D/setup`. A new
+  link replaces an unused one but is refused while the client is verifying an account with Stripe
+  (`bank_setup_in_progress`) until that link expires; the wallet shows the open link until it is used,
+  revoked or expires. A used link can't be revoked (`pad_link_used`), and a new one leaves it alone, so an
+  authorized account stays saved. A bank account finished on a revoked link is detached at Stripe and never
+  saved. Only a chargeable method (a
+  card, or a bank account with an active mandate) is ever a client's default. A charge on a saved bank account is
   recorded as `bank_eft` (`charge_method`) by the invoice, deposit, entitlement and sale builders, and its
   refunds copy that method. Stripe debits a saved bank account off session only when the PaymentIntent
   names both `allowed_payment_method_types: ["acss_debit"]` and the mandate, so `pad_mandate` finds the
@@ -211,8 +217,8 @@ An intent that nobody will finish is cancelled rather than left confirmable, so 
   `void_invoice` checks for money and pending payments under the invoice lock that payments also take.
 - `POST /v1/orders/{id}/checkout/cancel` cancels a desk sale's open card or Terminal intents so the sale
   can be edited, voided or paid in cash. It answers 409 `checkout_paid` once the card payment went
-  through. The web and mobile pay sheets and the mobile reader screen offer it, and changing the tip
-  supersedes the open intent instead of being refused.
+  through. The web and mobile pay sheets and the mobile reader screen offer it, voiding the sale does the
+  same first, and changing the tip supersedes the open intent instead of being refused.
 - `cancel_stale_intents` (hourly at :45, `payments.run_cancel_stale_intents`) cancels staff-opened desk
   sale, gift card and package intents still pending a day after they opened, and pay-link and deposit
   card intents still pending after an hour, so an abandoned form never blocks voiding the invoice or
@@ -245,9 +251,14 @@ An intent that nobody will finish is cancelled rather than left confirmable, so 
   membership is created with `allow_incomplete`, since its first debit settles days later. Creating one
   needs card payments on (`card_payments_off` otherwise), as one-off charges do.
 - Creating a membership locks the client and requires an idempotency key, so two quick creates can't
-  both start billing. A saved card or bank account a membership still bills can't be removed
-  (`payment_method_in_use`); one only canceled memberships used is removed after their link is
-  cleared, and Stripe is told last. Restoring an archived client undoes only the end its archive
+  both start billing. Memberships bill the client's default: making a method the default moves the
+  client's memberships to it at Stripe (`default_payment_method` and the fee percent for its kind), and
+  removing a method a membership bills first moves the membership to the client's other chargeable
+  default; with none, removal is refused (`payment_method_in_use`). When a default stops being chargeable
+  (its mandate ends), its memberships move to the method that becomes the default. Stripe decides what a
+  membership bills, so `customer.subscription.updated` copies its `default_payment_method` back onto the
+  row. One only canceled memberships used
+  is removed after their link is cleared, and Stripe is told last. Restoring an archived client undoes only the end its archive
   scheduled; a Stripe refusal is logged and the restore goes ahead. A trial that runs out with
   memberships still billing sends the owner the same notice a lapsed plan does.
 - Subscription creates use the command's idempotency key as Stripe's key, so a retry with a different card
@@ -459,13 +470,14 @@ path, the hourly replay job applies events Stripe couldn't deliver, hourly recon
 recognized balance-transaction sources, and audits expose differences nothing explains. This is not a
 guarantee that both balances are identical at every instant.
 
-| Mechanism                             | Behavior                                                                                                                                                                                            |
-| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Provider commands                     | Stable idempotency keys and provider-reference deduplication; Customer creation also uses a business/client key.                                                                                    |
-| Webhook application                   | Verify signature/version, dedupe by event ID, then apply state, journal and queued notification transactionally.                                                                                    |
-| Current subscription state            | Fetch Stripe's current subscription under a local row lock instead of overwriting it with an old event snapshot.                                                                                    |
-| `replay_missed_events`, hourly at :27 | List events Stripe couldn't deliver, re-fetch each object at the pinned version and apply the event its current state stands for.                                                                   |
-| `reconcile_ledger`, hourly at :45     | Read each connected account's balance transactions since its cursor, repair recognized charge/refund/dispute/payout sources, compare source and account balances, and check cached ledger balances. |
+| Mechanism                               | Behavior                                                                                                                                                                                            |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Provider commands                       | Stable idempotency keys and provider-reference deduplication; Customer creation also uses a business/client key.                                                                                    |
+| Webhook application                     | Verify signature/version, dedupe by event ID, then apply state, journal and queued notification transactionally.                                                                                    |
+| Current subscription state              | Fetch Stripe's current subscription under a local row lock instead of overwriting it with an old event snapshot.                                                                                    |
+| `replay_missed_events`, hourly at :27   | List events Stripe couldn't deliver, re-fetch each object at the pinned version and apply the event its current state stands for.                                                                   |
+| `retry_deferred_payments`, every minute | Apply again a `payment_intent.succeeded` deferred in the last 30 minutes, from the intent's current state, so a sale isn't left unpaid until Stripe's own retry.                                    |
+| `reconcile_ledger`, hourly at :45       | Read each connected account's balance transactions since its cursor, repair recognized charge/refund/dispute/payout sources, compare source and account balances, and check cached ledger balances. |
 
 ### Webhooks
 
@@ -477,7 +489,9 @@ its payload.
 A handler that needs Stripe or our own commit to catch up raises `retry_later` (503): the charge's fees
 aren't readable yet, a refunded charge hasn't settled locally, or a membership event arrived before its
 row committed. The event is kept as a `failed` row with its payload, so it outlives Stripe's retries, and
-Stripe delivers it again. Any other exception also leaves a `failed` row, is logged at `ERROR` and answers
+Stripe delivers it again. Stripe's first retry can take minutes in live mode and hours in a sandbox, while
+every card payment's first delivery usually comes before its fees, so `retry_deferred_payments` applies a
+deferred card payment again each minute for 30 minutes, through the same path under the event's id. Any other exception also leaves a `failed` row, is logged at `ERROR` and answers
 5xx. A retried `failed` row is locked (`SELECT ... FOR UPDATE`) before it is applied, so concurrent
 deliveries apply it once. Failed rows don't raise an alert by age yet.
 
@@ -665,7 +679,9 @@ The Billing Portal is identified by `metadata.clientbridge=portal`; demo account
 
 The script provisions demo connected accounts, platform products/prices/portal, and public endpoints
 when `--webhook-url` is supplied. `--write-db` links business accounts and Terminal locations and replaces
-fixture saved cards with real sandbox references. Complete embedded onboarding as each demo owner;
+fixture saved cards with real sandbox references, and gives each seeded bank account with an active
+mandate a real sandbox PAD account (Stripe's test bank, authorized offline and verified with its test
+micro-deposits). Complete embedded onboarding as each demo owner;
 the script prints the test identity/bank instructions. Rerun linking after `make demo-reset`.
 Seeded historic payments/subscriptions retain fixture references: create a fresh sandbox sale or
 subscription to test actual refunds, cancellation and recovery.
@@ -738,6 +754,7 @@ later, rerun linking; you do not need to recreate the Stripe accounts.
 | `STRIPE_PLATFORM_WEBHOOK_SECRET`    | Platform plan-subscription endpoint signing secret.                                     |
 | `STRIPE_PORTAL_CONFIGURATION`       | Platform Billing Portal configuration ID.                                               |
 | `STRIPE_CONNECT_COUNTRY`            | Connected-account country; defaults to `CA`.                                            |
+| `STRIPE_API_BASE`                   | Dev only: a stand-in Stripe the native lane's bank-link flow runs against; empty is Stripe. |
 | `STRIPE_PUBLISHABLE_KEY`            | Mobile configuration, and the web, Connect and admin `/config.js` in every environment. |
 | `clientbridge:stripePublishableKey` | Per-environment Pulumi stack setting for deployed clients.                              |
 
@@ -792,13 +809,13 @@ original Price unless explicitly changed.
 Use the [categorized QA checklist](qa/payments.md) for scenario coverage and the
 [automation plan](qa/payments-automation.md) for real-app recordings, shared sandbox isolation and CI rollout.
 
-| Layer              | Command                                         | What it proves                                                                                                                                           |
-| ------------------ | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Backend regression | `make test-backend`                             | Product behavior, ledger invariants, duplicate/out-of-order events, replay, reconciliation and tenant/role isolation with fakes and disposable Postgres. |
-| Stripe contract    | `make stripe-mock`, then `make test-contract`   | Real adapter request/response shapes against stripe-mock; not provider state or Accounts v2 behavior.                                                    |
-| Provider sandbox   | `make test-sandbox`                             | Real sandbox behavior when test keys are configured; skipped otherwise. May create provider test objects.                                                |
+| Layer              | Command                                            | What it proves                                                                                                                                           |
+| ------------------ | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backend regression | `make test-backend`                                | Product behavior, ledger invariants, duplicate/out-of-order events, replay, reconciliation and tenant/role isolation with fakes and disposable Postgres. |
+| Stripe contract    | `make stripe-mock`, then `make test-contract`      | Real adapter request/response shapes against stripe-mock; not provider state or Accounts v2 behavior.                                                    |
+| Provider sandbox   | `make test-sandbox`                                | Real sandbox behavior when test keys are configured; skipped otherwise. May create provider test objects.                                                |
 | Real Stripe in CI  | `make test-stripe-qa STRIPE_QA_ARGS="--pair ci-N"` | The sandbox suite with no skips on a leased pool pair, each scenario's ledger checked against Stripe's balance transactions. Runs on every pull request. |
-| Frontend           | `make test-frontend` and normal lint/type gates | Shared view-model and client checks; not proof of successful embedded-provider interaction.                                                              |
+| Frontend           | `make test-frontend` and normal lint/type gates    | Shared view-model and client checks; not proof of successful embedded-provider interaction.                                                              |
 
 The sandbox tier uses `STRIPE_TEST_SECRET_KEY` and, for existing merchant scenarios, `STRIPE_TEST_CONNECTED_ACCOUNT`;
 the setup script prints the demo account ID. Follow the [test tiers](engineering.md#stripe-four-tiers-layered-by-cost)

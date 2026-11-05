@@ -318,6 +318,18 @@ def test_dev_refuses_a_live_stripe_key(key: str) -> None:
     assert EnvSettings(env="dev", stripe_secret_key="sk_test_x").stripe_secret_key == "sk_test_x"
 
 
+@pytest.mark.parametrize("env", ["staging", "prod"])
+def test_only_dev_points_stripe_elsewhere(
+    monkeypatch: pytest.MonkeyPatch, env: Environment
+) -> None:
+    _deploy(monkeypatch, env, "clientbridge.ca" if env == "prod" else "staging.clientbridge.ca")
+    monkeypatch.setenv("STRIPE_API_BASE", "http://127.0.0.1:9999")
+    with pytest.raises(ValidationError, match="STRIPE_API_BASE"):
+        EnvSettings()
+    dev = EnvSettings(env="dev", stripe_secret_key="sk_test_x", stripe_api_base="http://lane")
+    assert dev.stripe_api_base == "http://lane"
+
+
 def test_an_explicit_url_must_agree_with_the_base_domain(monkeypatch: pytest.MonkeyPatch) -> None:
     _deploy(monkeypatch, "staging", "staging.clientbridge.ca")
     monkeypatch.setenv("WEB_BASE_URL", "https://app.staging.clientbridge.ca/")
@@ -760,18 +772,21 @@ LANE_FILES = {
     "sync": ("packages/sync/e2e", "*.e2e.ts"),
     "native-ios": ("apps/mobile/e2e", "*.yaml"),
     "native-android": ("apps/mobile/e2e", "*.yaml"),
+    "native-stripe": ("apps/mobile/e2e", "*.yaml"),
 }
+
+
+def in_lane(lane: str, text: str) -> bool:
+    """Android drops flows tagged ios; only the stand-in Stripe run takes those tagged stripe."""
+    if lane.startswith("native-") and ("    - stripe\n" in text) != (lane == "native-stripe"):
+        return False
+    return lane != "native-android" or "    - ios\n" not in text
 
 
 def lane_sources(lane: str) -> str:
     folder, pattern = LANE_FILES[lane]
     paths = (functional.ROOT / "frontend" / folder).glob(pattern)
-    # Android leaves out the flows tagged ios
-    return "\n".join(
-        text
-        for text in (path.read_text() for path in paths)
-        if lane != "native-android" or "    - ios\n" not in text
-    )
+    return "\n".join(text for text in (path.read_text() for path in paths) if in_lane(lane, text))
 
 
 def written_cases(source: str) -> set[str]:
@@ -820,11 +835,13 @@ def test_every_walkthrough_lands_in_exactly_one_native_shard() -> None:
     present = sorted(path.name for path in (native.MOBILE / "e2e").glob("*.yaml"))
     shards = sharding.native_shards(5)
     assert sorted(flow for shard in shards for flow in shard["flows"]) == present
-    assert [shard["id"] for shard in shards] == ["1", "2", "3", "4", "5"]
+    assert [shard["id"] for shard in shards] == ["1", "2", "3", "4", "5", "stripe"]
+    assert [s["options"] for s in shards] == ["", "", "", "", "", "--fake-stripe"]
+    assert shards[-1]["flows"] == ["clients.wallet.yaml"]
     assert native.native_flows([]) == [*(f"e2e/{flow}" for flow in present), "e2e/assets"]
     assert native.native_flows(["clients.yaml"]) == ["e2e/clients.yaml", "e2e/assets"]
     with pytest.raises(ValueError, match="use fewer shards"):
-        sharding.native_shards(len(present) + 1)
+        sharding.native_shards(len(present))
 
 
 def test_first_attempts_separate_flakes_from_failures() -> None:

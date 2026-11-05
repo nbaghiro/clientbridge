@@ -174,7 +174,22 @@
         "message": "[Ţĥîš ɱéɱƀéŕšĥîþ'š îñçļûðéð ṽîšîţš ƒöŕ ţĥé þéŕîöð åŕé ûšéð. Ŕîñĝ ţĥé ṽîšîţ ûþ îñšţéåð. one two three four five six]"
     },
     "api.paymentMethodInUse": {
-        "message": "[Å ɱéɱƀéŕšĥîþ šţîļļ ƀîļļš ţĥîš çåŕð. Çåñçéļ ţĥé ɱéɱƀéŕšĥîþ öŕ ɱöṽé îţ ţö åñöţĥéŕ çåŕð ƒîŕšţ. one two three four five six]"
+        "message": "[Å ɱéɱƀéŕšĥîþ šţîļļ ƀîļļš ţĥîš çåŕð, åñð ţĥé çļîéñţ ĥåš ñö öţĥéŕ çåŕð öŕ åûţĥöŕîžéð ƀåñķ åççöûñţ ţö ɱöṽé îţ ţö. Åðð öñé ƒîŕšţ, öŕ çåñçéļ ţĥé ɱéɱƀéŕšĥîþ. one two three four five six seven eight nine]"
+    },
+    "api.bankSetupInProgress": {
+        "message": "[Ţĥîš çļîéñţ îš ṽéŕîƒýîñĝ å ƀåñķ åççöûñţ ŵîţĥ Šţŕîþé. Ŕéṽöķé ţĥéîŕ çûŕŕéñţ ļîñķ ƒîŕšţ îƒ ýöû ñééð ţö šéñð å ñéŵ öñé. one two three four five six seven]"
+    },
+    "api.textsStopped": {
+        "message": "[Ţĥîš çļîéñţ ŕéþļîéð ŠŢÖÞ, šö ţĥéý çåñ’ţ ƀé ţéẋţéð. Çöþý ţĥé ļîñķ åñð šĥåŕé îţ åñöţĥéŕ ŵåý. one two three four five six]"
+    },
+    "api.padUnavailable": {
+        "message": "[Ɓåñķ ðéƀîţ îšñ'ţ ţûŕñéð öñ ƒöŕ ţĥîš ƀûšîñéšš ýéţ. Öþéñ Ĝéţţîñĝ þåîð îñ Šéţûþ ţö šéé ŵĥåţ Šţŕîþé ñééðš. one two three four five six seven]"
+    },
+    "api.padLinkUsed": {
+        "message": "[Ţĥé çļîéñţ åļŕéåðý ûšéð ţĥîš ļîñķ ţö åûţĥöŕîžé ţĥéîŕ ƀåñķ åççöûñţ. Ŕéɱöṽé ţĥé ƀåñķ åççöûñţ ƒŕöɱ ţĥé ŵåļļéţ îñšţéåð. one two three four five six seven eight]"
+    },
+    "api.paymentMethodNotChargeable": {
+        "message": "[Ţĥîš ɱéţĥöð çåñ’ţ ƀé çĥåŕĝéð ýéţ, šö îţ çåñ’ţ ƀé ţĥé ðéƒåûļţ. Ƒîñîšĥ ţĥé çļîéñţ’š ƀåñķ åûţĥöŕîžåţîöñ öŕ åðð å çåŕð. one two three four five six seven]"
     },
     "api.cardDeclined": {
         "message": "[Ţĥé çåŕð ŵåš ðéçļîñéð. Ţŕý åñöţĥéŕ çåŕð öŕ þåýɱéñţ ɱéţĥöð. one two three four]"
@@ -1189,6 +1204,12 @@
     },
     "billing.rec.cardBody": {
         "message": "[Ţĥé îñṽöîçé ûþðåţéš ŵĥéñ ţĥé çåŕð þåýɱéñţ šéţţļéš, ûšûåļļý ŵîţĥîñ å ɱîñûţé. one two three four five]"
+    },
+    "billing.rec.debitTitle": {
+        "message": "[Ɓåñķ ðéƀîţ šţåŕţéð one two]"
+    },
+    "billing.rec.debitBody": {
+        "message": "[Ţĥé îñṽöîçé ûþðåţéš ŵĥéñ ţĥé ƀåñķ ðéƀîţ çļéåŕš, ŵĥîçĥ ţåķéš å ƒéŵ ƀûšîñéšš ðåýš. one two three four five]"
     },
     "billing.rec.donePaid": {
         "message": "[Îñṽöîçé {n} îš þåîð îñ ƒûļļ. one two]"
@@ -4958,6 +4979,9 @@
     "clients.nextCharge": {
         "message": "[Ñéẋţ çĥåŕĝé {date} one two]"
     },
+    "clients.subscriptionEnded": {
+        "message": "[Éñðéð {date} one]"
+    },
     "clients.cancelSubscriptionTitle": {
         "message": "[Çåñçéļ šûƀšçŕîþţîöñ one two]"
     },
@@ -5841,7 +5865,10 @@
         "message": "[Îţ çåñ'ţ ƀé çĥåŕĝéð åĝåîñ. Þåšţ þåýɱéñţš ɱåðé ŵîţĥ îţ åŕé ķéþţ. one two three four]"
     },
     "clients.wallet.removeBodyInUse": {
-        "message": "[Îţ þåýš {plans}. Ţĥöšé çĥåŕĝéš ŵîļļ ɱöṽé ţö ţĥé ðéƒåûļţ ɱéţĥöð, öŕ ƒåîļ îƒ ţĥéŕé îš ñöñé. one two three four five]"
+        "message": "[Îţ þåýš {plans}. Ţĥöšé çĥåŕĝéš ɱöṽé ţö {method}. one two three]"
+    },
+    "clients.wallet.removeBodyLast": {
+        "message": "[Îţ þåýš {plans}. Åðð åñöţĥéŕ çåŕð öŕ ƀåñķ åççöûñţ ƒîŕšţ, šö ţĥé ɱéɱƀéŕšĥîþ ĥåš šöɱéţĥîñĝ ţö ƀîļļ. one two three four five six]"
     },
     "clients.wallet.removeConfirm": {
         "message": "[Ŕéɱöṽé one]"
@@ -13095,7 +13122,25 @@
         "message": "[Ŕéɱöṽîñĝ å þĥöţö ñééðš å çöññéçţîöñ. Ţŕý åĝåîñ ŵĥéñ ýöû'ŕé ƀåçķ öñļîñé. one two three four five]"
     },
     "checkout.bankLinkHelp": {
-        "message": "[Šĥåŕé ţĥîš þŕîṽåţé ļîñķ ŵîţĥ ţĥé çļîéñţ. Ţĥéý éñţéŕ ţĥéîŕ ƀåñķ ðéţåîļš åñð åûţĥöŕîžé þåýɱéñţš ŵîţĥ Šţŕîþé. Ţĥé çļîéñţ ɱûšţ šţåŕţ ŵîţĥîñ 24 ĥöûŕš, ţĥéñ ĥåš 10 ðåýš ţö ƒîñîšĥ ƀåñķ ṽéŕîƒîçåţîöñ. Çŕéåţîñĝ åñöţĥéŕ ļîñķ ŕéþļåçéš îţ. one two three four five six seven eight nine ten one two three four]"
+        "message": "[Šéñð ţĥé çļîéñţ å þŕîṽåţé ļîñķ. Ţĥéý éñţéŕ ţĥéîŕ ƀåñķ ðéţåîļš åñð åûţĥöŕîžé þåýɱéñţš ŵîţĥ Šţŕîþé. Ţĥéý ɱûšţ šţåŕţ ŵîţĥîñ 24 ĥöûŕš, ţĥéñ ĥåṽé 10 ðåýš ţö ƒîñîšĥ ṽéŕîƒîçåţîöñ. Å ñéŵ ļîñķ ŕéþļåçéš ţĥé öļð öñé. one two three four five six seven eight nine ten one two three]"
+    },
+    "checkout.bankLinkTitle": {
+        "message": "[Ɓåñķ åûţĥöŕîžåţîöñ one two]"
+    },
+    "checkout.bankLinkText": {
+        "message": "[Ţéẋţ ļîñķ ţö {phone} one two]"
+    },
+    "checkout.bankLinkCreate": {
+        "message": "[Çŕéåţé ļîñķ one two]"
+    },
+    "checkout.bankLinkTexted": {
+        "message": "[Ţéẋţéð ţö {phone}. Ýöû çåñ åļšö šĥåŕé ţĥé ļîñķ ƀéļöŵ. one two three]"
+    },
+    "checkout.bankLinkWaiting": {
+        "message": "[Å ƀåñķ åûţĥöŕîžåţîöñ ļîñķ îš ŵåîţîñĝ ƒöŕ ţĥé çļîéñţ. Îţ éẋþîŕéš {date}. one two three four five]"
+    },
+    "checkout.bankLinkVerifying": {
+        "message": "[Ţĥé çļîéñţ îš ṽéŕîƒýîñĝ ţĥéîŕ ƀåñķ åççöûñţ ŵîţĥ Šţŕîþé. Îţ åþþéåŕš ĥéŕé öñçé Šţŕîþé çöñƒîŕɱš îţ. one two three four five six seven]"
     },
     "checkout.bankLinkLabel": {
         "message": "[Þŕîṽåţé åûţĥöŕîžåţîöñ ļîñķ one two three]"
@@ -13106,8 +13151,8 @@
     "checkout.bankLinkRevoke": {
         "message": "[Ŕéṽöķé ļîñķ one two]"
     },
-    "checkout.bankLinkRequirements": {
-        "message": "[Ţĥé þåýéŕ ñééðš åñ éɱåîļ ƒöŕ Šţŕîþé’š ƀåñķ ðéƀîţ ñöţîçéš. Ţĥéý çåñ éñţéŕ îţ öñ ţĥé šéçûŕé åûţĥöŕîžåţîöñ þåĝé. Çöñţåçţ šûþþöŕţ îƒ ţĥîš þåýɱéñţ ɱéţĥöð îš ñöţ éñåƀļéð. one two three four five six seven eight nine ten]"
+    "checkout.bankLinkStaffError": {
+        "message": "[Çöûļðñ'ţ ûþðåţé ţĥé ƀåñķ åûţĥöŕîžåţîöñ ļîñķ. Ţŕý åĝåîñ. one two three four]"
     },
     "checkout.bankLinkError": {
         "message": "[Çöûļðñ'ţ ļöåð ƀåñķ åûţĥöŕîžåţîöñ. Ţŕý åĝåîñ öŕ åšķ ţĥé ƀûšîñéšš ƒöŕ å ñéŵ ļîñķ. one two three four five]"
@@ -13165,6 +13210,12 @@
     },
     "checkout.notConfiguredSavedCard": {
         "message": "[Çåŕð þåýɱéñţš åŕéñ’ţ çöñƒîĝûŕéð. Çĥåŕĝé å šåṽéð çåŕð îñšţéåð. one two three four]"
+    },
+    "checkout.notConfiguredSetup": {
+        "message": "[Šåṽîñĝ çåŕðš îšñ’ţ šéţ ûþ îñ ţĥîš åþþ ýéţ. one two three]"
+    },
+    "checkout.postalCode": {
+        "message": "[Þöšţåļ one]"
     },
     "checkout.notConfiguredContact": {
         "message": "[Çåŕð þåýɱéñţš åŕéñ'ţ çöñƒîĝûŕéð. Þļéåšé çöñţåçţ ţĥé ƀûšîñéšš. one two three four]"

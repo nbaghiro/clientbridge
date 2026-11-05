@@ -16,7 +16,7 @@ const COMMONJS_GLOBALS = {
     module: "writable",
 };
 const MAESTRO_GLOBALS = {
-    ...readonly(["http", "json", "maestro", "encodeURIComponent", "EMAIL", "PASSWORD"]),
+    ...readonly(["http", "json", "maestro", "encodeURIComponent", "EMAIL", "PASSWORD", "PHONE"]),
     // what the native lane passes every flow, and the control helper's own arguments
     ...readonly([
         "E2E_NAMESPACE",

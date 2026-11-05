@@ -482,6 +482,8 @@ export interface CardFormProps {
     onDone: () => void;
     // With onCancel the form sits in a frame with a cancel action; without, it is the bare public form.
     onCancel?: (() => void) | undefined;
+    // The payer's details already known, filled in so they aren't asked for twice.
+    defaultValue?: { name?: string | undefined; email?: string | undefined } | undefined;
 }
 
 export interface ChargeSheetProps {

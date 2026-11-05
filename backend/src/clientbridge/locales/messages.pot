@@ -244,6 +244,9 @@ msgstr ""
 msgid "order_reminder.body"
 msgstr ""
 
+msgid "pad_link.body"
+msgstr ""
+
 msgid "payment_failed.body"
 msgstr ""
 

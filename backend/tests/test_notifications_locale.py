@@ -187,6 +187,7 @@ def _builders() -> dict[str, Render]:
         "form_sent_message": lambda c: n.form_sent_message(c, NAME, "Intake", LINK),
         "contract_sent_message": lambda c: n.contract_sent_message(c, NAME, "Waiver", LINK),
         "review_requested_message": lambda c: n.review_requested_message(c, NAME, LINK),
+        "pad_link_message": lambda c: n.pad_link_message(c, NAME, LINK),
         "inbound_message_alert_text": lambda c: n.inbound_message_alert_text(c, NAME, "Sale"),
         "visit_note_body": lambda c: n.visit_note_body(c, "Sale", LINK),
         "broadcast_text": lambda c: n.broadcast_text(c, NAME, "Sale"),

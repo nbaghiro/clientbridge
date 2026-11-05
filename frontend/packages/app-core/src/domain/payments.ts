@@ -104,8 +104,13 @@ export function savedCardLabel(card: SavedCardRow): string {
 }
 
 /** A card, or a bank account with an active mandate. */
-function isChargeable(card: SavedCardRow): boolean {
+export function isChargeable(card: SavedCardRow): boolean {
     return card.method === "card" || (isMandate(card) && card.mandate_status === "active");
+}
+
+/** Only a method that can be charged reads as the default, whatever the row's flag says. */
+export function isDefaultMethod(card: SavedCardRow): boolean {
+    return card.preferred === 1 && isChargeable(card);
 }
 
 export function canBeDefault(card: SavedCardRow): boolean {
@@ -214,8 +219,10 @@ interface PaymentRecorder {
 /** One payment on an invoice, method first: cash with change, an e-Transfer or cheque received, or a saved card. */
 export function usePaymentRecorder(api: ApiLike, target: RecordTarget): PaymentRecorder {
     const r = strings.billing.rec;
-    const cards = checkoutMethods(useSavedCards(target.clientId));
+    const saved = useSavedCards(target.clientId);
+    const cards = checkoutMethods(saved);
     const card = cards[0] ?? null;
+    const debit = saved.some((c) => c.id === card?.id && isMandate(c));
     const methods: TenderOption[] = [
         card !== null
             ? { key: "saved_card", label: card.label, hint: r.savedCardHint }
@@ -305,7 +312,11 @@ export function usePaymentRecorder(api: ApiLike, target: RecordTarget): PaymentR
                         : (current) => current <= res.balance_cents,
                 );
                 if (res.status === "pending") {
-                    setDone({ title: r.cardTitle, lines: [r.cardBody], paidInFull: false });
+                    setDone(
+                        debit
+                            ? { title: r.debitTitle, lines: [r.debitBody], paidInFull: false }
+                            : { title: r.cardTitle, lines: [r.cardBody], paidInFull: false },
+                    );
                     return;
                 }
                 const lines = [

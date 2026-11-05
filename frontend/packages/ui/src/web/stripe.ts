@@ -34,7 +34,11 @@ export function stripeFor(account: string): Promise<Stripe | null> | null {
     if (publishableKey === "" || account === "") return null;
     let promise = byAccount.get(account);
     if (promise === undefined) {
-        promise = loadStripe(publishableKey, { stripeAccount: account });
+        promise = loadStripe(publishableKey, {
+            stripeAccount: account,
+            // the sandbox testing assistant floats over the form's own buttons
+            developerTools: { assistant: { enabled: false } },
+        });
         byAccount.set(account, promise);
     }
     return promise;

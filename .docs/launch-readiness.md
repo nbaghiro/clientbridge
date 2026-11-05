@@ -1431,8 +1431,8 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
    **Expect:** a plain explanation and no form.
 4. Remove the older card.
    **Expect:** it can no longer be charged or chosen as default.
-5. On mobile, try to add a bank account.
-   **Expect:** the app says to add it on the web.
+5. On mobile, request bank authorization for a client and text them the link.
+   **Expect:** the text arrives with the link; once the client finishes it, the bank account shows with an active mandate on the phone.
 
 **Done when:** Saved methods can be managed from any device and only chargeable ones can be default.
 
@@ -1443,11 +1443,15 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 **Automated by**
 
 * `XB-E2E-13 (connect)`
+* `CRM-E2E-20 (web)`
+* `STR-E26 (stripe)`
+* `STR-E27 (stripe)`
+* `NATIVE-PAY-01 (native-stripe)`
 
 **To automate**
 
-* `STR-E15` in `apps/connect/e2e/stripe/wallet.stripe.ts`: Save a card with a real SetupIntent, make it default, charge it on an invoice, detach it (PAY-E11, PAY-E12).
-* `STR-E16` in `apps/connect/e2e/stripe/wallet.stripe.ts`: PAD mandate through the setup page, debit settles after processing (PAY-E13, PAY-E15).
+* Step 1 on a phone: the mobile lane has no Stripe, so no case saves a card there; STR-E26 saves both cards on web.
+* Step 5 after the text: NATIVE-PAY-01 stops once the text reaches Mailpit, so no case shows the authorized bank with an active mandate on the phone.
 
 **Depends on:** Nothing
 
@@ -2538,7 +2542,7 @@ The surfaces around the product: the platform admin console, the marketing site 
 **Where to test**
 
 * **Local:** `make up migrate seed`, then `make configure-demo-admin`, restart `make dev-api` and run `make dev-admin`. Open [http://localhost:8711](<http://localhost:8711>) as hannah@birchbark.example.
-* **Staging:** [https://admin.staging.clientbridge.ca](<https://admin.staging.clientbridge.ca>), which needs a platform-admin grant on staging.
+* **Staging:** [https://admin.staging.clientbridge.ca](<https://admin.staging.clientbridge.ca>) as naib@clientbridge.ca or raul@clientbridge.ca, the staging stack's platform admins. To add one, see Platform admins in the operations doc.
 
 **QA steps**
 
