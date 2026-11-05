@@ -1,4 +1,4 @@
-.PHONY: infra-bootstrap infra-providers infra-mobile help up down images up-app logs-sync logs-auth install stripe-listen stripe-setup dev-api worker dev-web dev-connect dev-site dev-mobile build build-apps build-site test-site test-web test-connect test-mobile test-staging-smoke lighthouse-site migrate revision seed seed-core gen-api gen-sync-schema gen-themes gen-messages gen-strings gen-zones gen-taxes codegen-check test test-backend test-frontend test-contract test-auth test-sandbox lint lint-backend lint-frontend lint-infra test-infra typecheck format format-check format-check-backend format-check-frontend format-check-infra precommit hooks check gen-waitlist-email preview-emails configure-demo-admin dev-admin
+.PHONY: infra-bootstrap infra-providers infra-mobile help up down images up-app logs-sync logs-auth install stripe-listen stripe-setup dev-api worker dev-web dev-connect dev-site dev-mobile build build-apps build-site test-site test-web test-connect test-mobile test-staging-smoke lighthouse-site migrate revision seed seed-core gen-api gen-sync-schema gen-themes gen-messages gen-strings gen-zones gen-taxes codegen-check test test-backend test-frontend test-contract test-auth test-sandbox lint lint-backend lint-frontend lint-infra test-infra typecheck format format-check format-check-backend format-check-frontend format-check-infra precommit hooks check gen-waitlist-email preview-emails configure-demo-admin admin-identity dev-admin
 .DEFAULT_GOAL := help
 
 help:
@@ -19,6 +19,7 @@ help:
 	@echo "dev-connect      run Connect, the client pages (Vite), on :8709"
 	@echo "dev-admin        run the platform admin app on :8711"
 	@echo "configure-demo-admin  grant the seeded Hannah account development-only platform access"
+	@echo "admin-identity   ENV=staging EMAIL=…: print the account ID a platform admin grant names"
 	@echo "dev-site         run the marketing site (Vite) on :8710"
 	@echo "dev-mobile       run mobile (Expo/Metro) on :8707"
 	@echo "build            build every frontend app and package"
@@ -113,6 +114,10 @@ dev-web:
 
 configure-demo-admin:
 	cd backend && uv run python -m scripts.configure_demo_admin
+
+admin-identity:
+	@test -n "$(ENV)" -a -n "$(EMAIL)" || { echo "usage: make admin-identity ENV=staging EMAIL=<address>"; exit 1; }
+	kubectl -n $(ENV) exec deploy/api -c api -- python -m scripts.admin_identity $(EMAIL)
 
 dev-admin:
 	cd frontend && pnpm --filter admin dev

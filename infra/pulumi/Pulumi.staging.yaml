@@ -2,6 +2,10 @@
 # During a restore, clientbridge:databaseInstance names the clone this environment's pods reach.
 config:
   clientbridge:appleTeamId: 6KL6VSWZ36
+  # who may open the admin app; `make admin-identity ENV=staging EMAIL=…` prints an account's ID
+  clientbridge:platformAdminIdentityIds:
+    - 25bb898b-da9f-4219-a4cb-aadcda85ae71 # naib@clientbridge.ca
+    - 9c38d8b5-b949-4b8e-bc77-9bb241abd681 # raul@clientbridge.ca
   clientbridge:stripePublishableKey: "pk_test_51UPkgSFGqw7iO9oDuhJvSbIZEC9REk9DTRuZ5dcqdSYtoasj2Qe8KdmYIMCQ45sKg17v2Qvhtrk5xyx8IlIzsNyY00LIiIlb2g"
 secretsprovider: gcpkms://projects/clientbridge-platform/locations/us-east1/keyRings/pulumi/cryptoKeys/state
 encryptedkey: CiQADSZLDoSbgjqNPyswITtQNOqBwqn9BC7XOAfvhhaFSrG9FwcSSQAyFkhwnIt27+fyuYzeNHOnfsA/ItWHIlEpz+KjaGVbbrh17ILIS3m4v6e3jZxwWjjFFzyZnbFC2NPfw16JCmzsSN7TvmUOS7s=
