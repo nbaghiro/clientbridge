@@ -242,15 +242,41 @@ async def test_checkout_same_key_mints_one_intent(
     assert payments[0].provider_ref is not None
 
 
-async def test_void_after_checkout_started_409(
-    as_owner: httpx.AsyncClient, db: AsyncSession
+async def test_void_cancels_an_unfinished_checkout(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    order = (await as_owner.post("/v1/orders", json={"lines": [LATTE]})).json()
+    assert (await as_owner.post(f"/v1/orders/{order['id']}/checkout")).status_code == 200
+    voided = await as_owner.post(f"/v1/orders/{order['id']}/void")
+    assert voided.status_code == 200 and voided.json()["status"] == "void", voided.text
+    [payment] = (
+        await db.execute(
+            select(Payment)
+            .where(Payment.order_id == order["id"])
+            .execution_options(populate_existing=True)
+        )
+    ).scalars()
+    assert payment.status == "canceled" and payment.provider_ref in gateway.canceled_intents
+
+
+async def test_void_after_the_card_went_through_409(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
     """A tap that lands after the void would post money against a void order."""
     await enable_payments(db)
     order = (await as_owner.post("/v1/orders", json={"lines": [LATTE]})).json()
-    assert (await as_owner.post(f"/v1/orders/{order['id']}/checkout")).status_code == 200
-    assert (await as_owner.post(f"/v1/orders/{order['id']}/void")).status_code == 409
+    pay_id = (await as_owner.post(f"/v1/orders/{order['id']}/checkout")).json()["payment_id"]
+    pi = (await db.execute(select(Payment.provider_ref).where(Payment.id == pay_id))).scalar_one()
+    assert pi is not None
+    gateway.confirmed.add(pi)
+    res = await as_owner.post(f"/v1/orders/{order['id']}/void")
+    assert (res.status_code, res.json()["error"]) == (409, "checkout_paid")
     assert await _order_status(db, order["id"]) == "open"
+    status = await db.scalar(
+        select(Payment.status).where(Payment.id == pay_id).execution_options(populate_existing=True)
+    )
+    assert status == "pending"
 
 
 async def test_a_disputed_sale_stays_paid_until_the_case_is_lost(

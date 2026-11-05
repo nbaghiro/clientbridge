@@ -2067,10 +2067,11 @@ ACCOUNT_CLOSED = "v2.core.account.closed"
 _OUR_VOID = "expired_order"  # we refund it in full and return our platform fee
 _UNAPPLIED = "unapplied_payment"  # it reached a bill that no longer owed it; refunded in full
 _REPLAY_WINDOW = timedelta(days=7)
-# Stripe's own retry gets the first chance at a held charge
-_DEFERRED_GRACE = timedelta(minutes=1)
 _REPLAY_PER_ACCOUNT = 100
 _REPLAY_PER_RUN = 500
+# past this the hourly replay and reconciliation take over, so a broken event stops retrying
+_DEFERRED_RETRY_WINDOW = timedelta(minutes=30)
+_DEFERRED_RETRY_BATCH = 50
 _REPLAYED: dict[str, StripeResource] = {
     "payment_intent": "payment_intent",
     "refund": "refund",
@@ -2122,45 +2123,35 @@ async def run_replay_missed_events(db: AsyncSession, gateway: PaymentGateway) ->
     return applied
 
 
-async def run_retry_deferred_charges(db: AsyncSession, gateway: PaymentGateway) -> int:
-    """Apply charges held until Stripe showed their fees, for a sender that never retries them."""
-    now = clock.now()
-    held = (
-        await db.execute(
-            select(Webhook)
-            .where(
-                Webhook.provider == "stripe",
-                Webhook.status == "failed",
-                Webhook.event == "payment_intent.succeeded",
-                Webhook.created_at > now - _REPLAY_WINDOW,
-                Webhook.processed_at < now - _DEFERRED_GRACE,
-                # each try waits as long as the event has already been held, so retries back off
-                Webhook.processed_at - Webhook.created_at <= now - Webhook.processed_at,
-            )
-            .order_by(Webhook.created_at)
-            .limit(_REPLAY_PER_RUN)
+async def run_retry_deferred_payments(db: AsyncSession, gateway: PaymentGateway) -> int:
+    """Settle card payments deferred minutes ago, since Stripe's own retry can take hours."""
+    rows = await db.execute(
+        select(Webhook.id, Webhook.payload, Webhook.created_at)
+        .where(
+            Webhook.provider == "stripe",
+            Webhook.event == "payment_intent.succeeded",
+            Webhook.status == "failed",
+            Webhook.created_at >= clock.now() - _DEFERRED_RETRY_WINDOW,
         )
-    ).scalars()
+        .order_by(Webhook.created_at, Webhook.id)
+        .limit(_DEFERRED_RETRY_BATCH)
+    )
     applied = 0
-    for record in list(held):
-        intent_id = (record.payload or {}).get("id")
-        if not isinstance(intent_id, str):
+    for event_id, payload, received in rows.tuples().all():
+        intent_id = payload.get("id") if payload is not None else None
+        biz = _metadata_business(payload) if payload is not None else None
+        if not isinstance(intent_id, str) or biz is None:
             continue
-        account = await db.scalar(
-            select(Business.stripe_account_id)
-            .join(Payment, Payment.business_id == Business.id)
-            .where(Payment.provider_ref == intent_id, Payment.status == "pending")
-            .limit(1)
-        )
+        account = await db.scalar(select(Business.stripe_account_id).where(Business.id == biz))
         if account is None:
             continue
         missed = MissedEvent(
-            id=record.id,
-            type=record.event,
+            id=event_id,
+            type="payment_intent.succeeded",
             account=account,
+            created=received,
             object_type="payment_intent",
             object_id=intent_id,
-            created=record.created_at,
         )
         applied += await _replay(db, gateway, missed)
     return applied
