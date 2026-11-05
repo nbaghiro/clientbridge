@@ -76,6 +76,7 @@ interface Strings {
         readonly paymentMethodInUse: string;
         readonly bankSetupInProgress: string;
         readonly textsStopped: string;
+        readonly padUnavailable: string;
         readonly padLinkUsed: string;
         readonly paymentMethodNotChargeable: string;
         readonly cardDeclined: string;
@@ -4812,7 +4813,7 @@ interface Strings {
         readonly bankLinkLabel: string;
         readonly bankLinkShare: string;
         readonly bankLinkRevoke: string;
-        readonly bankLinkRequirements: string;
+        readonly bankLinkStaffError: string;
         readonly bankLinkError: string;
         readonly bankSetupTitle: string;
         readonly payerEmail: string;

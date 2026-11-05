@@ -51,7 +51,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 5. Sell at the desk and online | Card payments at the desk | [CB-30](https://linear.app/clientbridgeca/issue/CB-30) | Partly automated |
 | 5. Sell at the desk and online | Tap to Pay | [CB-31](https://linear.app/clientbridgeca/issue/CB-31) | Manual |
 | 5. Sell at the desk and online | Tips and discounts | [CB-32](https://linear.app/clientbridgeca/issue/CB-32) | Partly automated |
-| 5. Sell at the desk and online | Saved cards and bank accounts | [CB-12](https://linear.app/clientbridgeca/issue/CB-12) | Automated |
+| 5. Sell at the desk and online | Saved cards and bank accounts | [CB-12](https://linear.app/clientbridgeca/issue/CB-12) | Partly automated |
 | 5. Sell at the desk and online | Online shop orders and pickup | [CB-41](https://linear.app/clientbridgeca/issue/CB-41) | Partly automated |
 | 6. Invoice and get paid | Estimates to invoices | [CB-33](https://linear.app/clientbridgeca/issue/CB-33) | Automated |
 | 6. Invoice and get paid | Invoices and payment links | [CB-34](https://linear.app/clientbridgeca/issue/CB-34) | Partly automated |
@@ -1447,6 +1447,11 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 * `STR-E26 (stripe)`
 * `STR-E27 (stripe)`
 * `NATIVE-PAY-01 (native-stripe)`
+
+**To automate**
+
+* Step 1 on a phone: the mobile lane has no Stripe, so no case saves a card there; STR-E26 saves both cards on web.
+* Step 5 after the text: NATIVE-PAY-01 stops once the text reaches Mailpit, so no case shows the authorized bank with an active mandate on the phone.
 
 **Depends on:** Nothing
 

@@ -127,6 +127,7 @@ from clientbridge.services.tax import tax_for_amount, tax_within
 _log = logging.getLogger(__name__)
 # a link whose client is proving the account to Stripe (micro-deposits) or awaiting the mandate
 _VERIFYING = ("requires_action", "processing")
+# a link that no later event moves back to verifying
 _FINISHED = ("succeeded", "canceled", "revoked")
 _ORPHAN_GRACE = timedelta(hours=1)
 
@@ -617,7 +618,10 @@ class PaymentService:
         self._assert_admin()
         link = (
             await self.db.execute(
-                scoped(PaymentSetupLink, self.biz).where(PaymentSetupLink.id == link_id)
+                scoped(PaymentSetupLink, self.biz)
+                .where(PaymentSetupLink.id == link_id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
             )
         ).scalar_one_or_none()
         if link is None:
@@ -4024,7 +4028,8 @@ async def _reconcile_pad_setup(
     state = await gateway.get_setup_intent(account_id, intent_id)
     if state.customer_id != link.customer_id or state.id != link.setup_intent_id:
         return
-    link.setup_status = "processing" if state.status == "succeeded" else state.status
+    if link.setup_status not in _FINISHED:
+        link.setup_status = "processing" if state.status == "succeeded" else state.status
     pm = state.payment_method
     if (
         state.status != "succeeded"
@@ -4037,7 +4042,8 @@ async def _reconcile_pad_setup(
     mandate = await gateway.get_mandate(account_id, state.mandate_id)
     if mandate.payment_method_id != pm.get("id"):
         return
-    if link.revoked_at is not None:
+    # a revoke can only stop a link before it succeeds; the used link's bank stays
+    if link.revoked_at is not None and link.setup_status != "succeeded":
         await _drop_revoked_bank(db, gateway, link, mandate.payment_method_id)
         return
     link.mandate_ref = mandate.id

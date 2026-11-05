@@ -489,4 +489,6 @@ async def test_a_method_without_a_provider_reference_cannot_become_the_default(
     )
     db.add(bank)
     await db.flush()
-    assert (await as_owner.post(f"/v1/payments/methods/{bank.id}/default")).status_code == 409
+    res = await as_owner.post(f"/v1/payments/methods/{bank.id}/default")
+    assert res.status_code == 409
+    assert res.json()["error"] == "payment_method_not_chargeable"

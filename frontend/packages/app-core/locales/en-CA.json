@@ -207,6 +207,9 @@
     "api.textsStopped": {
         "message": "This client replied STOP, so they can’t be texted. Copy the link and share it another way."
     },
+    "api.padUnavailable": {
+        "message": "Bank debit isn't turned on for this business yet. Open Getting paid in Setup to see what Stripe needs."
+    },
     "api.padLinkUsed": {
         "message": "The client already used this link to authorize their bank account. Remove the bank account from the wallet instead."
     },
@@ -14110,8 +14113,8 @@
     "checkout.bankLinkRevoke": {
         "message": "Revoke link"
     },
-    "checkout.bankLinkRequirements": {
-        "message": "The payer needs an email for Stripe’s bank debit notices. They can enter it on the secure authorization page. Contact support if this payment method is not enabled."
+    "checkout.bankLinkStaffError": {
+        "message": "Couldn't update the bank authorization link. Try again."
     },
     "checkout.bankLinkError": {
         "message": "Couldn't load bank authorization. Try again or ask the business for a new link."

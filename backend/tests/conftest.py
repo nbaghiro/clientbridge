@@ -730,7 +730,7 @@ class FakePaymentGateway:
 
     async def ensure_pad_capability(self, account_id: str) -> None:
         if not self.pad_enabled:
-            raise Conflict("complete Canadian pre-authorized debit setup")
+            raise Conflict("complete Canadian pre-authorized debit setup", code="pad_unavailable")
 
     async def get_setup_intent(self, account_id: str, setup_intent_id: str) -> SetupIntentState:
         return self.pad_intents[setup_intent_id]

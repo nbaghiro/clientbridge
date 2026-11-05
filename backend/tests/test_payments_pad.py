@@ -165,6 +165,19 @@ async def test_pad_links_are_tenant_scoped(
     assert (await as_owner.post(f"/v1/payments/pad-links/{client.id}")).status_code == 404
 
 
+async def test_another_business_cannot_revoke_a_link(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    link, _ = await _link(as_owner, db)
+    link_id = link.id
+    other = await factory.business()
+    await db.execute(
+        update(PaymentSetupLink).where(PaymentSetupLink.id == link_id).values(business_id=other.id)
+    )
+    assert (await as_owner.delete(f"/v1/payments/pad-links/{link_id}")).status_code == 404
+    assert await column(db, "payment_setup_links", link_id, "revoked_at") is None
+
+
 async def test_staff_cannot_issue_or_revoke_bank_links(as_staff: httpx.AsyncClient) -> None:
     assert (await as_staff.post("/v1/payments/pad-links/cl_amelie")).status_code == 403
     assert (await as_staff.delete("/v1/payments/pad-links/nope")).status_code == 403
@@ -316,7 +329,7 @@ async def test_link_requires_enabled_pad_capability(
     cid = await client_id(db)
     gateway.pad_enabled = False
     response = await as_owner.post(f"/v1/payments/pad-links/{cid}")
-    assert response.status_code == 409
+    assert (response.status_code, response.json()["error"]) == (409, "pad_unavailable")
     assert not gateway.pad_intents
 
 
@@ -554,6 +567,19 @@ async def test_a_new_link_keeps_the_bank_an_earlier_link_authorized(
     await _event(as_owner, "setup_intent.succeeded", {"id": intent}, event="evt_dup")
     assert (await db.execute(saved)).scalar_one().mandate_status == "active"
     assert gateway.detached == []
+
+
+async def test_a_used_link_stays_used_after_its_bank_leaves_stripe(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    link, token = await _link(as_owner, db)
+    intent, pm = await _authorized_bank(as_owner, gateway, token)
+    detached = replace(gateway.pad_intents[intent], payment_method={**pm, "customer": None})
+    gateway.pad_intents[intent] = detached
+    await _event(as_owner, "mandate.updated", {"id": "mandate_test"}, event="evt_detached")
+    assert await column(db, "payment_setup_links", link.id, "setup_status") == "succeeded"
+    assert (await as_owner.get(f"/v1/payments/pad-links/{link.client_id}")).json() is None
+    assert (await as_owner.post(f"/v1/payments/pad-links/{link.client_id}")).status_code == 200
 
 
 async def test_a_verification_past_its_link_no_longer_blocks_a_new_link(

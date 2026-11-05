@@ -48,7 +48,7 @@ export function PaymentMethodForm({ flow, allowBank, style }: NativeProps<Paymen
                         <Button
                             onPress={() => {
                                 Share.share({ message: link.url }).catch(() => {
-                                    flow.setError(s.bankLinkError);
+                                    flow.setError(s.bankLinkStaffError);
                                 });
                             }}
                         >

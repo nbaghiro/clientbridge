@@ -10,7 +10,6 @@ import {
     type ApiLike,
     type Attempt,
     attemptKey,
-    failedCode,
     failedStatus,
     failureMessage,
     newIdempotencyKey,
@@ -255,12 +254,7 @@ export function useAddPaymentMethod(
                     setCreated({ link, banks: banksKey });
                     await open.refresh();
                 } catch (e) {
-                    setError(
-                        // Stripe holding back the debit capability arrives as a bare conflict
-                        failedCode(e) === "conflict"
-                            ? strings.checkout.bankLinkRequirements
-                            : failureMessage(e, strings.checkout.bankLinkError),
-                    );
+                    setError(failureMessage(e, strings.checkout.bankLinkStaffError));
                 }
             });
         },
@@ -273,7 +267,7 @@ export function useAddPaymentMethod(
                     setCreated(null);
                     await open.refresh();
                 },
-                { errorMessage: strings.checkout.bankLinkError },
+                { errorMessage: strings.checkout.bankLinkStaffError },
             );
         },
         busy,

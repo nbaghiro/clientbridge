@@ -1407,6 +1407,7 @@ async def test_a_membership_the_new_default_cannot_take_keeps_its_card(
     pending_id = pending.id
     res = await as_owner.post(f"/v1/payments/methods/{pending_id}/default")
     assert res.status_code == 409
+    assert res.json()["error"] == "payment_method_not_chargeable"
     assert gateway.subscription_methods == {}
     assert await column(db, "subscriptions", sub_id, "payment_method_id") != pending_id
 

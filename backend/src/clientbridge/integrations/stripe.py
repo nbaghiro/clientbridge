@@ -1337,11 +1337,13 @@ class StripeGateway:
         except stripe.InvalidRequestError as exc:
             raise Conflict(
                 "enable Canadian pre-authorized debit on the platform "
-                "and complete the business's payments setup"
+                "and complete the business's payments setup",
+                code="pad_unavailable",
             ) from exc
         if merchant_capability(account.to_dict(), "acss_debit_payments").get("status") != "active":
             raise Conflict(
-                "complete the Canadian pre-authorized debit requirements in payments setup"
+                "complete the Canadian pre-authorized debit requirements in payments setup",
+                code="pad_unavailable",
             )
 
     @_keyed
@@ -1497,7 +1499,8 @@ class StripeGateway:
                 stripe_account=account_id,
             )
         except stripe.InvalidRequestError as exc:
-            if _missing(exc):
+            # only a gone subscription; a gone method must not look like a move that worked
+            if _missing(exc) and exc.param != "default_payment_method":
                 return False
             raise
         return True

@@ -182,6 +182,9 @@
     "api.textsStopped": {
         "message": "[Ţĥîš çļîéñţ ŕéþļîéð ŠŢÖÞ, šö ţĥéý çåñ’ţ ƀé ţéẋţéð. Çöþý ţĥé ļîñķ åñð šĥåŕé îţ åñöţĥéŕ ŵåý. one two three four five six]"
     },
+    "api.padUnavailable": {
+        "message": "[Ɓåñķ ðéƀîţ îšñ'ţ ţûŕñéð öñ ƒöŕ ţĥîš ƀûšîñéšš ýéţ. Öþéñ Ĝéţţîñĝ þåîð îñ Šéţûþ ţö šéé ŵĥåţ Šţŕîþé ñééðš. one two three four five six seven]"
+    },
     "api.padLinkUsed": {
         "message": "[Ţĥé çļîéñţ åļŕéåðý ûšéð ţĥîš ļîñķ ţö åûţĥöŕîžé ţĥéîŕ ƀåñķ åççöûñţ. Ŕéɱöṽé ţĥé ƀåñķ åççöûñţ ƒŕöɱ ţĥé ŵåļļéţ îñšţéåð. one two three four five six seven eight]"
     },
@@ -13148,8 +13151,8 @@
     "checkout.bankLinkRevoke": {
         "message": "[Ŕéṽöķé ļîñķ one two]"
     },
-    "checkout.bankLinkRequirements": {
-        "message": "[Ţĥé þåýéŕ ñééðš åñ éɱåîļ ƒöŕ Šţŕîþé’š ƀåñķ ðéƀîţ ñöţîçéš. Ţĥéý çåñ éñţéŕ îţ öñ ţĥé šéçûŕé åûţĥöŕîžåţîöñ þåĝé. Çöñţåçţ šûþþöŕţ îƒ ţĥîš þåýɱéñţ ɱéţĥöð îš ñöţ éñåƀļéð. one two three four five six seven eight nine ten]"
+    "checkout.bankLinkStaffError": {
+        "message": "[Çöûļðñ'ţ ûþðåţé ţĥé ƀåñķ åûţĥöŕîžåţîöñ ļîñķ. Ţŕý åĝåîñ. one two three four]"
     },
     "checkout.bankLinkError": {
         "message": "[Çöûļðñ'ţ ļöåð ƀåñķ åûţĥöŕîžåţîöñ. Ţŕý åĝåîñ öŕ åšķ ţĥé ƀûšîñéšš ƒöŕ å ñéŵ ļîñķ. one two three four five]"
