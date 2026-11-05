@@ -6,20 +6,20 @@ import {
     canManagePayments,
     cancelSubscription,
     usePackageConsumption,
-    formatDate,
     isCancelable,
     packageStatusIntent,
-    parseTimestamp,
     packageBalance,
     sessionsRemaining,
     entitlementStatusLabel,
     subscriptionStatusIntent,
+    subscriptionTiming,
     useAsyncAction,
     useClientPackages,
     useClientSubscriptions,
     strings,
     useAddPaymentMethod,
     useClientWallet,
+    formatList,
     formatParts,
     useBusinessZone,
 } from "@clientbridge/app-core";
@@ -57,7 +57,21 @@ const w = strings.clients.wallet;
 
 export function ClientWalletScreen() {
     const { clientId } = useRoute<RouteProp<RootStackParamList, "ClientWallet">>().params;
-    const manager = canManagePayments(useRole());
+    if (!canManagePayments(useRole())) {
+        return (
+            <View style={styles.screen}>
+                <View style={styles.body}>
+                    <Notice tone="info" banner>
+                        {w.onlyManagers}
+                    </Notice>
+                </View>
+            </View>
+        );
+    }
+    return <ManagedWallet clientId={clientId} />;
+}
+
+function ManagedWallet({ clientId }: { clientId: string }) {
     const wallet = useClientWallet(api, clientId);
     const [adding, setAdding] = useState(false);
     const add = useAddPaymentMethod(api, clientId, () => {
@@ -76,17 +90,6 @@ export function ClientWalletScreen() {
             })
             .catch(() => undefined);
     };
-    if (!manager) {
-        return (
-            <View style={styles.screen}>
-                <View style={styles.body}>
-                    <Notice tone="info" banner>
-                        {w.onlyManagers}
-                    </Notice>
-                </View>
-            </View>
-        );
-    }
 
     return (
         <View style={styles.screen}>
@@ -119,7 +122,13 @@ export function ClientWalletScreen() {
                                 key={m.row.id}
                                 leading={<BrandMark method={m.row.method} brand={m.row.brand} />}
                                 title={m.label}
-                                detail={formatParts([m.expiry, m.bankName, m.added, m.note])}
+                                detail={formatParts([
+                                    m.pays.length > 0 ? w.pays(formatList(m.pays, "unit")) : null,
+                                    m.expiry,
+                                    m.bankName,
+                                    m.added,
+                                    m.note,
+                                ])}
                                 meta={
                                     m.isDefault ? (
                                         <Badge label={w.default} intent="accent" />
@@ -130,7 +139,7 @@ export function ClientWalletScreen() {
                                         />
                                     ) : undefined
                                 }
-                                label={w.more(m.label)}
+                                label={w.more(m.name)}
                                 onPress={() => {
                                     setMenuFor(m);
                                 }}
@@ -171,6 +180,9 @@ export function ClientWalletScreen() {
                     >
                         {strings.clients.addBankWeb}
                     </Button>
+                ) : null}
+                {add.openBankLink !== null && !adding ? (
+                    <Notice tone="info">{add.openBankLink.note}</Notice>
                 ) : null}
                 {wallet.error !== null ? (
                     <Notice tone="danger" banner>
@@ -223,7 +235,7 @@ export function ClientWalletScreen() {
                 >
                     <SheetHeader
                         style={styles.sheetHead}
-                        title={add.kind === "bank" ? strings.clients.addBankWeb : w.addCard}
+                        title={add.kind === "bank" ? strings.checkout.bankLinkTitle : w.addCard}
                     />
                     <PaymentMethodForm flow={add} allowBank />
                 </Modal>
@@ -233,7 +245,7 @@ export function ClientWalletScreen() {
 }
 
 function SubscriptionLine({ sub }: { sub: SubscriptionRow }) {
-    const zone = useBusinessZone();
+    const timing = subscriptionTiming(sub, useBusinessZone());
     const { busy, error, run } = useAsyncAction();
     const cancel = (): void => {
         confirm({
@@ -256,13 +268,7 @@ function SubscriptionLine({ sub }: { sub: SubscriptionRow }) {
             <ListRow
                 density="compact"
                 title={sub.item_name ?? strings.clients.subscriptionFallback}
-                detail={
-                    sub.current_period_end === null
-                        ? undefined
-                        : strings.clients.nextCharge(
-                              formatDate(parseTimestamp(sub.current_period_end), zone),
-                          )
-                }
+                detail={timing ?? undefined}
                 meta={
                     <StatusPill
                         status={entitlementStatusLabel(sub.status)}

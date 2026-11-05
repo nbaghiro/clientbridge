@@ -459,6 +459,9 @@ class FakePaymentGateway:
         self.canceled_subscriptions: list[str] = []
         self.period_end_cancels: list[str] = []
         self.kept_subscriptions: list[str] = []
+        self.subscription_methods: dict[str, str] = {}
+        self.missing_subscriptions: set[str] = set()
+        self.refused_subscriptions: set[str] = set()
         self.subscription_prices: dict[str, str] = {}
         self.subscription_fee_percents: dict[str, float] = {}
         self.subscription_cards: list[bool] = []
@@ -804,6 +807,22 @@ class FakePaymentGateway:
 
     async def keep_subscription(self, account_id: str, *, subscription_id: str) -> None:
         self.kept_subscriptions.append(subscription_id)
+
+    async def change_subscription_payment_method(
+        self,
+        account_id: str,
+        *,
+        subscription_id: str,
+        payment_method_id: str,
+        application_fee_percent: float,
+    ) -> bool:
+        if subscription_id in self.missing_subscriptions:
+            return False
+        if subscription_id in self.refused_subscriptions:
+            raise Conflict("stripe refused the change")
+        self.subscription_methods[subscription_id] = payment_method_id
+        self.subscription_fee_percents[subscription_id] = application_fee_percent
+        return True
 
     async def invoice_for_payment(
         self, account_id: str, intent_id: str

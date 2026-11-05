@@ -6,18 +6,20 @@ from urllib.parse import parse_qs, urlsplit
 
 import httpx
 import pytest
-from sqlalchemy import select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.errors import Conflict
+from clientbridge.core.ids import new_id
 from clientbridge.integrations.stripe import MandateState
 from clientbridge.models.business import Business
+from clientbridge.models.catalog import Item, Subscription
 from clientbridge.models.clients import Client
 from clientbridge.models.payments import PaymentMethod, PaymentSetupLink
 from clientbridge.services.payments import default_method_ref, resolve_saved_method_ref
-from tests.conftest import BIZ, Factory, FakePaymentGateway
-from tests.helpers import client_id, column, enable_payments, sent_invoice
+from tests.conftest import BIZ, Factory, FakePaymentGateway, FakeSmsSender
+from tests.helpers import client_id, column, enable_payments, replied_stop, sent_invoice
 from tests.helpers import key as retry_key
 
 
@@ -395,3 +397,242 @@ async def test_a_bank_account_whose_mandate_stripe_no_longer_holds_is_not_charge
     response = await _charge(as_owner, invoice_id, method.id)
     assert response.status_code == 409
     assert gateway.mandated_charges == [] and gateway.charges == {}
+
+
+async def test_a_link_is_not_replaced_while_the_client_verifies_the_account(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    link, token = await _link(as_owner, db)
+    link_id, cid = link.id, link.client_id
+    intent = await _start(as_owner, token)
+    gateway.pad_intents[intent] = replace(
+        gateway.pad_intents[intent],
+        status="requires_action",
+        verification_url="https://verify.stripe.test/mandate",
+    )
+    await as_owner.get("/payment-method", headers=_header(token))
+    status = (await as_owner.get(f"/v1/payments/pad-links/{cid}")).json()
+    assert status == {"id": link_id, "verifying": True, "expires_at": status["expires_at"]}
+    refused = await as_owner.post(f"/v1/payments/pad-links/{cid}")
+    assert (refused.status_code, refused.json()["error"]) == (409, "bank_setup_in_progress")
+    assert await column(db, "payment_setup_links", link_id, "revoked_at") is None
+    await as_owner.delete(f"/v1/payments/pad-links/{link_id}")
+    assert (await as_owner.get(f"/v1/payments/pad-links/{cid}")).json() is None
+    assert (await as_owner.post(f"/v1/payments/pad-links/{cid}")).status_code == 200
+
+
+async def test_an_open_link_shows_as_waiting_until_it_is_used_or_expires(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    link, _ = await _link(as_owner, db)
+    open_link = (await as_owner.get(f"/v1/payments/pad-links/{link.client_id}")).json()
+    assert open_link["id"] == link.id and open_link["verifying"] is False
+    link.expires_at = clock.now() - timedelta(minutes=1)
+    await db.flush()
+    assert (await as_owner.get(f"/v1/payments/pad-links/{link.client_id}")).json() is None
+
+
+async def test_a_link_can_be_texted_to_the_client(
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
+) -> None:
+    await enable_payments(db)
+    cid = await client_id(db)
+    res = await as_owner.post(f"/v1/payments/pad-links/{cid}", json={"text": True})
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["texted"] is True
+    [sent] = sms.sent
+    assert body["url"] in sent.body and "pre-authorized debit" in sent.body
+
+
+async def test_a_link_cannot_be_texted_to_a_client_without_a_mobile(
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
+) -> None:
+    await enable_payments(db)
+    cid = await client_id(db, phone=None)
+    await db.execute(update(Client).where(Client.id == cid).values(phone=None))
+    res = await as_owner.post(f"/v1/payments/pad-links/{cid}", json={"text": True})
+    assert (res.status_code, res.json()["error"]) == (422, "no_mobile_number")
+    assert sms.sent == []
+    open_links = await db.scalar(
+        select(func.count())
+        .select_from(PaymentSetupLink)
+        .where(PaymentSetupLink.client_id == cid, PaymentSetupLink.revoked_at.is_(None))
+    )
+    assert open_links == 0
+
+
+async def test_link_status_is_tenant_scoped(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    await enable_payments(db)
+    other = await factory.business()
+    stranger = await factory.client(business=other)
+    assert (await as_owner.get(f"/v1/payments/pad-links/{stranger.id}")).status_code == 404
+
+
+async def test_staff_cannot_read_link_status(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:
+    assert (await as_staff.get(f"/v1/payments/pad-links/{await client_id(db)}")).status_code == 403
+
+
+async def test_a_bank_finished_on_a_revoked_link_is_dropped_and_detached(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    link, token = await _link(as_owner, db)
+    intent = await _start(as_owner, token)
+    pm = _authorized(gateway, intent)
+    await _event(as_owner, "payment_method.attached", pm)
+    saved = select(PaymentMethod).where(PaymentMethod.provider_ref == "pm_authorized")
+    pending = (await db.execute(saved)).scalar_one()
+    assert pending.mandate_status == "pending" and pending.preferred is False
+    await as_owner.delete(f"/v1/payments/pad-links/{link.id}")
+    await _event(as_owner, "setup_intent.succeeded", {"id": intent}, event="evt_late_setup")
+    assert (await db.execute(saved)).scalar_one_or_none() is None
+    assert gateway.detached == ["pm_authorized"]
+    assert await column(db, "payment_setup_links", link.id, "setup_status") == "revoked"
+    await _event(as_owner, "payment_method.attached", pm, event="evt_late_attach")
+    assert (await db.execute(saved)).scalar_one_or_none() is None
+
+
+async def test_a_verified_bank_becomes_the_default_only_once_it_can_be_charged(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway, factory: Factory
+) -> None:
+    await enable_payments(db)
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    fresh = await factory.client(business=business, name="Bank Only")
+    fresh.phone = "+16045550199"
+    await db.flush()
+    res = await as_owner.post(f"/v1/payments/pad-links/{fresh.id}")
+    token = parse_qs(urlsplit(res.json()["url"]).fragment)["token"][0]
+    intent = await _start(as_owner, token)
+    pm = _authorized(gateway, intent, status="pending")
+    await _event(as_owner, "payment_method.attached", pm)
+    await _event(as_owner, "setup_intent.succeeded", {"id": intent}, event="evt_pending_setup")
+    saved = select(PaymentMethod).where(PaymentMethod.provider_ref == "pm_authorized")
+    method = (await db.execute(saved)).scalar_one()
+    assert method.mandate_status == "pending" and method.preferred is False
+    gateway.mandates["mandate_test"] = replace(gateway.mandates["mandate_test"], status="active")
+    await _event(as_owner, "mandate.updated", {"id": "mandate_test"}, event="evt_active")
+    assert await column(db, "payment_methods", method.id, "preferred") is True
+
+
+async def test_a_link_is_not_texted_to_a_client_who_replied_stop(
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
+) -> None:
+    await enable_payments(db)
+    cid = await client_id(db)
+    await replied_stop(db, cid)
+    res = await as_owner.post(f"/v1/payments/pad-links/{cid}", json={"text": True})
+    assert (res.status_code, res.json()["error"]) == (409, "texts_stopped")
+    assert sms.sent == []
+
+
+async def _authorized_bank(
+    as_owner: httpx.AsyncClient, gateway: FakePaymentGateway, token: str
+) -> tuple[str, dict[str, object]]:
+    intent = await _start(as_owner, token)
+    pm = _authorized(gateway, intent)
+    await _event(as_owner, "payment_method.attached", pm)
+    await _event(as_owner, "setup_intent.succeeded", {"id": intent}, event="evt_authorized")
+    return intent, pm
+
+
+async def test_a_new_link_keeps_the_bank_an_earlier_link_authorized(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    link, token = await _link(as_owner, db)
+    intent, _ = await _authorized_bank(as_owner, gateway, token)
+    saved = select(PaymentMethod).where(PaymentMethod.provider_ref == "pm_authorized")
+    assert (await db.execute(saved)).scalar_one().mandate_status == "active"
+    again = await as_owner.post(f"/v1/payments/pad-links/{link.client_id}")
+    assert again.status_code == 200, again.text
+    assert await column(db, "payment_setup_links", link.id, "revoked_at") is None
+    refused = await as_owner.delete(f"/v1/payments/pad-links/{link.id}")
+    assert (refused.status_code, refused.json()["error"]) == (409, "pad_link_used")
+    await _event(as_owner, "mandate.updated", {"id": "mandate_test"}, event="evt_later")
+    await _event(as_owner, "setup_intent.succeeded", {"id": intent}, event="evt_dup")
+    assert (await db.execute(saved)).scalar_one().mandate_status == "active"
+    assert gateway.detached == []
+
+
+async def test_a_verification_past_its_link_no_longer_blocks_a_new_link(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    link, token = await _link(as_owner, db)
+    intent = await _start(as_owner, token)
+    gateway.pad_intents[intent] = replace(gateway.pad_intents[intent], status="requires_action")
+    await as_owner.get("/payment-method", headers=_header(token))
+    assert await column(db, "payment_setup_links", link.id, "setup_status") == "requires_action"
+    link.expires_at = clock.now() - timedelta(minutes=1)
+    await db.flush()
+    assert (await as_owner.get(f"/v1/payments/pad-links/{link.client_id}")).json() is None
+    replaced = await as_owner.post(f"/v1/payments/pad-links/{link.client_id}")
+    assert replaced.status_code == 200, replaced.text
+
+
+async def test_a_link_is_not_texted_to_a_number_that_cannot_take_texts(
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
+) -> None:
+    await enable_payments(db)
+    cid = await client_id(db)
+    await db.execute(update(Client).where(Client.id == cid).values(phone="12"))
+    res = await as_owner.post(f"/v1/payments/pad-links/{cid}", json={"text": True})
+    assert (res.status_code, res.json()["error"]) == (422, "no_mobile_number")
+    assert sms.sent == []
+
+
+async def test_a_default_whose_mandate_ends_hands_its_memberships_to_the_next_default(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway, factory: Factory
+) -> None:
+    await enable_payments(db)
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    fresh = await factory.client(business=business, name="Bank Member")
+    fresh.phone = "+16045550198"
+    await db.flush()
+    res = await as_owner.post(f"/v1/payments/pad-links/{fresh.id}")
+    token = parse_qs(urlsplit(res.json()["url"]).fragment)["token"][0]
+    await _authorized_bank(as_owner, gateway, token)
+    bank = (
+        await db.execute(select(PaymentMethod).where(PaymentMethod.provider_ref == "pm_authorized"))
+    ).scalar_one()
+    assert bank.preferred is True
+    card = PaymentMethod(
+        id=new_id("payment_method"),
+        business_id=BIZ,
+        client_id=fresh.id,
+        method="card",
+        provider_ref="pm_backup_card",
+    )
+    item = Item(
+        id=new_id("item"),
+        business_id=BIZ,
+        kind="subscription",
+        name="Monthly Plan",
+        price_cents=5000,
+        currency="CAD",
+        interval=1,
+        frequency="month",
+    )
+    db.add_all([card, item])
+    await db.flush()
+    sub = Subscription(
+        id=new_id("subscription"),
+        business_id=BIZ,
+        client_id=fresh.id,
+        item_id=item.id,
+        status="active",
+        provider_ref="sub_on_bank",
+        payment_method_id=bank.id,
+    )
+    db.add(sub)
+    await db.flush()
+    sub_id, card_id, bank_id = sub.id, card.id, bank.id
+    gateway.mandates["mandate_test"] = replace(gateway.mandates["mandate_test"], status="inactive")
+    await _event(as_owner, "mandate.updated", {"id": "mandate_test"}, event="evt_ended")
+    assert await column(db, "payment_methods", bank_id, "mandate_status") == "revoked"
+    assert await column(db, "payment_methods", bank_id, "preferred") is False
+    assert await column(db, "payment_methods", card_id, "preferred") is True
+    assert await column(db, "subscriptions", sub_id, "payment_method_id") == card_id
+    assert gateway.subscription_methods == {"sub_on_bank": "pm_backup_card"}

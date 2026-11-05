@@ -119,6 +119,7 @@ def main() -> None:
     parser.add_argument("--platform", choices=("ios", "android"))
     parser.add_argument("--device")
     parser.add_argument("--build-native", choices=("ios", "android"))
+    parser.add_argument("--fake-stripe", action="store_true")
     parser.add_argument("--seed-as-of", type=seed_timestamp)
     parser.add_argument("--project", choices=("default", "pseudo", *BROWSERS), default="default")
     parser.add_argument("--allow-source-changes", action="store_true")
@@ -141,6 +142,8 @@ def main() -> None:
         parser.error("journeys, filings and native use the default project")
     if (args.surface == "native") != bool(args.platform and args.device):
         parser.error("the native surface, and only it, takes --platform and --device")
+    if args.fake_stripe and args.surface != "native":
+        parser.error("only the native surface runs against the stand-in Stripe")
     if args.project in BROWSERS and args.surface not in ("web", "connect"):
         parser.error("only the web and Connect lanes have Firefox and WebKit projects")
     if args.repeat_each < 1:

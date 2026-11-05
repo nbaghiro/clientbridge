@@ -33,6 +33,7 @@ from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import AppError, Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.locale import locale_for, message
+from clientbridge.core.phones import e164
 from clientbridge.core.ratelimit import allow_action, connect_refresh_limiter
 from clientbridge.core.scoping import scoped, scoped_update
 from clientbridge.core.security import hash_token
@@ -84,6 +85,7 @@ from clientbridge.schemas.payments import (
     InvoicePaymentOut,
     PaymentMethodOut,
     PaymentSetupLinkOut,
+    PaymentSetupLinkStatus,
     PayoutContentsOut,
     PayoutOut,
     PayoutsOut,
@@ -119,10 +121,13 @@ from clientbridge.services.earnings import (
 from clientbridge.services.inventory import assert_parent_stock, sync_parent_stock
 from clientbridge.services.ledger import BUSINESS_CURRENCY
 from clientbridge.services.lines import allocate, apply_totals, worker_shares
-from clientbridge.services.notifications import Notifier, queued_notifier
+from clientbridge.services.notifications import Notifier, Outcome, queued_notifier
 from clientbridge.services.tax import tax_for_amount, tax_within
 
 _log = logging.getLogger(__name__)
+# a link whose client is proving the account to Stripe (micro-deposits) or awaiting the mandate
+_VERIFYING = ("requires_action", "processing")
+_FINISHED = ("succeeded", "canceled", "revoked")
 _ORPHAN_GRACE = timedelta(hours=1)
 
 
@@ -511,7 +516,7 @@ class PaymentService:
             request={"client_id": client_id},
         )
 
-    async def create_pad_link(self, client_id: str) -> PaymentSetupLinkOut:
+    async def create_pad_link(self, client_id: str, *, text: bool = False) -> PaymentSetupLinkOut:
         from clientbridge.services.clients import assert_client_active  # clients imports payments
 
         self._assert_admin()
@@ -537,12 +542,19 @@ class PaymentService:
                         scoped(PaymentSetupLink, self.biz).where(
                             PaymentSetupLink.client_id == client.id,
                             PaymentSetupLink.revoked_at.is_(None),
+                            PaymentSetupLink.setup_status != "succeeded",
                         )
                     )
                 )
                 .scalars()
                 .all()
             )
+            if any(link.setup_status in _VERIFYING and link.expires_at > now for link in old):
+                # replacing it would strand a client who is already proving the account to Stripe
+                raise Conflict(
+                    "the client is verifying a bank account; revoke that link first",
+                    code="bank_setup_in_progress",
+                )
             for link in old:
                 link.revoked_at = now
             token = secrets.token_urlsafe(32)
@@ -560,7 +572,13 @@ class PaymentService:
             await self.db.flush()
             cmd.record("payment.pad_link", entity_type="client", entity_id=client.id)
             url = f"{get_settings().pay_base_url}/setup#token={token}"
-            return PaymentSetupLinkOut(id=link.id, url=url, expires_at=link.expires_at)
+            if text:
+                notifier = queued_notifier(self.db, self.biz, delivery_key("pad-link", link.id))
+                if await notifier.on_pad_link(self.db, client.id, url) is not Outcome.DELIVERED:
+                    if not client.phone or e164(client.phone) is None:
+                        raise Unprocessable("client has no mobile number", code="no_mobile_number")
+                    raise Conflict("this client can't be texted", code="texts_stopped")
+            return PaymentSetupLinkOut(id=link.id, url=url, expires_at=link.expires_at, texted=text)
 
         return await run_command(
             self.db,
@@ -568,6 +586,31 @@ class PaymentService:
             action="payment.pad_link",
             run=run,
             response_model=PaymentSetupLinkOut,
+        )
+
+    async def pad_link_status(self, client_id: str) -> PaymentSetupLinkStatus | None:
+        """The client's open bank authorization link, if one is still waiting on them or Stripe."""
+        self._assert_admin()
+        client = await self._client(client_id)
+        link = (
+            await self.db.execute(
+                scoped(PaymentSetupLink, self.biz)
+                .where(
+                    PaymentSetupLink.client_id == client.id,
+                    PaymentSetupLink.revoked_at.is_(None),
+                    PaymentSetupLink.setup_status.not_in(_FINISHED),
+                    PaymentSetupLink.expires_at > clock.now(),
+                )
+                .order_by(PaymentSetupLink.created_at.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if link is None:
+            return None
+        return PaymentSetupLinkStatus(
+            id=link.id,
+            verifying=link.setup_status in _VERIFYING,
+            expires_at=link.expires_at,
         )
 
     async def revoke_pad_link(self, link_id: str) -> None:
@@ -579,6 +622,9 @@ class PaymentService:
         ).scalar_one_or_none()
         if link is None:
             raise NotFound("authorization link not found")
+        if link.setup_status == "succeeded":
+            # its bank is authorized and saved; removing that is the wallet's job
+            raise Conflict("this link was already used", code="pad_link_used")
         link.revoked_at = clock.now()
         await self.db.commit()
 
@@ -594,14 +640,15 @@ class PaymentService:
         provider_ref = pm.provider_ref
 
         async def run(cmd: Command) -> DetachResult:
-            billing = await self.db.scalar(
-                scoped(Subscription, self.biz)
-                .with_only_columns(Subscription.id)
-                .where(Subscription.payment_method_id == pm.id, Subscription.status != "canceled")
-                .limit(1)
-            )
-            if billing is not None:
-                raise Conflict("a membership still bills this card", code="payment_method_in_use")
+            billing = await _live_memberships(self.db, self.biz, pm.client_id, billed_by=pm.id)
+            if billing:
+                successor = await _chargeable_default(self.db, self.biz, pm.client_id, other=pm.id)
+                if successor is None:
+                    raise Conflict(
+                        "a membership still bills this card and the client has no other",
+                        code="payment_method_in_use",
+                    )
+                await move_memberships(self.db, self.gateway, billing, successor)
             await self.db.execute(
                 scoped_update(Subscription, self.biz)
                 .where(Subscription.payment_method_id == pm.id)
@@ -609,6 +656,7 @@ class PaymentService:
             )
             await self.db.delete(pm)
             await self.db.flush()
+            await keep_chargeable_default(self.db, self.gateway, self.biz, pm.client_id)
             # the provider can't be undone, so it goes last, once the rows are sure to change
             if account_id is not None and provider_ref is not None:
                 await self.gateway.detach_payment_method(account_id, payment_method_id=provider_ref)
@@ -630,9 +678,10 @@ class PaymentService:
         self._assert_admin()
         pm = await self._payment_method(payment_method_id)
 
-        if pm.method == "bank_eft" and pm.mandate_status != "active":
+        if not _is_chargeable(pm):
             raise Conflict(
-                "complete client bank authorization before making this method the default"
+                "complete client bank authorization before making this method the default",
+                code="payment_method_not_chargeable",
             )
 
         async def run(cmd: Command) -> PaymentMethodOut:
@@ -643,6 +692,8 @@ class PaymentService:
             )
             pm.preferred = True
             await self.db.flush()
+            live = await _live_memberships(self.db, self.biz, pm.client_id)
+            await move_memberships(self.db, self.gateway, live, pm)
             cmd.record("payment_method.set_default", entity_type="payment_method", entity_id=pm.id)
             return PaymentMethodOut(
                 id=pm.id,
@@ -922,6 +973,99 @@ async def invoice_credits(db: AsyncSession, invoice: Invoice) -> list[PublicCred
         )
         for entry, method in rows.tuples().all()
     ]
+
+
+def _is_chargeable(pm: PaymentMethod) -> bool:
+    bank_ready = pm.method != "bank_eft" or pm.mandate_status == "active"
+    return pm.provider_ref is not None and bank_ready
+
+
+async def _chargeable_default(
+    db: AsyncSession, business_id: str, client_id: str, *, other: str | None = None
+) -> PaymentMethod | None:
+    """The client's default if it can be charged, else their newest chargeable method."""
+    methods = (
+        await db.execute(
+            scoped(PaymentMethod, business_id)
+            .where(PaymentMethod.client_id == client_id, PaymentMethod.id != (other or ""))
+            .order_by(PaymentMethod.created_at.desc(), PaymentMethod.id.desc())
+        )
+    ).scalars()
+    chargeable = [m for m in methods if _is_chargeable(m)]
+    return next((m for m in chargeable if m.preferred), chargeable[0] if chargeable else None)
+
+
+async def keep_chargeable_default(
+    db: AsyncSession, gateway: PaymentGateway, business_id: str, client_id: str
+) -> None:
+    """Only a chargeable method is the default; memberships the old default billed follow it."""
+    default = await _chargeable_default(db, business_id, client_id)
+    keep = default.id if default is not None else ""
+    demoted = (
+        (
+            await db.execute(
+                scoped(PaymentMethod, business_id)
+                .with_only_columns(PaymentMethod.id)
+                .where(
+                    PaymentMethod.client_id == client_id,
+                    PaymentMethod.id != keep,
+                    PaymentMethod.preferred.is_(True),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if demoted:
+        await db.execute(
+            scoped_update(PaymentMethod, business_id)
+            .where(PaymentMethod.id.in_(demoted))
+            .values(preferred=False)
+        )
+    if default is None:
+        await db.flush()
+        return
+    default.preferred = True
+    await db.flush()
+    if demoted:
+        billed = await _live_memberships(db, business_id, client_id, billed_by=list(demoted))
+        await move_memberships(db, gateway, billed, default)
+
+
+async def _live_memberships(
+    db: AsyncSession, business_id: str, client_id: str, *, billed_by: str | list[str] | None = None
+) -> list[Subscription]:
+    query = scoped(Subscription, business_id).where(
+        Subscription.client_id == client_id, Subscription.status != "canceled"
+    )
+    if isinstance(billed_by, str):
+        query = query.where(Subscription.payment_method_id == billed_by)
+    elif billed_by is not None:
+        query = query.where(Subscription.payment_method_id.in_(billed_by))
+    query = query.order_by(Subscription.id).with_for_update()
+    return list((await db.execute(query)).scalars().all())
+
+
+async def move_memberships(
+    db: AsyncSession, gateway: PaymentGateway, subs: list[Subscription], to: PaymentMethod
+) -> None:
+    """Bill each membership's next periods to `to`, at Stripe first and then on the row."""
+    business = await db.get(Business, to.business_id)
+    account_id = merchant_account(business) if business is not None else None
+    for sub in subs:
+        if sub.payment_method_id == to.id:
+            continue
+        if account_id is not None and sub.provider_ref is not None and to.provider_ref:
+            moved = await gateway.change_subscription_payment_method(
+                account_id,
+                subscription_id=sub.provider_ref,
+                payment_method_id=to.provider_ref,
+                application_fee_percent=subscription_fee_percent(to.method),
+            )
+            if not moved:  # Stripe bills nothing under it, so only the row follows
+                _log.warning("membership %s is not on Stripe; moved locally", sub.id)
+        sub.payment_method_id = to.id
+    await db.flush()
 
 
 async def default_method_ref(db: AsyncSession, business_id: str, client_id: str) -> str | None:
@@ -1919,6 +2063,8 @@ ACCOUNT_CLOSED = "v2.core.account.closed"
 _OUR_VOID = "expired_order"  # we refund it in full and return our platform fee
 _UNAPPLIED = "unapplied_payment"  # it reached a bill that no longer owed it; refunded in full
 _REPLAY_WINDOW = timedelta(days=7)
+# Stripe's own retry gets the first chance at a held charge
+_DEFERRED_GRACE = timedelta(minutes=1)
 _REPLAY_PER_ACCOUNT = 100
 _REPLAY_PER_RUN = 500
 _REPLAYED: dict[str, StripeResource] = {
@@ -1969,6 +2115,50 @@ async def run_replay_missed_events(db: AsyncSession, gateway: PaymentGateway) ->
                 continue  # already applied or not ours to apply, so it costs no budget
             budget -= 1
             applied += await _replay(db, gateway, event)
+    return applied
+
+
+async def run_retry_deferred_charges(db: AsyncSession, gateway: PaymentGateway) -> int:
+    """Apply charges held until Stripe showed their fees, for a sender that never retries them."""
+    now = clock.now()
+    held = (
+        await db.execute(
+            select(Webhook)
+            .where(
+                Webhook.provider == "stripe",
+                Webhook.status == "failed",
+                Webhook.event == "payment_intent.succeeded",
+                Webhook.created_at > now - _REPLAY_WINDOW,
+                Webhook.processed_at < now - _DEFERRED_GRACE,
+                # each try waits as long as the event has already been held, so retries back off
+                Webhook.processed_at - Webhook.created_at <= now - Webhook.processed_at,
+            )
+            .order_by(Webhook.created_at)
+            .limit(_REPLAY_PER_RUN)
+        )
+    ).scalars()
+    applied = 0
+    for record in list(held):
+        intent_id = (record.payload or {}).get("id")
+        if not isinstance(intent_id, str):
+            continue
+        account = await db.scalar(
+            select(Business.stripe_account_id)
+            .join(Payment, Payment.business_id == Business.id)
+            .where(Payment.provider_ref == intent_id, Payment.status == "pending")
+            .limit(1)
+        )
+        if account is None:
+            continue
+        missed = MissedEvent(
+            id=record.id,
+            type=record.event,
+            account=account,
+            object_type="payment_intent",
+            object_id=intent_id,
+            created=record.created_at,
+        )
+        applied += await _replay(db, gateway, missed)
     return applied
 
 
@@ -2395,7 +2585,7 @@ async def _dispatch(
     elif event.type == "mandate.updated":
         await _reconcile_pad_mandate(db, gateway, event.account, str(event.data.get("id")))
     elif event.type == "payment_method.attached":
-        await _record_payment_method(db, event.account, event.data)
+        await _record_payment_method(db, gateway, event.account, event.data)
     elif event.type == "payment_method.automatically_updated":
         await _update_payment_method(db, event.account, event.data)
     elif event.type in ("refund.created", "refund.failed", "refund.updated"):
@@ -3088,7 +3278,12 @@ async def _business_for_account(db: AsyncSession, account_id: str | None) -> str
 
 
 async def _record_payment_method(
-    db: AsyncSession, account_id: str | None, data: dict[str, object]
+    db: AsyncSession,
+    gateway: PaymentGateway,
+    account_id: str | None,
+    data: dict[str, object],
+    *,
+    via_link: bool = False,
 ) -> None:
     """Record a saved card from a SetupIntent, deduped by provider ref."""
     if account_id is None:
@@ -3112,13 +3307,10 @@ async def _record_payment_method(
     ).scalar_one_or_none()
     if seen is not None:
         return
-    has_card = (
-        await db.execute(
-            scoped(PaymentMethod, biz).where(PaymentMethod.client_id == client.id).limit(1)
-        )
-    ).scalar_one_or_none()
     pm_type = data.get("type")
     if pm_type in ("acss_debit", "us_bank_account"):  # a PAD / bank mandate, not a card
+        if not via_link and not await _setting_up_bank(db, biz, client.id):
+            return  # a bank from a revoked link is detached once its setup finishes
         kind, mandate = "bank_eft", "pending"
         detail = data.get(pm_type)
     else:
@@ -3140,7 +3332,7 @@ async def _record_payment_method(
             brand=brand if isinstance(brand, str) else None,
             last4=last4 if isinstance(last4, str) else None,
             provider_ref=pm_id,
-            preferred=has_card is None,  # first method on file becomes the default
+            preferred=False,
             mandate_status=mandate,
             exp_month=exp_month if isinstance(exp_month, int) else None,
             exp_year=exp_year if isinstance(exp_year, int) else None,
@@ -3149,6 +3341,22 @@ async def _record_payment_method(
         )
     )
     await db.flush()
+    await keep_chargeable_default(db, gateway, biz, client.id)
+
+
+async def _setting_up_bank(db: AsyncSession, business_id: str, client_id: str) -> bool:
+    started = await db.scalar(
+        scoped(PaymentSetupLink, business_id)
+        .with_only_columns(PaymentSetupLink.id)
+        .where(
+            PaymentSetupLink.client_id == client_id,
+            PaymentSetupLink.revoked_at.is_(None),
+            PaymentSetupLink.setup_intent_id.is_not(None),
+            PaymentSetupLink.setup_status.not_in(_FINISHED),
+        )
+        .limit(1)
+    )
+    return started is not None
 
 
 _SUB_STATUS: dict[str, SubscriptionStatus] = {
@@ -3247,6 +3455,16 @@ async def _update_subscription(
     end = _period(current, "end")
     if end is not None:
         sub.current_period_end = end
+    billing = current.get("default_payment_method")
+    if isinstance(billing, str):
+        # Stripe decides what a membership bills, so a move it took and we lost is kept
+        method = await db.scalar(
+            scoped(PaymentMethod, sub.business_id)
+            .with_only_columns(PaymentMethod.id)
+            .where(PaymentMethod.client_id == sub.client_id, PaymentMethod.provider_ref == billing)
+        )
+        if method is not None:
+            sub.payment_method_id = method
     await db.flush()
     return sub
 
@@ -3817,12 +4035,13 @@ async def _reconcile_pad_setup(
     ):
         return
     mandate = await gateway.get_mandate(account_id, state.mandate_id)
-    if mandate.payment_method_id != pm.get("id") or (
-        link.revoked_at is not None and mandate.status == "active"
-    ):
+    if mandate.payment_method_id != pm.get("id"):
+        return
+    if link.revoked_at is not None:
+        await _drop_revoked_bank(db, gateway, link, mandate.payment_method_id)
         return
     link.mandate_ref = mandate.id
-    await _record_payment_method(db, account_id, pm)
+    await _record_payment_method(db, gateway, account_id, pm, via_link=True)
     method = (
         await db.execute(
             scoped(PaymentMethod, link.business_id).where(
@@ -3847,6 +4066,40 @@ async def _reconcile_pad_setup(
             else "processing"
         )
         await db.flush()
+        await keep_chargeable_default(db, gateway, link.business_id, link.client_id)
+
+
+async def _drop_revoked_bank(
+    db: AsyncSession, gateway: PaymentGateway, link: PaymentSetupLink, pm_id: str
+) -> None:
+    """The business withdrew the link, so the bank the client finished anyway is never kept."""
+    dropped = (
+        await db.execute(
+            scoped(PaymentMethod, link.business_id).where(
+                PaymentMethod.client_id == link.client_id, PaymentMethod.provider_ref == pm_id
+            )
+        )
+    ).scalar_one_or_none()
+    if dropped is not None:
+        billing = await _live_memberships(
+            db, link.business_id, link.client_id, billed_by=dropped.id
+        )
+        successor = await _chargeable_default(
+            db, link.business_id, link.client_id, other=dropped.id
+        )
+        if billing and successor is not None:
+            await move_memberships(db, gateway, billing, successor)
+        await db.execute(
+            scoped_update(Subscription, link.business_id)
+            .where(Subscription.payment_method_id == dropped.id)
+            .values(payment_method_id=None)
+        )
+        await db.delete(dropped)
+    link.setup_status = "revoked"
+    await db.flush()
+    await keep_chargeable_default(db, gateway, link.business_id, link.client_id)
+    # detaching ends the mandate, so the account can never be debited for this business
+    await gateway.detach_payment_method(link.account_id, payment_method_id=pm_id)
 
 
 async def _reconcile_pad_mandate(

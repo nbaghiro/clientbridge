@@ -199,7 +199,19 @@
         "message": "This membership's included visits for the period are used. Ring the visit up instead."
     },
     "api.paymentMethodInUse": {
-        "message": "A membership still bills this card. Cancel the membership or move it to another card first."
+        "message": "A membership still bills this card, and the client has no other card or authorized bank account to move it to. Add one first, or cancel the membership."
+    },
+    "api.bankSetupInProgress": {
+        "message": "This client is verifying a bank account with Stripe. Revoke their current link first if you need to send a new one."
+    },
+    "api.textsStopped": {
+        "message": "This client replied STOP, so they can’t be texted. Copy the link and share it another way."
+    },
+    "api.padLinkUsed": {
+        "message": "The client already used this link to authorize their bank account. Remove the bank account from the wallet instead."
+    },
+    "api.paymentMethodNotChargeable": {
+        "message": "This method can’t be charged yet, so it can’t be the default. Finish the client’s bank authorization or add a card."
     },
     "api.cardDeclined": {
         "message": "The card was declined. Try another card or payment method."
@@ -1293,6 +1305,12 @@
     },
     "billing.rec.cardBody": {
         "message": "The invoice updates when the card payment settles, usually within a minute."
+    },
+    "billing.rec.debitTitle": {
+        "message": "Bank debit started"
+    },
+    "billing.rec.debitBody": {
+        "message": "The invoice updates when the bank debit clears, which takes a few business days."
     },
     "billing.rec.donePaid": {
         "message": "Invoice {n} is paid in full.",
@@ -5371,6 +5389,10 @@
         "message": "Next charge {date}",
         "args": ["date"]
     },
+    "clients.subscriptionEnded": {
+        "message": "Ended {date}",
+        "args": ["date"]
+    },
     "clients.cancelSubscriptionTitle": {
         "message": "Cancel subscription"
     },
@@ -6353,7 +6375,11 @@
         "message": "It can't be charged again. Past payments made with it are kept."
     },
     "clients.wallet.removeBodyInUse": {
-        "message": "It pays {plans}. Those charges will move to the default method, or fail if there is none.",
+        "message": "It pays {plans}. Those charges move to {method}.",
+        "args": ["plans", "method"]
+    },
+    "clients.wallet.removeBodyLast": {
+        "message": "It pays {plans}. Add another card or bank account first, so the membership has something to bill.",
         "args": ["plans"]
     },
     "clients.wallet.removeConfirm": {
@@ -14051,7 +14077,29 @@
         "message": "Removing a photo needs a connection. Try again when you're back online."
     },
     "checkout.bankLinkHelp": {
-        "message": "Share this private link with the client. They enter their bank details and authorize payments with Stripe. The client must start within 24 hours, then has 10 days to finish bank verification. Creating another link replaces it."
+        "message": "Send the client a private link. They enter their bank details and authorize payments with Stripe. They must start within 24 hours, then have 10 days to finish verification. A new link replaces the old one."
+    },
+    "checkout.bankLinkTitle": {
+        "message": "Bank authorization",
+        "description": "Short sheet title for requesting a client's bank authorization"
+    },
+    "checkout.bankLinkText": {
+        "message": "Text link to {phone}",
+        "args": ["phone"]
+    },
+    "checkout.bankLinkCreate": {
+        "message": "Create link"
+    },
+    "checkout.bankLinkTexted": {
+        "message": "Texted to {phone}. You can also share the link below.",
+        "args": ["phone"]
+    },
+    "checkout.bankLinkWaiting": {
+        "message": "A bank authorization link is waiting for the client. It expires {date}.",
+        "args": ["date"]
+    },
+    "checkout.bankLinkVerifying": {
+        "message": "The client is verifying their bank account with Stripe. It appears here once Stripe confirms it."
     },
     "checkout.bankLinkLabel": {
         "message": "Private authorization link"
@@ -14123,6 +14171,13 @@
     },
     "checkout.notConfiguredSavedCard": {
         "message": "Card payments aren’t configured. Charge a saved card instead."
+    },
+    "checkout.notConfiguredSetup": {
+        "message": "Saving cards isn’t set up in this app yet."
+    },
+    "checkout.postalCode": {
+        "message": "Postal",
+        "description": "Placeholder in the phone's narrow card field, where a longer word is cut off"
     },
     "checkout.notConfiguredContact": {
         "message": "Card payments aren't configured. Please contact the business."

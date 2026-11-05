@@ -737,6 +737,10 @@ def contract_sent_message(locale: str, business_name: str, contract_name: str, l
     )
 
 
+def pad_link_message(locale: str, business_name: str, link: str) -> str:
+    return message(locale, "pad_link.body", business=business_name, link=link)
+
+
 def review_requested_message(locale: str, business_name: str, link: str) -> str:
     return message(locale, "review_requested.body", business=business_name, link=link)
 
@@ -1325,6 +1329,14 @@ class Notifier:
         self, db: AsyncSession, business: Business, client_id: str, link: str
     ) -> Outcome:
         notice = review_requested_message(locale_for(business=business), business.name, link)
+        return await self._to_client(db, client_id, notice)
+
+    async def on_pad_link(self, db: AsyncSession, client_id: str, link: str) -> Outcome:
+        client = await db.get(Client, client_id)
+        business = await db.get(Business, client.business_id) if client is not None else None
+        if business is None:
+            return Outcome.SKIPPED
+        notice = pad_link_message(locale_for(business=business), business.name, link)
         return await self._to_client(db, client_id, notice)
 
     async def deliver(self, db: AsyncSession, client_id: str, notice: str) -> Outcome:

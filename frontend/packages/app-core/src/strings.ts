@@ -74,6 +74,10 @@ interface Strings {
         readonly paymentInProgress: string;
         readonly membershipVisitsUsed: string;
         readonly paymentMethodInUse: string;
+        readonly bankSetupInProgress: string;
+        readonly textsStopped: string;
+        readonly padLinkUsed: string;
+        readonly paymentMethodNotChargeable: string;
         readonly cardDeclined: string;
         readonly paymentActionRequired: string;
         readonly invoiceChanged: string;
@@ -430,6 +434,8 @@ interface Strings {
             readonly doneTitle: string;
             readonly cardTitle: string;
             readonly cardBody: string;
+            readonly debitTitle: string;
+            readonly debitBody: string;
             readonly donePaid: (n: string) => string;
             readonly donePartial: (n: string, left: string) => string;
             readonly receiptSent: (phone: string) => string;
@@ -1767,6 +1773,7 @@ interface Strings {
         readonly noSubscriptions: string;
         readonly subscriptionFallback: string;
         readonly nextCharge: (date: string) => string;
+        readonly subscriptionEnded: (date: string) => string;
         readonly cancelSubscriptionTitle: string;
         readonly cancelSubscriptionConfirm: string;
         readonly cancelSubscriptionError: string;
@@ -1932,7 +1939,8 @@ interface Strings {
             readonly remove: string;
             readonly removeTitle: (label: string) => string;
             readonly removeBody: string;
-            readonly removeBodyInUse: (plans: string) => string;
+            readonly removeBodyInUse: (plans: string, method: string) => string;
+            readonly removeBodyLast: (plans: string) => string;
             readonly removeConfirm: string;
             readonly removeError: string;
             readonly defaultError: string;
@@ -4795,6 +4803,12 @@ interface Strings {
     } & Labels;
     readonly checkout: {
         readonly bankLinkHelp: string;
+        readonly bankLinkTitle: string;
+        readonly bankLinkText: (phone: string) => string;
+        readonly bankLinkCreate: string;
+        readonly bankLinkTexted: (phone: string) => string;
+        readonly bankLinkWaiting: (date: string) => string;
+        readonly bankLinkVerifying: string;
         readonly bankLinkLabel: string;
         readonly bankLinkShare: string;
         readonly bankLinkRevoke: string;
@@ -4818,6 +4832,8 @@ interface Strings {
         readonly chooseSavedMethod: string;
         readonly addMethodFirst: string;
         readonly notConfiguredSavedCard: string;
+        readonly notConfiguredSetup: string;
+        readonly postalCode: string;
         readonly notConfiguredContact: string;
         readonly back: string;
         readonly paymentFailed: string;

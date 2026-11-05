@@ -1226,6 +1226,7 @@ def seed_payment_methods() -> None:
             method="bank_eft",
             brand="RBC",
             last4="6677",
+            provider_ref="pm_demo_6677",
             mandate_status="active",
             preferred=False,
         )

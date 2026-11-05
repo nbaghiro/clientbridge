@@ -193,7 +193,7 @@ jobs:
       - name: run the walkthroughs
         run: |
           frontend/apps/mobile/scripts/ci-emulator.sh start
-          make test-mobile PLATFORM=android DEVICE=emulator-5554 ARGS="${{ join(matrix.shard.flows, ' ') }}"
+          make test-mobile PLATFORM=android DEVICE=emulator-5554 ARGS="${{ matrix.shard.options }} ${{ join(matrix.shard.flows, ' ') }}"
       - name: flag walkthroughs over three times their usual time
         if: success() || failure()
         run: frontend/apps/mobile/scripts/slow-flows.sh .scratchpad/e2e-*/native.log

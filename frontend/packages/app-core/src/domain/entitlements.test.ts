@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { ApiLike } from "../api";
+import { formatDate, parseTimestamp } from "../datetime";
+import { strings } from "../strings";
 
 import { packageBalance } from "./clients";
 import {
@@ -9,6 +11,7 @@ import {
     consumeSession,
     nextSessionCents,
     sessionsRemaining,
+    subscriptionTiming,
 } from "./entitlements";
 
 const pkg = (total: number, used: number, status = "active"): PackageRow => ({
@@ -67,4 +70,32 @@ it("passes a stable attempt key when consuming a package session", async () => {
         {},
         { idempotencyKey: "consume-attempt" },
     );
+});
+
+describe("subscriptionTiming", () => {
+    const zone = "America/Vancouver";
+    const end = "2026-11-13T08:00:00Z";
+    const date = formatDate(parseTimestamp(end), zone);
+    const sub = (status: string, periodEnd: string | null = end) => ({
+        id: "su_1",
+        client_id: "cl_ann",
+        item_id: "it_plan",
+        item_name: "Monthly Plan",
+        status,
+        current_period_end: periodEnd,
+        payment_method_id: null,
+    });
+
+    it("says when a billing membership charges next and when a canceled one ended", () => {
+        expect(subscriptionTiming(sub("active"), zone)).toBe(strings.clients.nextCharge(date));
+        expect(subscriptionTiming(sub("past_due"), zone)).toBe(strings.clients.nextCharge(date));
+        expect(subscriptionTiming(sub("canceled"), zone)).toBe(
+            strings.clients.subscriptionEnded(date),
+        );
+    });
+
+    it("says nothing for a membership not yet billing or without a period", () => {
+        expect(subscriptionTiming(sub("incomplete"), zone)).toBeNull();
+        expect(subscriptionTiming(sub("active", null), zone)).toBeNull();
+    });
 });

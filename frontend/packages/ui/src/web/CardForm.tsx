@@ -33,7 +33,11 @@ export function CardForm(props: WebProps<CardFormProps>) {
     if (stripePromise === null) {
         return props.onCancel !== undefined ? (
             <div className={cx("mt-3 space-y-3", props.className)}>
-                <Notice tone="danger">{strings.checkout.notConfiguredSavedCard}</Notice>
+                <Notice tone="danger">
+                    {props.mode === "setup"
+                        ? strings.checkout.notConfiguredSetup
+                        : strings.checkout.notConfiguredSavedCard}
+                </Notice>
                 <div className="flex justify-end">
                     <Button variant="quiet" onPress={props.onCancel}>
                         {strings.checkout.back}
@@ -81,11 +85,14 @@ function ConfirmForm({
     busyLabel,
     onDone,
     onCancel,
+    defaultValue,
     className,
 }: WebProps<CardFormProps>) {
     const stripe = useStripe();
     const elements = useElements();
     const { busy, error, setError, run } = useAsyncAction();
+    // a submit before the element is ready ignores its prefilled name and email
+    const [ready, setReady] = useState(false);
     const failed = mode === "payment" ? strings.checkout.paymentFailed : strings.checkout.saveError;
 
     const confirmPayment = (): void => {
@@ -139,19 +146,32 @@ function ConfirmForm({
                 />
             ) : null}
             {/* with card as the only method, tabs draw no panel around the card fields */}
-            <PaymentElement options={{ layout: { type: "tabs" } }} />
+            <PaymentElement
+                onReady={() => {
+                    setReady(true);
+                }}
+                options={{
+                    layout: { type: "tabs" },
+                    defaultValues: {
+                        billingDetails: {
+                            ...(defaultValue?.name ? { name: defaultValue.name } : {}),
+                            ...(defaultValue?.email ? { email: defaultValue.email } : {}),
+                        },
+                    },
+                }}
+            />
             {error !== null ? <Notice tone="danger">{error}</Notice> : null}
             {onCancel !== undefined ? (
                 <div className="flex justify-end gap-2">
                     <Button variant="quiet" onPress={onCancel}>
                         {strings.common.cancel}
                     </Button>
-                    <Button submit busy={busy} disabled={!stripe}>
+                    <Button submit busy={busy} disabled={!stripe || !ready}>
                         {busy ? busyLabel : submitLabel}
                     </Button>
                 </div>
             ) : (
-                <Button submit full size="lg" busy={busy} disabled={!stripe}>
+                <Button submit full size="lg" busy={busy} disabled={!stripe || !ready}>
                     {busy ? busyLabel : submitLabel}
                 </Button>
             )}

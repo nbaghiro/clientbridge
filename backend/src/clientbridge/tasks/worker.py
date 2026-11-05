@@ -39,6 +39,7 @@ from clientbridge.services.payments import (
     run_cancel_stale_intents,
     run_reconcile_payments,
     run_replay_missed_events,
+    run_retry_deferred_charges,
 )
 from clientbridge.services.plans import run_sync_plans, run_trial_reminders
 from clientbridge.services.receipts import run_prune_receipts
@@ -101,6 +102,11 @@ async def reconcile_ledger(ctx: Context) -> int:
 async def replay_missed_events(ctx: Context) -> int:
     async with SessionLocal() as db:
         return await run_replay_missed_events(db, get_payment_gateway())
+
+
+async def retry_deferred_charges(ctx: Context) -> int:
+    async with SessionLocal() as db:
+        return await run_retry_deferred_charges(db, get_payment_gateway())
 
 
 async def process_google_operations(ctx: Context) -> int:
@@ -198,6 +204,7 @@ class WorkerSettings:
         cron(prune_pending_files, minute=20),
         cron(reconcile_ledger, minute=45),
         cron(replay_missed_events, minute=27),
+        cron(retry_deferred_charges, second=40),
         cron(send_review_requests, minute=0),
         cron(send_pickup_reminders, minute=0),
         cron(reap_unpaid_orders, minute={5, 20, 35, 50}),

@@ -76,6 +76,10 @@ export function PublicPaymentSetup() {
                                 submitLabel={s.bankSetupConfirm}
                                 busyLabel={strings.common.saving}
                                 onDone={flow.refresh}
+                                defaultValue={{
+                                    name: data.client_name,
+                                    email: flow.payerEmail.trim() || undefined,
+                                }}
                             />
                         ) : (
                             <form

@@ -183,6 +183,15 @@ async def test_cancel_subscription(contract_gateway: StripeGateway, at_period_en
     )
 
 
+async def test_change_subscription_payment_method(contract_gateway: StripeGateway) -> None:
+    await contract_gateway.change_subscription_payment_method(
+        ACCT,
+        subscription_id="sub_contract",
+        payment_method_id="pm_contract",
+        application_fee_percent=2.9,
+    )
+
+
 async def test_detach_payment_method(contract_gateway: StripeGateway) -> None:
     await contract_gateway.detach_payment_method(ACCT, payment_method_id="pm_contract")
 

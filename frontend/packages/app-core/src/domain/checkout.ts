@@ -1,13 +1,16 @@
 import type { PublicBrand } from "./publicResource";
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import { usePublicResource } from "./publicResource";
-import { useAsyncAction } from "../hooks";
+import { useAsyncAction, useBusinessQuery, useRemote } from "../hooks";
+import { formatDate, parseTimestamp, useBusinessZone } from "../datetime";
+import { formatPhone } from "../format";
 import { strings } from "../strings";
 import {
     type ApiLike,
     type Attempt,
     attemptKey,
+    failedCode,
     failedStatus,
     failureMessage,
     newIdempotencyKey,
@@ -136,14 +139,30 @@ interface BankSetupLink {
     id: string;
     url: string;
     expires_at: string;
+    texted: boolean;
+}
+
+interface OpenBankLink {
+    id: string;
+    verifying: boolean;
+    expires_at: string;
 }
 
 type SetupKind = "card" | "bank";
+
+const CLIENT_PHONE_SQL = `SELECT phone FROM clients WHERE id = ?`;
+const CLIENT_BANKS_SQL = `SELECT id, mandate_status FROM payment_methods
+WHERE client_id = ? AND method = 'bank_eft' ORDER BY id`;
 
 export interface AddPaymentMethod {
     kind: SetupKind | null;
     intent: SetupIntent | null;
     bankLink: BankSetupLink | null;
+    /** The client's earlier link while it is still open: what it waits on, and whether Stripe has it. */
+    openBankLink: { note: string; verifying: boolean } | null;
+    /** The client's mobile number as shown, or null when they can't be texted the link. */
+    textTo: string | null;
+    requestBankLink: (text: boolean) => void;
     revokeBankLink: () => void;
     busy: boolean;
     error: string | null;
@@ -161,37 +180,51 @@ export function useAddPaymentMethod(
 ): AddPaymentMethod {
     const [kind, setKind] = useState<SetupKind | null>(null);
     const [intent, setIntent] = useState<SetupIntent | null>(null);
-    const [bankLink, setBankLink] = useState<BankSetupLink | null>(null);
+    const [created, setCreated] = useState<{ link: BankSetupLink; banks: string } | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
     const attemptRef = useRef<{ kind: SetupKind; key: string } | null>(null);
+    const zone = useBusinessZone();
+    const phone = useBusinessQuery<{ phone: string | null }>(CLIENT_PHONE_SQL, [clientId]).data[0]
+        ?.phone;
+    const loadOpen = useCallback(
+        () => api.get<OpenBankLink | null>(`/v1/payments/pad-links/${clientId}`),
+        [api, clientId],
+    );
+    const banks = useBusinessQuery<{ id: string; mandate_status: string | null }>(
+        CLIENT_BANKS_SQL,
+        [clientId],
+    ).data;
+    // a bank that arrives or changes its mandate is the client acting on the link
+    const banksKey = banks.map((b) => `${b.id}:${b.mandate_status ?? ""}`).join(",");
+    const open = useRemote(loadOpen, `${clientId}|${banksKey}`);
+    const bankLink = created?.banks === banksKey ? created.link : null;
+    const openLink = bankLink === null ? open.data : null;
 
     const reset = (): void => {
         attemptRef.current = null;
         setKind(null);
         setIntent(null);
+        setCreated(null);
         setError(null);
     };
 
     const start = (next: SetupKind): void => {
         setKind(next);
         setIntent(null);
+        setError(null);
+        if (next === "bank") {
+            open.refresh().catch(() => undefined);
+            return;
+        }
         if (attemptRef.current?.kind !== next) {
             attemptRef.current = { kind: next, key: newIdempotencyKey() };
         }
         const { key } = attemptRef.current;
         run(async () => {
             try {
-                if (next === "card") setIntent(await startCardSetup(api, clientId, key));
-                else
-                    setBankLink(
-                        await api.post<BankSetupLink>(`/v1/payments/pad-links/${clientId}`, {}),
-                    );
+                setIntent(await startCardSetup(api, clientId, key));
             } catch (e) {
-                setError(
-                    next === "bank" && failedStatus(e) === 409
-                        ? strings.checkout.bankLinkRequirements
-                        : paymentErrorMessage(e, strings.payments.setupStartError),
-                );
+                setError(paymentErrorMessage(e, strings.payments.setupStartError));
             }
         });
     };
@@ -200,12 +233,45 @@ export function useAddPaymentMethod(
         kind,
         intent,
         bankLink,
+        openBankLink:
+            openLink === null
+                ? null
+                : {
+                      verifying: openLink.verifying,
+                      note: openLink.verifying
+                          ? strings.checkout.bankLinkVerifying
+                          : strings.checkout.bankLinkWaiting(
+                                formatDate(parseTimestamp(openLink.expires_at), zone),
+                            ),
+                  },
+        textTo: phone ? formatPhone(phone) : null,
+        requestBankLink: (text) => {
+            run(async () => {
+                try {
+                    const link = await api.post<BankSetupLink>(
+                        `/v1/payments/pad-links/${clientId}`,
+                        { text },
+                    );
+                    setCreated({ link, banks: banksKey });
+                    await open.refresh();
+                } catch (e) {
+                    setError(
+                        // Stripe holding back the debit capability arrives as a bare conflict
+                        failedCode(e) === "conflict"
+                            ? strings.checkout.bankLinkRequirements
+                            : failureMessage(e, strings.checkout.bankLinkError),
+                    );
+                }
+            });
+        },
         revokeBankLink: () => {
-            if (bankLink === null) return;
+            const id = bankLink?.id ?? openLink?.id;
+            if (id === undefined) return;
             run(
                 async () => {
-                    await api.delete(`/v1/payments/pad-links/${bankLink.id}`);
-                    setBankLink(null);
+                    await api.delete(`/v1/payments/pad-links/${id}`);
+                    setCreated(null);
+                    await open.refresh();
                 },
                 { errorMessage: strings.checkout.bankLinkError },
             );
@@ -238,8 +304,12 @@ interface PublicPaymentSetupClient {
     start: (token: string, email: string) => Promise<PublicPaymentSetup>;
 }
 
+// the shape the server issues; anything else can't be a link, so it isn't sent
+const SETUP_TOKEN = /^[A-Za-z0-9_-]{43}$/;
+
 export function createPublicPaymentSetupClient(baseUrl: string): PublicPaymentSetupClient {
     const request = async (token: string, email?: string): Promise<PublicPaymentSetup> => {
+        if (!SETUP_TOKEN.test(token)) throw Object.assign(new Error(), { status: 404 });
         const starting = email !== undefined;
         const response = await fetch(`${baseUrl}/payment-method${starting ? "/start" : ""}`, {
             method: starting ? "POST" : "GET",

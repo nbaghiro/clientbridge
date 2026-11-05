@@ -36,7 +36,11 @@ export function CardForm(props: NativeProps<CardFormProps>) {
     if (!stripeConfigured()) {
         return (
             <View style={[ui.box, props.style]}>
-                <Text style={ui.note}>{strings.checkout.notConfiguredSavedCard}</Text>
+                <Text style={ui.note}>
+                    {props.mode === "setup"
+                        ? strings.checkout.notConfiguredSetup
+                        : strings.checkout.notConfiguredSavedCard}
+                </Text>
                 {props.onCancel !== undefined ? (
                     <View style={ui.actions}>
                         <Button variant="quiet" onPress={props.onCancel}>
@@ -56,6 +60,7 @@ function ConfirmForm({
     submitLabel,
     onDone,
     onCancel,
+    defaultValue,
     style,
 }: NativeProps<CardFormProps>) {
     const { confirmPayment } = useConfirmPayment();
@@ -64,12 +69,24 @@ function ConfirmForm({
     const [ready, setReady] = useState(false);
 
     const submit = (): void => {
+        const paymentMethodData = {
+            billingDetails: {
+                ...(defaultValue?.name ? { name: defaultValue.name } : {}),
+                ...(defaultValue?.email ? { email: defaultValue.email } : {}),
+            },
+        };
         run(
             async () => {
                 const result =
                     mode === "payment"
-                        ? await confirmPayment(clientSecret, { paymentMethodType: "Card" })
-                        : await confirmSetupIntent(clientSecret, { paymentMethodType: "Card" });
+                        ? await confirmPayment(clientSecret, {
+                              paymentMethodType: "Card",
+                              paymentMethodData,
+                          })
+                        : await confirmSetupIntent(clientSecret, {
+                              paymentMethodType: "Card",
+                              paymentMethodData,
+                          });
                 if (result.error) throw new Error(result.error.message);
             },
             {
@@ -86,6 +103,7 @@ function ConfirmForm({
         <View style={[ui.box, style]}>
             <CardField
                 postalCodeEnabled
+                placeholders={{ postalCode: strings.checkout.postalCode }}
                 cardStyle={cardStyle}
                 style={ui.card}
                 onCardChange={(d) => {

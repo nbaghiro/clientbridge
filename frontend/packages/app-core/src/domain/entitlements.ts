@@ -6,7 +6,7 @@ import { useMemo, useRef, useState } from "react";
 
 import { type Load, useAsyncAction } from "../hooks";
 import { type ApiLike, type Attempt, attemptKey } from "../api";
-import { formatDate, formatMonthDay, readDate, useBusinessZone } from "../datetime";
+import { formatDate, formatMonthDay, parseTimestamp, readDate, useBusinessZone } from "../datetime";
 import {
     blankToNull,
     formatMoney,
@@ -124,6 +124,16 @@ WHERE s.client_id = ? ORDER BY s.created_at DESC`;
 
 export function useClientSubscriptions(clientId: string): SubscriptionRow[] {
     return useQuery<SubscriptionRow>(CLIENT_SUBSCRIPTIONS_SQL, [clientId]).data;
+}
+
+/** When a membership next charges, or when a canceled one ended; nothing for any other state. */
+export function subscriptionTiming(sub: SubscriptionRow, zone: string): string | null {
+    if (sub.current_period_end === null) return null;
+    const date = formatDate(parseTimestamp(sub.current_period_end), zone);
+    if (sub.status === "canceled") return strings.clients.subscriptionEnded(date);
+    return sub.status === "active" || sub.status === "past_due"
+        ? strings.clients.nextCharge(date)
+        : null;
 }
 
 export function entitlementStatusLabel(status: string): string {

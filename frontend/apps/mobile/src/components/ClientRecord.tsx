@@ -7,6 +7,7 @@ import {
     formatRelativeTime,
     formatTime,
     formatWeekday,
+    isDefaultMethod,
     savedCardLabel,
     subjectSummary,
     subjectTemperament,
@@ -473,7 +474,7 @@ export function ClientRecordView({
                         {record.methods.map((m) => (
                             <View key={m.id} style={styles.line}>
                                 <Text style={styles.lineText}>{savedCardLabel(m)}</Text>
-                                {m.preferred === 1 ? (
+                                {isDefaultMethod(m) ? (
                                     <Badge
                                         style={{ alignSelf: "center" }}
                                         label={strings.clients.wallet.default}

@@ -684,6 +684,17 @@ class PaymentGateway(Protocol):
         """Undo a cancel at period end, so the subscription renews again."""
         ...
 
+    async def change_subscription_payment_method(
+        self,
+        account_id: str,
+        *,
+        subscription_id: str,
+        payment_method_id: str,
+        application_fee_percent: float,
+    ) -> bool:
+        """Bill a subscription's next periods to another saved method; False if Stripe lacks it."""
+        ...
+
     async def create_payment_intent(
         self,
         account_id: str,
@@ -829,9 +840,12 @@ class StripeGateway:
         thin_webhook_secret: str = "",
         platform_webhook_secret: str = "",
         portal_configuration: str = "",
+        api_base: str = "",
     ) -> None:
         self.configured = bool(secret_key)
         stripe.api_key = secret_key
+        if api_base:
+            stripe.api_base = api_base
         stripe.api_version = STRIPE_API_VERSION
         stripe.default_http_client = _stripe_http_client()
         stripe.max_network_retries = 0
@@ -1467,6 +1481,27 @@ class StripeGateway:
         except stripe.InvalidRequestError as exc:  # missing, or already ended at Stripe
             raise Conflict("this subscription can't be kept renewing") from exc
 
+    async def change_subscription_payment_method(
+        self,
+        account_id: str,
+        *,
+        subscription_id: str,
+        payment_method_id: str,
+        application_fee_percent: float,
+    ) -> bool:
+        try:
+            await stripe.Subscription.modify_async(
+                subscription_id,
+                default_payment_method=payment_method_id,
+                application_fee_percent=application_fee_percent,
+                stripe_account=account_id,
+            )
+        except stripe.InvalidRequestError as exc:
+            if _missing(exc):
+                return False
+            raise
+        return True
+
     @_keyed
     async def create_payment_intent(
         self,
@@ -1748,4 +1783,5 @@ def get_payment_gateway() -> PaymentGateway:
         s.stripe_thin_webhook_secret,
         s.stripe_platform_webhook_secret,
         s.stripe_portal_configuration,
+        s.stripe_api_base,
     )

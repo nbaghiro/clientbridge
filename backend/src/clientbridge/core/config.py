@@ -108,6 +108,9 @@ class Settings(BaseSettings):
     stripe_platform_webhook_secret: str = ""  # the platform endpoint's (plan subscriptions) secret
     stripe_portal_configuration: str = ""  # the Billing Portal configuration owners manage plans in
     stripe_connect_country: str = "CA"
+    stripe_api_base: str = (
+        ""  # a stand-in Stripe for a test lane; dev only, Stripe's own when empty
+    )
     api_base_url: str = "http://127.0.0.1:8701"  # the public API origin, which Twilio signs
     web_base_url: str = "http://localhost:8700"
     admin_base_url: str = ""
@@ -217,6 +220,8 @@ class Settings(BaseSettings):
             raise ValueError("STRIPE_SECRET_KEY must be a live key (sk_live_ or rk_live_) in prod")
         if self.env != "prod" and live:
             raise ValueError("STRIPE_SECRET_KEY must not be a live key when ENV is not 'prod'")
+        if self.stripe_api_base and self.env != "dev":
+            raise ValueError("STRIPE_API_BASE is only for a dev test lane; unset it")
         if self.powersync_private_key_pem:
             key = serialization.load_pem_private_key(
                 self.powersync_private_key_pem.encode(), password=None

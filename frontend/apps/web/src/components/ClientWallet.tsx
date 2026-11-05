@@ -5,15 +5,14 @@ import {
     canConsume,
     cancelSubscription,
     usePackageConsumption,
-    formatDate,
     isCancelable,
     packageStatusIntent,
-    parseTimestamp,
     packageBalance,
     sessionsRemaining,
     strings,
     entitlementStatusLabel,
     subscriptionStatusIntent,
+    subscriptionTiming,
     useAddPaymentMethod,
     useAsyncAction,
     useClientPackages,
@@ -87,7 +86,7 @@ function MethodRow({ m, wallet }: { m: WalletMethod; wallet: ReturnType<typeof u
             <div className="relative">
                 <IconButton
                     icon="more"
-                    label={s.more(m.label)}
+                    label={s.more(m.name)}
                     onPress={() => {
                         setMenu(true);
                     }}
@@ -128,7 +127,7 @@ function MethodRow({ m, wallet }: { m: WalletMethod; wallet: ReturnType<typeof u
 }
 
 function SubscriptionLine({ sub }: { sub: SubscriptionRow }) {
-    const zone = useBusinessZone();
+    const timing = subscriptionTiming(sub, useBusinessZone());
     const { busy, error, run } = useAsyncAction();
     const cancel = (): void => {
         confirm({
@@ -153,13 +152,7 @@ function SubscriptionLine({ sub }: { sub: SubscriptionRow }) {
                     <div className="font-medium text-ink">
                         {sub.item_name ?? strings.clients.subscriptionFallback}
                     </div>
-                    {sub.current_period_end !== null ? (
-                        <div className="text-xs text-muted">
-                            {strings.clients.nextCharge(
-                                formatDate(parseTimestamp(sub.current_period_end), zone),
-                            )}
-                        </div>
-                    ) : null}
+                    {timing !== null ? <div className="text-xs text-muted">{timing}</div> : null}
                 </div>
                 <div className="ml-auto flex shrink-0 items-center gap-2">
                     <StatusPill

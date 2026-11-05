@@ -51,7 +51,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 5. Sell at the desk and online | Card payments at the desk | [CB-30](https://linear.app/clientbridgeca/issue/CB-30) | Partly automated |
 | 5. Sell at the desk and online | Tap to Pay | [CB-31](https://linear.app/clientbridgeca/issue/CB-31) | Manual |
 | 5. Sell at the desk and online | Tips and discounts | [CB-32](https://linear.app/clientbridgeca/issue/CB-32) | Partly automated |
-| 5. Sell at the desk and online | Saved cards and bank accounts | [CB-12](https://linear.app/clientbridgeca/issue/CB-12) | Partly automated |
+| 5. Sell at the desk and online | Saved cards and bank accounts | [CB-12](https://linear.app/clientbridgeca/issue/CB-12) | Automated |
 | 5. Sell at the desk and online | Online shop orders and pickup | [CB-41](https://linear.app/clientbridgeca/issue/CB-41) | Partly automated |
 | 6. Invoice and get paid | Estimates to invoices | [CB-33](https://linear.app/clientbridgeca/issue/CB-33) | Automated |
 | 6. Invoice and get paid | Invoices and payment links | [CB-34](https://linear.app/clientbridgeca/issue/CB-34) | Partly automated |
@@ -1431,8 +1431,8 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
    **Expect:** a plain explanation and no form.
 4. Remove the older card.
    **Expect:** it can no longer be charged or chosen as default.
-5. On mobile, try to add a bank account.
-   **Expect:** the app says to add it on the web.
+5. On mobile, request bank authorization for a client and text them the link.
+   **Expect:** the text arrives with the link; once the client finishes it, the bank account shows with an active mandate on the phone.
 
 **Done when:** Saved methods can be managed from any device and only chargeable ones can be default.
 
@@ -1443,11 +1443,10 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 **Automated by**
 
 * `XB-E2E-13 (connect)`
-
-**To automate**
-
-* `STR-E15` in `apps/connect/e2e/stripe/wallet.stripe.ts`: Save a card with a real SetupIntent, make it default, charge it on an invoice, detach it (PAY-E11, PAY-E12).
-* `STR-E16` in `apps/connect/e2e/stripe/wallet.stripe.ts`: PAD mandate through the setup page, debit settles after processing (PAY-E13, PAY-E15).
+* `CRM-E2E-20 (web)`
+* `STR-E26 (stripe)`
+* `STR-E27 (stripe)`
+* `NATIVE-PAY-01 (native-stripe)`
 
 **Depends on:** Nothing
 
