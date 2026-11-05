@@ -1,9 +1,18 @@
 appId: ${APP_ID}
 ---
 # adds ITEM to the open invoice from the catalog, which brings its price and tax class
+# a small screen scrolls to the new line, which can leave the picker above it
 - scrollUntilVisible:
       element: "Add from catalog"
       direction: DOWN
+      optional: true
+- runFlow:
+      when:
+          notVisible: "Add from catalog"
+      commands:
+          - scrollUntilVisible:
+                element: "Add from catalog"
+                direction: UP
 - tapOn: "Add from catalog"
 - extendedWaitUntil:
       visible: ${ITEM + " · .*"}
