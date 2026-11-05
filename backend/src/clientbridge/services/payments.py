@@ -4042,8 +4042,12 @@ async def _reconcile_pad_setup(
     mandate = await gateway.get_mandate(account_id, state.mandate_id)
     if mandate.payment_method_id != pm.get("id"):
         return
-    # a revoke can only stop a link before it succeeds; the used link's bank stays
-    if link.revoked_at is not None and link.setup_status != "succeeded":
+    # a revoke can only stop a link before it succeeds; a bank the link once recorded stays
+    if (
+        link.revoked_at is not None
+        and link.setup_status != "succeeded"
+        and link.mandate_ref is None
+    ):
         await _drop_revoked_bank(db, gateway, link, mandate.payment_method_id)
         return
     link.mandate_ref = mandate.id
