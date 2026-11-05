@@ -1921,6 +1921,9 @@ _UNAPPLIED = "unapplied_payment"  # it reached a bill that no longer owed it; re
 _REPLAY_WINDOW = timedelta(days=7)
 _REPLAY_PER_ACCOUNT = 100
 _REPLAY_PER_RUN = 500
+# past this the hourly replay and reconciliation take over, so a broken event stops retrying
+_DEFERRED_RETRY_WINDOW = timedelta(minutes=30)
+_DEFERRED_RETRY_BATCH = 50
 _REPLAYED: dict[str, StripeResource] = {
     "payment_intent": "payment_intent",
     "refund": "refund",
@@ -1969,6 +1972,40 @@ async def run_replay_missed_events(db: AsyncSession, gateway: PaymentGateway) ->
                 continue  # already applied or not ours to apply, so it costs no budget
             budget -= 1
             applied += await _replay(db, gateway, event)
+    return applied
+
+
+async def run_retry_deferred_payments(db: AsyncSession, gateway: PaymentGateway) -> int:
+    """Settle card payments deferred minutes ago, since Stripe's own retry can take hours."""
+    rows = await db.execute(
+        select(Webhook.id, Webhook.payload, Webhook.created_at)
+        .where(
+            Webhook.provider == "stripe",
+            Webhook.event == "payment_intent.succeeded",
+            Webhook.status == "failed",
+            Webhook.created_at >= clock.now() - _DEFERRED_RETRY_WINDOW,
+        )
+        .order_by(Webhook.created_at, Webhook.id)
+        .limit(_DEFERRED_RETRY_BATCH)
+    )
+    applied = 0
+    for event_id, payload, received in rows.tuples().all():
+        intent_id = payload.get("id") if payload is not None else None
+        biz = _metadata_business(payload) if payload is not None else None
+        if not isinstance(intent_id, str) or biz is None:
+            continue
+        account = await db.scalar(select(Business.stripe_account_id).where(Business.id == biz))
+        if account is None:
+            continue
+        missed = MissedEvent(
+            id=event_id,
+            type="payment_intent.succeeded",
+            account=account,
+            created=received,
+            object_type="payment_intent",
+            object_id=intent_id,
+        )
+        applied += await _replay(db, gateway, missed)
     return applied
 
 
