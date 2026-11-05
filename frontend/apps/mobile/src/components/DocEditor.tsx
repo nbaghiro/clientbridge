@@ -118,319 +118,326 @@ function DocForm({ kind, draft, clientId, onClose }: DocFormProps) {
     };
 
     return (
-        <Modal onClose={close} size="xl">
-            <SheetHeader
-                title={form.title}
-                onClose={close}
-                closeLabel={strings.common.close}
-                actions={
-                    <Button
-                        variant="link"
-                        onPress={() => {
-                            setPreview((v) => !v);
-                        }}
-                    >
-                        {preview ? s.edit : s.preview}
-                    </Button>
-                }
-            />
-
-            {draft === undefined && form.sent === null && !preview ? (
-                <Choice
-                    label={s.docKind}
-                    layout="segmented"
-                    options={[
-                        { key: "invoice", label: s.doc.kinds.invoice },
-                        { key: "estimate", label: s.doc.kinds.estimate },
-                    ]}
-                    value={current}
-                    onChange={setCurrent}
-                />
-            ) : null}
-            {form.sent !== null ? (
-                <Empty
-                    variant="card"
-                    icon="check"
-                    message={form.sent}
-                    body={s.sentBody(client?.name ?? "")}
+        <Modal onClose={close} size="xl" framed={false}>
+            <View style={styles.frame}>
+                <SheetHeader
+                    title={form.title}
+                    onClose={close}
+                    closeLabel={strings.common.close}
                     actions={
-                        <>
-                            <Button onPress={onClose}>{strings.common.done}</Button>
-                            <Button variant="outline" onPress={form.startOver}>
-                                {s.startAnother}
-                            </Button>
-                        </>
+                        <Button
+                            variant="link"
+                            onPress={() => {
+                                setPreview((v) => !v);
+                            }}
+                        >
+                            {preview ? s.edit : s.preview}
+                        </Button>
                     }
                 />
-            ) : preview ? (
-                <ScrollView style={styles.body}>
-                    <PrintedDocument doc={form.preview(client, letterhead, c.accent)} />
-                </ScrollView>
-            ) : (
-                <ScrollView style={styles.body} keyboardShouldPersistTaps="handled">
-                    {form.editing && client !== null ? (
-                        <Panel style={styles.card}>
-                            <Text style={styles.label}>{s.client}</Text>
-                            <Text style={styles.strong}>{client.name}</Text>
-                        </Panel>
-                    ) : (
-                        <Select
-                            label={s.client}
-                            value={form.clientId}
-                            error={form.clientError}
-                            placeholder={s.chooseClient}
-                            emptyLabel={s.noClientsYet}
-                            options={clients.map((x) => ({
-                                key: x.id,
-                                label: x.name,
-                                match: (q: string) => clientMatches(x, q),
-                            }))}
-                            onChange={form.setClientId}
-                        />
-                    )}
 
-                    <View style={styles.section}>
-                        <View style={styles.sectionHead}>
-                            <Text style={styles.label}>{s.lines}</Text>
-                            <Text style={styles.note}>{form.rateNote}</Text>
-                        </View>
-                        {form.lines.map((l) => (
-                            <Panel key={l.key} style={styles.card}>
-                                <View style={styles.lineHead}>
-                                    <View style={styles.grow}>
-                                        <TextField
-                                            name={s.description}
-                                            value={l.description}
-                                            placeholder={s.descriptionPlaceholder}
-                                            onChange={(v) => {
-                                                form.setLine(l.key, {
-                                                    description: v,
-                                                    itemId: null,
-                                                });
+                {draft === undefined && form.sent === null && !preview ? (
+                    <Choice
+                        label={s.docKind}
+                        layout="segmented"
+                        options={[
+                            { key: "invoice", label: s.doc.kinds.invoice },
+                            { key: "estimate", label: s.doc.kinds.estimate },
+                        ]}
+                        value={current}
+                        onChange={setCurrent}
+                    />
+                ) : null}
+                {form.sent !== null ? (
+                    <Empty
+                        variant="card"
+                        icon="check"
+                        message={form.sent}
+                        body={s.sentBody(client?.name ?? "")}
+                        actions={
+                            <>
+                                <Button onPress={onClose}>{strings.common.done}</Button>
+                                <Button variant="outline" onPress={form.startOver}>
+                                    {s.startAnother}
+                                </Button>
+                            </>
+                        }
+                    />
+                ) : preview ? (
+                    <ScrollView style={styles.body}>
+                        <PrintedDocument doc={form.preview(client, letterhead, c.accent)} />
+                    </ScrollView>
+                ) : (
+                    <ScrollView style={styles.body} keyboardShouldPersistTaps="handled">
+                        {form.editing && client !== null ? (
+                            <Panel style={styles.card}>
+                                <Text style={styles.label}>{s.client}</Text>
+                                <Text style={styles.strong}>{client.name}</Text>
+                            </Panel>
+                        ) : (
+                            <Select
+                                label={s.client}
+                                value={form.clientId}
+                                error={form.clientError}
+                                placeholder={s.chooseClient}
+                                emptyLabel={s.noClientsYet}
+                                options={clients.map((x) => ({
+                                    key: x.id,
+                                    label: x.name,
+                                    match: (q: string) => clientMatches(x, q),
+                                }))}
+                                onChange={form.setClientId}
+                            />
+                        )}
+
+                        <View style={styles.section}>
+                            <View style={styles.sectionHead}>
+                                <Text style={styles.label}>{s.lines}</Text>
+                                <Text style={styles.note}>{form.rateNote}</Text>
+                            </View>
+                            {form.lines.map((l) => (
+                                <Panel key={l.key} style={styles.card}>
+                                    <View style={styles.lineHead}>
+                                        <View style={styles.grow}>
+                                            <TextField
+                                                name={s.description}
+                                                value={l.description}
+                                                placeholder={s.descriptionPlaceholder}
+                                                onChange={(v) => {
+                                                    form.setLine(l.key, {
+                                                        description: v,
+                                                        itemId: null,
+                                                    });
+                                                }}
+                                            />
+                                        </View>
+                                        <Text style={styles.amount}>
+                                            {formatMoney(
+                                                l.grossCents -
+                                                    discountCents(l.grossCents, l.discount),
+                                                BUSINESS_CURRENCY,
+                                            )}
+                                        </Text>
+                                        <IconButton
+                                            icon="trash"
+                                            label={s.removeLine}
+                                            size="sm"
+                                            onPress={() => {
+                                                form.removeLine(l.key);
                                             }}
                                         />
                                     </View>
-                                    <Text style={styles.amount}>
-                                        {formatMoney(
-                                            l.grossCents - discountCents(l.grossCents, l.discount),
-                                            BUSINESS_CURRENCY,
-                                        )}
-                                    </Text>
-                                    <IconButton
-                                        icon="trash"
-                                        label={s.removeLine}
+                                    <View style={styles.lineFields}>
+                                        <View style={styles.qty}>
+                                            <TextField
+                                                label={s.qty}
+                                                size="sm"
+                                                type="number"
+                                                value={l.quantity}
+                                                onChange={(v) => {
+                                                    form.setLine(l.key, { quantity: v });
+                                                }}
+                                            />
+                                        </View>
+                                        <View style={styles.grow}>
+                                            <TextField
+                                                label={s.price}
+                                                size="sm"
+                                                type="number"
+                                                {...currencyAffix(BUSINESS_CURRENCY)}
+                                                value={l.unit}
+                                                placeholder="0.00"
+                                                onChange={(v) => {
+                                                    form.setLine(l.key, { unit: v });
+                                                }}
+                                            />
+                                        </View>
+                                    </View>
+                                    <Select
+                                        label={s.taxClass}
                                         size="sm"
-                                        onPress={() => {
-                                            form.removeLine(l.key);
+                                        value={l.taxClass}
+                                        options={form.taxClassOptions}
+                                        onChange={(v) => {
+                                            form.setLine(l.key, {
+                                                taxClass:
+                                                    v === "federal_only" || v === "exempt"
+                                                        ? v
+                                                        : "standard",
+                                            });
                                         }}
                                     />
-                                </View>
-                                <View style={styles.lineFields}>
-                                    <View style={styles.qty}>
-                                        <TextField
-                                            label={s.qty}
-                                            size="sm"
-                                            type="number"
-                                            value={l.quantity}
+                                    {kind === "estimate" ? (
+                                        <Checkbox
+                                            label={s.optional}
+                                            value={l.optional}
                                             onChange={(v) => {
-                                                form.setLine(l.key, { quantity: v });
+                                                form.setLine(l.key, { optional: v });
                                             }}
                                         />
-                                    </View>
-                                    <View style={styles.grow}>
-                                        <TextField
-                                            label={s.price}
-                                            size="sm"
-                                            type="number"
-                                            {...currencyAffix(BUSINESS_CURRENCY)}
-                                            value={l.unit}
-                                            placeholder="0.00"
-                                            onChange={(v) => {
-                                                form.setLine(l.key, { unit: v });
+                                    ) : null}
+                                    {discounting === l.key ? (
+                                        <DiscountForm
+                                            title={s.lineDiscount(
+                                                l.description || s.descriptionPlaceholder,
+                                            )}
+                                            initial={l.discount}
+                                            baseCents={l.grossCents}
+                                            taxed={form.taxed}
+                                            onApply={(next) => {
+                                                form.setLineDiscount(l.key, next);
+                                                setDiscounting(null);
+                                            }}
+                                            onCancel={() => {
+                                                setDiscounting(null);
                                             }}
                                         />
-                                    </View>
-                                </View>
-                                <Select
-                                    label={s.taxClass}
-                                    size="sm"
-                                    value={l.taxClass}
-                                    options={form.taxClassOptions}
-                                    onChange={(v) => {
-                                        form.setLine(l.key, {
-                                            taxClass:
-                                                v === "federal_only" || v === "exempt"
-                                                    ? v
-                                                    : "standard",
-                                        });
+                                    ) : (
+                                        <Button
+                                            variant="link"
+                                            size="sm"
+                                            icon="percent"
+                                            disabled={l.grossCents <= 0}
+                                            onPress={() => {
+                                                setDiscounting(l.key);
+                                            }}
+                                        >
+                                            {l.discount !== null
+                                                ? s.discountedBy(discountLabel(l.discount))
+                                                : s.addDiscount}
+                                        </Button>
+                                    )}
+                                    {l.error !== null ? (
+                                        <Notice tone="danger">{l.error}</Notice>
+                                    ) : null}
+                                </Panel>
+                            ))}
+                            {catalog.length > 0 ? (
+                                <SearchSelect
+                                    name={s.addFromCatalog}
+                                    value=""
+                                    placeholder={s.addFromCatalog}
+                                    options={[
+                                        ...catalog.map((i) => ({
+                                            key: i.id,
+                                            label: formatParts([
+                                                i.name,
+                                                formatMoney(i.price_cents, BUSINESS_CURRENCY),
+                                            ]),
+                                        })),
+                                    ]}
+                                    onChange={(id) => {
+                                        const item = catalog.find((i) => i.id === id);
+                                        if (item !== undefined) form.addCatalogItem(item);
                                     }}
                                 />
-                                {kind === "estimate" ? (
-                                    <Checkbox
-                                        label={s.optional}
-                                        value={l.optional}
-                                        onChange={(v) => {
-                                            form.setLine(l.key, { optional: v });
-                                        }}
-                                    />
-                                ) : null}
-                                {discounting === l.key ? (
-                                    <DiscountForm
-                                        title={s.lineDiscount(
-                                            l.description || s.descriptionPlaceholder,
-                                        )}
-                                        initial={l.discount}
-                                        baseCents={l.grossCents}
-                                        taxed={form.taxed}
-                                        onApply={(next) => {
-                                            form.setLineDiscount(l.key, next);
-                                            setDiscounting(null);
-                                        }}
-                                        onCancel={() => {
-                                            setDiscounting(null);
-                                        }}
-                                    />
-                                ) : (
-                                    <Button
-                                        variant="link"
-                                        size="sm"
-                                        icon="percent"
-                                        disabled={l.grossCents <= 0}
-                                        onPress={() => {
-                                            setDiscounting(l.key);
-                                        }}
-                                    >
-                                        {l.discount !== null
-                                            ? s.discountedBy(discountLabel(l.discount))
-                                            : s.addDiscount}
-                                    </Button>
-                                )}
-                                {l.error !== null ? <Notice tone="danger">{l.error}</Notice> : null}
-                            </Panel>
-                        ))}
-                        {catalog.length > 0 ? (
-                            <SearchSelect
-                                name={s.addFromCatalog}
-                                value=""
-                                placeholder={s.addFromCatalog}
-                                options={[
-                                    ...catalog.map((i) => ({
-                                        key: i.id,
-                                        label: formatParts([
-                                            i.name,
-                                            formatMoney(i.price_cents, BUSINESS_CURRENCY),
-                                        ]),
-                                    })),
-                                ]}
-                                onChange={(id) => {
-                                    const item = catalog.find((i) => i.id === id);
-                                    if (item !== undefined) form.addCatalogItem(item);
-                                }}
-                            />
-                        ) : null}
-                        <Button variant="outline" icon="plus" onPress={form.addLine}>
-                            {s.addCustomLine}
-                        </Button>
-                        {form.linesError !== null ? (
-                            <Notice tone="danger">{form.linesError}</Notice>
-                        ) : null}
-                    </View>
-
-                    <Panel style={[styles.card, styles.section]}>
-                        {discounting === "doc" ? (
-                            <DiscountForm
-                                title={s.discountTitle}
-                                initial={form.docDiscount}
-                                baseCents={form.discountBaseCents}
-                                taxed={form.taxed}
-                                onApply={(next) => {
-                                    form.setDocDiscount(next);
-                                    setDiscounting(null);
-                                }}
-                                onCancel={() => {
-                                    setDiscounting(null);
-                                }}
-                            />
-                        ) : (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                icon="percent"
-                                disabled={form.discountBaseCents <= 0}
-                                onPress={() => {
-                                    setDiscounting("doc");
-                                }}
-                            >
-                                {form.docDiscount !== null
-                                    ? s.discountedBy(discountLabel(form.docDiscount))
-                                    : s.discountTitle}
+                            ) : null}
+                            <Button variant="outline" icon="plus" onPress={form.addLine}>
+                                {s.addCustomLine}
                             </Button>
-                        )}
-                        <DocTotals currency={BUSINESS_CURRENCY} lines={form.totals} />
-                    </Panel>
+                            {form.linesError !== null ? (
+                                <Notice tone="danger">{form.linesError}</Notice>
+                            ) : null}
+                        </View>
 
-                    <View style={styles.section}>
-                        <Text style={styles.label}>
-                            {kind === "estimate" ? s.validFor : s.dueTerms}
-                        </Text>
-                        <Choice<DocTerms>
-                            layout="segmented"
-                            label={kind === "estimate" ? s.validFor : s.dueTerms}
-                            options={form.termOptions}
-                            value={form.terms}
-                            onChange={form.setTerms}
-                        />
-                    </View>
-                    <View style={styles.section}>
-                        <TextField
-                            label={s.messageToClient}
-                            optional
-                            multiline
-                            rows={3}
-                            value={form.message}
-                            placeholder={s.messagePlaceholder}
-                            onChange={form.setMessage}
-                        />
-                    </View>
-                    {form.saved !== null ? <Notice tone="success">{form.saved}</Notice> : null}
-                    {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
-                </ScrollView>
-            )}
+                        <Panel style={[styles.card, styles.section]}>
+                            {discounting === "doc" ? (
+                                <DiscountForm
+                                    title={s.discountTitle}
+                                    initial={form.docDiscount}
+                                    baseCents={form.discountBaseCents}
+                                    taxed={form.taxed}
+                                    onApply={(next) => {
+                                        form.setDocDiscount(next);
+                                        setDiscounting(null);
+                                    }}
+                                    onCancel={() => {
+                                        setDiscounting(null);
+                                    }}
+                                />
+                            ) : (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    icon="percent"
+                                    disabled={form.discountBaseCents <= 0}
+                                    onPress={() => {
+                                        setDiscounting("doc");
+                                    }}
+                                >
+                                    {form.docDiscount !== null
+                                        ? s.discountedBy(discountLabel(form.docDiscount))
+                                        : s.discountTitle}
+                                </Button>
+                            )}
+                            <DocTotals currency={BUSINESS_CURRENCY} lines={form.totals} />
+                        </Panel>
 
-            {form.sent === null ? (
-                <View style={styles.footer}>
-                    <View style={styles.grow}>
-                        <Text style={styles.note}>{s.total}</Text>
-                        <Text style={styles.total}>
-                            {formatMoney(form.pricing.totalCents, BUSINESS_CURRENCY)}
-                        </Text>
+                        <View style={styles.section}>
+                            <Text style={styles.label}>
+                                {kind === "estimate" ? s.validFor : s.dueTerms}
+                            </Text>
+                            <Choice<DocTerms>
+                                layout="segmented"
+                                label={kind === "estimate" ? s.validFor : s.dueTerms}
+                                options={form.termOptions}
+                                value={form.terms}
+                                onChange={form.setTerms}
+                            />
+                        </View>
+                        <View style={styles.section}>
+                            <TextField
+                                label={s.messageToClient}
+                                optional
+                                multiline
+                                rows={3}
+                                value={form.message}
+                                placeholder={s.messagePlaceholder}
+                                onChange={form.setMessage}
+                            />
+                        </View>
+                        {form.saved !== null ? <Notice tone="success">{form.saved}</Notice> : null}
+                        {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
+                    </ScrollView>
+                )}
+
+                {form.sent === null ? (
+                    <View style={styles.footer}>
+                        <View style={styles.grow}>
+                            <Text style={styles.note}>{s.total}</Text>
+                            <Text style={styles.total}>
+                                {formatMoney(form.pricing.totalCents, BUSINESS_CURRENCY)}
+                            </Text>
+                        </View>
+                        <Button
+                            style={{ alignSelf: "center" }}
+                            variant="outline"
+                            busy={form.busy}
+                            disabled={form.sending}
+                            onPress={form.saveDraft}
+                        >
+                            {form.busy ? s.saving : s.saveDraft}
+                        </Button>
+                        <Button
+                            style={{ alignSelf: "center" }}
+                            icon="send"
+                            busy={form.sending}
+                            disabled={form.busy}
+                            onPress={form.send}
+                        >
+                            {form.sending ? s.sending : s.send}
+                        </Button>
                     </View>
-                    <Button
-                        style={{ alignSelf: "center" }}
-                        variant="outline"
-                        busy={form.busy}
-                        disabled={form.sending}
-                        onPress={form.saveDraft}
-                    >
-                        {form.busy ? s.saving : s.saveDraft}
-                    </Button>
-                    <Button
-                        style={{ alignSelf: "center" }}
-                        icon="send"
-                        busy={form.sending}
-                        disabled={form.busy}
-                        onPress={form.send}
-                    >
-                        {form.sending ? s.sending : s.send}
-                    </Button>
-                </View>
-            ) : null}
+                ) : null}
+            </View>
         </Modal>
     );
 }
 
 const styles = StyleSheet.create({
-    body: { flexGrow: 0, flexShrink: 1, maxHeight: 560 },
+    // the editor scrolls its own body between a fixed header and footer, as one scroll on Android
+    frame: { flex: 1, padding: 22, paddingBottom: 36, backgroundColor: c.surface },
+    body: { flex: 1, minHeight: 0 },
     section: { marginTop: 16, gap: 10 },
     sectionHead: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
     label: { fontFamily: theme.fonts.ui, fontSize: 14, fontWeight: "600", color: c.ink },
