@@ -132,12 +132,17 @@ test(
     async ({ page }) => {
         await page.setViewportSize({ width: 390, height: 844 });
         await page.goto(shopPage);
+        // the loading page has its own navigation, which the loaded shop replaces closed
+        await expect(
+            page.getByRole("heading", { level: 1, name: strings.publicShop.title, exact: true }),
+        ).toBeVisible();
         const nav = page.getByRole("navigation", { name: strings.publicLanding.navigation });
         await expect(nav).toHaveCSS("height", "64px");
         await nav.locator("summary").click();
         await page.keyboard.press("Escape");
         await expect(nav.locator("details")).not.toHaveAttribute("open", "");
         await nav.locator("summary").click();
+        await expect(nav.locator("details")).toHaveAttribute("open", "");
         await nav.getByRole("link", { name: strings.publicLanding.home, exact: true }).click();
         await page
             .getByRole("navigation", { name: strings.publicLanding.jumpTo })
