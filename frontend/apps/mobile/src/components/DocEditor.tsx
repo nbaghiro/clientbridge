@@ -430,7 +430,7 @@ function DocForm({ kind, draft, clientId, onClose }: DocFormProps) {
 }
 
 const styles = StyleSheet.create({
-    body: { flexGrow: 0, maxHeight: 560 },
+    body: { flexGrow: 0, flexShrink: 1, maxHeight: 560 },
     section: { marginTop: 16, gap: 10 },
     sectionHead: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
     label: { fontFamily: theme.fonts.ui, fontSize: 14, fontWeight: "600", color: c.ink },
