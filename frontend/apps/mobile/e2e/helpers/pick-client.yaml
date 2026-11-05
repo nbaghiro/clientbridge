@@ -1,0 +1,19 @@
+appId: ${APP_ID}
+---
+# iOS names the picker by its field's label, which it shares with the label itself; Android by its placeholder
+- runFlow:
+      when:
+          platform: iOS
+      commands:
+          - tapOn:
+                text: "Client"
+                index: 1
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - tapOn: "Choose a client"
+- extendedWaitUntil:
+      visible: ${NAME}
+      timeout: 60000
+- tapOn: ${NAME}

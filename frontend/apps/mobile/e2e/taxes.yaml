@@ -36,14 +36,10 @@ onFlowComplete:
 # Ontario: a standard service, an HST-only one and an exempt fee, each taxed by its catalog class
 - tapOn: "Create"
 - tapOn: "Invoice.*"
-# the field's label and its picker share the name, and the picker comes second
-- tapOn:
-      text: "Client"
-      index: 1
-- extendedWaitUntil:
-      visible: "Rowan Tax Check"
-      timeout: 60000
-- tapOn: "Rowan Tax Check"
+- runFlow:
+      file: helpers/pick-client.yaml
+      env:
+          NAME: "Rowan Tax Check"
 - runFlow:
       file: helpers/add-from-catalog.yaml
       env:
@@ -128,10 +124,10 @@ onFlowComplete:
           PATH: /v1/business
           BODY: '{"tax_registered": false}'
 - tapOn: "Start another"
-- tapOn:
-      text: "Client"
-      index: 1
-- tapOn: "Rowan Tax Check"
+- runFlow:
+      file: helpers/pick-client.yaml
+      env:
+          NAME: "Rowan Tax Check"
 - runFlow:
       file: helpers/add-from-catalog.yaml
       env:
