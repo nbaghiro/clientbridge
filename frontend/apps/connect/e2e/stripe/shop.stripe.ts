@@ -63,6 +63,8 @@ test("STRIPE-BROWSER-07 with tax registration off, a shop order paid by card cha
         });
         await expect(page.getByText(shop.payBodyNoTax(SHAMPOO.price))).toBeVisible();
         await enterStripeCard(await cardFrame(page), "4242424242424242");
+        // a click outside Stripe's frame closes its country list, which would take the Pay click
+        await page.getByRole("heading", { level: 1, name: shop.checkout, exact: true }).click();
         await page.getByRole("button", { name: shop.pay(SHAMPOO.price), exact: true }).click();
         await expect(page.getByRole("heading", { name: shop.doneTitle, exact: true })).toBeVisible({
             timeout: 60_000,

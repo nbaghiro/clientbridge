@@ -19,6 +19,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import IO, Literal
 
+import httpx
+
 from clientbridge.core import clock
 from e2e import tier
 from e2e.recordings import keep_recordings, recorded_flows, recording
@@ -27,7 +29,7 @@ from e2e.results import (
     validate_native_evidence,
 )
 from e2e.stack import Stack
-from e2e.stripe_fake import FAKE_KEY, fake_stripe
+from e2e.stripe_fake import FAKE_KEY, FAKE_WEBHOOK_SECRET, StandIn, fake_stripe, signature
 from e2e.tier import ROOT
 from e2e.webauthn import register_key
 
@@ -234,6 +236,7 @@ def native_control(
     push: Callable[[bytes], None],
     account: Callable[[bytes], None],
     photo: Callable[[str], None],
+    bank: Callable[[str], None],
     log: Path,
 ) -> Iterator[str]:
     """A local endpoint a flow calls to go offline or online, or for a push, account or code."""
@@ -249,6 +252,7 @@ def native_control(
                 "/totp": lambda: totp(body.decode()).encode(),
                 "/photo": lambda: photo(body.decode()),
                 "/key": lambda: security_key(body),
+                "/bank": lambda: bank(body.decode()),
             }
             action = actions.get(self.path)
             try:
@@ -322,9 +326,16 @@ def run_native(
     build = NATIVE_BUILDS[args.platform]
     if not build.exists():
         raise RuntimeError(f"no e2e build at {build}; run with --build-native {args.platform}")
+    stand_in: StandIn | None = None
     if args.fake_stripe:
-        api_base = processes.enter_context(fake_stripe(stack.directory / "stripe-fake.log"))
-        stack.env.update({"STRIPE_SECRET_KEY": FAKE_KEY, "STRIPE_API_BASE": api_base})
+        stand_in = processes.enter_context(fake_stripe(stack.directory / "stripe-fake.log"))
+        stack.env.update(
+            {
+                "STRIPE_SECRET_KEY": FAKE_KEY,
+                "STRIPE_API_BASE": stand_in.url,
+                "STRIPE_WEBHOOK_SECRET": FAKE_WEBHOOK_SECRET,
+            }
+        )
     stack.start(processes, log, browser_fixtures=False)
     report = stack.directory / "native-results.xml"
     flows = native_flows(args.tests)
@@ -403,10 +414,28 @@ def run_native(
             check=True,
         )
 
+    def authorized_bank(intent_id: str) -> None:
+        if stand_in is None:
+            raise RuntimeError("the bank action needs the stand-in Stripe (--fake-stripe)")
+        for payload in stand_in.authorize(intent_id):
+            sent = httpx.post(
+                f"{stack.api}/webhooks/stripe",
+                content=payload,
+                headers={"Stripe-Signature": signature(payload)},
+                timeout=30,
+            )
+            if sent.status_code != 200:
+                raise RuntimeError(f"the API refused the stand-in event: {sent.text}")
+
     with (
         device.installed(build),
         native_control(
-            link, message_push, payment_account, device.add_photo, stack.directory / "control.log"
+            link,
+            message_push,
+            payment_account,
+            device.add_photo,
+            authorized_bank,
+            stack.directory / "control.log",
         ) as control,
         (stack.directory / "native.log").open("wb") as native_log,
     ):

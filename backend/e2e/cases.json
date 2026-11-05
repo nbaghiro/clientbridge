@@ -120,7 +120,7 @@
     "NATIVE-CRM-01": {"lanes": ["native-ios", "native-android"], "browsers": false, "families": ["CRM-E01"], "status": "verified"},
     "NATIVE-CFG-01": {"lanes": ["native-ios", "native-android"], "browsers": false, "families": ["CFG08"], "status": "implemented"},
     "NATIVE-CFG-02": {"lanes": ["native-ios", "native-android"], "browsers": false, "families": [], "status": "implemented"},
-    "NATIVE-CFG-03": {"lanes": ["native-ios"], "browsers": false, "families": [], "status": "implemented"},
+    "NATIVE-CFG-03": {"lanes": ["native-ios", "native-android"], "browsers": false, "families": [], "status": "implemented"},
     "NATIVE-PAY-01": {"lanes": ["native-stripe"], "browsers": false, "families": [], "status": "implemented"},
     "NATIVE-CRM-03": {"lanes": ["native-ios", "native-android"], "browsers": false, "families": ["CRM-E03", "CRM-E04"], "status": "implemented"},
     "NATIVE-CRM-04": {"lanes": ["native-ios", "native-android"], "browsers": false, "families": ["CRM-E10"], "status": "implemented"},

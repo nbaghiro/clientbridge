@@ -2,15 +2,25 @@ appId: ${APP_ID}
 name: NATIVE-CFG-03 A HEIC photo from the phone's library becomes the logo every public page shows
 tags:
     - lane
-    - ios
 ---
 - runScript: helpers/public-logo.js
 - evalScript: ${output.before = output.logo.url}
-- runScript:
-      file: helpers/control.js
-      env:
-          ACTION: photo
-          PAYLOAD: logo.heic
+# Maestro's addMedia can't add a HEIC on iOS, so the lane adds it there
+- runFlow:
+      when:
+          platform: iOS
+      commands:
+          - runScript:
+                file: helpers/control.js
+                env:
+                    ACTION: photo
+                    PAYLOAD: logo.heic
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - addMedia:
+                - "assets/logo.heic"
 - runFlow: helpers/owner.yaml
 - tapOn: "Setup"
 - tapOn: "Get set up"
