@@ -5,22 +5,12 @@ tags:
 ---
 - runScript: helpers/public-logo.js
 - evalScript: ${output.before = output.logo.url}
-# Maestro's addMedia can't add a HEIC on iOS, so the lane adds it there
-- runFlow:
-      when:
-          platform: iOS
-      commands:
-          - runScript:
-                file: helpers/control.js
-                env:
-                    ACTION: photo
-                    PAYLOAD: logo.heic
-- runFlow:
-      when:
-          platform: Android
-      commands:
-          - addMedia:
-                - "assets/logo.heic"
+# Maestro's addMedia refuses a HEIC on both platforms, so the lane adds it
+- runScript:
+      file: helpers/control.js
+      env:
+          ACTION: photo
+          PAYLOAD: logo.heic
 - runFlow: helpers/owner.yaml
 - tapOn: "Setup"
 - tapOn: "Get set up"

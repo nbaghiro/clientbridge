@@ -8,6 +8,7 @@ import hashlib
 import hmac
 import json
 import os
+import secrets
 import socket
 import subprocess
 import sys
@@ -113,12 +114,25 @@ class NativeDevice:
 
     def add_photo(self, name: str) -> None:
         """Adds a flow asset to the photo library; Maestro's addMedia refuses a HEIC."""
-        if self.platform != "ios":
-            raise RuntimeError("only the iOS simulator's library takes a photo from the lane")
         asset = (MOBILE / "e2e" / "assets" / name).resolve()
         if asset.parent != (MOBILE / "e2e" / "assets").resolve() or not asset.is_file():
             raise ValueError(f"no flow asset named {name}")
-        self.run("addmedia", self.device, str(asset))
+        if self.platform == "ios":
+            self.run("addmedia", self.device, str(asset))
+            return
+        # a fresh name and time, so the picker lists it first among photos earlier flows added
+        target = f"/sdcard/Pictures/{asset.stem}-{secrets.token_hex(4)}{asset.suffix}"
+        self.run("push", str(asset), target)
+        self.run("shell", "touch", target)
+        self.run(
+            "shell",
+            "am",
+            "broadcast",
+            "-a",
+            "android.intent.action.MEDIA_SCANNER_SCAN_FILE",
+            "-d",
+            f"file://{target}",
+        )
 
     @contextmanager
     def installed(self, build: Path) -> Iterator[None]:

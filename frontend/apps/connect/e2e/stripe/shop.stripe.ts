@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { strings } from "@clientbridge/app-core/public";
 import { expect, test } from "@playwright/test";
 import { demoSlug } from "@clientbridge/config/e2e/run";
@@ -7,6 +6,7 @@ import { select } from "../../../web/e2e/support/db";
 import { signIn } from "../../../web/e2e/support/session";
 import { onlineBooker } from "../../../web/e2e/support/visit";
 import { on } from "../support/hosts";
+import { ownAddress } from "../support/network";
 import { deskPayments, stripeIntent } from "./support/desk";
 import { webBaseUrl } from "./support/program";
 import { cardFrame, enterStripeCard, stripeReady } from "./support/provider";
@@ -16,18 +16,16 @@ const SHAMPOO = { name: "Oatmeal Soothe Shampoo (500ml)", cents: 2400, price: "$
 
 test("STRIPE-BROWSER-07 with tax registration off, a shop order paid by card charges no tax", async ({
     browser,
-}) => {
+}, info) => {
     test.setTimeout(300_000);
     await stripeReady();
     const ownerContext = await browser.newContext({ baseURL: webBaseUrl() });
     const owner = await ownerContext.newPage();
     await signIn(owner);
     expect((await patchBusiness(owner, { tax_registered: false })).status()).toBe(200);
-    const clientContext = await browser.newContext({
-        extraHTTPHeaders: {
-            "X-Forwarded-For": `2001:db8:${randomUUID().replaceAll("-", "").slice(0, 16).match(/.{4}/g)?.join(":") ?? "0"}::1`,
-        },
-    });
+    const clientContext = await browser.newContext();
+    // only our API gets the run's own address; Stripe's captcha refuses the header
+    await ownAddress(clientContext, info);
     try {
         const page = await clientContext.newPage();
         await page.goto(on("shop", `/${demoSlug("birchbark")}`));
@@ -63,8 +61,6 @@ test("STRIPE-BROWSER-07 with tax registration off, a shop order paid by card cha
         });
         await expect(page.getByText(shop.payBodyNoTax(SHAMPOO.price))).toBeVisible();
         await enterStripeCard(await cardFrame(page), "4242424242424242");
-        // a click outside Stripe's frame closes its country list, which would take the Pay click
-        await page.getByRole("heading", { level: 1, name: shop.checkout, exact: true }).click();
         await page.getByRole("button", { name: shop.pay(SHAMPOO.price), exact: true }).click();
         await expect(page.getByRole("heading", { name: shop.doneTitle, exact: true })).toBeVisible({
             timeout: 60_000,
