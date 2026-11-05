@@ -20,6 +20,7 @@ import { theme } from "@clientbridge/tokens/native";
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import {
+    Badge,
     Button,
     Choice,
     DetailSection,
@@ -223,7 +224,19 @@ export function SalesHistory({ onResume }: { onResume: (order: OrderOut) => void
                                 key={r.id}
                                 title={r.clientName}
                                 detail={formatParts([formatTime(r.at, zone), r.number, r.summary])}
-                                meta={formatMoney(r.totalCents, BUSINESS_CURRENCY)}
+                                meta={
+                                    <View style={styles.meta}>
+                                        <Text style={styles.money}>
+                                            {formatMoney(r.totalCents, BUSINESS_CURRENCY)}
+                                        </Text>
+                                        {r.source === "online" ? (
+                                            <Badge label={d.sourceOnline} intent="accent" />
+                                        ) : null}
+                                        {r.status !== "paid" ? (
+                                            <Badge label={r.statusLabel} intent={r.intent} />
+                                        ) : null}
+                                    </View>
+                                }
                                 onPress={() => {
                                     setOpen(r.id);
                                 }}
@@ -388,4 +401,5 @@ const styles = StyleSheet.create({
     soft: { color: c.inkSoft, fontFamily: theme.fonts.ui, fontSize: 14 },
     note: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 12 },
     card: { gap: 6 },
+    meta: { alignItems: "flex-end", gap: 4 },
 });

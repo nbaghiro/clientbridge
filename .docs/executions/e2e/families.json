@@ -4945,7 +4945,7 @@
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         },
         {
-          "test_key": "backend/tests/test_orders.py::test_void_after_checkout_started_409",
+          "test_key": "backend/tests/test_orders.py::test_void_after_the_card_went_through_409",
           "coverage": "partial_related_assertions_only",
           "scope": "Exact selected assertions establish only the lower-level or UI subcase shown. Full scenario, faults, cross-device observation and forbidden effects remain unverified."
         }
