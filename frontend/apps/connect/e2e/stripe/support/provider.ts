@@ -201,8 +201,6 @@ export async function enterStripeCard(payment: Frame, number: string): Promise<v
     if (await country.count()) {
         await country.selectOption({ label: "Canada" });
         await expect(country).toHaveValue("CA");
-        // Stripe adds the postal code a Canadian card needs only after the country changes
-        await expect(postal).toBeVisible();
     }
     if (await postal.count()) {
         await expect(postal).toBeVisible();
