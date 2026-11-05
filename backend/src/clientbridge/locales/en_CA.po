@@ -256,6 +256,9 @@ msgstr "Your order from {business} is ready to pick up."
 msgid "order_reminder.body"
 msgstr "Your order is ready to collect from {business}. Please contact them if you need more time."
 
+msgid "pad_link.body"
+msgstr "{business} asks you to authorize pre-authorized debits from your bank account. Set it up securely with Stripe: {link}"
+
 msgid "payment_failed.body"
 msgstr "Your payment of {amount} to {business} failed. Please try again."
 

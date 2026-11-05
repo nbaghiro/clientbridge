@@ -329,6 +329,10 @@ class FakeCli:
             return json.dumps({"livemode": False})
         if path == "/v1/events":
             return json.dumps({"data": [{"api_version": STRIPE_API_VERSION}]})
+        if method == "post" and path.endswith("/verify_microdeposits"):
+            bank = {"last4": "6789", "bank_name": "STRIPE TEST BANK"}
+            pm = {"id": f"obj_bank_{self.created}", "acss_debit": bank}
+            return json.dumps({"id": path.split("/")[3], "payment_method": pm})
         if method == "post":
             self.created += 1
             card = {"brand": "visa", "last4": "4242", "exp_month": 12, "exp_year": 2034}
@@ -404,6 +408,17 @@ async def test_linking_replaces_fixture_cards_with_sandbox_cards(db: AsyncSessio
     for card in cards:
         client = await db.get(Client, card.client_id)
         assert client is not None and (client.stripe_customer_id or "").startswith("obj_")
+
+
+async def test_linking_authorizes_a_sandbox_bank_for_each_active_mandate(db: AsyncSession) -> None:
+    cli = FakeCli()
+    await Linker(Stripe(cli, None), db, apply=True).business(BIRCHBARK, ACCOUNT)
+    bank = await db.get(PaymentMethod, "pm_david_bank")
+    assert bank is not None and (bank.provider_ref or "").startswith("obj_bank_")
+    assert bank.last4 == "6789" and bank.mandate_status == "active"
+    setup = next(c for c in cli.calls if c[:2] == ["post", "/v1/setup_intents"])
+    assert "allowed_payment_method_types[]=acss_debit" in setup
+    assert any(arg.endswith("clientbridge-demo-seed (test mode)") for arg in setup)
 
 
 def test_card_tokens_follow_the_saved_brand() -> None:

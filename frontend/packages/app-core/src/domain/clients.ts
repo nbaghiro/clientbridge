@@ -46,6 +46,8 @@ import {
     type SavedCardRow,
     canBeDefault,
     detachCard,
+    isChargeable,
+    isDefaultMethod,
     isMandate,
     mandateStatusIntent,
     savedCardLabel,
@@ -1324,6 +1326,8 @@ export interface WalletMethod {
     pays: string[];
     added: string;
     note: string | null;
+    /** The label with what tells two of the same card apart, for a screen reader. */
+    name: string;
 }
 
 function walletMethod(row: MethodDbRow, now: Date, zone: string): WalletMethod {
@@ -1335,6 +1339,15 @@ function walletMethod(row: MethodDbRow, now: Date, zone: string): WalletMethod {
             : null;
     const left = lastDay === null ? null : (lastDay.getTime() - now.getTime()) / 86_400_000;
     const bank = isMandate(row);
+    const expiry =
+        mm === null || yy === null || left === null
+            ? null
+            : left < 0
+              ? s.wallet.expired(mm, yy)
+              : left < 45
+                ? s.wallet.expiresSoon(mm, yy)
+                : s.wallet.expires(mm, yy);
+    const added = s.wallet.added(formatDate(parseTimestamp(row.created_at), zone));
     const mandate: Record<string, string> = {
         active: s.wallet.mandateActive,
         pending: s.wallet.mandatePending,
@@ -1351,20 +1364,14 @@ function walletMethod(row: MethodDbRow, now: Date, zone: string): WalletMethod {
                   intent: mandateStatusIntent(row.mandate_status),
               }
             : null,
-        expiry:
-            mm === null || yy === null || left === null
-                ? null
-                : left < 0
-                  ? s.wallet.expired(mm, yy)
-                  : left < 45
-                    ? s.wallet.expiresSoon(mm, yy)
-                    : s.wallet.expires(mm, yy),
+        expiry,
         expiringSoon: left !== null && left < 45,
-        isDefault: row.preferred === 1 && (!bank || row.mandate_status === "active"),
+        isDefault: isDefaultMethod(row),
         canBeDefault: canBeDefault(row),
         pays: row.pays === null ? [] : row.pays.split(", ").filter((p) => p !== ""),
-        added: s.wallet.added(formatDate(parseTimestamp(row.created_at), zone)),
+        added,
         note: bank && row.mandate_status === "pending" ? s.wallet.mandatePendingNote : null,
+        name: formatParts([savedCardLabel(row), expiry ?? row.bank_name, added]),
     };
 }
 
@@ -1409,10 +1416,15 @@ export function useClientWallet(api: ApiLike, clientId: string): ClientWallet {
         remove: (id) => {
             act(id, () => detachCard(api, id), s.wallet.removeError);
         },
-        removeMessage: (m) =>
-            m.pays.length > 0
-                ? s.wallet.removeBodyInUse(formatList(m.pays, "unit"))
-                : s.wallet.removeBody,
+        removeMessage: (m) => {
+            if (m.pays.length === 0) return s.wallet.removeBody;
+            const plans = formatList(m.pays, "unit");
+            const others = methods.filter((o) => o.row.id !== m.row.id && isChargeable(o.row));
+            const next = others.find((o) => o.isDefault) ?? others.at(-1);
+            return next === undefined
+                ? s.wallet.removeBodyLast(plans)
+                : s.wallet.removeBodyInUse(plans, next.label);
+        },
         archived: status !== undefined && status !== "active",
     };
 }

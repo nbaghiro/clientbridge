@@ -76,6 +76,26 @@ ONBOARDING_STEPS = (
     "and accept the service agreement",
 )
 TEST_CARDS = {"visa": "pm_card_visa", "mastercard": "pm_card_mastercard", "amex": "pm_card_amex"}
+CLI_TOO_OLD = "the Stripe CLI can't send v2 request bodies; update it (brew upgrade stripe-cli)"
+# Stripe takes PAD mandates only online, so this sandbox acceptance names the seed
+TEST_PAD = (
+    "usage=off_session",
+    "confirm=true",
+    "allowed_payment_method_types[]=acss_debit",
+    "payment_method_data[type]=acss_debit",
+    "payment_method_data[acss_debit][institution_number]=000",
+    "payment_method_data[acss_debit][transit_number]=11000",
+    "payment_method_data[acss_debit][account_number]=000123456789",
+    "payment_method_options[acss_debit][currency]=cad",
+    "payment_method_options[acss_debit][verification_method]=microdeposits",
+    "payment_method_options[acss_debit][mandate_options][transaction_type]=personal",
+    "payment_method_options[acss_debit][mandate_options][default_for][]=invoice",
+    "payment_method_options[acss_debit][mandate_options][default_for][]=subscription",
+    "mandate_data[customer_acceptance][type]=online",
+    "mandate_data[customer_acceptance][online][ip_address]=127.0.0.1",
+    "mandate_data[customer_acceptance][online][user_agent]=clientbridge-demo-seed (test mode)",
+)
+TEST_MICRODEPOSITS = ("amounts[]=32", "amounts[]=45", "expand[]=payment_method")
 CLIENT_TAG = "clientbridge_demo_client"
 
 DASHBOARD_STEPS = (
@@ -899,7 +919,10 @@ class ApiStripe(Stripe):
 def cli_runner(args: Sequence[str]) -> str:
     result = subprocess.run(["stripe", *args], capture_output=True, text=True, check=False)
     if result.returncode != 0:
-        raise SystemExit(f"stripe {args[0]} failed: {result.stderr.strip()[:300]}")
+        detail = (result.stderr.strip() or result.stdout.strip())[:300]
+        raise SystemExit(f"stripe {args[0]} failed: {detail}")
+    if result.stdout.startswith("Invalid data argument"):
+        raise SystemExit(f"stripe {args[0]} failed: {CLI_TOO_OLD}")
     return result.stdout
 
 
@@ -993,6 +1016,7 @@ class Linker:
             apply_account_status(business, status)
         if status.charges_enabled:
             await self._cards(business, account_id)
+            await self._banks(business, account_id)
         else:
             # Stripe refuses to attach cards until the account can charge, which needs onboarding.
             self.steps.append(
@@ -1061,6 +1085,63 @@ class Linker:
                 month, year = details.get("exp_month"), details.get("exp_year")
                 method.exp_month = month if isinstance(month, int) else method.exp_month
                 method.exp_year = year if isinstance(year, int) else method.exp_year
+
+    async def _banks(self, business: Business, account_id: str) -> None:
+        methods = (
+            (
+                await self.db.execute(
+                    scoped(PaymentMethod, business.id).where(
+                        PaymentMethod.method == "bank_eft", PaymentMethod.mandate_status == "active"
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for method in sorted(methods, key=lambda m: m.id):
+            ref = method.provider_ref
+            live = ref is not None and self.stripe.find(f"/v1/payment_methods/{ref}", account_id)
+            target = f"saved bank account {method.id}"
+            if live:
+                self.steps.append(Step("keep", target, f"{ref} is on {account_id}"))
+                continue
+            client = await self.db.get(Client, method.client_id)
+            if client is None:
+                continue
+            customer = await self._customer(client, account_id)
+            self.steps.append(
+                Step("create", target, f"authorize Stripe's test bank for {customer}")
+            )
+            bank: Mapping[str, object] = {"id": "<new pm_>", "acss_debit": {}}
+            if self.apply:
+                holder = [
+                    f"customer={customer}",
+                    f"payment_method_data[billing_details][name]={client.name}",
+                    f"payment_method_data[billing_details][email]=pad+{client.id}@example.test",
+                ]
+                intent = self.stripe.call(
+                    "post", "/v1/setup_intents", [*TEST_PAD, *holder], account=account_id
+                )
+                verified = self.stripe.call(
+                    "post",
+                    f"/v1/setup_intents/{intent['id']}/verify_microdeposits",
+                    TEST_MICRODEPOSITS,
+                    account=account_id,
+                )
+                bank = _map(verified.get("payment_method"))
+            details = _map(bank.get("acss_debit"))
+            values: dict[str, tuple[object, object]] = {
+                "provider_ref": (ref, bank.get("id")),
+                "last4": (method.last4, details.get("last4", method.last4)),
+                "bank_name": (method.bank_name, details.get("bank_name", method.bank_name)),
+            }
+            self.changes += column_changes("payment_methods", method.id, values)
+            if self.apply:
+                method.provider_ref = str(bank["id"])
+                method.last4 = str(details.get("last4") or method.last4)
+                name = details.get("bank_name")
+                method.bank_name = name if isinstance(name, str) else method.bank_name
+                method.brand = method.bank_name or method.brand
 
     async def _customer(self, client: Client, account_id: str) -> str:
         current = client.stripe_customer_id
@@ -1297,8 +1378,7 @@ def main(argv: Sequence[str] | None = None, runner: Runner = cli_runner) -> int:
             f"rejects under `stripe listen`; the handlers parse only {STRIPE_API_VERSION}"
         )
     publishable = config.get("test_mode_pub_key", "<pk_test_...>")
-    print(f"  VITE_STRIPE_PUBLISHABLE_KEY={publishable}  (frontend/apps/web and apps/connect)")
-    print(f"  STRIPE_PUBLISHABLE_KEY={publishable}  (frontend/apps/mobile)")
+    print(f"  STRIPE_PUBLISHABLE_KEY={publishable}  (apps/web, apps/connect and apps/mobile .env)")
     fixture = resolved.get(FIXTURE_BUSINESS)
     if fixture is not None:
         print(f"  STRIPE_TEST_CONNECTED_ACCOUNT={fixture['id']}  (make test-sandbox)")

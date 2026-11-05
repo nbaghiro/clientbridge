@@ -10,7 +10,15 @@ from xml.etree import ElementTree
 from pydantic import BaseModel, Field, TypeAdapter
 
 Lane = Literal[
-    "web", "connect", "journeys", "filings", "stripe", "native-ios", "native-android", "sync"
+    "web",
+    "connect",
+    "journeys",
+    "filings",
+    "stripe",
+    "native-ios",
+    "native-android",
+    "native-stripe",
+    "sync",
 ]
 
 
@@ -31,7 +39,16 @@ REQUIRED_CASES = {
         for identity, case in CASES.items()
         if lane in case.lanes and case.status in ("implemented", "verified")
     ]
-    for lane in ("web", "connect", "journeys", "filings", "native-ios", "native-android", "stripe")
+    for lane in (
+        "web",
+        "connect",
+        "journeys",
+        "filings",
+        "native-ios",
+        "native-android",
+        "native-stripe",
+        "stripe",
+    )
 }
 
 

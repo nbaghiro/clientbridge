@@ -457,3 +457,38 @@ async def test_customer_survives_a_database_rollback_without_provider_duplicatio
     assert client.stripe_customer_id is None
     assert await ensure_customer(db, gateway, "acct_test", client) == first
     assert len(gateway.customer_keys) == 1
+
+
+async def test_removing_the_default_card_hands_the_default_to_another_card(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    await enable_payments(db)
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    cid = (await factory.client(business=business)).id
+    older = _saved_card(cid, ref="pm_older", default=False)
+    default = _saved_card(cid, ref="pm_default", default=True)
+    db.add_all([older, default])
+    await db.flush()
+    assert (await as_owner.delete(f"/v1/payments/methods/{default.id}")).status_code == 200
+    preferred = await db.scalar(select(PaymentMethod.preferred).where(PaymentMethod.id == older.id))
+    assert preferred is True
+
+
+async def test_a_method_without_a_provider_reference_cannot_become_the_default(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await client_id(db)
+    bank = PaymentMethod(
+        id=new_id("payment_method"),
+        business_id=BIZ,
+        client_id=cid,
+        method="bank_eft",
+        mandate_status="active",
+        preferred=False,
+    )
+    db.add(bank)
+    await db.flush()
+    res = await as_owner.post(f"/v1/payments/methods/{bank.id}/default")
+    assert res.status_code == 409
+    assert res.json()["error"] == "payment_method_not_chargeable"

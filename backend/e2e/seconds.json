@@ -3,6 +3,7 @@
         "Authentication and staff boundaries": 165,
         "Create Estimate opens the estimate composer": 18,
         "Inbox tabs and payment access": 93,
+        "NATIVE-PAY-01 On a phone, staff text a client the bank authorization link, and the text carries the link": 53,
         "Offline hours survive a process restart": 60,
         "Owner client record surfaces": 45,
         "Owner inbox surfaces": 105,
@@ -30,7 +31,9 @@
         "provider.stripe.ts > STRIPE-BROWSER-04 closing a real 3DS challenge leaves the invoice unpaid after reload": 34,
         "provider.stripe.ts > STRIPE-BROWSER-05 owner issues an invoice and emailed card checkout reaches both owner replicas": 56,
         "provider.stripe.ts > STRIPE-BROWSER-06 held genuine settlement leaves durable invoice unpaid until release": 59,
-        "tabs.stripe.ts > STR-E06 one invoice in two tabs: a decline in the first, then both pay, and only one charge goes through": 52
+        "tabs.stripe.ts > STR-E06 one invoice in two tabs: a decline in the first, then both pay, and only one charge goes through": 52,
+        "wallet.stripe.ts > STR-E26 cards saved through Stripe charge nothing, the chosen default pays an invoice off-session, and a removed card can't be charged": 60,
+        "wallet.stripe.ts > STR-E27 a client authorizes a bank account from the setup link, and an invoice debited from it is paid only once Stripe settles": 84
     },
     "web": {
         "admin.e2e.ts > OPS-E2E-01 only a granted operator reaches the admin ops, and every page stays uncached": 12,

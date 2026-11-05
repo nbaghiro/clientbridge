@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { strings } from "@clientbridge/app-core/public";
 import { runPort } from "@clientbridge/config/e2e/run";
-import { createClient } from "../../../web/e2e/support/clients";
+import { createClient, openWallet } from "../../../web/e2e/support/clients";
 import { lapsedNotice } from "../../../web/e2e/support/plans";
 import { signIn } from "../../../web/e2e/support/session";
 import { categoryTotals, clientMoney, press, registerPurchaser } from "./support/disputes";
@@ -12,7 +12,6 @@ import {
     declineRenewals,
     membershipEvidence,
     membershipRows,
-    openWallet,
     pastDueNotices,
     saveCardUi,
     setPlan,

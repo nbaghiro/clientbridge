@@ -2180,7 +2180,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Pad Link Status */
+        get: operations["pad_link_status_v1_payments_pad_links__client_id__get"];
         put?: never;
         /** Create Pad Link */
         post: operations["create_pad_link_v1_payments_pad_links__client_id__post"];
@@ -7711,12 +7712,41 @@ export interface components {
             /** Preferred */
             preferred: boolean;
         };
+        /** PaymentSetupLinkIn */
+        PaymentSetupLinkIn: {
+            /**
+             * Text
+             * @description Also text the link to the client's mobile
+             * @default false
+             */
+            text: boolean;
+        };
         /** PaymentSetupLinkOut */
         PaymentSetupLinkOut: {
             /** Id */
             id: string;
             /** Url */
             url: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /**
+             * Texted
+             * @default false
+             */
+            texted: boolean;
+        };
+        /** PaymentSetupLinkStatus */
+        PaymentSetupLinkStatus: {
+            /** Id */
+            id: string;
+            /**
+             * Verifying
+             * @description The client entered the account and Stripe is checking it
+             */
+            verifying: boolean;
             /**
              * Expires At
              * Format: date-time
@@ -15171,7 +15201,7 @@ export interface operations {
             };
         };
     };
-    create_pad_link_v1_payments_pad_links__client_id__post: {
+    pad_link_status_v1_payments_pad_links__client_id__get: {
         parameters: {
             query?: never;
             header?: {
@@ -15185,6 +15215,45 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentSetupLinkStatus"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_pad_link_v1_payments_pad_links__client_id__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                client_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PaymentSetupLinkIn"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

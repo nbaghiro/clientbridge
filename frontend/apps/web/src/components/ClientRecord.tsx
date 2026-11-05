@@ -7,6 +7,7 @@ import {
     formatRelativeTime,
     formatTime,
     formatWeekday,
+    isDefaultMethod,
     savedCardLabel,
     subjectSummary,
     subjectTemperament,
@@ -578,7 +579,7 @@ export function ClientRecordView({
                                 className="flex items-center justify-between px-3 py-2.5 text-sm"
                             >
                                 <span className="text-ink">{savedCardLabel(m)}</span>
-                                {m.preferred === 1 ? (
+                                {isDefaultMethod(m) ? (
                                     <Badge label={strings.clients.wallet.default} intent="accent" />
                                 ) : null}
                             </div>

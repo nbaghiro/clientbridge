@@ -11,6 +11,7 @@ import {
     formatPhone,
     formatTime,
     formatWeekday,
+    parseTimestamp,
     strings,
 } from "@clientbridge/app-core/public";
 import { expect, type Page, test } from "@playwright/test";
@@ -23,6 +24,7 @@ import {
     editClient,
     expectClientSegment,
     openClient,
+    openWallet,
     pickFieldDate,
     subjectRows,
     type ClientFixture,
@@ -1315,4 +1317,70 @@ test("CRM-E2E-17 archive two clients in bulk, then restore one, and each ends in
     } finally {
         await observer.close();
     }
+});
+
+test("CRM-E2E-20 the wallet texts a bank authorization link, shows it waiting, then verifying, and revokes it", async ({
+    page,
+}) => {
+    test.setTimeout(180_000);
+    const c = strings.checkout;
+    await signIn(page);
+    const client = await createClient(page);
+    const phone = formatPhone(client.phone);
+    const expires = new Date(Date.now() + 86_400_000).toISOString();
+    const link = { id: "psl_e2e_wallet", url: `${new URL(page.url()).origin}/setup#token=e2e` };
+    let open: { id: string; verifying: boolean; expires_at: string } | null = null;
+    const asked: unknown[] = [];
+    // Stripe holds the debit capability, so the provider calls are stood in for
+    await page.route(`**/v1/payments/pad-links/${client.id}`, async (route) => {
+        if (route.request().method() === "POST") {
+            const body = route.request().postDataJSON() as { text: boolean };
+            asked.push(body);
+            open = { id: link.id, verifying: false, expires_at: expires };
+            await route.fulfill({ json: { ...link, expires_at: expires, texted: body.text } });
+            return;
+        }
+        await route.fulfill({ json: open });
+    });
+    await page.route(`**/v1/payments/pad-links/${link.id}`, async (route) => {
+        open = null;
+        await route.fulfill({ status: 204 });
+    });
+    const request = async () => {
+        const wallet = await openWallet(page, client);
+        await wallet.getByRole("button", { name: strings.clients.addBankWeb, exact: true }).click();
+        return wallet;
+    };
+
+    await test.step("staff text the link to the client's mobile and can still share it", async () => {
+        const wallet = await request();
+        await expect(wallet.getByText(c.bankLinkHelp, { exact: true })).toBeVisible();
+        await expect(
+            wallet.getByRole("button", { name: c.bankLinkCreate, exact: true }),
+        ).toBeVisible();
+        await wallet.getByRole("button", { name: c.bankLinkText(phone), exact: true }).click();
+        await expect(wallet.getByText(c.bankLinkTexted(phone), { exact: true })).toBeVisible();
+        await expect(wallet.getByText(c.bankLinkLabel, { exact: true })).toBeVisible();
+        await expect(wallet.getByText(link.url, { exact: true })).toBeVisible();
+        expect(asked).toEqual([{ text: true }]);
+        await wallet.getByRole("button", { name: strings.common.done, exact: true }).click();
+    });
+    await test.step("the wallet says the link is waiting until it expires", async () => {
+        const wallet = await openWallet(page, client);
+        const date = formatDate(parseTimestamp(expires), "America/Vancouver");
+        await expect(wallet.getByText(c.bankLinkWaiting(date), { exact: true })).toBeVisible();
+    });
+    await test.step("while the client verifies, no new link is offered, and revoking clears it", async () => {
+        open = { id: link.id, verifying: true, expires_at: expires };
+        const wallet = await request();
+        await expect(wallet.getByText(c.bankLinkVerifying, { exact: true })).toBeVisible();
+        await expect(
+            wallet.getByRole("button", { name: c.bankLinkCreate, exact: true }),
+        ).toHaveCount(0);
+        await wallet.getByRole("button", { name: c.bankLinkRevoke, exact: true }).click();
+        await expect(
+            wallet.getByRole("button", { name: c.bankLinkCreate, exact: true }),
+        ).toBeVisible();
+        await expect(wallet.getByText(c.bankLinkVerifying, { exact: true })).toHaveCount(0);
+    });
 });
