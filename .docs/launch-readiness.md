@@ -2538,7 +2538,7 @@ The surfaces around the product: the platform admin console, the marketing site 
 **Where to test**
 
 * **Local:** `make up migrate seed`, then `make configure-demo-admin`, restart `make dev-api` and run `make dev-admin`. Open [http://localhost:8711](<http://localhost:8711>) as hannah@birchbark.example.
-* **Staging:** [https://admin.staging.clientbridge.ca](<https://admin.staging.clientbridge.ca>), which needs a platform-admin grant on staging.
+* **Staging:** [https://admin.staging.clientbridge.ca](<https://admin.staging.clientbridge.ca>) as naib@clientbridge.ca or raul@clientbridge.ca, the staging stack's platform admins. To add one, see Platform admins in the operations doc.
 
 **QA steps**
 

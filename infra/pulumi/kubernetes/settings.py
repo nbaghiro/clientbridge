@@ -218,6 +218,14 @@ def _plain(values: Mapping[str, str]) -> list[k8s.core.v1.EnvVarArgs]:
     return [k8s.core.v1.EnvVarArgs(name=name, value=value) for name, value in values.items()]
 
 
+def platform_admins() -> str:
+    """The auth identity IDs the stack lists, joined as the API reads them."""
+    listed = pulumi.Config().get_object("platformAdminIdentityIds") or []
+    if not isinstance(listed, list) or not all(isinstance(value, str) for value in listed):
+        raise ValueError("clientbridge:platformAdminIdentityIds must list auth identity IDs")
+    return ",".join(str(value) for value in listed)
+
+
 def backend_env(env: Environment, bucket: pulumi.Input[str]) -> list[k8s.core.v1.EnvVarArgs]:
     """The API, worker and migrate settings; every public URL derives from BASE_DOMAIN."""
     return [
@@ -243,8 +251,7 @@ def backend_env(env: Environment, bucket: pulumi.Input[str]) -> list[k8s.core.v1
                 "DB_MAX_OVERFLOW": str(DB_MAX_OVERFLOW),
                 "EMAIL_FROM": f"Clientbridge <no-reply@{env.base_domain}>",
                 "CONTACT_TO": "hello@clientbridge.ca",
-                "PLATFORM_ADMIN_IDENTITY_IDS": pulumi.Config().get("platformAdminIdentityIds")
-                or "",
+                "PLATFORM_ADMIN_IDENTITY_IDS": platform_admins(),
             }
         ),
         k8s.core.v1.EnvVarArgs(name="S3_BUCKET", value=bucket),
