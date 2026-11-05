@@ -1,0 +1,165 @@
+appId: ${APP_ID}
+name: NATIVE-BILL-01 An invoice on the phone is taxed by the province, keeps its tax once sent, and charges none with tax off
+onFlowComplete:
+    - runFlow: helpers/restore-owner.yaml
+---
+- runScript: helpers/tax-business.js
+- launchApp:
+      # the default "all" pulls the whole APK over adb to read its manifest, which can stall for minutes
+      permissions:
+          notifications: allow
+- extendedWaitUntil:
+      visible: "Today|Sign in"
+      timeout: 60000
+- runFlow:
+      when:
+          visible: "Today"
+      commands:
+          - tapOn: "Setup"
+          - scrollUntilVisible:
+                element: "Sign out"
+                direction: DOWN
+          - tapOn: "Sign out"
+          - extendedWaitUntil:
+                visible: "Sign in"
+                timeout: 30000
+- tapOn: "you@business.ca"
+- inputText: ${output.tax.email}
+- tapOn: "••••••••"
+- eraseText
+- inputText: ${output.tax.password}
+- runFlow: helpers/sign-in.yaml
+- runFlow: helpers/decline-save-password.yaml
+- extendedWaitUntil:
+      visible: "Today"
+      timeout: 60000
+# Ontario: a standard service, an HST-only one and an exempt fee, each taxed by its catalog class
+- tapOn: "Create"
+- tapOn: "Invoice.*"
+# the field's label and its picker share the name, and the picker comes second
+- tapOn:
+      text: "Client"
+      index: 1
+- extendedWaitUntil:
+      visible: "Rowan Tax Check"
+      timeout: 60000
+- tapOn: "Rowan Tax Check"
+- runFlow:
+      file: helpers/add-from-catalog.yaml
+      env:
+          ITEM: "Standard service"
+- runFlow:
+      file: helpers/add-from-catalog.yaml
+      env:
+          ITEM: "Federal only service"
+- runFlow:
+      file: helpers/add-from-catalog.yaml
+      env:
+          ITEM: "Exempt fee"
+- scrollUntilVisible:
+      element: "HST 13%.*"
+      direction: DOWN
+- assertVisible: "\\$17\\.33"
+- assertVisible: "\\$190\\.66"
+- takeScreenshot: tax-ontario
+# the same open invoice follows each province the business moves to
+- runScript:
+      file: helpers/tax-business-api.js
+      env:
+          METHOD: PATCH
+          PATH: /v1/business
+          BODY: '{"province": "QC"}'
+# the footer's total is always on screen, so it shows the change has synced
+- extendedWaitUntil:
+      visible: "\\$189\\.98"
+      timeout: 60000
+- scrollUntilVisible:
+      element: "QST 9\\.975%.*"
+      direction: DOWN
+- assertVisible: "GST 5%.*"
+- assertVisible: "\\$6\\.67"
+- assertVisible: "\\$9\\.98"
+- assertVisible: "\\$189\\.98"
+- takeScreenshot: tax-quebec
+- runScript:
+      file: helpers/tax-business-api.js
+      env:
+          METHOD: PATCH
+          PATH: /v1/business
+          BODY: '{"province": "NS"}'
+# the footer's total is always on screen, so it shows the change has synced
+- extendedWaitUntil:
+      visible: "\\$192\\.00"
+      timeout: 60000
+- scrollUntilVisible:
+      element: "HST 14%.*"
+      direction: DOWN
+- assertVisible: "\\$18\\.67"
+- assertVisible: "\\$192\\.00"
+- takeScreenshot: tax-nova-scotia
+- runScript:
+      file: helpers/tax-business-api.js
+      env:
+          METHOD: PATCH
+          PATH: /v1/business
+          BODY: '{"province": "BC"}'
+# the footer's total is always on screen, so it shows the change has synced
+- extendedWaitUntil:
+      visible: "\\$187\\.00"
+      timeout: 60000
+- scrollUntilVisible:
+      element: "PST 7%.*"
+      direction: DOWN
+- assertVisible: "GST 5%.*"
+- assertVisible: "\\$6\\.67"
+- assertVisible: "\\$7\\.00"
+- assertVisible: "\\$187\\.00"
+- takeScreenshot: tax-british-columbia
+- tapOn: "Send"
+- tapOn: "Send invoice"
+- extendedWaitUntil:
+      visible: "Start another"
+      timeout: 60000
+# with tax off, the sent invoice keeps its tax and a new one charges none
+- runScript:
+      file: helpers/tax-business-api.js
+      env:
+          METHOD: PATCH
+          PATH: /v1/business
+          BODY: '{"tax_registered": false}'
+- tapOn: "Start another"
+- tapOn:
+      text: "Client"
+      index: 1
+- tapOn: "Rowan Tax Check"
+- runFlow:
+      file: helpers/add-from-catalog.yaml
+      env:
+          ITEM: "Standard service"
+- extendedWaitUntil:
+      notVisible: "GST 5%.*"
+      timeout: 60000
+- assertNotVisible: "PST 7%.*"
+- assertVisible: "\\$100\\.00"
+- takeScreenshot: tax-off
+- runFlow: helpers/close-sheet.yaml
+- extendedWaitUntil:
+      visible: "Close without saving\\?"
+      timeout: 15000
+- tapOn:
+      text: "Close"
+      below: "Close without saving\\?"
+- tapOn: "Today"
+- scrollUntilVisible:
+      element: "View payments"
+      direction: DOWN
+- tapOn: "View payments"
+- extendedWaitUntil:
+      visible: ".*Rowan Tax Check.*"
+      timeout: 60000
+- tapOn: ".*Rowan Tax Check.*"
+- scrollUntilVisible:
+      element: "PST 7%.*"
+      direction: DOWN
+- assertVisible: "\\$187\\.00"
+- takeScreenshot: tax-kept-on-sent-invoice

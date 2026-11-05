@@ -6,6 +6,7 @@ import {
     paymentDrawer,
     recordCash,
 } from "../../../web/e2e/support/billing";
+import { patchBusiness } from "../../../web/e2e/support/business";
 import { signIn } from "../../../web/e2e/support/session";
 import {
     depositEvidence,
@@ -331,6 +332,57 @@ test("FIN-DEPOSIT-10 a card deposit paid while enrolling in a camp on Connect pa
             contentType: "application/json",
         });
     } finally {
+        await ownerContext.close();
+    }
+});
+
+test("FIN-DEPOSIT-11 with tax registration off, a card deposit paid on Connect leaves an untaxed enrolment invoice", async ({
+    browser,
+}) => {
+    test.setTimeout(300_000);
+    const ownerContext = await browser.newContext({ baseURL: webBaseUrl() });
+    const owner = await ownerContext.newPage();
+    try {
+        await signIn(owner);
+        expect((await patchBusiness(owner, { tax_registered: false })).status()).toBe(200);
+        const setup = await prepareProgram(owner);
+        const { fixture } = await enrolWithCardDeposit(browser, setup);
+        await expect
+            .poll(
+                async () => {
+                    const e = await depositEvidence(fixture);
+                    return {
+                        local: e.payments.map((p) => [p.kind, p.status]),
+                        remote: e.provider.intents.map((p) => [p.status, p.amount]),
+                        booking: e.booking.deposit_status,
+                    };
+                },
+                { timeout: 90_000 },
+            )
+            .toEqual({
+                local: [["deposit", "succeeded"]],
+                remote: [["succeeded", PROGRAM.deposit]],
+                booking: "applied",
+            });
+        const paid = await depositEvidence(fixture);
+        const invoiceId = paid.booking.invoice_id;
+        if (invoiceId === null) throw new Error("the enrolment has no invoice");
+        await linkStripeDepositInvoice(fixture, invoiceId);
+        const e = await depositEvidence(fixture);
+        expect(e.invoice).toMatchObject({
+            id: invoiceId,
+            subtotal_cents: PROGRAM.price,
+            tax_total_cents: 0,
+            total_cents: PROGRAM.price,
+        });
+        expect(e.entries.filter((x) => x.category === "tax")).toEqual([]);
+        await outstanding(
+            owner,
+            { id: invoiceId, name: setup.booker.name, phone: setup.booker.phone },
+            PROGRAM.price - PROGRAM.deposit,
+        );
+    } finally {
+        await patchBusiness(owner, { tax_registered: true });
         await ownerContext.close();
     }
 });

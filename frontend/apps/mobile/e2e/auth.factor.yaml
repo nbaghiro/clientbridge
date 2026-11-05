@@ -1,0 +1,95 @@
+appId: ${APP_ID}
+name: NATIVE-AUTH-02 A password reset on the phone asks for the authenticator code before the new password
+onFlowComplete:
+    - runScript: helpers/forget-recovery-account.js
+    - runFlow: helpers/restore-owner.yaml
+---
+- runScript: helpers/password-account.js
+- runScript: helpers/authenticator-account.js
+- launchApp:
+      # the default "all" pulls the whole APK over adb to read its manifest, which can stall for minutes
+      permissions:
+          notifications: allow
+- extendedWaitUntil:
+      visible: "Today|Sign in"
+      timeout: 60000
+- runFlow:
+      when:
+          visible: "Today"
+      commands:
+          - tapOn: "Setup"
+          - scrollUntilVisible:
+                element: "Sign out"
+                direction: DOWN
+          - tapOn: "Sign out"
+          - extendedWaitUntil:
+                visible: "Sign in"
+                timeout: 30000
+- tapOn: "you@business.ca"
+- inputText: ${output.recovery.email}
+# the email field doesn't submit, so Return only puts the keyboard away where iOS's hideKeyboard can't
+- runFlow:
+      when:
+          platform: iOS
+      commands:
+          - pressKey: Enter
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - hideKeyboard
+- tapOn: "Forgot password\\?"
+- tapOn: "Send code"
+- extendedWaitUntil:
+      visible: "Check your email"
+      timeout: 30000
+- runScript:
+      file: helpers/mailed-code.js
+      env:
+          EMAIL: ${output.recovery.email}
+- tapOn: "123456"
+- inputText: ${output.code}
+- runFlow:
+      file: helpers/submit.yaml
+      env:
+          BUTTON: "Continue"
+- extendedWaitUntil:
+      visible: "Confirm it's you before choosing a new password\\."
+      timeout: 30000
+- assertNotVisible: "Choose a new password"
+- takeScreenshot: reset-asks-for-authenticator
+# a wrong code is refused and the right one moves on
+- tapOn: "123456"
+- inputText: "000000"
+- runFlow:
+      file: helpers/submit.yaml
+      env:
+          BUTTON: "Confirm"
+- extendedWaitUntil:
+      visible: "That code isn't right\\. Check it and try again\\."
+      timeout: 30000
+- assertNotVisible: "Choose a new password"
+- tapOn: "000000"
+- eraseText
+- runScript: helpers/authenticator-code.js
+- inputText: ${output.totp}
+- runFlow:
+      file: helpers/submit.yaml
+      env:
+          BUTTON: "Confirm"
+- extendedWaitUntil:
+      visible: "Choose a new password"
+      timeout: 30000
+- tapOn:
+      text: "Create a password"
+      index: 1
+- inputText: ${output.recovery.newPassword}
+- runFlow:
+      file: helpers/submit.yaml
+      env:
+          BUTTON: "Save password"
+- runFlow: helpers/decline-save-password.yaml
+- extendedWaitUntil:
+      visible: "Create your business"
+      timeout: 60000
+- takeScreenshot: reset-with-authenticator-signed-in

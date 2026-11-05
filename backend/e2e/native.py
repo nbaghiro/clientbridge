@@ -2,7 +2,10 @@
 
 import argparse
 import asyncio
+import base64
 import fcntl
+import hashlib
+import hmac
 import json
 import os
 import socket
@@ -25,6 +28,7 @@ from e2e.results import (
 )
 from e2e.stack import Stack
 from e2e.tier import ROOT
+from e2e.webauthn import register_key
 
 MOBILE = ROOT / "frontend" / "apps" / "mobile"
 
@@ -103,6 +107,15 @@ class NativeDevice:
         )
         if result.returncode:
             raise RuntimeError(result.stderr.decode().strip())
+
+    def add_photo(self, name: str) -> None:
+        """Adds a flow asset to the photo library; Maestro's addMedia refuses a HEIC."""
+        if self.platform != "ios":
+            raise RuntimeError("only the iOS simulator's library takes a photo from the lane")
+        asset = (MOBILE / "e2e" / "assets" / name).resolve()
+        if asset.parent != (MOBILE / "e2e" / "assets").resolve() or not asset.is_file():
+            raise ValueError(f"no flow asset named {name}")
+        self.run("addmedia", self.device, str(asset))
 
     @contextmanager
     def installed(self, build: Path) -> Iterator[None]:
@@ -196,29 +209,51 @@ class NativeLink:
             self.thread.join(timeout=10)
 
 
+def totp(secret: str) -> str:
+    """The authenticator code for a base32 secret now, which Maestro's scripts can't compute."""
+    key = base64.b32decode(secret.strip().upper() + "=" * (-len(secret.strip()) % 8))
+    counter = int(clock.wall().timestamp()) // 30
+    digest = hmac.new(key, counter.to_bytes(8, "big"), hashlib.sha1).digest()
+    offset = digest[-1] & 0x0F
+    return f"{(int.from_bytes(digest[offset : offset + 4], 'big') & 0x7FFFFFFF) % 1_000_000:06d}"
+
+
+def security_key(body: bytes) -> None:
+    """Gives the account in body a security key as its only second factor, as the web would."""
+    account = json.loads(body)
+    origin = tier.every_origin()[0]
+    register_key(
+        tier.environment()["AUTH_PUBLIC_URL"], origin, account["email"], account["password"]
+    )
+
+
 @contextmanager
 def native_control(
     link: NativeLink,
     push: Callable[[bytes], None],
     account: Callable[[bytes], None],
+    photo: Callable[[str], None],
     log: Path,
 ) -> Iterator[str]:
-    """A local endpoint a flow calls to go offline, come back, receive a push or set an account."""
+    """A local endpoint a flow calls to go offline or online, or for a push, account or code."""
 
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self) -> None:
             body = self.rfile.read(int(self.headers.get("Content-Length") or 0))
-            actions: dict[str, Callable[[], None]] = {
+            actions: dict[str, Callable[[], bytes | None]] = {
                 "/offline": link.offline,
                 "/online": link.online,
                 "/push": lambda: push(body),
                 "/account": lambda: account(body),
+                "/totp": lambda: totp(body.decode()).encode(),
+                "/photo": lambda: photo(body.decode()),
+                "/key": lambda: security_key(body),
             }
             action = actions.get(self.path)
             try:
                 if action is None:
                     raise LookupError(self.path)
-                action()
+                answer = action()
             except (LookupError, RuntimeError, ValueError, subprocess.CalledProcessError) as error:
                 self.send_response(400)
                 self.end_headers()
@@ -226,8 +261,10 @@ def native_control(
                 return
             with log.open("a") as record:
                 record.write(f"{clock.wall().isoformat()} {self.path}\n")
-            self.send_response(204)
+            self.send_response(204 if answer is None else 200)
             self.end_headers()
+            if answer is not None:
+                self.wfile.write(answer)
 
         def log_message(self, format: str, *args: object) -> None:
             pass
@@ -363,7 +400,7 @@ def run_native(
     with (
         device.installed(build),
         native_control(
-            link, message_push, payment_account, stack.directory / "control.log"
+            link, message_push, payment_account, device.add_photo, stack.directory / "control.log"
         ) as control,
         (stack.directory / "native.log").open("wb") as native_log,
     ):

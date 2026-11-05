@@ -52,6 +52,8 @@ NOTIFICATIONS = PACKAGE / "services" / "notifications.py"
 ZONES = PACKAGE / "core" / "zones.py"
 ZONE_READERS = ("ZoneInfo", "available_timezones", "reset_tzpath")
 CLOCK = PACKAGE / "core" / "clock.py"
+# the Google stand-in runs in its own tier container, without the package or its clock
+STAND_IN = BACKEND / "e2e" / "oidc.py"
 MODELS = PACKAGE / "models"
 CLOCK_READS = {
     "datetime": ("now", "utcnow", "today"),
@@ -327,7 +329,7 @@ def zone_problems(path: pathlib.Path, tree: ast.Module) -> list[str]:
 
 def clock_problems(path: pathlib.Path, tree: ast.Module) -> list[str]:
     """Every read of the current time goes through core.clock, so tests can start it anywhere."""
-    if path == CLOCK:
+    if path in (CLOCK, STAND_IN):
         return []
     problems: list[str] = []
     for node in ast.walk(tree):
