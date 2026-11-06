@@ -17,6 +17,7 @@ import {
     formatAmountInput,
     formatList,
     formatMoney,
+    formatMoneyShort,
     formatNumber,
     formatParts,
     formatPercent,
@@ -39,6 +40,23 @@ import { staffName, staffNameSql, useStaff } from "./staff";
 import { kindWord, useSubjectKind } from "./subjects";
 
 const s = strings.catalog;
+export const GIFT_MIN_CENTS = 500;
+export const GIFT_MAX_CENTS = 100_000;
+
+function giftLimits(): [string, string] {
+    return [
+        formatMoneyShort(GIFT_MIN_CENTS, BUSINESS_CURRENCY),
+        formatMoneyShort(GIFT_MAX_CENTS, BUSINESS_CURRENCY),
+    ];
+}
+
+export function giftRangeLabel(): string {
+    return s.giftRange(...giftLimits());
+}
+
+export function giftAmountsHint(): string {
+    return s.giftAmountsHint(...giftLimits());
+}
 
 export interface ItemRow {
     variant_parent_id?: string | null;
@@ -436,12 +454,12 @@ export function itemMeta(i: ItemRow): string {
         case "subscription":
             return s.every(i.interval ?? 1, i.frequency ?? "month");
         default:
-            return s.anyAmount;
+            return giftRangeLabel();
     }
 }
 
 export function itemPriceLabel(i: ItemRow): string {
-    if (i.kind === "gift") return s.anyAmount;
+    if (i.kind === "gift") return giftRangeLabel();
     if (i.kind === "subscription")
         return s.perPeriod(formatMoney(i.price_cents, BUSINESS_CURRENCY), freqWord(i.frequency));
     return formatMoney(i.price_cents, BUSINESS_CURRENCY);
@@ -1134,10 +1152,13 @@ function planFacts(v: ItemFormValues, covers: ItemRow | null, editing: boolean):
     if (v.kind === "subscription") {
         const every = Math.max(1, toInt(v.interval) ?? 1);
         return {
-            summary: s.planSummaryMembership(
-                formatMoney(price, BUSINESS_CURRENCY),
-                freqWord(v.frequency),
-            ),
+            summary:
+                price === 0
+                    ? s.planSummaryFreeMembership(freqWord(v.frequency))
+                    : s.planSummaryMembership(
+                          formatMoney(price, BUSINESS_CURRENCY),
+                          freqWord(v.frequency),
+                      ),
             perVisit: null,
             perYear:
                 price === 0

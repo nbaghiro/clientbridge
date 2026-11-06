@@ -8,6 +8,7 @@ import {
     type ProductEditor,
     type ServiceEditor,
     formatMoney,
+    giftAmountsHint,
     mediaUrl,
     strings,
     usePlanEditor,
@@ -547,7 +548,7 @@ function PlanFields({ ed }: { ed: PlanEditor }) {
                                 ed.toggleGiftAmount(Number(k));
                             }}
                         />
-                        <Text style={styles.hint}>{s.giftAmountsHint}</Text>
+                        <Text style={styles.hint}>{giftAmountsHint()}</Text>
                     </>
                 ) : null}
             </DetailSection>

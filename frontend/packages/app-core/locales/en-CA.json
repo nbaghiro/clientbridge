@@ -8845,9 +8845,6 @@
         "message": "{money} / {freq}",
         "args": ["money", "freq"]
     },
-    "catalog.anyAmount": {
-        "message": "Any amount"
-    },
     "catalog.depositMeta": {
         "message": "{label} deposit",
         "args": ["label"]
@@ -9434,7 +9431,13 @@
         "message": "Suggested amounts"
     },
     "catalog.giftAmountsHint": {
-        "message": "Staff can still enter any amount at the sale."
+        "message": "Staff can still enter any amount from {min} to {max} at the sale.",
+        "args": ["min", "max"]
+    },
+    "catalog.giftRange": {
+        "message": "Any amount from {min} to {max}",
+        "description": "The price of a gift card item, which sells for any amount within the limits",
+        "args": ["min", "max"]
     },
     "catalog.giftNote": {
         "message": "Gift cards don’t expire and can be spent on anything."
@@ -9468,6 +9471,11 @@
     "catalog.planSummaryMembership": {
         "message": "{money} every {freq}",
         "args": ["money", "freq"]
+    },
+    "catalog.planSummaryFreeMembership": {
+        "message": "Free every {freq}",
+        "description": "In the item editor's summary of a membership whose price is empty or zero",
+        "args": ["freq"]
     },
     "catalog.sellsAt": {
         "message": "Sells from Sales, with its own checkout."

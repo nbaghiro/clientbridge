@@ -21,8 +21,11 @@ import type { DocTotalLine, Intent, SelectOption, TimelineEntry } from "../ui";
 import { strings } from "../strings";
 import { docRates, priceDoc } from "./billing";
 import {
+    GIFT_MAX_CENTS,
+    GIFT_MIN_CENTS,
     giftAmounts,
     giftItems,
+    giftRangeLabel,
     packageOfferings,
     subscriptionPlans,
     useCatalogItems,
@@ -661,8 +664,6 @@ const CASH = "cash";
 const SHARED = "shared";
 
 const GIFT_PRESETS = ["25", "50", "75", "100"];
-const GIFT_MIN_CENTS = 500;
-const GIFT_MAX_CENTS = 100_000;
 
 /** The amounts a gift card item suggests, or the defaults when it suggests none. */
 export function giftPresets(item: Parameters<typeof giftAmounts>[0] | null): string[] {
@@ -879,7 +880,7 @@ export function useEntitlementSaleForm(
             label: i.name,
             hint:
                 i.kind === "gift"
-                    ? strings.catalog.anyAmount
+                    ? giftRangeLabel()
                     : formatMoney(i.price_cents, BUSINESS_CURRENCY),
         })),
         noItems: kind !== "gift_card" && pool.length === 0 ? w.noItems(kind) : null,

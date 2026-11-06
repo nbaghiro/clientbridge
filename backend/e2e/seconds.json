@@ -74,6 +74,7 @@
         "entitlements.e2e.ts > ENT-E2E-01 cash gift card partial redemption rejects overspend and exhausts exactly": 30,
         "entitlements.e2e.ts > ENT-E2E-02 cash package confirmation cancellation preserves sessions and final use recognizes rounding remainder": 36,
         "entitlements.e2e.ts > ENT-E2E-03 a package for one pet covers that pet's visit at the desk and is refused for its sibling": 26,
+        "entitlements.e2e.ts > ENT-E2E-04 a package, a membership and a gift card are set up in the item editor and sell only through their own checkouts": 22,
         "files.e2e.ts > FILES-E2E-01 client photo confirms real storage bytes and survives another replica": 34,
         "hours.e2e.ts > SYN-E2E-08 two genuine week editors conflict once and explicitly repair without losing either edit": 28,
         "journeys/client.journey.ts > CRM-E2E-05 verified returning customer books the selected existing pet and retains original contact data": 42,

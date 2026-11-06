@@ -8186,9 +8186,6 @@
     "catalog.perPeriod": {
         "message": "{money} / {freq}"
     },
-    "catalog.anyAmount": {
-        "message": "[Åñý åɱöûñţ one two]"
-    },
     "catalog.depositMeta": {
         "message": "[{label} ðéþöšîţ one]"
     },
@@ -8736,7 +8733,10 @@
         "message": "[Šûĝĝéšţéð åɱöûñţš one two]"
     },
     "catalog.giftAmountsHint": {
-        "message": "[Šţåƒƒ çåñ šţîļļ éñţéŕ åñý åɱöûñţ åţ ţĥé šåļé. one two three]"
+        "message": "[Šţåƒƒ çåñ šţîļļ éñţéŕ åñý åɱöûñţ ƒŕöɱ {min} ţö {max} åţ ţĥé šåļé. one two three four]"
+    },
+    "catalog.giftRange": {
+        "message": "[Åñý åɱöûñţ ƒŕöɱ {min} ţö {max} one two]"
     },
     "catalog.giftNote": {
         "message": "[Ĝîƒţ çåŕðš ðöñ’ţ éẋþîŕé åñð çåñ ƀé šþéñţ öñ åñýţĥîñĝ. one two three four]"
@@ -8764,6 +8764,9 @@
     },
     "catalog.planSummaryMembership": {
         "message": "[{money} éṽéŕý {freq} one]"
+    },
+    "catalog.planSummaryFreeMembership": {
+        "message": "[Ƒŕéé éṽéŕý {freq} one two]"
     },
     "catalog.sellsAt": {
         "message": "[Šéļļš ƒŕöɱ Šåļéš, ŵîţĥ îţš öŵñ çĥéçķöûţ. one two three]"

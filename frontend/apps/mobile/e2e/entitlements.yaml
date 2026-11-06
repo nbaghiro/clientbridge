@@ -105,7 +105,7 @@ name: NATIVE-ENT-01 A package, a membership and a gift card are set up in the it
       timeout: 60000
 - tapOn: "All [1-9].*"
 - tapOn: "Search"
-- inputText: "groom"
+- inputText: ${output.tag}
 # iOS's hideKeyboard is unreliable, so the search closes its keyboard with Return there
 - runFlow:
       when:
@@ -117,20 +117,11 @@ name: NATIVE-ENT-01 A package, a membership and a gift card are set up in the it
           platform: Android
       commands:
           - hideKeyboard
-# every new plan's name holds "groom", yet none shows among the tiles the search finds
-- scrollUntilVisible:
-      element: "Cat Groom"
-      direction: DOWN
-- assertNotVisible: ".*${output.pack}.*"
-- assertNotVisible: ".*${output.club}.*"
-- assertNotVisible: ".*${output.gift}.*"
+# every new plan's name holds the run's tag, yet the search finds no tile for any of them
+- extendedWaitUntil:
+      visible: "Nothing matches that search."
+      timeout: 20000
 - takeScreenshot: native-sales-search
-- scrollUntilVisible:
-      element: "Gift cards and plans"
-      direction: DOWN
-- assertNotVisible: ".*${output.pack}.*"
-- assertNotVisible: ".*${output.club}.*"
-- assertNotVisible: ".*${output.gift}.*"
 - scrollUntilVisible:
       element: "Package"
       direction: DOWN
