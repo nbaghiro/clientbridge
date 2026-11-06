@@ -1,0 +1,82 @@
+appId: ${APP_ID}
+name: NATIVE-SCH-01 The owner approves one new client's online request and declines another on the phone, and each client hears once
+---
+- evalScript: ${output.serviceName = "Nail trim " + String(Date.now()).slice(-5)}
+- evalScript: ${output.approvedPhone = "250" + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000))}
+- evalScript: ${output.declinedPhone = "250" + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000))}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/items
+          BODY: "${JSON.stringify({ kind: 'service', name: output.serviceName, duration_min: 30, price_cents: 3000, deposit_type: 'none', online_bookable: true })}"
+- evalScript: ${output.itemId = output.response.id}
+# two new clients ask for times on the booking page, which waits for the owner's approval
+- runScript:
+      file: helpers/book-next-week.js
+      env:
+          SLUG: birchbark-${E2E_NAMESPACE}
+          BODY: "${JSON.stringify({ item_id: output.itemId, staff_id: 'st_owner_' + E2E_NAMESPACE, client: { name: 'Hazel Moreau', phone: output.approvedPhone }, subject_name: 'Maple' })}"
+- assertTrue: ${output.booking.status == "pending"}
+- runScript:
+      file: helpers/book-next-week.js
+      env:
+          SLUG: birchbark-${E2E_NAMESPACE}
+          BODY: "${JSON.stringify({ item_id: output.itemId, staff_id: 'st_owner_' + E2E_NAMESPACE, client: { name: 'Moss Lindqvist', phone: output.declinedPhone }, subject_name: 'Clover' })}"
+- assertTrue: ${output.booking.status == "pending"}
+- runFlow: helpers/owner.yaml
+# requests sit under Up next on Today, below the fold on a small phone
+- scrollUntilVisible:
+      element: "Booking request, Hazel Moreau asked for.*"
+      direction: DOWN
+      timeout: 60000
+- tapOn: "Booking request, Hazel Moreau asked for.*"
+- extendedWaitUntil:
+      visible: "Approve"
+      timeout: 30000
+- assertVisible: "Needs approval"
+- assertVisible: ${".*" + output.serviceName + ".*"}
+- takeScreenshot: request-to-approve
+- tapOn: "Approve"
+- extendedWaitUntil:
+      visible: "Cancel visit"
+      timeout: 60000
+- assertNotVisible: "Approve"
+- takeScreenshot: request-approved
+- runFlow: helpers/close-sheet.yaml
+- scrollUntilVisible:
+      element: "Booking request, Moss Lindqvist asked for.*"
+      direction: DOWN
+      timeout: 60000
+- tapOn: "Booking request, Moss Lindqvist asked for.*"
+- extendedWaitUntil:
+      visible: "Decline"
+      timeout: 30000
+- tapOn: "Decline"
+- extendedWaitUntil:
+      visible: "Decline this request\\?"
+      timeout: 10000
+- assertVisible: "The client is told, and the time opens up again."
+- tapOn: "Decline request"
+- extendedWaitUntil:
+      visible: "Request declined"
+      timeout: 60000
+- assertVisible: "The client has been told."
+- takeScreenshot: request-declined
+- runFlow: helpers/close-sheet.yaml
+- extendedWaitUntil:
+      notVisible: "Booking request, Moss Lindqvist asked for.*"
+      timeout: 60000
+# each client hears once: the approved one is booked and the declined one is told so
+- runScript:
+      file: helpers/texts.js
+      env:
+          PHONE: ${output.approvedPhone}
+          WORDS: You're booked for
+- assertTrue: ${output.texts == 1}
+- runScript:
+      file: helpers/texts.js
+      env:
+          PHONE: ${output.declinedPhone}
+          WORDS: wasn't accepted
+- assertTrue: ${output.texts == 1}

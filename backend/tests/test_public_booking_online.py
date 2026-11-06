@@ -118,9 +118,11 @@ async def test_lead_time_and_horizon_bound_open_times_and_booking(
     await _policy(db, lead_hours=48, horizon_days=7)
     await db.commit()
     far = await api.post(f"/book/{SLUG}", json=_body())
-    assert far.status_code == 409
-    soon = (clock.now() + timedelta(hours=1)).isoformat()
-    assert (await api.post(f"/book/{SLUG}", json=_body(soon))).status_code == 409
+    assert (far.status_code, far.json()["error"]) == (409, "slot_unavailable")
+    soon = await api.post(
+        f"/book/{SLUG}", json=_body((clock.now() + timedelta(hours=1)).isoformat())
+    )
+    assert (soon.status_code, soon.json()["error"]) == (409, "slot_unavailable")
     res = await api.get(
         f"/book/{SLUG}/slots", params={"item_id": "it_groom_sm", "staff_id": "any", "date": TUESDAY}
     )
@@ -338,6 +340,23 @@ async def test_a_pending_request_is_acknowledged_then_confirmed_on_approval(
     assert len(sms.sent) == 3 and sms.sent[-1].body.endswith("was canceled.")
     replayed = await api.post(f"/book/{SLUG}", json=_body(), headers=headers)
     assert replayed.json() == res.json() and len(sms.sent) == 3 and email.sent == []
+
+
+async def test_open_times_inside_the_window_follow_the_start_step(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _policy(db, lead_hours=48, horizon_days=60, step_min=60)
+    params = {"item_id": "it_groom_sm", "staff_id": "st_owner", "date": TUESDAY}
+    hourly = (await api.get(f"/book/{SLUG}/slots", params=params)).json()["slots"]
+    assert hourly, "a day inside the window still offers times"
+    assert all(datetime.fromisoformat(x["starts_at"]).minute == 0 for x in hourly)
+    await _policy(db, lead_hours=48, horizon_days=60, step_min=15)
+    quarter = (await api.get(f"/book/{SLUG}/slots", params=params)).json()["slots"]
+    assert len(quarter) > len(hourly)
+    assert {datetime.fromisoformat(x["starts_at"]).minute for x in quarter} > {0}
+    soon = (clock.now() + timedelta(days=1)).date().isoformat()
+    early = (await api.get(f"/book/{SLUG}/slots", params={**params, "date": soon})).json()
+    assert early["slots"] == []
 
 
 async def test_days_name_closures_on_23_and_25_hour_days(

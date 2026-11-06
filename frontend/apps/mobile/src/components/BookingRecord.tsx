@@ -26,7 +26,9 @@ export function BookingRecord({ id, onClose }: { id: string; onClose: () => void
                 open={!moving}
                 title={
                     detail?.event.headline ??
-                    (rec.state === "missing" ? s.recordMissingTitle : s.loading)
+                    (rec.state === "missing"
+                        ? (rec.actions.outcome ?? s.recordMissingTitle)
+                        : s.loading)
                 }
                 subtitle={detail?.event.serviceName}
                 onClose={onClose}
@@ -44,7 +46,11 @@ export function BookingRecord({ id, onClose }: { id: string; onClose: () => void
                 {detail !== null ? (
                     <BookingBody detail={detail} />
                 ) : rec.state === "missing" ? (
-                    <Empty icon="calendar" message={s.recordMissing} />
+                    rec.actions.outcome !== null ? (
+                        <Empty icon="check" message={s.outcomeBody} />
+                    ) : (
+                        <Empty icon="calendar" message={s.recordMissing} />
+                    )
                 ) : (
                     <Skeleton variant="row" count={4} label={s.loading} />
                 )}

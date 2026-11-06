@@ -42,7 +42,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 3. Run the day | Classes, waitlists and programs | [CB-20](https://linear.app/clientbridgeca/issue/CB-20) | Automated |
 | 3. Run the day | Crew jobs, visit records and photos | [CB-21](https://linear.app/clientbridgeca/issue/CB-21) | Manual |
 | 3. Run the day | Visit reminders | [CB-22](https://linear.app/clientbridgeca/issue/CB-22) | Manual |
-| 4. Book online | Online booking with deposits | [CB-24](https://linear.app/clientbridgeca/issue/CB-24) | Partly automated |
+| 4. Book online | Online booking with deposits | [CB-24](https://linear.app/clientbridgeca/issue/CB-24) | Automated |
 | 4. Book online | Returning-client sign-in by text code | [CB-25](https://linear.app/clientbridgeca/issue/CB-25) | Automated |
 | 4. Book online | Booking add-ons billed once | [CB-26](https://linear.app/clientbridgeca/issue/CB-26) | Automated |
 | 4. Book online | Reschedule and cancel by link | [CB-27](https://linear.app/clientbridgeca/issue/CB-27) | Partly automated |
@@ -1043,7 +1043,7 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 ### Online booking with deposits (CB-24)
 
-**Covers:** Connect booking page, Setup > Online booking, approvals on the schedule, the reaper job
+**Covers:** Connect booking page, Setup > Online booking, approving and declining requests on Today and the schedule (web and phone), the reaper job
 **Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234 (approval for new clients); Cedar Coast (no approval)
 
 **Where to test**
@@ -1055,8 +1055,8 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 1. As a new client on a phone, book a service with a deposit and pay with card 4242.
    **Expect:** Birchbark shows a request waiting for approval; the deposit is collected.
-2. Approve the request on the schedule.
-   **Expect:** the client is told; the visit shows on web and the member's phone with the deposit.
+2. Approve the request from Today or the schedule, then decline a second paid request.
+   **Expect:** each client is told once; the approved visit shows on web and the member's phone with the deposit; the declined deposit is refunded to the card and its time opens up again.
 3. At Cedar Coast, book a 30-minute walk.
    **Expect:** confirmed at once.
 4. Change lead time, horizon and start step in Setup.
@@ -1076,16 +1076,18 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 * `SCH-E2E-03 (journeys)`
 * `SCH-E2E-04 (journeys)`
+* `SCH-E2E-18 (journeys)`
+* `SCH-E2E-19 (journeys)`
 * `XB-E2E-12 (connect)`
+* `XB-E2E-22 (connect)`
 * `FIN-DEPOSIT-04 (stripe)`
+* `STR-E17 (stripe)`
+* `STR-E28 (stripe)`
+* `SCH-E2E-17 (stripe)`
+* `NATIVE-SCH-01 (native-ios, native-android)`
 * `connect: publicBooking.e2e.ts › a new client's online booking waits for approval and opens the manage link`
 * `connect: publicBooking.e2e.ts › a client books a confirmed visit where new clients need no approval`
 * `connect: publicBooking.e2e.ts › anyone books with any member, and a refused or unreachable booking reads as such`
-
-**To automate**
-
-* `STR-E17` in `apps/connect/e2e/stripe/deposit.stripe.ts`: New client pays a booking deposit with a real card; owner approves; deposit applied on the invoice (SCH08, SCH02).
-* `SCH-E2E-17` in `apps/web/e2e/journeys/visit.journey.ts`: Payment versus reaper race on an unpaid deposit (SCH10).
 
 **Depends on:** Nothing
 

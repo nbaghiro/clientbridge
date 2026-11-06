@@ -18,17 +18,18 @@ from tests.conftest import (
     FakePushSender,
     FakeSmsSender,
 )
-from tests.helpers import enable_payments, key, ok, payment_by_ref, settle
+from tests.helpers import enable_payments, key, ok, payment_by_ref, queued_subjects, settle
 from tests.test_programs import FIRST, bookings, enrol, ids, program, program_item, schedule
 
 CAMP = "Spring Agility Camp"
 
 
-async def _online(api: httpx.AsyncClient, db: AsyncSession, item_id: str) -> dict[str, object]:
-    """Enrol a new client through Connect, with approval of new clients turned off."""
-    await db.execute(
-        update(Business).where(Business.id == BIZ).values(booking_policy={"lead_hours": 0})
-    )
+async def _online(
+    api: httpx.AsyncClient, db: AsyncSession, item_id: str, *, approve: bool = False
+) -> dict[str, object]:
+    """Enrol a new client through Connect, with or without approval of new clients."""
+    policy = {"lead_hours": 0, "approve_new_clients": approve}
+    await db.execute(update(Business).where(Business.id == BIZ).values(booking_policy=policy))
     await db.flush()
     body = {
         "item_id": item_id,
@@ -152,6 +153,35 @@ async def test_declining_a_requested_enrolment_voids_its_invoice(
     await db.flush()
     ok(await as_owner.patch(f"/v1/bookings/{rows[1].id}", json={"status": "canceled"}))
     assert (await _invoice(db, [r.id for r in rows])).status == "void"
+
+
+async def test_declining_a_paid_enrolment_request_refunds_its_deposit_and_voids_the_invoice(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    unauth: httpx.AsyncClient,
+    gateway: FakePaymentGateway,
+) -> None:
+    await enable_payments(db)
+    item_id = str((await schedule(as_owner, await program_item(db, deposit=True)))["item_id"])
+    out = await _online(unauth, db, item_id, approve=True)
+    secret = out["deposit_client_secret"]
+    assert isinstance(secret, str)
+    await settle(unauth, db, (await payment_by_ref(db, secret.removesuffix("_secret"))).id)
+    booked = ids(out, "booking_ids")
+    rows = await bookings(db, booked)
+    assert {b.status for b in rows} == {"pending"}
+
+    ok(await as_owner.patch(f"/v1/bookings/{rows[1].id}", json={"status": "canceled"}))
+
+    rows = await bookings(db, booked)
+    assert {b.status for b in rows} == {"canceled"}
+    assert [sum(cents for _, cents, _ in gateway.refunds)] == [5000]
+    assert [await ledger.deposit_held(db, b) for b in rows] == [0] * len(rows)
+    assert (await _invoice(db, booked)).status == "void"
+    [notice] = await queued_subjects(db, f"booking:{rows[1].id}")
+    assert notice.endswith(
+        "wasn't accepted, and your $50.00 deposit is being refunded to your card."
+    )
 
 
 async def test_an_unpaid_online_enrolment_s_invoice_is_voided_with_it(

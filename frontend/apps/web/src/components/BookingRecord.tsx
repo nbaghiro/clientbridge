@@ -40,10 +40,12 @@ export function BookingRecord({
             />
         ) : null;
     const pending =
-        rec.state === "missing" ? (
-            <Empty icon="calendar" message={s.recordMissing} />
-        ) : (
+        rec.state !== "missing" ? (
             <Skeleton variant="row" count={4} label={s.loading} />
+        ) : rec.actions.outcome !== null ? (
+            <Empty icon="check" message={rec.actions.outcome} body={s.outcomeBody} />
+        ) : (
+            <Empty icon="calendar" message={s.recordMissing} />
         );
 
     if (variant === "inline")
@@ -77,7 +79,9 @@ export function BookingRecord({
                 open={!moving}
                 title={
                     detail?.event.headline ??
-                    (rec.state === "missing" ? s.recordMissingTitle : s.loading)
+                    (rec.state === "missing"
+                        ? (rec.actions.outcome ?? s.recordMissingTitle)
+                        : s.loading)
                 }
                 subtitle={
                     detail === null

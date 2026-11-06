@@ -120,6 +120,11 @@ export async function linkStripeDepositInvoice(
     expect(evidence.booking.invoice_id).toBe(invoiceId);
     expect(evidence.invoice?.id).toBe(invoiceId);
 }
+/** Runs the real reaper job once this booking is past its unpaid window. */
+export async function reapDeposit(fixture: DepositFixture): Promise<void> {
+    const reaped = await invoke<DepositFixture>(["deposits", "reap", fixture.bookingId]);
+    expect(reaped.bookingId).toBe(fixture.bookingId);
+}
 export async function depositEvidence(fixture: DepositFixture): Promise<DepositEvidence> {
     const result = await invoke<DepositEvidence>(["deposits-evidence", fixture.bookingId]);
     expect(result.booking.id).toBe(fixture.bookingId);

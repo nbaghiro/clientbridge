@@ -171,6 +171,10 @@ def _builders() -> dict[str, Render]:
             n.booking_departed_message(c, NAME, NAME, None),
         ),
         "booking_requested_message": lambda c: n.booking_requested_message(c, NAME, when(c)),
+        "booking_declined_message": lambda c: (
+            n.booking_declined_message(c, NAME, when(c), amount(c)),
+            n.booking_declined_message(c, NAME, when(c), None),
+        ),
         "booking_released_message": lambda c: n.booking_released_message(c, NAME, when(c)),
         "seat_opened_message": lambda c: (
             n.seat_opened_message(c, NAME, "Agility", when(c), LINK),

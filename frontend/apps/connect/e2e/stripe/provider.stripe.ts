@@ -332,7 +332,7 @@ test("STRIPE-BROWSER-06 held genuine settlement leaves durable invoice unpaid un
         expect(paid.stripe[0]?.charge).toBe(held.stripe[0]?.charge);
         const relayState = await controlStripeRelay(owner, "status");
         const heldEvents = relayState.records
-            ?.filter((record) => record.status === "held")
+            ?.filter((record) => record.status === "held" && record.intent === intentId)
             .map((record) => record.event);
         expect(new Set(heldEvents)).toEqual(new Set(paid.webhooks.map((event) => event.id)));
         expect(relayState.held).toBe(false);

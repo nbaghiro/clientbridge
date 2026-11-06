@@ -872,7 +872,31 @@ uses, replays a live attempt, cancels a failed or older one first, and refuses w
 can't take cards (`card_payments_unavailable`), nothing is due (`deposit_not_due`) or an earlier attempt is
 already going through (`deposit_in_progress`). The webhook settles it as any deposit. A confirmation for a
 staff-made booking with a pending deposit carries the link with a line asking for it, when the business
-takes cards.
+takes cards. A time outside the lead time or the horizon is refused with 409 `slot_unavailable`, like any
+time that isn't open.
+
+When the business approves new clients, a first online booking is a request: `status = pending` with no
+`confirmed_at`, shown as Needs approval on the schedule, as a Booking request on Today's Needs you (one per
+program enrolment) and as a request in the bell. Approving is `PATCH /v1/bookings/{id}` to `confirmed`,
+which sends the confirmation; declining is the same call to `canceled`, which refunds a paid deposit to
+the card, cancels an unpaid one, frees the time and sends the decline text (with the refund when there
+was one). The refund goes out last, after every check that could still refuse the decline. Staff answer
+only their own requests; owners and admins answer any. A request still unanswered at the business's
+midnight after its visit is declined without a message by `complete_past_bookings`, which refunds a paid
+deposit too, unless Stripe can't refund it, when it stays for staff.
+
+The confirmation's calendar file writes each visit on the business's clock (`DTSTART;TZID=<zone>`) with a
+`VTIMEZONE` built from the pinned zone table, one observance per offset its days fall in, so a calendar in
+another zone still shows the business's time. While the visitor pays the deposit, the booking draft also
+keeps the booking and its time (`connect-booking:<slug>`, session storage), so a reload goes back to the
+card form through `POST /manage/{token}/deposit`; once the deposit is paid the draft is cleared, and a
+hold that has already ended starts the visitor again at the time step.
+
+`reap_unpaid_bookings` releases an online booking whose deposit is still unpaid 30 minutes after it was
+made. It never waits on a deposit a webhook is settling: it locks the deposit payments with `SKIP
+LOCKED`, keeps a booking any of whose deposits is locked or has succeeded, and skips one whose own row
+already reads the deposit collected, so a payment that lands while the reaper runs is kept, never released
+with its money held. A payment that settles after a release is refunded.
 
 ### Messaging
 

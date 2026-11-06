@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.ids import new_id
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item
-from clientbridge.models.messaging import Delivery
 from clientbridge.models.platform import Audit
 from clientbridge.models.reviews import ReviewRequest
 from clientbridge.models.scheduling import Booking, BookingStatus, Slot
@@ -24,7 +23,7 @@ from tests.conftest import (
     FakeSmsSender,
 )
 from tests.google_business import configure_google_review_profile
-from tests.helpers import enable_payments, key, ok, settle
+from tests.helpers import enable_payments, key, ok, queued_subjects, settle
 
 ST_OWNER = "st_owner"
 CLIENT = "cl_amelie"
@@ -130,7 +129,7 @@ async def test_a_visit_left_open_yesterday_is_completed_and_asked_for_a_review(
     assert review is not None and review.requested_at == eight_am
 
 
-async def test_a_pending_visit_never_approved_is_canceled_without_a_notice(
+async def test_a_pending_visit_never_approved_is_canceled_and_the_client_told(
     db: AsyncSession,
 ) -> None:
     visit = await _visit(db, status="pending")
@@ -140,10 +139,8 @@ async def test_a_pending_visit_never_approved_is_canceled_without_a_notice(
     assert slot.status == "canceled"
     [audit] = await _audits(db, visit.id)
     assert audit.action == "booking.auto_cancel"
-    notices = await db.scalar(
-        select(func.count()).select_from(Delivery).where(Delivery.key.contains(visit.id))
-    )
-    assert notices == 0
+    [notice] = await queued_subjects(db, f"booking:{visit.id}")
+    assert notice.endswith("wasn't accepted. You're welcome to book another time.")
 
 
 async def test_a_class_completes_once_its_last_open_booking_closes(db: AsyncSession) -> None:
@@ -232,7 +229,10 @@ async def test_the_roster_refuses_a_no_show_before_the_class_starts(
     assert count == 0
 
 
-async def test_an_unapproved_visit_keeps_a_paid_deposit_for_staff(db: AsyncSession) -> None:
+async def test_an_unapproved_visit_keeps_a_deposit_stripe_cannot_refund_for_staff(
+    db: AsyncSession,
+) -> None:
+    await enable_payments(db, None)
     paid = await _visit(db, status="pending")
     paid.deposit_status = "collected"
     unpaid = await _visit(db, status="pending", starts_at=VISIT + timedelta(hours=2))

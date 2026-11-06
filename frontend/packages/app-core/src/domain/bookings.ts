@@ -1813,42 +1813,99 @@ function useBookingDetail(event: ScheduleEvent | null, now: Date): BookingDetail
     };
 }
 
-export type LifecycleAction = "complete" | "no_show" | "cancel";
+type LifecycleAction = "complete" | "no_show" | "cancel" | "approve" | "decline";
+
+const LIFECYCLE_STATUS: Record<LifecycleAction, string> = {
+    complete: "completed",
+    no_show: "no_show",
+    cancel: "canceled",
+    approve: "confirmed",
+    decline: "canceled",
+};
 
 export interface BookingActions {
     canComplete: boolean;
     canNoShow: boolean;
     canCancel: boolean;
     canReschedule: boolean;
+    // A request a new client made online, waiting for the business to take it or turn it down.
+    canApprove: boolean;
+    canDecline: boolean;
     pending: LifecycleAction | null;
     busy: boolean;
     error: string | null;
     noShowNote: string;
     cancelNote: string;
+    declineNote: string;
     notStartedNote: string | null;
+    // Said while the server has the change and this device's copy of the visit hasn't caught up.
+    settling: string | null;
+    // What a decline or cancel did, once the visit has left this device's schedule.
+    outcome: string | null;
     run: (action: LifecycleAction) => void;
 }
 
-/** Completed and No-show once a visit has started; Cancel and Reschedule while it's still ahead. */
+/** Complete and No-show once started; Cancel, or Approve and Decline for a request, while ahead. */
 export function lifecycleOf(
     event: ScheduleEvent | null,
     now: Date,
 ): Pick<
     BookingActions,
-    "canComplete" | "canNoShow" | "canCancel" | "canReschedule" | "notStartedNote"
+    | "canComplete"
+    | "canNoShow"
+    | "canCancel"
+    | "canReschedule"
+    | "canApprove"
+    | "canDecline"
+    | "notStartedNote"
 > {
     const open =
         event !== null &&
         event.bookingId !== null &&
         (event.status === "confirmed" || event.status === "pending");
     const started = event !== null && event.start <= now;
+    const request = open && !started && event.status === "pending";
     return {
         canComplete: open && started,
         canNoShow: open && started,
-        canCancel: open && !started,
+        canCancel: open && !started && !request,
         canReschedule: open && !started,
-        notStartedNote: open && !started ? s.notStartedNote : null,
+        canApprove: request,
+        canDecline: request,
+        notStartedNote: open && !started && !request ? s.notStartedNote : null,
     };
+}
+
+export type AskedAction = "no_show" | "cancel" | "decline";
+
+/** What the in-place confirm says before a no-show, cancel or decline goes through. */
+export function askedCopy(
+    actions: BookingActions,
+    action: AskedAction,
+): { title: string; note: string; keep: string; confirm: string } {
+    switch (action) {
+        case "no_show":
+            return {
+                title: s.noShowTitle,
+                note: actions.noShowNote,
+                keep: s.keepVisit,
+                confirm: s.confirmNoShow,
+            };
+        case "cancel":
+            return {
+                title: s.cancelTitle,
+                note: actions.cancelNote,
+                keep: s.keepVisit,
+                confirm: s.confirmCancel,
+            };
+        case "decline":
+            return {
+                title: s.declineTitle,
+                note: actions.declineNote,
+                keep: s.keepRequest,
+                confirm: s.confirmDecline,
+            };
+    }
 }
 
 /** What a no-show does with the deposit, said before the person marks it. */
@@ -1867,23 +1924,42 @@ export function useBookingActions(
 ): BookingActions {
     const { busy, error, run } = useAsyncAction();
     const [pending, setPending] = useState<LifecycleAction | null>(null);
+    const [done, setDone] = useState<{ action: LifecycleAction; id: string; from: string } | null>(
+        null,
+    );
     const amount = formatMoney(event?.depositAmountCents ?? 0, BUSINESS_CURRENCY);
     const paid = event !== null && event.depositRequired && event.depositStatus === "collected";
+    const settling =
+        done !== null &&
+        event !== null &&
+        event.bookingId === done.id &&
+        event.status === done.from;
+    const gone = done !== null && event?.bookingId !== done.id;
+    const lifecycle = lifecycleOf(settling ? null : event, now);
     return {
-        ...lifecycleOf(event, now),
+        ...lifecycle,
         pending: busy ? pending : null,
         busy,
         error,
         noShowNote: event === null ? s.noShowNoDeposit : noShowNote(event),
         cancelNote: paid ? s.cancelKept(amount) : s.cancelNotify,
+        declineNote: paid ? s.declineRefund(amount) : s.declineNotify,
+        settling: settling ? s.settling : null,
+        outcome:
+            gone && done.action === "decline"
+                ? s.declinedDone
+                : gone && done.action === "cancel"
+                  ? s.canceledDone
+                  : null,
         run: (action) => {
             if (event?.bookingId == null) return;
             const bookingId = event.bookingId;
-            const status =
-                action === "complete" ? "completed" : action === "no_show" ? "no_show" : "canceled";
+            const from = event.status;
+            const status = LIFECYCLE_STATUS[action];
             setPending(action);
             run(() => api.patch(`/v1/bookings/${bookingId}`, { status }), {
                 onSuccess: () => {
+                    setDone({ action, id: bookingId, from });
                     onDone?.(action);
                 },
                 errorMessage: (e) => failureMessage(e, s.actionError),

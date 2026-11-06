@@ -401,7 +401,7 @@ function StaffTodayPage() {
                                 />
                             </div>
                         </Panel>
-                        <Panel flush title={t.staff.messagesForYou}>
+                        <Panel flush title={t.needsYou}>
                             {view.attention.length === 0 ? (
                                 <p className="px-4 py-6 text-center text-sm text-muted">
                                     {t.staff.nothingElse}

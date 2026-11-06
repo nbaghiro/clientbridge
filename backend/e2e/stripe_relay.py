@@ -29,8 +29,9 @@ from e2e.stripe_deposits import deposit_fixtures, fixture_tags, load_deposit
 
 
 class Target(BaseModel):
-    invoice: str
     intent: str
+    invoice: str | None = None
+    booking: str | None = None
 
 
 class RelayFixture(BaseModel):
@@ -89,6 +90,7 @@ class Relay:
         self.lock = threading.RLock()
         self.target: Target | None = None
         self.held: tuple[bytes, str, str, float] | None = None
+        self.delivered: tuple[bytes, str, str, float] | None = None
         self.records: list[dict[str, object]] = []
         self.server: ThreadingHTTPServer | None = None
         self.thread: threading.Thread | None = None
@@ -150,13 +152,44 @@ class Relay:
             manifest = RelayManifest.model_validate_json(self.manifest.read_text())
             if self.target is not None or self.held is not None:
                 raise ValueError("relay already armed")
-            if (
-                not target.intent.startswith("pi_")
-                or sum(fixture.invoice == target.invoice for fixture in manifest.fixtures) != 1
-            ):
+            owned = (
+                sum(fixture.invoice == target.invoice for fixture in manifest.fixtures) == 1
+                if target.booking is None
+                else target.invoice is None and self.deposit(target.booking).startswith("cus_")
+            )
+            if not target.intent.startswith("pi_") or not owned:
                 raise ValueError("target is not a registered fixture")
             self.target = target
-            self.record("armed", invoice=target.invoice, intent=target.intent)
+            self.record("armed", **target.model_dump(exclude_none=True))
+
+    def deposit(self, booking: str) -> str:
+        """The customer of the registered deposit fixture that owns this booking."""
+        fixture = load_deposit(json.loads(self.manifest.read_text()), booking)
+        if fixture.customer is None:
+            raise ValueError("the deposit fixture has no customer yet")
+        return fixture.customer
+
+    def owns(self, target: Target, event: Event) -> bool:
+        manifest = RelayManifest.model_validate_json(self.manifest.read_text())
+        intent = event.data.object
+        if target.booking is None:
+            fixture = next(row for row in manifest.fixtures if row.invoice == target.invoice)
+            customer = fixture.customer
+            lineage = intent.metadata.get("invoice_id") == fixture.invoice
+        else:
+            customer = self.deposit(target.booking)
+            lineage = intent.metadata.get("booking_id") == target.booking and not (
+                intent.metadata.get("invoice_id")
+            )
+        return (
+            lineage
+            and not event.livemode
+            and event.account == manifest.account
+            and intent.customer == customer
+            and intent.amount == 2000
+            and intent.currency == "cad"
+            and intent.metadata.get("business_id") == manifest.business
+        )
 
     def receive(self, body: bytes, signature: str) -> int:
         with self.lock:
@@ -169,19 +202,7 @@ class Relay:
                     event = Event.model_validate(envelope)
                     intent = event.data.object
                     if intent.id == self.target.intent:
-                        manifest = RelayManifest.model_validate_json(self.manifest.read_text())
-                        fixture = next(
-                            row for row in manifest.fixtures if row.invoice == self.target.invoice
-                        )
-                        if (
-                            event.livemode
-                            or event.account != manifest.account
-                            or intent.customer != fixture.customer
-                            or intent.amount != 2000
-                            or intent.currency != "cad"
-                            or intent.metadata.get("invoice_id") != fixture.invoice
-                            or intent.metadata.get("business_id") != manifest.business
-                        ):
+                        if not self.owns(self.target, event):
                             self.record("ownership_rejected", event=event.id)
                             raise ValueError("held event ownership mismatch")
                         if self.held is not None and self.held[2] != event.id:
@@ -213,8 +234,31 @@ class Relay:
             with self.lock:
                 self.record("released", event=event_id, upstream_status=status)
                 if status == 200 and self.held == captured:
+                    self.delivered = captured
                     self.held = None
                     self.target = None
+            return status
+        finally:
+            with self.lock:
+                self.releasing = False
+
+    def redeliver(self) -> int:
+        """Deliver the released event once more, as Stripe does when it retries one."""
+        with self.lock:
+            if self.stopping.is_set() or self.releasing:
+                raise ValueError("relay is stopping or already releasing")
+            if self.delivered is None:
+                raise ValueError("no released event to deliver again")
+            body, signature, event_id, started = self.delivered
+            if time.monotonic() - started >= 240:
+                self.record("expired", event=event_id)
+                raise ValueError("held signature exceeded safe release window")
+            stripe.Webhook.construct_event(body, signature, self.secret, tolerance=240)
+            self.releasing = True
+        try:
+            status = self.transport(self.upstream, body, signature)
+            with self.lock:
+                self.record("redelivered", event=event_id, upstream_status=status)
             return status
         finally:
             with self.lock:
@@ -298,9 +342,9 @@ class Relay:
                             return
                         if self.path == "/arm":
                             relay.arm(Target.model_validate_json(body))
-                        elif self.path == "/release":
-                            result = {"upstream_status": relay.release()}
-                            self.send_json(200, result)
+                        elif self.path in ("/release", "/redeliver"):
+                            deliver = relay.release if self.path == "/release" else relay.redeliver
+                            self.send_json(200, {"upstream_status": deliver()})
                             return
                         elif self.path != "/status":
                             self.send_error(404)

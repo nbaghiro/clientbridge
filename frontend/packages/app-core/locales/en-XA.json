@@ -2970,7 +2970,7 @@
         "message": "[Çöñƒîŕɱéð one two]"
     },
     "bookings.legendPending": {
-        "message": "[Åŵåîţîñĝ ðéþöšîţ one two]"
+        "message": "[Ñééðš åþþŕöṽåļ one two]"
     },
     "bookings.legendCompleted": {
         "message": "[Çöɱþļéţéð one two]"
@@ -3078,7 +3078,7 @@
         "message": "[{hours,plural,other{{minutes,plural,other{îñ {hours, number} ĥ {minutes, number} ɱîñ} =0{îñ {hours, number} ĥ}}} =0{îñ {minutes, number} ɱîñ}} one two]"
     },
     "bookings.statusLabel": {
-        "message": "[{status,select,canceled{Çåñçéļéð} completed{Çöɱþļéţéð} confirmed{Çöñƒîŕɱéð} no_show{Ñö-šĥöŵ} other{{status}} pending{Åŵåîţîñĝ ðéþöšîţ} waitlisted{Ŵåîţļîšţ}} one two three four five]"
+        "message": "[{status,select,canceled{Çåñçéļéð} completed{Çöɱþļéţéð} confirmed{Çöñƒîŕɱéð} no_show{Ñö-šĥöŵ} other{{status}} pending{Ñééðš åþþŕöṽåļ} waitlisted{Ŵåîţļîšţ}} one two three four five]"
     },
     "bookings.unpaid": {
         "message": "[Ûñþåîð one]"
@@ -3343,6 +3343,42 @@
     },
     "bookings.confirmNoShow": {
         "message": "[Ṁåŕķ ñö-šĥöŵ one two]"
+    },
+    "bookings.approve": {
+        "message": "[Åþþŕöṽé one]"
+    },
+    "bookings.decline": {
+        "message": "[Đéçļîñé one]"
+    },
+    "bookings.requestNote": {
+        "message": "[Å ñéŵ çļîéñţ åšķéð ƒöŕ ţĥîš ţîɱé öñļîñé. Åþþŕöṽé îţ ţö çöñƒîŕɱ ţĥé ṽîšîţ, öŕ ðéçļîñé îţ ţö ƒŕéé ţĥé ţîɱé. one two three four five six seven]"
+    },
+    "bookings.declineTitle": {
+        "message": "[Đéçļîñé ţĥîš ŕéǫûéšţ? one two]"
+    },
+    "bookings.declineRefund": {
+        "message": "[Ţĥé çļîéñţ îš ţöļð, åñð ţĥéîŕ {amount} ðéþöšîţ îš ŕéƒûñðéð ţö ţĥéîŕ çåŕð. one two three four]"
+    },
+    "bookings.declineNotify": {
+        "message": "[Ţĥé çļîéñţ îš ţöļð, åñð ţĥé ţîɱé öþéñš ûþ åĝåîñ. one two three]"
+    },
+    "bookings.keepRequest": {
+        "message": "[Ķééþ ŕéǫûéšţ one two]"
+    },
+    "bookings.confirmDecline": {
+        "message": "[Đéçļîñé ŕéǫûéšţ one two]"
+    },
+    "bookings.settling": {
+        "message": "[Šåṽéð. Ţĥîš ṽîšîţ ûþðåţéš öñ ţĥîš ðéṽîçé îñ å ɱöɱéñţ. one two three four]"
+    },
+    "bookings.declinedDone": {
+        "message": "[Ŕéǫûéšţ ðéçļîñéð one two]"
+    },
+    "bookings.canceledDone": {
+        "message": "[Ṽîšîţ çåñçéļéð one two]"
+    },
+    "bookings.outcomeBody": {
+        "message": "[Ţĥé çļîéñţ ĥåš ƀééñ ţöļð. one two]"
     },
     "bookings.actionError": {
         "message": "[Çöûļðñ'ţ ûþðåţé ţĥîš ṽîšîţ. Þļéåšé ţŕý åĝåîñ. one two three]"
@@ -9965,6 +10001,15 @@
     "today.attention.depositAction": {
         "message": "[Ṽîéŵ one]"
     },
+    "today.attention.requestTitle": {
+        "message": "[Ɓööķîñĝ ŕéǫûéšţ one two]"
+    },
+    "today.attention.requestDetail": {
+        "message": "[{client} åšķéð ƒöŕ {service}, {when} one]"
+    },
+    "today.attention.requestAction": {
+        "message": "[Ŕéṽîéŵ one]"
+    },
     "today.attention.overdueTitle": {
         "message": "[Îñṽöîçé #{n, number, ::group-off} öṽéŕðûé one two]"
     },
@@ -10072,9 +10117,6 @@
     },
     "today.staff.tomorrow": {
         "message": "[Ţöɱöŕŕöŵ one]"
-    },
-    "today.staff.messagesForYou": {
-        "message": "[Ṁéššåĝéš ƒŕöɱ ýöûŕ çļîéñţš one two three]"
     },
     "today.staff.nothingElse": {
         "message": "[Ñöţĥîñĝ éļšé öñ ýöûŕ þļåţé. one two three]"
@@ -11722,6 +11764,9 @@
     },
     "publicBooking.slotTaken": {
         "message": "[Ţĥåţ ţîɱé îš ñö ļöñĝéŕ öþéñ. Þîçķ åñöţĥéŕ ţîɱé. one two three]"
+    },
+    "publicBooking.resumeFailed": {
+        "message": "[Ţĥåţ ĥöļð öñ ýöûŕ ţîɱé ĥåš éñðéð. Þîçķ å ţîɱé ţö ƀööķ åĝåîñ. one two three four]"
     },
     "publicBooking.connectionError": {
         "message": "[Ŵé çöûļðñ'ţ ŕéåçĥ ţĥé ƀööķîñĝ þåĝé. Çĥéçķ ýöûŕ çöññéçţîöñ åñð ţŕý åĝåîñ. one two three four five]"
@@ -13432,6 +13477,9 @@
     },
     "notifications.kinds.bookingNew": {
         "message": "[Ñéŵ öñļîñé ƀööķîñĝ one two]"
+    },
+    "notifications.kinds.bookingRequest": {
+        "message": "[Ɓööķîñĝ ŕéǫûéšţ one two]"
     },
     "notifications.kinds.bookingCanceled": {
         "message": "[Ɓööķîñĝ çåñçéļļéð one two]"
