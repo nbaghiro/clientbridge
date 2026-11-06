@@ -1,0 +1,34 @@
+appId: ${APP_ID}
+---
+# a field's label and its input share the name, so the input is the second match
+- scrollUntilVisible:
+      element:
+          text: ${FIELD}
+          index: 1
+      direction: DOWN
+      centerElement: true
+- tapOn:
+      text: ${FIELD}
+      index: 1
+- inputText: ${VALUE}
+# iOS number pads close from their Done bar and text keyboards with Return; Android's closes with its
+# action key, since its hideKeyboard is Back and would close the sheet
+- runFlow:
+      when:
+          platform: iOS
+      commands:
+          - runFlow:
+                when:
+                    visible: "Done"
+                commands:
+                    - tapOn: "Done"
+          - runFlow:
+                when:
+                    notVisible: "Done"
+                commands:
+                    - pressKey: Enter
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - pressKey: Enter

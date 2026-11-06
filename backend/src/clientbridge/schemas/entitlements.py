@@ -10,13 +10,14 @@ from clientbridge.models.catalog import (
     Subscription,
     SubscriptionStatus,
 )
+from clientbridge.schemas.catalog import GiftAmount
 
 
 class GiftCardPurchase(Mirror):
     mirrors = GiftCard
 
     item_id: str | None = None
-    amount_cents: int | None = Field(default=None, gt=0)
+    amount_cents: GiftAmount | None = None
     recipient: str | None = None
     purchaser_client_id: str | None = None
     payment_method_id: str | None = None

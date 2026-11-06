@@ -60,6 +60,8 @@ async def test_plan_fields_belong_to_their_kind_422(as_owner: httpx.AsyncClient)
         {"kind": "product", "name": "P", "member_discount_bps": 500},
         {"kind": "service", "name": "Trim", "gift_amounts": [500]},
         {"kind": "gift", "name": "G", "gift_amounts": [0]},
+        {"kind": "gift", "name": "G", "gift_amounts": [499]},
+        {"kind": "gift", "name": "G", "gift_amounts": [100_001]},
         {"kind": "subscription", "name": "S", "interval": 1, "member_discount_bps": 10001},
     ):
         res = await as_owner.post("/v1/items", json=body)

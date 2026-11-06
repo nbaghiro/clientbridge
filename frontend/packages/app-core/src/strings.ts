@@ -3179,6 +3179,7 @@ interface Strings {
         readonly lowAfter: string;
         readonly covers: string;
         readonly coversHint: string;
+        readonly subjectRule: (kind: string) => string;
         readonly chooseService: string;
         readonly visitsLabel: string;
         readonly validForDays: string;
@@ -3196,6 +3197,7 @@ interface Strings {
         readonly perVisit: (money: string) => string;
         readonly saves: (money: string, n: number, name: string) => string;
         readonly noSaving: string;
+        readonly planFree: string;
         readonly perYear: (money: string) => string;
         readonly planSummaryPackage: (n: number, name: string) => string;
         readonly planSummaryIncomplete: string;

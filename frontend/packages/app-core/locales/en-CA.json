@@ -9392,6 +9392,11 @@
     "catalog.coversHint": {
         "message": "Booking one of these will use a visit instead of charging."
     },
+    "catalog.subjectRule": {
+        "message": "{kind, select, pet {Each one sold is for one pet, or shared by all the client’s pets. You choose when you sell it.} student {Each one sold is for one student, or shared by all the client’s students. You choose when you sell it.} property {Each one sold is for one property, or shared by all the client’s properties. You choose when you sell it.} site {Each one sold is for one site, or shared by all the client’s sites. You choose when you sell it.} vehicle {Each one sold is for one vehicle, or shared by all the client’s vehicles. You choose when you sell it.} other {Each one sold covers any of the client’s visits.}}",
+        "args": ["kind"],
+        "description": "Under a package's visits in the item editor; kind is what the business books besides the client, or none"
+    },
     "catalog.chooseService": {
         "message": "Choose a service"
     },
@@ -9429,7 +9434,7 @@
         "message": "Suggested amounts"
     },
     "catalog.giftAmountsHint": {
-        "message": "Staff and clients can still enter any amount."
+        "message": "Staff can still enter any amount at the sale."
     },
     "catalog.giftNote": {
         "message": "Gift cards don’t expire and can be spent on anything."
@@ -9444,6 +9449,10 @@
     },
     "catalog.noSaving": {
         "message": "No saving against paying each visit"
+    },
+    "catalog.planFree": {
+        "message": "Free: clients pay nothing for it.",
+        "description": "In the item editor's summary of a package or membership whose price is empty or zero"
     },
     "catalog.perYear": {
         "message": "{money} a year",

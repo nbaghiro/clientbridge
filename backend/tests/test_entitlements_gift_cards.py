@@ -224,6 +224,18 @@ async def test_purchase_negative_amount_422(as_owner: httpx.AsyncClient) -> None
     assert res.status_code == 422
 
 
+@pytest.mark.parametrize("amount", [499, 100_001])
+async def test_purchase_outside_gift_card_range_422(
+    as_owner: httpx.AsyncClient, amount: int
+) -> None:
+    res = await as_owner.post(
+        "/v1/gift-cards",
+        json={"amount_cents": amount, "purchaser_client_id": PURCHASER},
+        headers=key(),
+    )
+    assert res.status_code == 422, res.text
+
+
 async def test_purchase_unknown_purchaser_404(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:

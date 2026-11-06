@@ -57,7 +57,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 6. Invoice and get paid | Invoices and payment links | [CB-34](https://linear.app/clientbridgeca/issue/CB-34) | Partly automated |
 | 6. Invoice and get paid | Printed and shared documents | [CB-36](https://linear.app/clientbridgeca/issue/CB-36) | Manual |
 | 6. Invoice and get paid | Deposits applied to the bill | [CB-37](https://linear.app/clientbridgeca/issue/CB-37) | Partly automated |
-| 7. Gift cards, packages and memberships | Package, membership and gift card items | [CB-15](https://linear.app/clientbridgeca/issue/CB-15) | Manual |
+| 7. Gift cards, packages and memberships | Package, membership and gift card items | [CB-15](https://linear.app/clientbridgeca/issue/CB-15) | Automated |
 | 7. Gift cards, packages and memberships | Gift cards: sell and redeem | [CB-38](https://linear.app/clientbridgeca/issue/CB-38) | Partly automated |
 | 7. Gift cards, packages and memberships | Packages: sell, use and expire | [CB-39](https://linear.app/clientbridgeca/issue/CB-39) | Partly automated |
 | 7. Gift cards, packages and memberships | Memberships: renewals and failed payments | [CB-40](https://linear.app/clientbridgeca/issue/CB-40) | Partly automated |
@@ -1704,24 +1704,21 @@ The business sells gift cards, packages and memberships, and each is used, renew
 
 **QA steps**
 
-1. Create a 5-visit package valid for a year for one pet.
-   **Expect:** saved with sessions, validity and the subject rule.
+1. Create a 5-visit package valid for a year.
+   **Expect:** saved with its visits and validity; the editor shows the price per visit and the saving, and explains that each one sold is for one pet or shared by all the client's pets, chosen at the sale.
 2. Create a monthly membership covering one service, with a 10% member perk on products.
-   **Expect:** saved; the editor explains existing members keep their price.
+   **Expect:** saved; reopening it explains that current members keep the price they joined at.
 3. Create an open-amount gift card with suggested amounts.
-   **Expect:** saved.
+   **Expect:** saved; selling a gift card offers its suggested amounts.
 4. Open Sales.
-   **Expect:** each opens its own checkout and none can be added as a plain cart line.
+   **Expect:** none shows as a cart tile; each opens its own checkout, which lists the new item.
 
 **Done when:** Each entitlement kind can be set up without touching the database.
 
 **Automated by**
 
-* No e2e case yet
-
-**To automate**
-
-* `ENT-E2E-04` in `apps/web/e2e/entitlements.e2e.ts`: Create each entitlement kind in the editor and check it refuses plain cart lines (ENT21).
+* `ENT-E2E-04 (web)`
+* `NATIVE-ENT-01 (native-ios, native-android)`
 
 **Depends on:** Nothing
 

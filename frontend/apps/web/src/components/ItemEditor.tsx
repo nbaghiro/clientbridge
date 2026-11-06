@@ -520,6 +520,9 @@ function PlanFields({ ed }: { ed: PlanEditor }) {
                                     }}
                                 />
                             </div>
+                            {ed.subjectRule !== null ? (
+                                <p className="text-xs text-muted">{ed.subjectRule}</p>
+                            ) : null}
                         </>
                     ) : null}
                     {v.kind === "subscription" ? (

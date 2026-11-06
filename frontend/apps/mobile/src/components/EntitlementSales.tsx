@@ -84,6 +84,19 @@ function SaleFields({
                     />
                 </Field>
             ) : null}
+            {form.noItems !== null ? (
+                <Notice tone="info">{form.noItems}</Notice>
+            ) : form.items.length > 0 ? (
+                <Field label={w.chooseItem}>
+                    <Choice
+                        layout="cards"
+                        label={w.chooseItem}
+                        options={form.items}
+                        value={form.itemId}
+                        onChange={form.setItemId}
+                    />
+                </Field>
+            ) : null}
             {form.kind === "gift_card" ? (
                 <>
                     <TextField
@@ -107,19 +120,7 @@ function SaleFields({
                         onChange={form.setRecipient}
                     />
                 </>
-            ) : form.noItems !== null ? (
-                <Notice tone="info">{form.noItems}</Notice>
-            ) : (
-                <Field label={w.chooseItem}>
-                    <Choice
-                        layout="cards"
-                        label={w.chooseItem}
-                        options={form.items}
-                        value={form.itemId}
-                        onChange={form.setItemId}
-                    />
-                </Field>
-            )}
+            ) : null}
             {pickClient ? (
                 <SearchSelect
                     label={w.client}

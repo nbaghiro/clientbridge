@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { strings } from "@clientbridge/app-core/public";
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { createClient, type ClientFixture } from "./clients";
 import { select } from "./db";
 import { requireLocalMail } from "./evidence";
@@ -229,4 +229,19 @@ export function expectEntitlementLedger(
         expect(legs).toHaveLength(2);
         expect(legs.reduce((sum, leg) => sum + leg.amount_cents, 0)).toBe(0);
     }
+}
+
+/** Add item, then a plan kind and Next, from Setup's Packages & memberships tab; returns the editor. */
+export async function openPlanEditor(
+    page: Page,
+    kind: "package" | "subscription" | "gift",
+): Promise<Locator> {
+    const c = strings.catalog;
+    await page.getByRole("button", { name: c.addItem, exact: true }).click();
+    const picker = page.getByRole("dialog", { name: c.whatAdding, exact: true });
+    await picker.locator(`button[data-value="${kind}"]`).click();
+    await picker.getByRole("button", { name: c.next, exact: true }).click();
+    const editor = page.getByRole("dialog", { name: c.newItem(kind), exact: true });
+    await expect(editor).toBeVisible();
+    return editor;
 }
