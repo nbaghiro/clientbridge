@@ -32,12 +32,11 @@ import {
     TextField,
     Toggle,
 } from "@clientbridge/ui";
-import { launchImageLibraryAsync } from "expo-image-picker";
 import type { ReactNode } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { api, apiBaseUrl } from "../lib/api";
-import { pickedPhoto } from "../lib/photos";
+import { pickedPhoto, pickFromLibrary } from "../lib/photos";
 
 const s = strings.catalog;
 const c = theme.colors;
@@ -266,7 +265,7 @@ function ProductFields({ ed }: { ed: ProductEditor }) {
     const pick = (): void => {
         picker.run(
             async () => {
-                const result = await launchImageLibraryAsync({
+                const result = await pickFromLibrary({
                     mediaTypes: ["images"],
                     quality: 0.85,
                 });

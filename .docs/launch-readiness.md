@@ -27,9 +27,9 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 1. Get set up | Removing a team member | [CB-23](https://linear.app/clientbridgeca/issue/CB-23) | Partly automated |
 | 1. Get set up | Stripe payments setup | [CB-5](https://linear.app/clientbridgeca/issue/CB-5) | Partly automated |
 | 1. Get set up | Plan billing: trial, purchase, seats and read-only | [CB-6](https://linear.app/clientbridgeca/issue/CB-6) | Partly automated |
-| 1. Get set up | Sales tax by province | [CB-7](https://linear.app/clientbridgeca/issue/CB-7) | Partly automated |
+| 1. Get set up | Sales tax by province | [CB-7](https://linear.app/clientbridgeca/issue/CB-7) | Automated |
 | 2. Clients and catalog | Client records: add, edit and search | [CB-8](https://linear.app/clientbridgeca/issue/CB-8) | Automated |
-| 2. Clients and catalog | Client subjects: who or what is booked | [CB-9](https://linear.app/clientbridgeca/issue/CB-9) | Partly automated |
+| 2. Clients and catalog | Client subjects: who or what is booked | [CB-9](https://linear.app/clientbridgeca/issue/CB-9) | Automated |
 | 2. Clients and catalog | Client notes, photos and history | [CB-10](https://linear.app/clientbridgeca/issue/CB-10) | Partly automated |
 | 2. Clients and catalog | Client tags and duplicate merge | [CB-11](https://linear.app/clientbridgeca/issue/CB-11) | Partly automated |
 | 2. Clients and catalog | Services, classes and resources | [CB-13](https://linear.app/clientbridgeca/issue/CB-13) | Partly automated |
@@ -134,10 +134,7 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **By hand only**
 
-* Google sign-in with a real Google account (consent screen, callback on the staging host).
-* Rate limiting on `/auth/self-service/*`, which only exists on the deployed gateway: from one address, the eleventh recovery or verification POST in a minute gets a 429, and a phone says to wait a minute.
-* Native passkeys are not built; check only the mobile fallback message.
-* A password reset with a second factor on, on iPhone and Android; the Maestro flows don't cover second factors.
+* Signing in through a real Google account's consent screen. The test tier signs in through a stand-in Google, and the staging smoke checks that sign-in starts at Google with staging's client and callback.
 
 **Automated by**
 
@@ -162,7 +159,12 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 * `ID-E2E-03 (web)`
 * `ID-E2E-04 (web)`
 * `ID-E2E-05 (web)`
+* `ID-E2E-06 (web)`
 * `NATIVE-AUTH-01 (native-ios, native-android)`
+* `NATIVE-AUTH-02 (native-ios, native-android)`
+* `NATIVE-AUTH-03 (native-ios, native-android)`
+* `connect: smoke/auth.smoke.ts › recovery codes are throttled per address once a minute's tries run out`
+* `connect: smoke/auth.smoke.ts › Google sign-in starts at Google with this deployment's client and callback`
 
 **Depends on:** Nothing
 
@@ -203,19 +205,17 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 * `CFG-E2E-10 (web)`
 * `CFG-E2E-11 (web)`
 * `CFG-E2E-12 (web)`
+* `ID-E2E-07 (web)`
 * `NATIVE-CFG-01 (native-ios, native-android)`
+* `NATIVE-CFG-03 (native-ios, native-android)`
 * `connect: publicLanding.e2e.ts › business favicon follows the homepage and booking branding`
 * `connect: publicLanding.e2e.ts › empty businesses do not advertise unavailable services or products`
 * `connect: publicLanding.e2e.ts › a phone is offered plan your visit only when there is something to jump to`
 * `web: auth.e2e.ts › existing business never flashes onboarding during sign-in or a slow reload`
 
-**To automate**
-
-* A home cleaning business records properties (step 2).
-
 **By hand only**
 
-* Pick a logo from the library on a real iPhone, including a HEIC photo, and on a real Android phone; simulators can't stand in for either. **Expect:** it uploads, saves and shows on the business, booking, pay and shop pages.
+* Pick a logo from the photo library on a real iPhone, including a HEIC photo, and on a real Android phone. NATIVE-CFG-03 covers the simulator and the emulator, whose pickers differ from a real phone's. **Expect:** it uploads, saves and shows on the business, booking, pay and shop pages.
 
 **Depends on:** CB-1
 
@@ -440,16 +440,14 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **Done when:** Every taxed figure matches a hand calculation for the province.
 
-**By hand only**
-
-* Steps 1 to 7 on iOS and Android.
-* Step 6 with real card payments for the shop and a booking deposit.
-
 **Automated by**
 
 * `ID-E2E-01 (web)`
 * `BILL-DOC-01 (web)`
 * `BILL-DOC-21 (web)`
+* `NATIVE-BILL-01 (native-ios, native-android)`
+* `STRIPE-BROWSER-07 (stripe)`
+* `FIN-DEPOSIT-11 (stripe)`
 
 **Depends on:** Nothing
 
@@ -543,10 +541,6 @@ The business loads its clients, what they book for, and the services and product
 * `NATIVE-CRM-04 (native-ios, native-android)`
 * `CRM-E2E-05 (journeys)`
 * `CRM-E2E-11 (journeys)`
-
-**To automate**
-
-* `NATIVE-CRM-04` in `apps/mobile/e2e/clients.subjects.yaml`: The groomer sees the booked dog on Today on their phone.
 
 **Depends on:** Nothing
 
@@ -1450,8 +1444,7 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 
 **To automate**
 
-* Step 1 on a phone: the mobile lane has no Stripe, so no case saves a card there; STR-E26 saves both cards on web.
-* Step 5 after the text: NATIVE-PAY-01 stops once the text reaches Mailpit, so no case shows the authorized bank with an active mandate on the phone.
+* Step 1 on a phone: the native lane runs against a stand-in Stripe, and the phone's card form talks to Stripe directly, so no case saves a card there; STR-E26 saves both cards on web.
 
 **Depends on:** Nothing
 

@@ -1,0 +1,47 @@
+appId: ${APP_ID}
+name: NATIVE-CFG-03 A HEIC photo from the phone's library becomes the logo every public page shows
+tags:
+    - lane
+---
+- runScript: helpers/public-logo.js
+- evalScript: ${output.before = output.logo.url}
+# Maestro's addMedia refuses a HEIC on both platforms, so the lane adds it
+- runScript:
+      file: helpers/control.js
+      env:
+          ACTION: photo
+          PAYLOAD: logo.heic
+- runFlow: helpers/owner.yaml
+- tapOn: "Setup"
+- tapOn: "Get set up"
+- scrollUntilVisible:
+      element: ".*Edit brand"
+      direction: DOWN
+- tapOn: ".*Edit brand"
+- extendedWaitUntil:
+      visible: "Replace logo|Upload logo"
+      timeout: 60000
+- runFlow:
+      file: helpers/pick-photo.yaml
+      env:
+          OPENS: "Replace logo|Upload logo"
+- repeat:
+      times: 40
+      while:
+          notVisible: "Save brand"
+      commands:
+          - swipe:
+                start: "3%,80%"
+                end: "3%,20%"
+# the sheet marks the brand changed only once the server has confirmed the new logo's bytes
+- extendedWaitUntil:
+      visible: "You have unsaved brand changes."
+      timeout: 60000
+- tapOn: "Save brand"
+- extendedWaitUntil:
+      visible: "Saved. Your booking page uses it now."
+      timeout: 60000
+- takeScreenshot: heic-logo-saved
+- runScript: helpers/public-logo.js
+- assertTrue: ${output.logo.url !== null && output.logo.url !== output.before}
+- assertTrue: ${/^image\/(jpeg|png|webp)/.test(output.logo.type)}

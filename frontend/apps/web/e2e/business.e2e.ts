@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { strings } from "@clientbridge/app-core/public";
 import { expect, test } from "@playwright/test";
 import { mailedCode, newAccount } from "./support/auth";
-import { createClient, openClient } from "./support/clients";
+import { createClient, openClient, subjectRows } from "./support/clients";
 import {
     brandAsset,
     brandControls,
@@ -192,6 +192,58 @@ test("ID-E2E-01 a Nova Scotia pet groomer's signup sets its zone, tax and subjec
         body: JSON.stringify({ final, sale }),
         contentType: "application/json",
     });
+});
+
+test("ID-E2E-07 a home cleaning business's signup records properties, with their address, rooms and access", async ({
+    page,
+    request,
+}) => {
+    test.setTimeout(180_000);
+    const subj = strings.subjects;
+    const fields = subj.fields.property;
+    const business = await newBusiness(page, request, "onboard-cleaning", "cleaning");
+    const opened = await businessEvidence(business.id);
+    expect(opened.business[0]).toMatchObject({ subject: "property" });
+
+    const client = await createClient(page);
+    const record = await openClient(page, client);
+    await expect(record.getByRole("button", { name: subj.add("pet"), exact: true })).toHaveCount(0);
+    await record.getByRole("button", { name: subj.add("property"), exact: true }).click();
+    const form = page.getByRole("dialog", { name: subj.add("property"), exact: true });
+    await form.getByRole("textbox", { name: subj.nameLabel }).fill("Lakeview condo");
+    await form.getByLabel(fields.address, { exact: false }).fill("12 Harbour Street, Unit 4");
+    await form.getByRole("textbox", { name: fields.rooms, exact: false }).fill("3");
+    await form.getByRole("textbox", { name: fields.access, exact: false }).fill("Lockbox 4471");
+    const saving = page.waitForResponse(
+        (r) => new URL(r.url()).pathname === "/v1/subjects" && r.request().method() === "POST",
+    );
+    await form.getByRole("button", { name: subj.save("property"), exact: true }).click();
+    const saved = await saving;
+    expect(saved.status(), await saved.text()).toBe(201);
+    const named = { name: subj.editNamed("Lakeview condo"), exact: true };
+    await expect(record.getByRole("button", named)).toContainText("12 Harbour Street, Unit 4");
+
+    await page.reload();
+    const reopened = await openClient(page, client);
+    await reopened.getByRole("button", named).click();
+    const editor = page.getByRole("dialog", {
+        name: subj.editNamed("Lakeview condo"),
+        exact: true,
+    });
+    await expect(editor.getByLabel(fields.address, { exact: false })).toHaveValue(
+        "12 Harbour Street, Unit 4",
+    );
+    await expect(editor.getByRole("textbox", { name: fields.rooms, exact: false })).toHaveValue(
+        "3",
+    );
+    expect(await subjectRows(client.id)).toEqual([
+        {
+            id: ((await saved.json()) as { id: string }).id,
+            name: "Lakeview condo",
+            attributes: { address: "12 Harbour Street, Unit 4", rooms: 3, access: "Lockbox 4471" },
+            removed: false,
+        },
+    ]);
 });
 
 test("CFG-E2E-05 brand colour, logo and cover set in Setup reach the business, booking, shop and pay pages", async ({

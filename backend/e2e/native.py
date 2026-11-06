@@ -2,9 +2,13 @@
 
 import argparse
 import asyncio
+import base64
 import fcntl
+import hashlib
+import hmac
 import json
 import os
+import secrets
 import socket
 import subprocess
 import sys
@@ -16,6 +20,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import IO, Literal
 
+import httpx
+
 from clientbridge.core import clock
 from e2e import tier
 from e2e.recordings import keep_recordings, recorded_flows, recording
@@ -24,8 +30,9 @@ from e2e.results import (
     validate_native_evidence,
 )
 from e2e.stack import Stack
-from e2e.stripe_fake import FAKE_KEY, fake_stripe
+from e2e.stripe_fake import FAKE_KEY, FAKE_WEBHOOK_SECRET, StandIn, fake_stripe, signature
 from e2e.tier import ROOT
+from e2e.webauthn import register_key
 
 MOBILE = ROOT / "frontend" / "apps" / "mobile"
 
@@ -104,6 +111,28 @@ class NativeDevice:
         )
         if result.returncode:
             raise RuntimeError(result.stderr.decode().strip())
+
+    def add_photo(self, name: str) -> None:
+        """Adds a flow asset to the photo library; Maestro's addMedia refuses a HEIC."""
+        asset = (MOBILE / "e2e" / "assets" / name).resolve()
+        if asset.parent != (MOBILE / "e2e" / "assets").resolve() or not asset.is_file():
+            raise ValueError(f"no flow asset named {name}")
+        if self.platform == "ios":
+            self.run("addmedia", self.device, str(asset))
+            return
+        # a fresh name and time, so the picker lists it first among photos earlier flows added
+        target = f"/sdcard/Pictures/{asset.stem}-{secrets.token_hex(4)}{asset.suffix}"
+        self.run("push", str(asset), target)
+        self.run("shell", "touch", target)
+        self.run(
+            "shell",
+            "am",
+            "broadcast",
+            "-a",
+            "android.intent.action.MEDIA_SCANNER_SCAN_FILE",
+            "-d",
+            f"file://{target}",
+        )
 
     @contextmanager
     def installed(self, build: Path) -> Iterator[None]:
@@ -197,29 +226,53 @@ class NativeLink:
             self.thread.join(timeout=10)
 
 
+def totp(secret: str) -> str:
+    """The authenticator code for a base32 secret now, which Maestro's scripts can't compute."""
+    key = base64.b32decode(secret.strip().upper() + "=" * (-len(secret.strip()) % 8))
+    counter = int(clock.wall().timestamp()) // 30
+    digest = hmac.new(key, counter.to_bytes(8, "big"), hashlib.sha1).digest()
+    offset = digest[-1] & 0x0F
+    return f"{(int.from_bytes(digest[offset : offset + 4], 'big') & 0x7FFFFFFF) % 1_000_000:06d}"
+
+
+def security_key(body: bytes) -> None:
+    """Gives the account in body a security key as its only second factor, as the web would."""
+    account = json.loads(body)
+    origin = tier.every_origin()[0]
+    register_key(
+        tier.environment()["AUTH_PUBLIC_URL"], origin, account["email"], account["password"]
+    )
+
+
 @contextmanager
 def native_control(
     link: NativeLink,
     push: Callable[[bytes], None],
     account: Callable[[bytes], None],
+    photo: Callable[[str], None],
+    bank: Callable[[str], None],
     log: Path,
 ) -> Iterator[str]:
-    """A local endpoint a flow calls to go offline, come back, receive a push or set an account."""
+    """A local endpoint a flow calls to go offline or online, or for a push, account or code."""
 
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self) -> None:
             body = self.rfile.read(int(self.headers.get("Content-Length") or 0))
-            actions: dict[str, Callable[[], None]] = {
+            actions: dict[str, Callable[[], bytes | None]] = {
                 "/offline": link.offline,
                 "/online": link.online,
                 "/push": lambda: push(body),
                 "/account": lambda: account(body),
+                "/totp": lambda: totp(body.decode()).encode(),
+                "/photo": lambda: photo(body.decode()),
+                "/key": lambda: security_key(body),
+                "/bank": lambda: bank(body.decode()),
             }
             action = actions.get(self.path)
             try:
                 if action is None:
                     raise LookupError(self.path)
-                action()
+                answer = action()
             except (LookupError, RuntimeError, ValueError, subprocess.CalledProcessError) as error:
                 self.send_response(400)
                 self.end_headers()
@@ -227,8 +280,10 @@ def native_control(
                 return
             with log.open("a") as record:
                 record.write(f"{clock.wall().isoformat()} {self.path}\n")
-            self.send_response(204)
+            self.send_response(204 if answer is None else 200)
             self.end_headers()
+            if answer is not None:
+                self.wfile.write(answer)
 
         def log_message(self, format: str, *args: object) -> None:
             pass
@@ -285,9 +340,16 @@ def run_native(
     build = NATIVE_BUILDS[args.platform]
     if not build.exists():
         raise RuntimeError(f"no e2e build at {build}; run with --build-native {args.platform}")
+    stand_in: StandIn | None = None
     if args.fake_stripe:
-        api_base = processes.enter_context(fake_stripe(stack.directory / "stripe-fake.log"))
-        stack.env.update({"STRIPE_SECRET_KEY": FAKE_KEY, "STRIPE_API_BASE": api_base})
+        stand_in = processes.enter_context(fake_stripe(stack.directory / "stripe-fake.log"))
+        stack.env.update(
+            {
+                "STRIPE_SECRET_KEY": FAKE_KEY,
+                "STRIPE_API_BASE": stand_in.url,
+                "STRIPE_WEBHOOK_SECRET": FAKE_WEBHOOK_SECRET,
+            }
+        )
     stack.start(processes, log, browser_fixtures=False)
     report = stack.directory / "native-results.xml"
     flows = native_flows(args.tests)
@@ -366,10 +428,28 @@ def run_native(
             check=True,
         )
 
+    def authorized_bank(intent_id: str) -> None:
+        if stand_in is None:
+            raise RuntimeError("the bank action needs the stand-in Stripe (--fake-stripe)")
+        for payload in stand_in.authorize(intent_id):
+            sent = httpx.post(
+                f"{stack.api}/webhooks/stripe",
+                content=payload,
+                headers={"Stripe-Signature": signature(payload)},
+                timeout=30,
+            )
+            if sent.status_code != 200:
+                raise RuntimeError(f"the API refused the stand-in event: {sent.text}")
+
     with (
         device.installed(build),
         native_control(
-            link, message_push, payment_account, stack.directory / "control.log"
+            link,
+            message_push,
+            payment_account,
+            device.add_photo,
+            authorized_bank,
+            stack.directory / "control.log",
         ) as control,
         (stack.directory / "native.log").open("wb") as native_log,
     ):

@@ -1,0 +1,11 @@
+appId: ${APP_ID}
+---
+# adds ITEM to the open invoice from the catalog, which brings its price and tax class
+- scrollUntilVisible:
+      element: "Add from catalog"
+      direction: DOWN
+- tapOn: "Add from catalog"
+- extendedWaitUntil:
+      visible: ${ITEM + " · .*"}
+      timeout: 60000
+- tapOn: ${ITEM + " · .*"}

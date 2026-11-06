@@ -1,4 +1,18 @@
-import type { ImagePickerAsset } from "expo-image-picker";
+import {
+    type ImagePickerAsset,
+    type ImagePickerOptions,
+    type ImagePickerResult,
+    launchImageLibraryAsync,
+    UIImagePickerPreferredAssetRepresentationMode,
+} from "expo-image-picker";
+
+/** The phone's photo library; uploads take PNG, JPEG or WebP, so iOS hands a HEIC over as a JPEG. */
+export function pickFromLibrary(options: ImagePickerOptions): Promise<ImagePickerResult> {
+    return launchImageLibraryAsync({
+        ...options,
+        preferredAssetRepresentationMode: UIImagePickerPreferredAssetRepresentationMode.Compatible,
+    });
+}
 
 /** A picked photo's bytes; the global fetch streams text, which a local file can't be read as. */
 export function pickedPhoto(asset: ImagePickerAsset): Promise<Blob> {

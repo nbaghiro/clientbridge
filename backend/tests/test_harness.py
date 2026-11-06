@@ -2053,22 +2053,22 @@ def test_a_tier_service_that_stopped_is_started_again(
 
 
 @pytest.mark.parametrize(("shared", "calls"), [(False, ["refresh"]), (True, ["refresh", "wait"])])
-def test_a_relay_only_change_is_swapped_in_without_a_rebuild(
+def test_a_scripts_only_change_is_swapped_in_without_a_rebuild(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, shared: bool, calls: list[str]
 ) -> None:
     _tier_at(monkeypatch, tmp_path)
     made: list[str] = []
-    built = {"migrations": "head", "relay": "old"}
+    built = {"migrations": "head", "scripts": "old"}
 
     def refresh() -> None:
         made.append("refresh")
-        built["relay"] = "new"
+        built["scripts"] = "new"
 
-    monkeypatch.setattr(tier, "fingerprint", lambda: {"migrations": "head", "relay": "new"})
+    monkeypatch.setattr(tier, "fingerprint", lambda: {"migrations": "head", "scripts": "new"})
     monkeypatch.setattr(tier, "recorded", lambda: dict(built))
     monkeypatch.setattr(tier, "running", lambda: set(tier.SERVICES))
     monkeypatch.setattr(tier, "healthy", lambda: True)
-    monkeypatch.setattr(tier, "refresh_relay", refresh)
+    monkeypatch.setattr(tier, "refresh_scripts", refresh)
     monkeypatch.setattr(tier, "wait_healthy", lambda _seconds=120: made.append("wait"))
     monkeypatch.setattr(tier, "start", lambda: made.append("start"))
     monkeypatch.setattr(tier, "destroy", lambda: made.append("destroy"))
@@ -2079,22 +2079,22 @@ def test_a_relay_only_change_is_swapped_in_without_a_rebuild(
             assert made == calls
 
 
-def test_tier_up_swaps_a_relay_only_change_without_a_rebuild(
+def test_tier_up_swaps_a_scripts_only_change_without_a_rebuild(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     _tier_at(monkeypatch, tmp_path)
     made: list[str] = []
-    built = {"migrations": "head", "relay": "old"}
+    built = {"migrations": "head", "scripts": "old"}
 
     def refresh() -> None:
         made.append("refresh")
-        built["relay"] = "new"
+        built["scripts"] = "new"
 
-    monkeypatch.setattr(tier, "fingerprint", lambda: {"migrations": "head", "relay": "new"})
+    monkeypatch.setattr(tier, "fingerprint", lambda: {"migrations": "head", "scripts": "new"})
     monkeypatch.setattr(tier, "recorded", lambda: dict(built))
     monkeypatch.setattr(tier, "running", lambda: set(tier.SERVICES))
     monkeypatch.setattr(tier, "healthy", lambda: True)
-    monkeypatch.setattr(tier, "refresh_relay", refresh)
+    monkeypatch.setattr(tier, "refresh_scripts", refresh)
     monkeypatch.setattr(tier, "start", lambda: made.append("start"))
     monkeypatch.setattr(tier, "destroy", lambda: made.append("destroy"))
     monkeypatch.setattr(sys, "argv", ["tier", "up"])
