@@ -232,7 +232,10 @@ async def test_the_roster_refuses_a_no_show_before_the_class_starts(
     assert count == 0
 
 
-async def test_an_unapproved_visit_keeps_a_paid_deposit_for_staff(db: AsyncSession) -> None:
+async def test_an_unapproved_visit_keeps_a_deposit_stripe_cannot_refund_for_staff(
+    db: AsyncSession,
+) -> None:
+    await enable_payments(db, None)
     paid = await _visit(db, status="pending")
     paid.deposit_status = "collected"
     unpaid = await _visit(db, status="pending", starts_at=VISIT + timedelta(hours=2))

@@ -14,10 +14,18 @@ from clientbridge.models.ledger import Entry
 from clientbridge.models.messaging import Delivery
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Webhook
+from clientbridge.models.scheduling import Booking
 from clientbridge.services import payments
 from clientbridge.services.payments import run_replay_missed_events, run_retry_deferred_payments
 from tests.conftest import BIZ, Factory, FakePaymentGateway
-from tests.helpers import STRIPE, card_pay, enable_payments, provider_ref, sent_invoice
+from tests.helpers import (
+    STRIPE,
+    card_pay,
+    deposit_payment,
+    enable_payments,
+    provider_ref,
+    sent_invoice,
+)
 
 
 def _succeeded(event_id: str, pi: str, created: int) -> str:
@@ -222,3 +230,45 @@ async def test_a_deferred_intent_claiming_another_business_settles_nothing(
     await db.flush()
     assert await run_retry_deferred_payments(db, gateway) == 0
     assert await _status(db, pay_id) == "pending"
+
+
+async def test_a_deposit_deferred_for_its_fees_is_collected_within_a_minute(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    booked = await api.post(
+        "/book/birchbark",
+        json={
+            "item_id": "it_groom_lg",
+            "staff_id": "st_owner",
+            "starts_at": "2027-03-02T16:00:00Z",
+            "client": {"name": "Quick Payer", "phone": "+16045550279"},
+        },
+    )
+    booking_id = str(booked.json()["booking_id"])
+    pay_id = await deposit_payment(db, booking_id)
+    pi = await provider_ref(db, pay_id)
+    gateway.pending_fees.add(pi)
+    gateway.objects[("acct_test", "payment_intent", pi)] = {
+        "id": pi,
+        "object": "payment_intent",
+        "status": "succeeded",
+    }
+    intent = {"id": pi, "metadata": {"business_id": BIZ, "booking_id": booking_id}}
+    body = json.dumps(
+        {
+            "id": "evt_deposit_fees",
+            "type": "payment_intent.succeeded",
+            "account": "acct_test",
+            "data": {"object": intent},
+        }
+    )
+    held = await api.post("/webhooks/stripe", content=body, headers=STRIPE)
+    assert (held.status_code, held.json()["error"]) == (503, "retry_later")
+    assert await run_retry_deferred_payments(db, gateway) == 0
+    gateway.pending_fees.discard(pi)
+    assert await run_retry_deferred_payments(db, gateway) == 1
+    assert await run_retry_deferred_payments(db, gateway) == 0
+    assert await _status(db, pay_id) == "succeeded"
+    booking = await db.get(Booking, booking_id, populate_existing=True)
+    assert booking is not None and booking.deposit_status == "collected"

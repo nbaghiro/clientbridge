@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { addDays, formatTime, formatWeekday, zonedDate } from "../datetime";
+import { formatMoney } from "../format";
 import { strings } from "../strings";
 import {
+    type BookingActions,
     type CalendarEvent,
     type ScheduleEvent,
     actorsFor,
@@ -18,6 +20,7 @@ import {
     laneFor,
     layoutDay,
     lifecycleOf,
+    askedCopy,
     markMoves,
     minuteTop,
     moveFailure,
@@ -772,6 +775,8 @@ describe("closing a visit", () => {
             canNoShow: false,
             canCancel: true,
             canReschedule: true,
+            canApprove: false,
+            canDecline: false,
             notStartedNote: s.notStartedNote,
         });
         const started = lifecycleOf(event("a", at(10), at(11)), at(10));
@@ -782,7 +787,42 @@ describe("closing a visit", () => {
     it("offers nothing on a visit that is already closed", () => {
         const closed = lifecycleOf(event("a", at(10), at(11), { status: "completed" }), at(9));
         expect(closed.notStartedNote).toBeNull();
-        expect(closed.canComplete || closed.canCancel).toBe(false);
+        expect(closed.canComplete || closed.canCancel || closed.canApprove).toBe(false);
+    });
+
+    it("answers a request with Approve or Decline instead of Cancel while it's ahead", () => {
+        const request = event("a", at(10), at(11), { status: "pending" });
+        expect(lifecycleOf(request, at(9))).toEqual({
+            canComplete: false,
+            canNoShow: false,
+            canCancel: false,
+            canReschedule: true,
+            canApprove: true,
+            canDecline: true,
+            notStartedNote: null,
+        });
+        const unanswered = lifecycleOf(request, at(10, 30));
+        expect(unanswered).toMatchObject({
+            canApprove: false,
+            canDecline: false,
+            canComplete: true,
+        });
+    });
+
+    it("says what declining does with a paid deposit before it goes through", () => {
+        const paid = { declineNote: s.declineRefund(formatMoney(2750, "CAD")) } as BookingActions;
+        expect(askedCopy(paid, "decline")).toEqual({
+            title: s.declineTitle,
+            note: s.declineRefund(formatMoney(2750, "CAD")),
+            keep: s.keepRequest,
+            confirm: s.confirmDecline,
+        });
+        const unpaid = {
+            noShowNote: s.noShowNoDeposit,
+            cancelNote: s.cancelNotify,
+        } as BookingActions;
+        expect(askedCopy(unpaid, "cancel").confirm).toBe(s.confirmCancel);
+        expect(askedCopy(unpaid, "no_show").note).toBe(s.noShowNoDeposit);
     });
 });
 

@@ -989,6 +989,7 @@ async def _online_booking(
         source=source,
         price_cents=11000,
         deposit_amount_cents=2750 if deposit_required else 0,
+        deposit_status="pending" if deposit_required else "none",
         created_at=created_at,
     )
     db.add(booking)

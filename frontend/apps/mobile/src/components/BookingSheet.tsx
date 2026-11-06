@@ -6,8 +6,9 @@ import {
     useBookingComposer,
     useScheduleBoard,
     type BookingDetail,
-    type LifecycleAction,
+    type AskedAction,
     type ScheduleEvent,
+    askedCopy,
     canCollectDeposit,
     checkoutMethods,
     formatFullDate,
@@ -768,7 +769,7 @@ function BookingNoteBox({ bookingId }: { bookingId: string }) {
     );
 }
 
-/** Lifecycle buttons; a no-show or cancel shows its consequence in place before it goes through. */
+/** Lifecycle buttons; a no-show, cancel or decline shows its consequence in place before it goes through. */
 export function BookingActionBar({
     actions,
     onReschedule,
@@ -776,13 +777,13 @@ export function BookingActionBar({
     actions: BookingActions;
     onReschedule?: () => void;
 }) {
-    const [asking, setAsking] = useState<LifecycleAction | null>(null);
+    const [asking, setAsking] = useState<AskedAction | null>(null);
     if (asking !== null) {
-        const noShow = asking === "no_show";
+        const copy = askedCopy(actions, asking);
         return (
             <View style={styles.ask}>
-                <Text style={styles.askTitle}>{noShow ? s.noShowTitle : s.cancelTitle}</Text>
-                <Text style={styles.sub}>{noShow ? actions.noShowNote : actions.cancelNote}</Text>
+                <Text style={styles.askTitle}>{copy.title}</Text>
+                <Text style={styles.sub}>{copy.note}</Text>
                 {actions.error !== null ? <Notice tone="danger">{actions.error}</Notice> : null}
                 <View style={styles.askRow}>
                     <Button
@@ -792,7 +793,7 @@ export function BookingActionBar({
                             setAsking(null);
                         }}
                     >
-                        {s.keepVisit}
+                        {copy.keep}
                     </Button>
                     <Button
                         grow
@@ -802,57 +803,103 @@ export function BookingActionBar({
                             actions.run(asking);
                         }}
                     >
-                        {actions.busy ? s.working : noShow ? s.confirmNoShow : s.confirmCancel}
+                        {actions.busy ? s.working : copy.confirm}
                     </Button>
                 </View>
             </View>
         );
     }
-    if (!actions.canComplete && !actions.canNoShow && !actions.canCancel) return null;
-    return (
-        <View style={styles.ask}>
-            <View style={styles.askRow}>
-                {actions.canComplete || actions.notStartedNote !== null ? (
+    if (actions.canApprove) {
+        return (
+            <View style={styles.ask}>
+                <Text style={styles.sub}>{s.requestNote}</Text>
+                <View style={styles.askRow}>
                     <Button
                         grow
-                        busy={actions.pending === "complete"}
-                        disabled={!actions.canComplete}
+                        busy={actions.pending === "approve"}
                         onPress={() => {
-                            actions.run("complete");
+                            actions.run("approve");
                         }}
                     >
-                        {actions.pending === "complete" ? s.working : s.complete}
+                        {actions.pending === "approve" ? s.working : s.approve}
                     </Button>
-                ) : null}
-                {actions.canNoShow || actions.notStartedNote !== null ? (
                     <Button
                         grow
                         variant="outline"
-                        disabled={!actions.canNoShow}
                         onPress={() => {
-                            setAsking("no_show");
+                            setAsking("decline");
                         }}
                     >
-                        {s.noShow}
+                        {s.decline}
                     </Button>
-                ) : null}
+                </View>
                 {actions.canReschedule && onReschedule ? (
-                    <Button grow variant="outline" onPress={onReschedule}>
+                    <Button variant="quiet" onPress={onReschedule}>
                         {s.reschedule}
                     </Button>
                 ) : null}
-                {actions.canCancel ? (
-                    <Button
-                        grow
-                        variant="quiet"
-                        onPress={() => {
-                            setAsking("cancel");
-                        }}
-                    >
-                        {s.cancel}
-                    </Button>
-                ) : null}
+                {actions.error !== null ? <Notice tone="danger">{actions.error}</Notice> : null}
             </View>
+        );
+    }
+    if (actions.settling !== null)
+        return (
+            <View style={styles.ask}>
+                <Text style={styles.sub}>{actions.settling}</Text>
+            </View>
+        );
+    if (!actions.canComplete && !actions.canNoShow && !actions.canCancel) return null;
+    const closing = actions.canComplete || actions.canNoShow || actions.notStartedNote !== null;
+    return (
+        <View style={styles.ask}>
+            {closing ? (
+                <View style={styles.askRow}>
+                    {actions.canComplete || actions.notStartedNote !== null ? (
+                        <Button
+                            grow
+                            busy={actions.pending === "complete"}
+                            disabled={!actions.canComplete}
+                            onPress={() => {
+                                actions.run("complete");
+                            }}
+                        >
+                            {actions.pending === "complete" ? s.working : s.complete}
+                        </Button>
+                    ) : null}
+                    {actions.canNoShow || actions.notStartedNote !== null ? (
+                        <Button
+                            grow
+                            variant="outline"
+                            disabled={!actions.canNoShow}
+                            onPress={() => {
+                                setAsking("no_show");
+                            }}
+                        >
+                            {s.noShow}
+                        </Button>
+                    ) : null}
+                </View>
+            ) : null}
+            {(actions.canReschedule && onReschedule) || actions.canCancel ? (
+                <View style={styles.askRow}>
+                    {actions.canReschedule && onReschedule ? (
+                        <Button grow variant="outline" onPress={onReschedule}>
+                            {s.reschedule}
+                        </Button>
+                    ) : null}
+                    {actions.canCancel ? (
+                        <Button
+                            grow
+                            variant="quiet"
+                            onPress={() => {
+                                setAsking("cancel");
+                            }}
+                        >
+                            {s.cancel}
+                        </Button>
+                    ) : null}
+                </View>
+            ) : null}
             {actions.notStartedNote !== null ? (
                 <Text style={styles.sub}>{actions.notStartedNote}</Text>
             ) : null}

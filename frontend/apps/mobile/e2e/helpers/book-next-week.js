@@ -33,6 +33,8 @@ function localDay(ms) {
     return Math.floor((ms + offsetAt(ms)) / DAY) * DAY;
 }
 var visit = JSON.parse(BODY);
+// with SLUG a new client asks for the visit on that booking page instead
+var online = typeof SLUG !== "undefined";
 var today = localDay(Date.now());
 var anchor = today + 7 * DAY;
 // the app's weeks start on Monday
@@ -44,22 +46,24 @@ for (var d = 0; d < 7 && output.booking === null; d++) {
     var hours = [10, 11, 13, 14, 15];
     for (var h = 0; h < hours.length && output.booking === null; h++) {
         var wall = day + hours[h] * HOUR;
-        var sent = http.request(API_URL + "/v1/bookings", {
+        var sent = http.request(API_URL + (online ? "/book/" + SLUG : "/v1/bookings"), {
             method: "POST",
-            headers: headers,
+            headers: online ? { "Content-Type": "application/json" } : headers,
             body: JSON.stringify(
-                Object.assign({}, visit, {
-                    starts_at: new Date(wall - offsetAt(wall)).toISOString(),
-                    notify: false,
-                }),
+                Object.assign(
+                    {},
+                    visit,
+                    { starts_at: new Date(wall - offsetAt(wall)).toISOString() },
+                    online ? {} : { notify: false },
+                ),
             ),
         });
-        if (sent.status === 201) {
+        if (sent.status === (online ? 200 : 201)) {
             output.booking = json(sent.body);
             output.dayLabel =
                 WEEKDAYS[new Date(day).getUTCDay()] + " " + new Date(day).getUTCDate();
         } else if (sent.status !== 409) {
-            throw new Error("POST /v1/bookings failed: " + sent.status + " " + sent.body);
+            throw new Error("booking failed: " + sent.status + " " + sent.body);
         }
     }
 }

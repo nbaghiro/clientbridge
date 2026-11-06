@@ -311,7 +311,7 @@ function StaffToday({ bell, onSecretTap }: { bell: number; onSecretTap: () => vo
                             <AgendaRows items={later} showStaff={false} />
                         </Section>
                     )}
-                    <Section title={t.staff.messagesForYou}>
+                    <Section title={t.needsYou}>
                         <AttentionList
                             items={view.attention}
                             actions={actions}

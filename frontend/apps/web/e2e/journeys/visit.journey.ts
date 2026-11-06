@@ -49,9 +49,10 @@ import {
     watchOpenings,
 } from "../support/visit";
 import { textInbox, textsTo } from "../support/auth";
-import { navigate, signIn } from "../support/session";
+import { customerContext, navigate, signIn } from "../support/session";
 import { demoSlug, runUrl, runEmail } from "@clientbridge/config/e2e/run";
 import { createClient } from "../support/clients";
+import { select } from "../support/db";
 import { joinHoursStaff } from "../support/hours";
 
 // how the text acknowledging a booking request begins (booking_requested.body)
@@ -1188,5 +1189,158 @@ test("SCH-E2E-07 an add-on that lengthens the visit narrows the times Connect of
     } finally {
         for (const id of owned) await cancelOwnedBooking(page, id);
         await context.close();
+    }
+});
+
+test("SCH-E2E-18 the owner approves one new client's request from Today and declines another on the schedule, and each client hears once", async ({
+    page,
+    browser,
+}) => {
+    const b = strings.publicBooking;
+    const s = strings.bookings;
+    await signIn(page);
+    const fixture = await raceFixture(page);
+    const approved = raceContact("Hazel");
+    const declined = raceContact("Moss");
+    const ids: Record<string, string> = {};
+    for (const [contact, weeks] of [
+        [approved, 4],
+        [declined, 5],
+    ] as const) {
+        const context = await customerContext(browser);
+        const client = await context.newPage();
+        const day = await raceTimePicker(client, fixture, weeks);
+        await client
+            .getByRole("radiogroup", { name: b.date, exact: true })
+            .getByRole("radio")
+            .nth(day)
+            .click();
+        await client
+            .getByRole("radiogroup", { name: b.openTimes, exact: true })
+            .getByRole("radio")
+            .first()
+            .click();
+        await raceDetails(client, contact);
+        const booked = client.waitForResponse(
+            (response) =>
+                response.request().method() === "POST" &&
+                new URL(response.url()).pathname.endsWith(`/book/${demoSlug("birchbark")}`),
+        );
+        await client.getByRole("button", { name: b.confirm, exact: true }).click();
+        ids[contact.phone] = ((await (await booked).json()) as { booking_id: string }).booking_id;
+        await expect(
+            client.getByRole("heading", { name: b.pendingTitle, exact: true }),
+        ).toBeVisible();
+        await context.close();
+    }
+    const requested = await raceEvidence(fixture, [approved, declined]);
+    expect(requested.bookings.map((x) => x.status)).toEqual(["pending", "pending"]);
+
+    await navigate(page, "/today");
+    const request = page.getByRole("button", {
+        name: new RegExp(`${approved.name} asked for ${fixture.itemName}`),
+    });
+    await expect(request).toBeVisible({ timeout: 60_000 });
+    await request.click();
+    await expect(page.getByText(s.statusLabel("pending")).first()).toBeVisible();
+    await page.getByRole("button", { name: s.approve, exact: true }).click();
+    await expect(page.getByRole("button", { name: s.markNoShow, exact: true })).toBeVisible({
+        timeout: 60_000,
+    });
+
+    await navigate(page, `/schedule?open=${ids[declined.phone] ?? ""}`);
+    await page.getByRole("button", { name: s.decline, exact: true }).click();
+    await expect(page.getByText(s.declineNotify, { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: s.confirmDecline, exact: true }).click();
+    await expect(page.getByText(s.declinedDone, { exact: true }).first()).toBeVisible({
+        timeout: 60_000,
+    });
+
+    const answered = await raceEvidence(fixture, [approved, declined]);
+    const status = (phone: string): string | undefined =>
+        answered.bookings.find((x) => x.id === ids[phone])?.status;
+    expect([status(approved.phone), status(declined.phone)]).toEqual(["confirmed", "canceled"]);
+    const said = async (phone: string, start: string): Promise<number> =>
+        (await textsTo(page.request, phone)).filter(({ Snippet }) => Snippet.startsWith(start))
+            .length;
+    await expect.poll(() => said(approved.phone, "You're booked for")).toBe(1);
+    await expect.poll(() => said(declined.phone, "Your request with Birchbark Pet Studio")).toBe(1);
+    expect(await said(declined.phone, "You're booked for")).toBe(0);
+    const freed = answered.slots.filter((slot) =>
+        answered.bookings.some((x) => x.id === ids[declined.phone] && x.slot_id === slot.id),
+    );
+    expect(freed).toHaveLength(1);
+    expect(
+        await select<{ status: string }>`SELECT status FROM slots WHERE id = ${freed[0]?.id ?? ""}`,
+    ).toEqual([{ status: "canceled" }]);
+});
+
+test("SCH-E2E-19 the lead time, horizon and start step set in Setup bound the times Connect offers", async ({
+    page,
+    browser,
+}) => {
+    const b = strings.publicBooking;
+    const o = strings.onlineBooking;
+    await signIn(page);
+    const policy = await page.request.get(`${bookingApi()}/v1/online-booking`);
+    expect(policy.status()).toBe(200);
+    const before = ((await policy.json()) as { policy: Record<string, unknown> }).policy;
+    try {
+        await navigate(page, "/setup/online-booking");
+        for (const [label, option] of [
+            [o.leadTime, o.leadOptions["48"]],
+            [o.advance, o.advanceOptions["14"]],
+            [o.step, o.stepOptions["60"]],
+        ] as const) {
+            await page.getByRole("combobox", { name: label, exact: true }).click();
+            await page.getByRole("option", { name: option, exact: true }).click();
+        }
+        await page.getByRole("button", { name: o.save, exact: true }).click();
+        await expect(page.getByText(o.saved, { exact: true }).first()).toBeVisible();
+        const savedAt = Date.now();
+
+        const context = await customerContext(browser);
+        const client = await context.newPage();
+        const openings = await openConnectService(client, demoSlug("birchbark"), "Bath & Tidy");
+        await expect.poll(() => openings.days.length).toBeGreaterThan(0);
+        const firstWeek = (
+            (await openings.days[0]?.json()) as {
+                days: { date: string; count: number }[];
+            }
+        ).days;
+        const firstOpen = firstWeek.find((day) => day.count > 0);
+        if (firstOpen === undefined) throw new Error("no day in the first week is open");
+        const times = await openConnectDay(client, openings, firstOpen.date);
+        expect(times.length).toBeGreaterThan(0);
+        for (const time of times) {
+            expect(at(time.starts_at)).toBeGreaterThanOrEqual(savedAt + 48 * 3_600_000 - 60_000);
+            expect(new Date(time.starts_at).getUTCMinutes()).toBe(0);
+        }
+        const lastDay = new Date(savedAt + 15 * 86_400_000).toISOString().slice(0, 10);
+        for (let week = 0; week < 3; week++) {
+            const count = openings.days.length;
+            const next = client.getByRole("button", { name: b.nextWeek, exact: true }).first();
+            if (await next.isDisabled()) break;
+            await next.click();
+            await expect.poll(() => openings.days.length).toBeGreaterThan(count);
+        }
+        const offered = await Promise.all(
+            openings.days.map(
+                async (response) =>
+                    ((await response.json()) as { days: { date: string; count: number }[] }).days,
+            ),
+        );
+        const beyond = offered.flat().filter((day) => day.date > lastDay);
+        expect(beyond.every((day) => day.count === 0)).toBe(true);
+        await context.close();
+    } finally {
+        // a null step in the patch means "unchanged", so the service-length default goes back as 0
+        await apiCall(
+            page,
+            "PATCH",
+            "/v1/online-booking",
+            { policy: { ...before, step_min: before.step_min ?? 0 } },
+            200,
+        );
     }
 });

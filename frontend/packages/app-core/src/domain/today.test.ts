@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { parseTimestamp, relativeDayTime } from "../datetime";
 import { formatList, formatParts } from "../format";
 import { strings } from "../strings";
 import {
@@ -7,6 +8,7 @@ import {
     buildAgenda,
     firstRunLayout,
     greeting,
+    requestAttention,
     visitAction,
     visitActionLabel,
 } from "./today";
@@ -154,6 +156,57 @@ describe("a visit at the client's place", () => {
         expect(visitActionLabel("checkIn", "property")).toBe(strings.today.checkIn);
         expect(visitActionLabel("checkIn", "vehicle")).toBe(strings.today.checkIn);
         expect(visitActionLabel("depart", "site")).toBe(strings.today.depart);
+    });
+});
+
+describe("requestAttention", () => {
+    const now = parseTimestamp("2026-10-06T16:00:00Z");
+    const request = (over: Record<string, unknown>) => ({
+        booking_id: "bk_1",
+        client_id: "cl_ann",
+        staff_id: "st_owner",
+        recurrence_id: null,
+        starts_at: "2026-10-07T17:00:00Z",
+        client_name: "Ann Lee",
+        item_name: "Large Dog Groom",
+        ...over,
+    });
+
+    it("lists each waiting request as a review that opens the visit", () => {
+        const [item] = requestAttention([request({})], now, ZONE);
+        expect(item).toEqual({
+            key: "req-bk_1",
+            intent: "warning",
+            icon: "calendar",
+            title: strings.today.attention.requestTitle,
+            detail: strings.today.attention.requestDetail(
+                "Ann Lee",
+                "Large Dog Groom",
+                relativeDayTime(parseTimestamp("2026-10-07T17:00:00Z"), ZONE, now),
+            ),
+            action: strings.today.attention.requestAction,
+            act: "open",
+            target: "booking",
+            refId: "bk_1",
+        });
+    });
+
+    it("counts a program enrolment once, by its first day", () => {
+        const days = [
+            request({ booking_id: "bk_a", recurrence_id: "rc_camp" }),
+            request({
+                booking_id: "bk_b",
+                recurrence_id: "rc_camp",
+                starts_at: "2026-10-08T17:00:00Z",
+            }),
+            request({ booking_id: "bk_c", client_id: "cl_bo", recurrence_id: "rc_camp" }),
+            request({ booking_id: "bk_d" }),
+        ];
+        expect(requestAttention(days, now, ZONE).map((a) => a.refId)).toEqual([
+            "bk_a",
+            "bk_c",
+            "bk_d",
+        ]);
     });
 });
 

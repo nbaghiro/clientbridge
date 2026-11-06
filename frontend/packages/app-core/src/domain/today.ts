@@ -17,6 +17,7 @@ import {
     formatTimeRange,
     formatWeekdayMonthDay,
     parseTimestamp,
+    relativeDayTime,
     sameDay,
     startOfDay,
     wallTime,
@@ -309,6 +310,72 @@ function useTodayHours(day: Date, zone: string) {
     return result;
 }
 
+export const REQUESTS_SQL = `
+SELECT b.id AS booking_id, b.client_id, b.staff_id, s.recurrence_id, s.starts_at,
+       c.name AS client_name, i.name AS item_name
+FROM bookings b
+JOIN slots s ON s.id = b.slot_id
+JOIN items i ON i.id = s.item_id
+LEFT JOIN clients c ON c.id = b.client_id
+WHERE b.status = 'pending' AND b.deleted_at IS NULL AND ${utcSql("s.starts_at")} > datetime(?)
+ORDER BY ${utcSql("s.starts_at")}, b.id`;
+
+interface RequestRow {
+    booking_id: string;
+    client_id: string;
+    staff_id: string | null;
+    recurrence_id: string | null;
+    starts_at: string;
+    client_name: string | null;
+    item_name: string;
+}
+
+/** Online requests still waiting for an answer, soonest first; a program enrolment is one request. */
+export function requestAttention(
+    rows: readonly RequestRow[],
+    now: Date,
+    zone: string,
+): AttentionItem[] {
+    const a = strings.today.attention;
+    const seen = new Set<string>();
+    const out: AttentionItem[] = [];
+    for (const r of rows) {
+        const enrolment =
+            r.recurrence_id === null ? r.booking_id : `${r.recurrence_id}:${r.client_id}`;
+        if (seen.has(enrolment)) continue;
+        seen.add(enrolment);
+        out.push({
+            key: `req-${r.booking_id}`,
+            intent: "warning",
+            icon: "calendar",
+            title: a.requestTitle,
+            detail: a.requestDetail(
+                r.client_name ?? "",
+                r.item_name,
+                relativeDayTime(parseTimestamp(r.starts_at), zone, now),
+            ),
+            action: a.requestAction,
+            act: "open",
+            target: "booking",
+            refId: r.booking_id,
+        });
+    }
+    return out;
+}
+
+function useRequestAttention(now: Date, staffId: string | null, zone: string): AttentionItem[] {
+    const rows = useQuery<RequestRow>(REQUESTS_SQL, [now.toISOString()]).data;
+    return useMemo(
+        () =>
+            requestAttention(
+                staffId === null ? rows : rows.filter((r) => r.staff_id === staffId),
+                now,
+                zone,
+            ),
+        [rows, staffId, now, zone],
+    );
+}
+
 const OPEN_INVOICE = new Set(["sent", "partial", "overdue"]);
 
 function ownerAttention(input: {
@@ -532,6 +599,7 @@ function useTodayView(viewer: Viewer | null, now: Date, zone: string) {
     const manager = canManagePayments(viewer?.role ?? null);
     const scopeTo = manager ? null : (viewer?.staffId ?? "");
     const { result, rows } = useAgendaRows(now, scopeTo, zone);
+    const requests = useRequestAttention(now, scopeTo, zone);
     const hours = useTodayHours(now, zone);
     const staff = useStaff();
     const kind = useSubjectKind();
@@ -554,6 +622,7 @@ function useTodayView(viewer: Viewer | null, now: Date, zone: string) {
         result,
         agenda,
         team,
+        requests,
         base: {
             greeting: greeting(wallTime(now, zone).hour, viewerName),
             dateLabel: formatFullDate(now, zone),
@@ -573,7 +642,7 @@ function useTodayView(viewer: Viewer | null, now: Date, zone: string) {
 export function useOwnerToday(api: ApiLike, viewer: Viewer | null): OwnerToday {
     const now = useTodayNow();
     const zone = useBusinessZone();
-    const { result, agenda, base } = useTodayView(viewer, now, zone);
+    const { result, agenda, requests, base } = useTodayView(viewer, now, zone);
     const invoices = useInvoices();
     const threads = useThreads();
     const items = useCatalogItems();
@@ -588,20 +657,23 @@ export function useOwnerToday(api: ApiLike, viewer: Viewer | null): OwnerToday {
         : null;
     const open = invoices.filter((i) => OPEN_INVOICE.has(i.status) && (i.balance_cents ?? 0) > 0);
     const pending = earnings.filter((e) => e.status === "pending");
-    const attention = ownerAttention({
-        agenda,
-        invoices,
-        threads,
-        items,
-        pendingEarnings: {
-            count: pending.length,
-            cents: pending.reduce((n, e) => n + e.amount_cents, 0),
-        },
-        filingDue,
-        filingCents: s?.gst_hst_set_aside_cents ?? 0,
-        now,
-        zone,
-    });
+    const attention = [
+        ...requests,
+        ...ownerAttention({
+            agenda,
+            invoices,
+            threads,
+            items,
+            pendingEarnings: {
+                count: pending.length,
+                cents: pending.reduce((n, e) => n + e.amount_cents, 0),
+            },
+            filingDue,
+            filingCents: s?.gst_hst_set_aside_cents ?? 0,
+            now,
+            zone,
+        }),
+    ];
     const load = useReplicaLoad([result], agenda.length === 0 && attention.length === 0);
     const moneyLoad = useReplicaLoad([summary], false);
     const notices = useAccountNotices(api, viewer?.role ?? null);
@@ -647,7 +719,7 @@ ORDER BY ${utcSql("s.starts_at")} DESC LIMIT 1`;
 export function useStaffToday(viewer: Viewer | null): StaffToday {
     const now = useTodayNow();
     const zone = useBusinessZone();
-    const { result, agenda, base } = useTodayView(viewer, now, zone);
+    const { result, agenda, requests, base } = useTodayView(viewer, now, zone);
     const threads = useThreads();
     const hours = useTodayHours(now, zone);
     const tomorrow = useAgendaRows(addDays(now, 1, zone), viewer?.staffId ?? "", zone);
@@ -657,7 +729,10 @@ export function useStaffToday(viewer: Viewer | null): StaffToday {
         next?.clientId ?? "",
         startOfDay(now, zone).toISOString(),
     ]).data[0];
-    const attention = useMemo(() => staffAttention(agenda, threads), [agenda, threads]);
+    const attention = useMemo(
+        () => [...requests, ...staffAttention(agenda, threads)],
+        [requests, agenda, threads],
+    );
     const mine = hours.data.find((h) => h.staff_id === viewer?.staffId);
     const gaps: StaffDay["gaps"] = [];
     for (let i = 0; i < agenda.length - 1; i++) {

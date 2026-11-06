@@ -6,11 +6,26 @@ import {
     createBookingFixture,
     createBookingThroughUi,
     openBooking,
+    type BookingFixture,
 } from "../../../../web/e2e/support/bookings";
 import { openInvoice } from "../../../../web/e2e/support/billing";
 import { openRefund, type RefundFixture } from "../../../../web/e2e/support/refunds";
+import {
+    apiCall,
+    connectUrl,
+    fillConnectDetails,
+    onlineBooker,
+    raceTimePicker,
+    teamMember,
+} from "../../../../web/e2e/support/visit";
 import { cardFrame, enterStripeCard, stripeReady } from "./provider";
-import { registerStripeDeposit } from "./depositContract";
+import {
+    bindEnrolment,
+    registerEnrolmentClient,
+    registerStripeDeposit,
+    type DepositFixture,
+} from "./depositContract";
+import { demoSlug, runEmail } from "@clientbridge/config/e2e/run";
 
 export async function prepareDepositBooking(page: Page) {
     await stripeReady();
@@ -74,9 +89,10 @@ export async function collectDepositUi(
 
 export async function invoiceVisitUi(
     page: Page,
-    booking: Awaited<ReturnType<typeof prepareDepositBooking>>,
+    booking: { booking: BookingFixture; visit: { id: string } },
+    heading?: string,
 ) {
-    await openBooking(page, booking.booking, booking.visit.id);
+    await openBooking(page, booking.booking, booking.visit.id, heading);
     const invoiceAction = page.getByRole("button", {
         name: strings.bookings.invoiceVisit,
         exact: true,
@@ -99,6 +115,110 @@ export async function invoiceVisitUi(
     };
     expect(invoice).toMatchObject({ status: "draft", total_cents: 11200, tax_total_cents: 1200 });
     return { id: invoice.id, name: booking.booking.clientName, phone: booking.booking.clientPhone };
+}
+
+export interface OnlineDeposit {
+    visit: BookingFixture;
+    booker: { name: string; phone: string; subject: string };
+}
+
+// API prerequisites: a $100 service with a $20 deposit, and the new client's sandbox customer
+export async function prepareOnlineDeposit(owner: Page, pet: string): Promise<OnlineDeposit> {
+    await stripeReady();
+    const member = await teamMember(owner, runEmail("hannah@birchbark.example"));
+    const itemName = `Deposit groom ${randomUUID().slice(0, 6).toUpperCase()}`;
+    const item = await apiCall<{ id: string }>(
+        owner,
+        "POST",
+        "/v1/items",
+        {
+            kind: "service",
+            name: itemName,
+            duration_min: 60,
+            price_cents: 10000,
+            tax_class: "standard",
+            deposit_type: "fixed",
+            deposit_value: 2000,
+            online_bookable: true,
+        },
+        201,
+    );
+    const booker = onlineBooker(pet);
+    const client = await apiCall<{ id: string }>(
+        owner,
+        "POST",
+        "/v1/clients",
+        { name: booker.name, phone: booker.phone },
+        201,
+    );
+    await registerEnrolmentClient(client.id);
+    return {
+        visit: {
+            clientId: client.id,
+            clientName: booker.name,
+            clientPhone: booker.phone,
+            itemId: item.id,
+            itemName,
+            staffId: member.id,
+            staffName: member.name,
+            zone: "America/Vancouver",
+        },
+        booker,
+    };
+}
+
+/** Requests the service on Connect as the new client, up to the card step of its deposit. */
+export async function requestWithDeposit(
+    page: Page,
+    setup: OnlineDeposit,
+    weeksAhead: number,
+): Promise<DepositFixture> {
+    const b = strings.publicBooking;
+    const slug = demoSlug("birchbark");
+    const { visit } = setup;
+    const day = await raceTimePicker(page, { ...visit, url: connectUrl(slug) }, weeksAhead);
+    await page
+        .getByRole("radiogroup", { name: b.date, exact: true })
+        .getByRole("radio")
+        .nth(day)
+        .click();
+    await page
+        .getByRole("radiogroup", { name: b.openTimes, exact: true })
+        .getByRole("radio")
+        .first()
+        .click();
+    await fillConnectDetails(page, setup.booker, "pet");
+    const posted = page.waitForResponse(
+        (r) => new URL(r.url()).pathname === `/book/${slug}` && r.request().method() === "POST",
+    );
+    await page
+        .getByRole("button", { name: b.confirmAndPay(formatMoney(2000, "CAD")), exact: true })
+        .click();
+    const response = await posted;
+    expect(response.status(), await response.text()).toBe(200);
+    const booked = (await response.json()) as {
+        booking_id: string;
+        status: string;
+        deposit_cents: number;
+        deposit_client_secret: string | null;
+    };
+    expect(booked).toMatchObject({ status: "pending", deposit_cents: 2000 });
+    expect(booked.deposit_client_secret).not.toBeNull();
+    await expect(page.getByRole("heading", { name: b.payTitle, exact: true })).toBeVisible();
+    return bindEnrolment(visit.clientId, booked.booking_id);
+}
+
+export async function payOnlineDeposit(page: Page): Promise<void> {
+    const b = strings.publicBooking;
+    await enterStripeCard(await cardFrame(page), "4242424242424242");
+    const pay = page.getByRole("button", { name: b.pay(formatMoney(2000, "CAD")), exact: true });
+    await page.getByRole("heading", { name: b.payTitle, exact: true }).click();
+    await pay.scrollIntoViewIfNeeded();
+    await expect(pay).toBeInViewport({ ratio: 1 });
+    await pay.click();
+    await expect(page.getByRole("heading", { name: b.pendingTitle, exact: true })).toBeVisible({
+        timeout: 60_000,
+    });
 }
 
 export async function sendBookingInvoiceUi(

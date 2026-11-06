@@ -1,8 +1,9 @@
 import {
+    type AskedAction,
     type BookingActions,
     type BookingDetail,
-    type LifecycleAction,
     type ScheduleEvent,
+    askedCopy,
     canCollectDeposit,
     checkoutMethods,
     formatFullDate,
@@ -610,7 +611,7 @@ function BookingHistory({ detail }: { detail: BookingDetail }) {
     );
 }
 
-/** Lifecycle buttons with the consequence spelled out in place before a no-show or cancel goes through. */
+/** Lifecycle buttons with the consequence spelled out in place before a no-show, cancel or decline goes through. */
 export function BookingActionBar({
     actions,
     onReschedule,
@@ -618,18 +619,14 @@ export function BookingActionBar({
     actions: BookingActions;
     onReschedule?: () => void;
 }) {
-    const [asking, setAsking] = useState<LifecycleAction | null>(null);
+    const [asking, setAsking] = useState<AskedAction | null>(null);
     if (asking !== null) {
-        const noShow = asking === "no_show";
+        const copy = askedCopy(actions, asking);
         return (
             <div className="min-w-0 flex-1 space-y-3">
                 <div>
-                    <p className="text-sm font-semibold text-ink">
-                        {noShow ? s.noShowTitle : s.cancelTitle}
-                    </p>
-                    <p className="mt-0.5 text-sm text-muted">
-                        {noShow ? actions.noShowNote : actions.cancelNote}
-                    </p>
+                    <p className="text-sm font-semibold text-ink">{copy.title}</p>
+                    <p className="mt-0.5 text-sm text-muted">{copy.note}</p>
                 </div>
                 {actions.error !== null ? <Notice tone="danger">{actions.error}</Notice> : null}
                 <div className="flex justify-end gap-2">
@@ -639,7 +636,7 @@ export function BookingActionBar({
                             setAsking(null);
                         }}
                     >
-                        {s.keepVisit}
+                        {copy.keep}
                     </Button>
                     <Button
                         variant="danger"
@@ -648,7 +645,7 @@ export function BookingActionBar({
                             actions.run(asking);
                         }}
                     >
-                        {actions.busy ? s.working : noShow ? s.confirmNoShow : s.confirmCancel}
+                        {actions.busy ? s.working : copy.confirm}
                     </Button>
                 </div>
             </div>
@@ -656,6 +653,27 @@ export function BookingActionBar({
     }
     return (
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+            {actions.canApprove ? (
+                <Button
+                    busy={actions.pending === "approve"}
+                    icon="check"
+                    onPress={() => {
+                        actions.run("approve");
+                    }}
+                >
+                    {actions.pending === "approve" ? s.working : s.approve}
+                </Button>
+            ) : null}
+            {actions.canDecline ? (
+                <Button
+                    variant="outline"
+                    onPress={() => {
+                        setAsking("decline");
+                    }}
+                >
+                    {s.decline}
+                </Button>
+            ) : null}
             {actions.canComplete || actions.notStartedNote !== null ? (
                 <Button
                     busy={actions.pending === "complete"}
@@ -698,6 +716,12 @@ export function BookingActionBar({
             ) : null}
             {actions.notStartedNote !== null ? (
                 <p className="w-full text-xs text-muted">{actions.notStartedNote}</p>
+            ) : null}
+            {actions.canApprove ? (
+                <p className="w-full text-xs text-muted">{s.requestNote}</p>
+            ) : null}
+            {actions.settling !== null ? (
+                <p className="w-full text-xs text-muted">{actions.settling}</p>
             ) : null}
             {actions.error !== null ? (
                 <div className="w-full">

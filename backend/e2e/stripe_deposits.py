@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+from datetime import timedelta
 from pathlib import Path
 from typing import Literal, cast
 
@@ -11,15 +12,19 @@ from pydantic import BaseModel, ConfigDict, TypeAdapter
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.db import SessionLocal, engine
-from clientbridge.integrations.stripe import (
-    close_stripe_client,
-)
+from clientbridge.integrations.expo import get_push_sender
+from clientbridge.integrations.resend import get_email_sender
+from clientbridge.integrations.stripe import close_stripe_client, get_payment_gateway
+from clientbridge.integrations.twilio import get_sms_sender
 from clientbridge.models.billing import Invoice, Line
 from clientbridge.models.business import Business
 from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking
+from clientbridge.services.bookings import run_reap_unpaid_bookings
+from clientbridge.services.notifications import Notifier
 from e2e.stripe_cleanup import cleanup_intent
 from e2e.stripe_context import BUSINESS, guard, identity, save, state_path, validate_context
 from e2e.stripe_evidence import raw_evidence
@@ -271,6 +276,14 @@ async def deposit_action(action: str, booking_id: str, invoice_id: str | None) -
             save(path, state)
             client.stripe_customer_id = customer.id
             await db.commit()
+        elif action == "reap":
+            fixture = load_deposit(state, booking_id)
+            booking, _ = await validate_booking(db, fixture)
+            # past the reaper's 30-minute window for this booking alone, so the clock stays real
+            booking.created_at = clock.now() - timedelta(hours=1)
+            await db.commit()
+            notifier = Notifier(get_email_sender(), get_sms_sender(), get_push_sender())
+            await run_reap_unpaid_bookings(db, get_payment_gateway(), notifier, clock.now())
         else:
             fixture = load_deposit(state, booking_id)
             if not fixture.customer or not invoice_id or fixture.invoice not in (None, invoice_id):
@@ -340,9 +353,9 @@ async def cleanup_deposits(
 
 
 async def deposits_main(argv: list[str]) -> None:
-    """Register deposit fixtures, a booking or an enrolment's client, before any intent."""
+    """Register deposit fixtures before any intent, or run the reaper over a registered one."""
     parser = argparse.ArgumentParser(prog="python -m e2e.stripe deposits")
-    parser.add_argument("action", choices=("register", "link", "register-client", "bind"))
+    parser.add_argument("action", choices=("register", "link", "register-client", "bind", "reap"))
     parser.add_argument("booking_id", help="the booking, or the client for register-client/bind")
     parser.add_argument("invoice_id", nargs="?", help="the invoice, or the booking for bind")
     args = parser.parse_args(argv)

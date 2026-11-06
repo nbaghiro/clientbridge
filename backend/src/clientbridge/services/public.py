@@ -838,9 +838,9 @@ async def _offered(
 def _assert_bookable_window(policy: BookingPolicy, starts_at: datetime) -> None:
     now = clock.now()
     if starts_at < now + timedelta(hours=policy.lead_hours):
-        raise Conflict("that time is too soon to book online")
+        raise Conflict("that time is too soon to book online", code="slot_unavailable")
     if starts_at > now + timedelta(days=policy.horizon_days):
-        raise Conflict("that time is too far ahead to book online")
+        raise Conflict("that time is too far ahead to book online", code="slot_unavailable")
 
 
 async def open_days(

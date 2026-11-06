@@ -16,6 +16,12 @@ msgstr "You're booked for {when} with {business}. Please pay the {amount} deposi
 msgid "booking_confirmed.body_link"
 msgstr "You're booked for {when} with {business}. Change or cancel: {link}"
 
+msgid "booking_declined.body"
+msgstr "Your request with {business} for {when} wasn't accepted. You're welcome to book another time."
+
+msgid "booking_declined.body_refund"
+msgstr "Your request with {business} for {when} wasn't accepted, and your {amount} deposit is being refunded to your card."
+
 msgid "booking_departed.body"
 msgstr "{member} from {business} expects to arrive around {time} and is on the way now."
 

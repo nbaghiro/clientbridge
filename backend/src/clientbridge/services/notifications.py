@@ -687,6 +687,14 @@ def booking_requested_message(locale: str, business_name: str, when: str) -> str
     return message(locale, "booking_requested.body", business=business_name, when=when)
 
 
+def booking_declined_message(locale: str, business_name: str, when: str, refund: str | None) -> str:
+    if refund is not None:
+        return message(
+            locale, "booking_declined.body_refund", business=business_name, when=when, amount=refund
+        )
+    return message(locale, "booking_declined.body", business=business_name, when=when)
+
+
 def booking_released_message(locale: str, business_name: str, when: str) -> str:
     return message(locale, "booking_released.body", business=business_name, when=when)
 
@@ -1198,6 +1206,27 @@ class Notifier:
 
     async def on_booking_requested(self, db: AsyncSession, booking_id: str) -> None:
         await self._visit_notice(db, booking_id, booking_requested_message)
+
+    async def on_booking_declined(
+        self, db: AsyncSession, booking_id: str, refunded_cents: int
+    ) -> None:
+        booking = await db.get(Booking, booking_id)
+        if booking is None:
+            return
+        slot = await db.get(Slot, booking.slot_id)
+        business = await db.get(Business, booking.business_id)
+        if slot is None or business is None:
+            return
+        locale = locale_for(business=business)
+        refund = (
+            format_money(locale, refunded_cents, currency_for(business))
+            if refunded_cents > 0
+            else None
+        )
+        notice = booking_declined_message(
+            locale, business.name, _when(locale, business, slot), refund
+        )
+        await self._to_client(db, booking.client_id, notice)
 
     async def on_booking_released(self, db: AsyncSession, booking_id: str) -> None:
         await self._visit_notice(db, booking_id, booking_released_message)
