@@ -39,13 +39,12 @@ import {
     SwatchPicker,
     TextField,
 } from "@clientbridge/ui";
-import { launchImageLibraryAsync } from "expo-image-picker";
 import { Image, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 
 import { api, apiBaseUrl } from "../lib/api";
 import { bookUrl, pageUrl } from "../lib/config";
 import { useOpenLink } from "../lib/links";
-import { pickedPhoto } from "../lib/photos";
+import { pickedPhoto, pickFromLibrary } from "../lib/photos";
 import type { RootStackParamList } from "../navigation";
 
 const c = theme.colors;
@@ -119,7 +118,7 @@ function BrandSheet({ onClose }: { onClose: () => void }) {
     const pickImage = (kind: "logo" | "cover"): void => {
         picker.run(
             async () => {
-                const result = await launchImageLibraryAsync({
+                const result = await pickFromLibrary({
                     mediaTypes: ["images"],
                     quality: 0.85,
                 });
