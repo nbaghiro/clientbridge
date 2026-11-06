@@ -61,7 +61,12 @@ test("STRIPE-BROWSER-07 with tax registration off, a shop order paid by card cha
         });
         await expect(page.getByText(shop.payBodyNoTax(SHAMPOO.price))).toBeVisible();
         await enterStripeCard(await cardFrame(page), "4242424242424242");
-        await page.getByRole("button", { name: shop.pay(SHAMPOO.price), exact: true }).click();
+        // a click outside the card form closes its country list, which would take the Pay click
+        await page.getByRole("heading", { name: shop.sectionPay, exact: true }).click();
+        const pay = page.getByRole("button", { name: shop.pay(SHAMPOO.price), exact: true });
+        await pay.scrollIntoViewIfNeeded();
+        await expect(pay).toBeInViewport({ ratio: 1 });
+        await pay.click();
         await expect(page.getByRole("heading", { name: shop.doneTitle, exact: true })).toBeVisible({
             timeout: 60_000,
         });
