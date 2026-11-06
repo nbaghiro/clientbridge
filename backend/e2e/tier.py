@@ -21,12 +21,14 @@ from typing import IO, cast
 import httpx
 from alembic.config import Config
 from alembic.script import ScriptDirectory
+from cryptography.hazmat.primitives.asymmetric import rsa
 
 from clientbridge.core.config import Settings
 
 ROOT = Path(__file__).resolve().parents[2]
 BACKEND = ROOT / "backend"
 RELAY = Path(__file__).with_name("relay.py")
+OIDC = Path(__file__).with_name("oidc.py")
 TIER = Path(os.environ.get("TEST_TIER_DIR") or Path.home() / ".cache" / "clientbridge-test")
 PROJECT = "clientbridge-test"
 DATABASE = "clientbridge_test_e2e"
@@ -41,12 +43,14 @@ PORTS = {
     "powersync": 8767,
     "stripe_mock": 8768,
     "relay": 8769,
+    "oidc": 8788,
 }
 SLOTS = 6
 # each slot owns three fixed origins (web, pseudo-locale web, admin) that Kratos lists up front
 FIRST_ORIGIN = 8770
 RELAY_IMAGE = "python@sha256:bf12ecc0bea3f171d55145dd02c78b5eeb09f30ee2ac9cc2b4c9e4e8f5e30741"
 NATIVE_RETURN = "clientbridge://auth/callback"
+OIDC_CLIENT = "clientbridge-e2e"
 DEFAULTS = Settings.model_fields
 # Mailpit refuses only the reserved .invalid domain, so a case can meet a real provider refusal
 _INVALID = "invalid"
@@ -119,7 +123,7 @@ def configuration() -> str:
 
 
 # the backend suite needs only "tier": it seeds its own template database per migrations
-BUILT_FROM = ("migrations", "sync_rules", "auth", "tier", "relay")
+BUILT_FROM = ("migrations", "sync_rules", "auth", "tier", "scripts")
 
 
 def fingerprint() -> dict[str, str]:
@@ -130,7 +134,7 @@ def fingerprint() -> dict[str, str]:
         "sync_rules": digest(ROOT / "infra" / "powersync" / "sync-rules.yaml"),
         "auth": digest(*sorted(p for p in (ROOT / "infra" / "auth").iterdir() if p.is_file())),
         "tier": configuration(),
-        "relay": digest(RELAY),
+        "scripts": digest(RELAY, OIDC),
     }
 
 
@@ -182,6 +186,11 @@ def compose_spec() -> dict[str, object]:
         "SELFSERVICE_METHODS_WEBAUTHN_CONFIG_RP_ORIGINS": ",".join(every),
         "SELFSERVICE_FLOWS_VERIFICATION_AFTER_DEFAULT_BROWSER_RETURN_URL": web,
         "SELFSERVICE_FLOWS_LOGOUT_AFTER_DEFAULT_BROWSER_RETURN_URL": f"{web}/login",
+        # Google's provider id stays, so the apps' Google button signs in through the stand-in
+        "SELFSERVICE_METHODS_OIDC_CONFIG_PROVIDERS_0_PROVIDER": "generic",
+        "SELFSERVICE_METHODS_OIDC_CONFIG_PROVIDERS_0_ISSUER_URL": "http://oidc:8080",
+        "SELFSERVICE_METHODS_OIDC_CONFIG_PROVIDERS_0_CLIENT_ID": OIDC_CLIENT,
+        "SELFSERVICE_METHODS_OIDC_CONFIG_PROVIDERS_0_CLIENT_SECRET": OIDC_CLIENT,
     }
     # a browser flow's own return_to wins; these only serve links opened outside a run's origin
     for flow, path in {
@@ -256,6 +265,26 @@ def compose_spec() -> dict[str, object]:
             "volumes": [f"{config / 'relay.py'}:/config/relay.py:ro", f"{TIER / 'runs'}:/runs:ro"],
             "extra_hosts": host,
             "ports": [f"127.0.0.1:{PORTS['relay']}:8080"],
+            "healthcheck": {
+                "test": [
+                    "CMD",
+                    "python",
+                    "-c",
+                    "import urllib.request as u; u.urlopen('http://127.0.0.1:8080/health')",
+                ],
+                "interval": "1s",
+                "timeout": "3s",
+                "retries": 30,
+            },
+        },
+        "oidc": {
+            "image": RELAY_IMAGE,
+            "command": ["python", "/config/oidc.py"],
+            "volumes": [
+                f"{config / 'oidc.py'}:/config/oidc.py:ro",
+                f"{config / 'oidc.json'}:/config/oidc.json:ro",
+            ],
+            "ports": [f"127.0.0.1:{PORTS['oidc']}:8080"],
             "healthcheck": {
                 "test": [
                     "CMD",
@@ -359,6 +388,18 @@ def mirror(source: Path, target: Path) -> None:
             shutil.copyfile(path, target / path.name)
 
 
+def oidc_key() -> dict[str, str]:
+    """The stand-in's signing key, made once per machine so no private key sits in the repo."""
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048).private_numbers()
+    return {
+        "n": str(key.public_numbers.n),
+        "e": str(key.public_numbers.e),
+        "d": str(key.d),
+        "browser_url": f"http://localhost:{PORTS['oidc']}",
+        "client_id": OIDC_CLIENT,
+    }
+
+
 def write_config() -> None:
     config = TIER / "config"
     mirror(ROOT / "infra" / "auth", config / "auth")
@@ -366,6 +407,9 @@ def write_config() -> None:
     shutil.copy(ROOT / "infra" / "powersync" / "sync-rules.yaml", config / "powersync")
     (config / "powersync" / "powersync.json").write_text(json.dumps(powersync_config(), indent=2))
     shutil.copy(RELAY, config / "relay.py")
+    shutil.copy(OIDC, config / "oidc.py")
+    if not (config / "oidc.json").is_file():
+        (config / "oidc.json").write_text(json.dumps(oidc_key()))
     (TIER / "runs").mkdir(parents=True, exist_ok=True)
     (TIER / "compose.json").write_text(json.dumps(compose_spec(), indent=2))
 
@@ -402,6 +446,7 @@ SERVICES: tuple[str, ...] = (
     "mailpit",
     "stripe-mock",
     "relay",
+    "oidc",
     "auth",
     "powersync",
 )
@@ -417,6 +462,7 @@ def healthy() -> bool:
         checks = [
             f"http://localhost:{PORTS['auth_admin']}/admin/health/ready",
             f"http://localhost:{PORTS['relay']}/health",
+            f"http://localhost:{PORTS['oidc']}/health",
             f"http://localhost:{PORTS['mailpit']}/api/v1/info",
             f"http://localhost:{PORTS['powersync']}/probes/liveness",
         ]
@@ -454,7 +500,9 @@ def wait_healthy(seconds: float = 120) -> None:
 def start() -> None:
     """Bring the tier up for this checkout's migrations, sync rules and auth configuration."""
     write_config()
-    compose("up", "-d", "--wait", "postgres", "redis", "s3", "mailpit", "stripe-mock", "relay")
+    compose(
+        "up", "-d", "--wait", "postgres", "redis", "s3", "mailpit", "stripe-mock", "relay", "oidc"
+    )
     env = environment()
     backend(["scripts.db_access", "roles"], env)
     backend(["alembic", "upgrade", "head"], env)
@@ -476,12 +524,13 @@ def destroy() -> None:
             path.unlink()
 
 
-def refresh_relay() -> None:
-    """Swap in a changed relay without a rebuild; the courier retries mail sent meanwhile."""
+def refresh_scripts() -> None:
+    """Swap in a changed relay or stand-in without a rebuild; the courier retries meanwhile."""
     shutil.copy(RELAY, TIER / "config" / "relay.py")
-    compose("restart", "relay")
+    shutil.copy(OIDC, TIER / "config" / "oidc.py")
+    compose("restart", "relay", "oidc")
     found = recorded() or {}
-    found["relay"] = fingerprint()["relay"]
+    found["scripts"] = fingerprint()["scripts"]
     (TIER / "fingerprint.json").write_text(json.dumps(found, indent=2))
 
 
@@ -497,8 +546,8 @@ def hold(needs: Collection[str] = BUILT_FROM) -> Iterator[None]:
     TIER.mkdir(parents=True, exist_ok=True)
     with (TIER / "tier.lock").open("a") as handle:
         current = {name: value for name, value in fingerprint().items() if name in needs}
-        if differences(current, recorded()) == ["relay"] and running():
-            refresh_relay()
+        if differences(current, recorded()) == ["scripts"] and running():
+            refresh_scripts()
         try:
             fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
             alone = True
@@ -691,13 +740,13 @@ def main() -> None:
         return
     TIER.mkdir(parents=True, exist_ok=True)
     with (TIER / "tier.lock").open("a") as handle:
-        # a changed relay alone is swapped in place, as runs do, rather than rebuilding the tier
+        # a changed relay or stand-in alone is swapped in place, as runs do, not rebuilt
         if (
             args.action == "up"
-            and differences(fingerprint(), recorded()) == ["relay"]
+            and differences(fingerprint(), recorded()) == ["scripts"]
             and running()
         ):
-            refresh_relay()
+            refresh_scripts()
         try:
             fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:

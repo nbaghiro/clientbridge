@@ -1,6 +1,7 @@
 appId: ${APP_ID}
 name: NATIVE-CRM-04 A pet's details show on the record, and the groomer sees the pet on their visit
 onFlowComplete:
+    - runScript: helpers/restore-week.js
     - runFlow: helpers/restore-owner.yaml
 ---
 - evalScript: ${output.phone = "250" + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000))}
@@ -24,10 +25,10 @@ onFlowComplete:
       env:
           METHOD: POST
           PATH: /v1/items
-          BODY: "${JSON.stringify({ kind: 'service', name: 'Bath and tidy ' + output.phone.slice(-4), duration_min: 30, price_cents: 5000, deposit_type: 'none', online_bookable: false })}"
+          BODY: "${JSON.stringify({ kind: 'service', name: 'Bath and tidy ' + output.phone.slice(-4), duration_min: 10, price_cents: 5000, deposit_type: 'none', online_bookable: false })}"
 - evalScript: ${output.itemId = output.response.id}
 - runScript:
-      file: helpers/book-next-week.js
+      file: helpers/book-today.js
       env:
           BODY: "${JSON.stringify({ client_id: output.clientId, subject_id: output.petId, item_id: output.itemId, staff_id: 'st_diego_' + E2E_NAMESPACE })}"
 - runFlow: helpers/owner.yaml
@@ -46,7 +47,12 @@ onFlowComplete:
 - scrollUntilVisible:
       element: "Edit Juniper"
       direction: DOWN
-- assertVisible: ".*Bernese mountain dog · 41 kg.*"
+# iOS reads the row only by its label, so there the editor alone shows the details
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - assertVisible: ".*Bernese mountain dog · 41 kg.*"
 - takeScreenshot: pet-on-record
 - tapOn: "Edit Juniper"
 - extendedWaitUntil:
@@ -61,7 +67,7 @@ onFlowComplete:
           platform: Android
       commands:
           - hideKeyboard
-# the groomer opens the visit on their phone and sees which dog it is for
+# the groomer opens today's visit on their phone and sees which dog it is for
 - tapOn: "Today"
 - tapOn: "Setup"
 - scrollUntilVisible:
@@ -85,11 +91,19 @@ onFlowComplete:
 - extendedWaitUntil:
       visible: "Today"
       timeout: 60000
+# the groomer's Today names the dog on the visit under way or coming up
+- scrollUntilVisible:
+      element: ${"Juniper · " + output.name}
+      direction: DOWN
+      timeout: 60000
+- takeScreenshot: pet-on-staff-today
+# and the visit itself, opened from Schedule, shows the dog's details
 - tapOn: "Schedule"
-- tapOn: "Next"
 - tapOn: ${output.dayLabel}
-- extendedWaitUntil:
-      visible: ".*Juniper.*"
+# the day opens at the start of its hours, which the helper moved to midnight
+- scrollUntilVisible:
+      element: ".*Juniper.*"
+      direction: DOWN
       timeout: 60000
 - tapOn: ".*Juniper.*"
 # a phone shows the pet below the visit's times, so the sheet scrolls to it

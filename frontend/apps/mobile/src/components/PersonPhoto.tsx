@@ -1,11 +1,10 @@
 import { type PhotoOwner, strings, useAsyncAction, usePersonPhoto } from "@clientbridge/app-core";
 import { DetailSection, ImagePicker, Notice } from "@clientbridge/ui";
-import { launchImageLibraryAsync } from "expo-image-picker";
 import { View } from "react-native";
 
 import { api } from "../lib/api";
 import { useUserId, useViewer } from "../lib/auth";
-import { pickedPhoto } from "../lib/photos";
+import { pickedPhoto, pickFromLibrary } from "../lib/photos";
 
 /** A client's or team member's photo, picked from the library and removable by whoever may change it. */
 export function PersonPhoto({
@@ -24,7 +23,7 @@ export function PersonPhoto({
     const pick = (): void => {
         picker.run(
             async () => {
-                const result = await launchImageLibraryAsync({
+                const result = await pickFromLibrary({
                     mediaTypes: ["images"],
                     allowsEditing: true,
                     aspect: [1, 1],

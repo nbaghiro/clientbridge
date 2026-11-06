@@ -110,7 +110,7 @@ function ShopPage({ slug }: { slug: string }) {
     const hero = (
         <div>
             <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
-                {checkingOut ? (shop.status === "paid" ? s.doneTitle : s.checkout) : s.title}
+                {checkingOut ? s.checkout : s.title}
             </h1>
             <p className="mt-2 text-sm text-muted">{checkingOut ? s.checkoutBody : s.subtitle}</p>
         </div>
@@ -149,7 +149,7 @@ function ShopPage({ slug }: { slug: string }) {
         <PublicPage
             name={page.business_name}
             brand={page.brand}
-            hero={hero}
+            hero={shop.status === "paid" ? undefined : hero}
             cartCount={shop.count}
             actions={
                 checkingOut && shop.status !== "paid" ? (

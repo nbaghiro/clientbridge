@@ -226,6 +226,42 @@ test(
     },
 );
 
+test("ID-E2E-06 Google sign-in on a password account's address opens the same account and business", async ({
+    page,
+    request,
+}) => {
+    const account = newAccount("google");
+    const name = `${account.name}'s Beauty Studio`;
+    await signUp(page, request, account);
+    await openBusiness(page, name);
+    const viaGoogle = async (): Promise<void> => {
+        await page.context().clearCookies();
+        await page.goto("/");
+        await page.getByRole("button", { name: a.continueWithGoogle }).click();
+        // the test tier's Google stand-in signs in whatever address is typed
+        await page.waitForURL(/\/authorize\?/);
+        await page.getByRole("textbox", { name: "Email", exact: true }).fill(account.email);
+        await page.getByRole("button", { name: "Continue", exact: true }).click();
+    };
+    await viaGoogle();
+    await expect(page.getByText(a.flowMessages[1010016], { exact: true })).toBeVisible();
+    await page.getByRole("textbox", { name: a.email, exact: true }).fill(account.email);
+    await page.getByLabel(a.password, { exact: true }).fill(account.password);
+    await page.getByRole("button", { name: a.signIn, exact: true }).click();
+    await expect(page).toHaveURL(/\/today$/, { timeout: 60_000 });
+    // once linked, Google alone opens the account
+    await viaGoogle();
+    await expect(page).toHaveURL(/\/today$/, { timeout: 60_000 });
+    await navigate(page, "/setup/business");
+    await expect(
+        page.getByRole("textbox", { name: strings.business.nameLabel, exact: true }),
+    ).toHaveValue(name, { timeout: 60_000 });
+    expect(await signedInEmail(page)).toBe(account.email);
+    const users = await select<{ count: number }>`
+        select count(*)::int as count from users where email = ${account.email}`;
+    expect(users[0]?.count).toBe(1);
+});
+
 test("ID-E2E-02 a wrong code then the mailed one confirms the email, and a second browser reaches the same business", async ({
     page,
     request,

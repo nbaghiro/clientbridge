@@ -73,11 +73,7 @@ import {
     Toggle,
     useTabletLayout,
 } from "@clientbridge/ui";
-import {
-    launchCameraAsync,
-    launchImageLibraryAsync,
-    requestCameraPermissionsAsync,
-} from "expo-image-picker";
+import { launchCameraAsync, requestCameraPermissionsAsync } from "expo-image-picker";
 import { useEffect, useRef, useState } from "react";
 import {
     Image,
@@ -92,7 +88,7 @@ import {
 
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
-import { pickedPhoto } from "../lib/photos";
+import { pickedPhoto, pickFromLibrary } from "../lib/photos";
 import { CheckInSheet } from "./CheckInSheet";
 import { DocumentPreview } from "./DocumentPreview";
 import { BookingVisitRecords } from "./VisitRecords";
@@ -292,7 +288,7 @@ function Photos({ event }: { event: ScheduleEvent }) {
                 const options = { mediaTypes: ["images" as const], quality: 0.8 };
                 const result = camera
                     ? await launchCameraAsync(options)
-                    : await launchImageLibraryAsync(options);
+                    : await pickFromLibrary(options);
                 const asset = result.assets?.[0];
                 if (!asset) return;
                 photos.add(pickedPhoto(asset));

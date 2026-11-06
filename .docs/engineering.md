@@ -293,6 +293,7 @@ Every suite runs on one long-lived set of services, the `clientbridge-test` comp
 | PowerSync       | 8767                    | Replicates `clientbridge_test_e2e`                                                                    |
 | stripe-mock     | 8768                    | Contract tests                                                                                        |
 | Auth mail relay | 8769                    | Forwards each Kratos courier request to the API of the run that owns the recipient                    |
+| Google stand-in | 8788                    | Signs in whatever address a test types, as Kratos's `google` provider                                  |
 
 A run leases one of six slots, which fixes its web, pseudo-locale and admin origins (8770 to 8787) and its Redis index. Only the code under test runs per run: the API, the worker, the bundles and the browsers.
 

@@ -1,5 +1,5 @@
 appId: ${APP_ID}
-name: NATIVE-PAY-01 On a phone, staff text a client the bank authorization link, and the text carries the link
+name: NATIVE-PAY-01 On a phone, staff text a client the bank authorization link, and the bank the client authorizes shows with an active mandate
 tags:
     - stripe
 ---
@@ -48,3 +48,17 @@ tags:
       env:
           PHONE: ${"1" + output.phone}
 - assertTrue: ${output.link.indexOf("/setup#token=") > 0}
+- runScript:
+      file: helpers/client-authorizes-bank.js
+      env:
+          LINK: ${output.link}
+# the sheet has no Close button; a tap above it closes it
+- tapOn:
+      point: "50%,20%"
+- extendedWaitUntil:
+      visible: ".*Lane Test Bank.*"
+      timeout: 60000
+# only a bank whose mandate is active can be the default, and an active one carries no mandate label
+- assertVisible: ".*Default.*"
+- assertNotVisible: "Mandate pending"
+- takeScreenshot: client-wallet-bank-active
