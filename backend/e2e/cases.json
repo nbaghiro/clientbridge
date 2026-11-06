@@ -149,6 +149,7 @@
     "STR-E13": {"lanes": ["stripe"], "browsers": false, "families": [], "status": "implemented"},
     "STR-E15": {"lanes": ["stripe"], "browsers": false, "families": [], "status": "implemented"},
     "STR-E17": {"lanes": ["stripe"], "browsers": false, "families": ["SCH08", "SCH02"], "status": "implemented"},
+    "STR-E28": {"lanes": ["stripe"], "browsers": false, "families": ["SCH08"], "status": "implemented"},
     "STR-E26": {"lanes": ["stripe"], "browsers": false, "families": ["PAY-E11"], "status": "implemented"},
     "STR-E27": {"lanes": ["stripe"], "browsers": false, "families": ["PAY-E13", "PAY-E15"], "status": "implemented"},
     "XB-E2E-01": {"lanes": ["web"], "browsers": true, "families": [], "status": "implemented"},

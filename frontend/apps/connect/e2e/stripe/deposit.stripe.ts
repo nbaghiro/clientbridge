@@ -15,6 +15,7 @@ import {
     linkStripeDepositInvoice,
     reapDeposit,
     type DepositEvidence,
+    type DepositFixture,
 } from "./support/depositContract";
 import {
     prepareDepositBooking,
@@ -29,6 +30,30 @@ import {
 import { expectDepositStage } from "./support/depositOracle";
 import { enrolWithCardDeposit, PROGRAM, prepareProgram, webBaseUrl } from "./support/program";
 import { runPort } from "@clientbridge/config/e2e/run";
+
+/** Waits until Stripe's payment event has settled the deposit with its fees, then reads it. */
+async function collectedDeposit(f: DepositFixture): Promise<DepositEvidence> {
+    await expect
+        .poll(
+            async () => {
+                const e = await depositEvidence(f);
+                return {
+                    local: e.payments.map((p) => [p.kind, p.status]),
+                    remote: e.provider.intents.map((p) => p.status),
+                    booking: e.booking.deposit_status,
+                    feesReady: e.provider.fees !== null,
+                };
+            },
+            { timeout: 90_000 },
+        )
+        .toEqual({
+            local: [["deposit", "succeeded"]],
+            remote: ["succeeded"],
+            booking: "collected",
+            feesReady: true,
+        });
+    return depositEvidence(f);
+}
 
 async function outstanding(
     page: Page,
@@ -359,26 +384,7 @@ test("STR-E17 a new client pays an online booking's deposit by card, the owner a
         await client.reload();
         await expect(client.getByRole("heading", { name: b.payTitle, exact: true })).toBeVisible();
         await payOnlineDeposit(client);
-        await expect
-            .poll(
-                async () => {
-                    const e = await depositEvidence(f);
-                    return {
-                        local: e.payments.map((p) => [p.kind, p.status]),
-                        remote: e.provider.intents.map((p) => p.status),
-                        booking: e.booking.deposit_status,
-                        feesReady: e.provider.fees !== null,
-                    };
-                },
-                { timeout: 90_000 },
-            )
-            .toEqual({
-                local: [["deposit", "succeeded"]],
-                remote: ["succeeded"],
-                booking: "collected",
-                feesReady: true,
-            });
-        const collected = await depositEvidence(f);
+        const collected = await collectedDeposit(f);
         const fees = collected.provider.fees;
         const depositPaymentId = collected.payments[0]?.id;
         if (fees === null || depositPaymentId === undefined)
@@ -424,6 +430,79 @@ test("STR-E17 a new client pays an online booking's deposit by card, the owner a
         expect(await booked()).toBe(1);
         await info.attach("online-deposit-approved-and-applied", {
             body: JSON.stringify(applied),
+            contentType: "application/json",
+        });
+    } finally {
+        await customer.close();
+        await ownerContext.close();
+    }
+});
+
+test("STR-E28 a new client pays an online booking's deposit by card, the owner declines the request, and Stripe refunds the deposit once", async ({
+    browser,
+}, info) => {
+    test.setTimeout(300_000);
+    const s = strings.bookings;
+    const ownerContext = await browser.newContext({ baseURL: webBaseUrl() });
+    const customer = await customerContext(browser);
+    try {
+        const owner = await ownerContext.newPage();
+        await signIn(owner);
+        const setup = await prepareOnlineDeposit(owner, "Juniper");
+        const client = await customer.newPage();
+        const f = await requestWithDeposit(client, setup, 6);
+        await payOnlineDeposit(client);
+        const deposit = (await collectedDeposit(f)).payments[0];
+        if (deposit?.provider_ref == null) throw new Error("the settled deposit is missing");
+
+        await navigate(owner, "/today");
+        await owner
+            .getByRole("button", {
+                name: new RegExp(`${setup.booker.name} asked for ${setup.visit.itemName}`),
+            })
+            .click({ timeout: 60_000 });
+        await owner.getByRole("button", { name: s.decline, exact: true }).click();
+        await expect(
+            owner.getByText(s.declineRefund(formatMoney(2000, "CAD")), { exact: true }),
+        ).toBeVisible();
+        await owner.getByRole("button", { name: s.confirmDecline, exact: true }).click();
+        await expect(owner.getByText(s.declinedDone, { exact: true }).first()).toBeVisible({
+            timeout: 60_000,
+        });
+
+        await expect
+            .poll(async () => (await depositEvidence(f)).booking.deposit_status, {
+                timeout: 90_000,
+            })
+            .toBe("refunded");
+        const e = await depositEvidence(f);
+        const refunds = e.payments.filter((p) => p.parent_payment_id === deposit.id);
+        expect(refunds).toEqual([
+            expect.objectContaining({ kind: "refund", status: "succeeded", amount_cents: 2000 }),
+        ]);
+        expect(e.provider.refunds).toEqual([
+            {
+                id: refunds[0]?.provider_ref,
+                payment_intent: deposit.provider_ref,
+                status: "succeeded",
+                amount: 2000,
+                currency: "cad",
+            },
+        ]);
+        const held = e.entries
+            .filter((x) => x.category === "deposit" && x.subject_id === f.bookingId)
+            .reduce((sum, x) => sum + x.amount_cents, 0);
+        expect(held).toBe(0);
+        expect(
+            await select<{ status: string }>`SELECT status FROM bookings WHERE id = ${f.bookingId}`,
+        ).toEqual([{ status: "canceled" }]);
+        const told = async (): Promise<number> =>
+            (await textsTo(owner.request, setup.booker.phone)).filter(({ Snippet }) =>
+                Snippet.endsWith("deposit is being refunded to your card."),
+            ).length;
+        await expect.poll(told).toBe(1);
+        await info.attach("online-deposit-declined-and-refunded", {
+            body: JSON.stringify(e),
             contentType: "application/json",
         });
     } finally {

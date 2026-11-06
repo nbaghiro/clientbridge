@@ -12,7 +12,14 @@ from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services import ledger
 from clientbridge.services.bookings import run_complete_past_bookings
 from tests.conftest import BIZ, Factory, FakePaymentGateway, FakeSmsSender
-from tests.helpers import deposit_payment, enable_payments, payment, provider_ref, settle
+from tests.helpers import (
+    deposit_payment,
+    enable_payments,
+    payment,
+    provider_ref,
+    queued_subjects,
+    settle,
+)
 
 SLUG = "birchbark"
 ST_OWNER = "st_owner"
@@ -48,9 +55,11 @@ async def _request(
     return str(res.json()["booking_id"])
 
 
-async def _paid_request(api: httpx.AsyncClient, db: AsyncSession) -> tuple[str, str]:
+async def _paid_request(
+    api: httpx.AsyncClient, db: AsyncSession, *, staff: str = ST_OWNER
+) -> tuple[str, str]:
     await enable_payments(db)
-    booking_id = await _request(api, db)
+    booking_id = await _request(api, db, staff=staff)
     payment_id = await deposit_payment(db, booking_id)
     await settle(api, db, payment_id)
     return booking_id, payment_id
@@ -163,6 +172,22 @@ async def test_a_member_answers_only_their_own_requests(
     assert (await _booking(db, theirs)).status == "confirmed"
 
 
+async def test_a_member_declining_their_own_paid_request_refunds_it(
+    api: httpx.AsyncClient,
+    as_staff: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+) -> None:
+    # the deposit only ever held a visit that won't happen, so the member who answers returns it
+    booking_id, payment_id = await _paid_request(api, db, staff=ST_DIEGO)
+
+    res = await as_staff.patch(f"/v1/bookings/{booking_id}", json={"status": "canceled"})
+
+    assert res.status_code == 200, res.text
+    assert (await _booking(db, booking_id)).deposit_status == "refunded"
+    assert gateway.refunds == [(await provider_ref(db, payment_id), 2750, False)]
+
+
 async def test_another_business_request_is_out_of_reach(
     as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
 ) -> None:
@@ -212,7 +237,7 @@ async def test_another_business_request_is_out_of_reach(
 
 
 async def test_a_paid_request_nobody_answered_is_declined_and_refunded_after_its_day(
-    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway, sms: FakeSmsSender
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
     booking_id, payment_id = await _paid_request(api, db)
     booking = await _booking(db, booking_id)
@@ -224,11 +249,15 @@ async def test_a_paid_request_nobody_answered_is_declined_and_refunded_after_its
     )
     await db.execute(update(Booking).where(Booking.id == booking_id).values(starts_at=past))
     await db.flush()
-    sent = len(sms.sent)
 
     assert await run_complete_past_bookings(db, gateway, past + timedelta(days=1)) >= 1
 
     booking = await _booking(db, booking_id)
     assert (booking.status, booking.deposit_status) == ("canceled", "refunded")
     assert gateway.refunds == [(await provider_ref(db, payment_id), 2750, False)]
-    assert not any("wasn't accepted" in s.body for s in sms.sent[sent:])
+    [notice] = await queued_subjects(db, f"booking:{booking_id}")
+    assert notice.endswith(
+        "wasn't accepted, and your $27.50 deposit is being refunded to your card."
+    )
+    assert await run_complete_past_bookings(db, gateway, past + timedelta(days=2)) == 0
+    assert len(await queued_subjects(db, f"booking:{booking_id}")) == 1

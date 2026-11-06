@@ -20,6 +20,7 @@
         "deposit.stripe.ts > FIN-DEPOSIT-10 a card deposit paid while enrolling in a camp on Connect part-pays the enrolment invoice": 46,
         "deposit.stripe.ts > SCH-E2E-17 the reaper releases an abandoned deposit but keeps one Stripe took while its event was held, and that event settles it once however often it comes": 60,
         "deposit.stripe.ts > STR-E17 a new client pays an online booking's deposit by card, the owner approves the request, and the visit's invoice applies the deposit": 49,
+        "deposit.stripe.ts > STR-E28 a new client pays an online booking's deposit by card, the owner declines the request, and Stripe refunds the deposit once": 45,
         "desk.stripe.ts > STR-E05 a canceled desk card checkout is canceled in Stripe and the sale is paid in cash": 21,
         "disputes.stripe.ts > STR-E02 a part refund made during an inquiry fails when it escalates, and losing the dispute unwinds the invoice once": 82,
         "disputes.stripe.ts > STR-E03 a lost dispute on a part-used gift card gives back only what it still holds and books the rest as a loss": 36,

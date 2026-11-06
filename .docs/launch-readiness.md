@@ -1088,6 +1088,7 @@ Clients find the business, book and pay a deposit, and change their plans withou
 * `XB-E2E-22 (connect)`
 * `FIN-DEPOSIT-04 (stripe)`
 * `STR-E17 (stripe)`
+* `STR-E28 (stripe)`
 * `SCH-E2E-17 (stripe)`
 * `NATIVE-SCH-01 (native-ios, native-android)`
 * `connect: publicBooking.e2e.ts › a new client's online booking waits for approval and opens the manage link`

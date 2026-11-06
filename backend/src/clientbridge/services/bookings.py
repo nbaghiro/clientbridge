@@ -1055,12 +1055,11 @@ class BookingService:
         return BookingCheck(ok=True, resource_id=choice.held, free_resource_ids=choice.free)
 
     async def _refund_declined(self, days: Sequence[Booking]) -> int:
-        """A declined request gives back the deposit it paid; the cents it was paid."""
+        """A declined request gives back the deposit it paid; the cents refunded."""
         refunded = 0
         for day in days:
             if day.deposit_status == "collected":
-                refunded += day.deposit_amount_cents
-                await refund_deposit(self.db, self.gateway, day)
+                refunded += await refund_deposit(self.db, self.gateway, day)
         return refunded
 
     async def _answer_enrolment(
@@ -3173,13 +3172,14 @@ async def _deposits_released(db: AsyncSession, gateway: PaymentGateway, booking:
         return False
 
 
-async def _refund_unanswered(db: AsyncSession, gateway: PaymentGateway, booking: Booking) -> bool:
-    """For the jobs: a request nobody answered gives its deposit back; False leaves it to staff."""
+async def _refund_unanswered(
+    db: AsyncSession, gateway: PaymentGateway, booking: Booking
+) -> int | None:
+    """For the jobs: a request nobody answered gives its deposit back; None leaves it to staff."""
     try:
-        await refund_deposit(db, gateway, booking)
+        return await refund_deposit(db, gateway, booking)
     except AppError:
-        return False
-    return True
+        return None
 
 
 async def run_reap_unpaid_bookings(
@@ -3342,14 +3342,16 @@ async def _close_past_visits(
         )
     ).all()
     slots: dict[str, Slot] = {}
+    declined: list[tuple[str, int]] = []
     changed = 0
     for booking, slot in rows:
+        refunded: int | None = 0
         if booking.status == "confirmed":
             booking.status, booking.completed_at = "completed", now
             action = "booking.auto_complete"
         elif (
             booking.deposit_status == "collected"
-            and not await _refund_unanswered(db, gateway, booking)
+            and (refunded := await _refund_unanswered(db, gateway, booking)) is None
         ) or (
             booking.deposit_status == "pending"
             and not await _deposits_released(db, gateway, booking)
@@ -3359,6 +3361,7 @@ async def _close_past_visits(
             booking.status, booking.canceled_at = "canceled", now
             action = "booking.auto_cancel"
             await carry_crew(db, business_id, booking, slot)
+            declined.append((booking.id, refunded or 0))
         if booking.deposit_status == "pending":
             booking.deposit_status = "none"
         db.add(
@@ -3378,6 +3381,11 @@ async def _close_past_visits(
         if slot.status != "canceled":
             await complete_when_done(db, slot)
     await db.flush()
+    # the client was told the business would answer, so an unanswered request still hears back
+    for booking_id, refunded in declined:
+        await queued_notifier(
+            db, business_id, delivery_key("booking", f"{booking_id}:unanswered")
+        ).on_booking_declined(db, booking_id, refunded)
     return changed
 
 

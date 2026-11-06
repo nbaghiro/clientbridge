@@ -972,6 +972,22 @@ describe("a reload on the deposit step", () => {
         });
     });
 
+    it("shows the confirmation when the paid deposit is still settling after the reload", async () => {
+        const settling = Object.assign(new Error("settling"), {
+            status: 409,
+            code: "deposit_in_progress",
+        });
+        const { result } = renderHook(() =>
+            usePublicBookingFlow(client(vi.fn().mockRejectedValue(settling)), "demo", {
+                storage: storage(),
+            }),
+        );
+        await waitFor(() => {
+            expect(result.current.step).toBe("done");
+        });
+        expect(result.current.error).toBeNull();
+    });
+
     it("says the hold ended and asks for a new time once the visit was released", async () => {
         const gone = Object.assign(new Error("gone"), { status: 404, code: "not_found" });
         const { result } = renderHook(() =>

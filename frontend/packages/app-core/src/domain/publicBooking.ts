@@ -803,7 +803,9 @@ export function usePublicBookingFlow(
                 );
             },
             (e: unknown) => {
-                if (failedCode(e) === "deposit_not_due") {
+                // in progress: Stripe already took the card and its event hasn't landed yet
+                const code = failedCode(e);
+                if (code === "deposit_not_due" || code === "deposit_in_progress") {
                     setStep("done");
                     return;
                 }
