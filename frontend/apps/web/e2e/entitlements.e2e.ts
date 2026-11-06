@@ -1,12 +1,21 @@
 import { randomUUID } from "node:crypto";
-import { combineDayAndTime, dateKey, formatTime, strings } from "@clientbridge/app-core/public";
-import { expect, test } from "@playwright/test";
+import {
+    combineDayAndTime,
+    dateKey,
+    formatMoney,
+    formatParts,
+    formatTime,
+    strings,
+} from "@clientbridge/app-core/public";
+import { expect, type Locator, test } from "@playwright/test";
 import { addPet } from "./support/clients";
+import { select } from "./support/db";
 import {
     entitlementEvidence,
     entitlementFixture,
     expectEntitlementLedger,
     openEntitlement,
+    openPlanEditor,
     redeemGift,
     sellEntitlement,
 } from "./support/entitlements";
@@ -336,5 +345,195 @@ test("ENT-E2E-03 a package for one pet covers that pet's visit at the desk and i
     } finally {
         await member.cleanup();
         await joining.close();
+    }
+});
+
+test("ENT-E2E-04 a package, a membership and a gift card are set up in the item editor and sell only through their own checkouts", async ({
+    page,
+}, testInfo) => {
+    const c = strings.catalog;
+    const d = strings.pos.desk;
+    await signIn(page);
+    const tag = randomUUID().slice(0, 8);
+    const service = await apiCall<{ id: string; name: string }>(
+        page,
+        "POST",
+        "/v1/items",
+        {
+            kind: "service",
+            name: `Plan groom ${tag}`,
+            duration_min: 60,
+            price_cents: 5000,
+            deposit_type: "none",
+            online_bookable: false,
+        },
+        201,
+    );
+    // archived afterwards, newest first, so later runs don't see this run's items
+    const archive = [service.id];
+    try {
+        const names = {
+            package: `Five grooms ${tag}`,
+            subscription: `Groom club ${tag}`,
+            gift: `Gift card ${tag}`,
+        };
+        const save = async (editor: Locator): Promise<string> => {
+            const created = page.waitForResponse(
+                (r) => new URL(r.url()).pathname === "/v1/items" && r.request().method() === "POST",
+            );
+            await editor.getByRole("button", { name: c.add, exact: true }).click();
+            const response = await created;
+            expect(response.status(), await response.text()).toBe(201);
+            await expect(editor).toBeHidden();
+            const { id } = (await response.json()) as { id: string };
+            archive.unshift(id);
+            return id;
+        };
+        const chooseService = async (editor: Locator, label: string): Promise<void> => {
+            await editor.getByRole("combobox", { name: label, exact: true }).click();
+            await page
+                .locator(`[role="option"][data-value="${service.id}"]`)
+                .click({ timeout: 60_000 });
+        };
+        const field = (editor: Locator, label: string): Locator =>
+            editor.getByRole("textbox", { name: label, exact: true });
+
+        await navigate(page, "/setup/services");
+        await page.getByRole("tab", { name: c.views.plans, exact: true }).click();
+
+        const pack = await openPlanEditor(page, "package");
+        await expect(pack).toContainText(c.subjectRule("pet"));
+        await field(pack, c.name).fill(names.package);
+        await chooseService(pack, c.covers);
+        await field(pack, c.visitsLabel).fill("5");
+        await expect(
+            pack.getByText(c.planSummaryPackage(5, service.name), { exact: true }),
+        ).toBeVisible();
+        // a package without a price shows as free
+        await expect(pack).toContainText(c.planFree);
+        await field(pack, c.price).fill("200");
+        await field(pack, c.validForDays).fill("365");
+        await expect(pack).toContainText(
+            formatParts([
+                c.perVisit(formatMoney(4000, "CAD")),
+                c.saves(formatMoney(5000, "CAD"), 5, service.name),
+            ]),
+        );
+        await expect(pack).not.toContainText(c.planFree);
+        const packageId = await save(pack);
+
+        const club = await openPlanEditor(page, "subscription");
+        await field(club, c.name).fill(names.subscription);
+        await field(club, c.price).fill("89");
+        await chooseService(club, c.membershipCovers);
+        await field(club, c.includes).fill("1");
+        await field(club, c.memberPerk).fill("10");
+        await expect(club).toContainText(c.memberPerkHint);
+        // nobody holds a new membership yet, so there is no price to keep
+        await expect(club).not.toContainText(c.membersKeepPrice);
+        const membershipId = await save(club);
+        await page.getByRole("main").getByText(names.subscription, { exact: true }).click();
+        const reopened = page.getByRole("dialog", { name: names.subscription, exact: true });
+        await expect(reopened).toContainText(c.membersKeepPrice);
+        await expect(field(reopened, c.memberPerk)).toHaveValue("10");
+        await page.keyboard.press("Escape");
+        await expect(reopened).toBeHidden();
+
+        const gift = await openPlanEditor(page, "gift");
+        await field(gift, c.name).fill(names.gift);
+        const amounts = gift.getByRole("group", { name: c.giftAmounts, exact: true });
+        for (const cents of [15000, 20000])
+            await amounts.locator(`button[data-value="${String(cents)}"]`).click();
+        const giftId = await save(gift);
+
+        const saved = await select<Record<string, unknown>>`
+            SELECT kind, price_cents, session_count, validity_days, covers_item_id, frequency,
+                   interval, visits_per_period, member_discount_bps, gift_amounts
+            FROM items WHERE id IN (${packageId}, ${membershipId}, ${giftId}) ORDER BY kind`;
+        expect(saved).toEqual([
+            expect.objectContaining({ kind: "gift", gift_amounts: [15000, 20000] }),
+            expect.objectContaining({
+                kind: "package",
+                price_cents: 20000,
+                session_count: 5,
+                validity_days: 365,
+                covers_item_id: service.id,
+            }),
+            expect.objectContaining({
+                kind: "subscription",
+                price_cents: 8900,
+                frequency: "month",
+                interval: 1,
+                covers_item_id: service.id,
+                visits_per_period: 1,
+                member_discount_bps: 1000,
+            }),
+        ]);
+
+        await navigate(page, "/payments/sales");
+        const main = page.getByRole("main");
+        await main
+            .getByRole("group", { name: d.addExtras, exact: true })
+            .getByRole("button", { name: new RegExp(`^${d.catAll}`) })
+            .click({ timeout: 60_000 });
+        await main.getByRole("searchbox").fill(tag);
+        // the run's service shows as a tile; none of its plans do
+        await expect(main.getByRole("button", { name: new RegExp(service.name) })).toBeVisible({
+            timeout: 60_000,
+        });
+        for (const name of Object.values(names)) await expect(main.getByText(name)).toHaveCount(0);
+        for (const [label, id] of [
+            [d.sellPackage, packageId],
+            [d.sellMembership, membershipId],
+        ] as const) {
+            await main.getByRole("button", { name: label, exact: true }).click();
+            const sheet = page.getByRole("dialog");
+            await expect(
+                sheet
+                    .getByRole("group", { name: w.chooseItem, exact: true })
+                    .locator(`button[data-value="${id}"]`),
+            ).toBeVisible();
+            await page.keyboard.press("Escape");
+            await expect(sheet).toBeHidden();
+        }
+        await main.getByRole("button", { name: d.sellGiftCard, exact: true }).click();
+        const giftSale = page.getByRole("dialog");
+        await giftSale
+            .getByRole("group", { name: w.chooseItem, exact: true })
+            .locator(`button[data-value="${giftId}"]`)
+            .click();
+        const presets = giftSale.getByRole("group", { name: w.giftAmount, exact: true });
+        for (const dollars of ["150", "200"])
+            await expect(presets.locator(`button[data-value="${dollars}"]`)).toBeVisible();
+        for (const dollars of ["25", "50"])
+            await expect(presets.locator(`button[data-value="${dollars}"]`)).toHaveCount(0);
+        // $50 isn't among the item's suggestions, so the sale starts at the first one
+        await expect(
+            giftSale.getByRole("textbox", { name: w.giftAmount, exact: true }),
+        ).toHaveValue("150");
+        await expect(presets.locator('button[data-value="150"]')).toHaveAttribute(
+            "aria-pressed",
+            "true",
+        );
+        await page.keyboard.press("Escape");
+
+        // the API refuses each as a plain sale line too
+        for (const id of [packageId, membershipId, giftId]) {
+            const refused = await page.request.post(`${runUrl("VITE_API_URL")}/v1/orders`, {
+                headers: { Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() },
+                data: {
+                    lines: [{ description: id, item_id: id, quantity: 1, unit_amount_cents: 5000 }],
+                },
+            });
+            expect(refused.status(), await refused.text()).toBe(422);
+            expect(((await refused.json()) as { error: string }).error).toBe("unprocessable");
+        }
+        await testInfo.attach("plan-items", {
+            body: JSON.stringify(saved),
+            contentType: "application/json",
+        });
+    } finally {
+        for (const id of archive)
+            await apiCall(page, "PATCH", `/v1/items/${id}`, { active: false }, 200);
     }
 });

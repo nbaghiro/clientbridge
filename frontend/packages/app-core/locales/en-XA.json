@@ -8186,9 +8186,6 @@
     "catalog.perPeriod": {
         "message": "{money} / {freq}"
     },
-    "catalog.anyAmount": {
-        "message": "[Åñý åɱöûñţ one two]"
-    },
     "catalog.depositMeta": {
         "message": "[{label} ðéþöšîţ one]"
     },
@@ -8696,6 +8693,9 @@
     "catalog.coversHint": {
         "message": "[Ɓööķîñĝ öñé öƒ ţĥéšé ŵîļļ ûšé å ṽîšîţ îñšţéåð öƒ çĥåŕĝîñĝ. one two three four]"
     },
+    "catalog.subjectRule": {
+        "message": "[{kind,select,other{Éåçĥ öñé šöļð çöṽéŕš åñý öƒ ţĥé çļîéñţ’š ṽîšîţš.} pet{Éåçĥ öñé šöļð îš ƒöŕ öñé þéţ, öŕ šĥåŕéð ƀý åļļ ţĥé çļîéñţ’š þéţš. Ýöû çĥööšé ŵĥéñ ýöû šéļļ îţ.} property{Éåçĥ öñé šöļð îš ƒöŕ öñé þŕöþéŕţý, öŕ šĥåŕéð ƀý åļļ ţĥé çļîéñţ’š þŕöþéŕţîéš. Ýöû çĥööšé ŵĥéñ ýöû šéļļ îţ.} site{Éåçĥ öñé šöļð îš ƒöŕ öñé šîţé, öŕ šĥåŕéð ƀý åļļ ţĥé çļîéñţ’š šîţéš. Ýöû çĥööšé ŵĥéñ ýöû šéļļ îţ.} student{Éåçĥ öñé šöļð îš ƒöŕ öñé šţûðéñţ, öŕ šĥåŕéð ƀý åļļ ţĥé çļîéñţ’š šţûðéñţš. Ýöû çĥööšé ŵĥéñ ýöû šéļļ îţ.} vehicle{Éåçĥ öñé šöļð îš ƒöŕ öñé ṽéĥîçļé, öŕ šĥåŕéð ƀý åļļ ţĥé çļîéñţ’š ṽéĥîçļéš. Ýöû çĥööšé ŵĥéñ ýöû šéļļ îţ.}} one two three four five six seven eight nine ten one two three four five six seven eight nine ten one two three four five six seven eight nine ten one]"
+    },
     "catalog.chooseService": {
         "message": "[Çĥööšé å šéŕṽîçé one two]"
     },
@@ -8733,7 +8733,10 @@
         "message": "[Šûĝĝéšţéð åɱöûñţš one two]"
     },
     "catalog.giftAmountsHint": {
-        "message": "[Šţåƒƒ åñð çļîéñţš çåñ šţîļļ éñţéŕ åñý åɱöûñţ. one two three]"
+        "message": "[Šţåƒƒ çåñ šţîļļ éñţéŕ åñý åɱöûñţ ƒŕöɱ {min} ţö {max} åţ ţĥé šåļé. one two three four]"
+    },
+    "catalog.giftRange": {
+        "message": "[Åñý åɱöûñţ ƒŕöɱ {min} ţö {max} one two]"
     },
     "catalog.giftNote": {
         "message": "[Ĝîƒţ çåŕðš ðöñ’ţ éẋþîŕé åñð çåñ ƀé šþéñţ öñ åñýţĥîñĝ. one two three four]"
@@ -8747,6 +8750,9 @@
     "catalog.noSaving": {
         "message": "[Ñö šåṽîñĝ åĝåîñšţ þåýîñĝ éåçĥ ṽîšîţ one two three]"
     },
+    "catalog.planFree": {
+        "message": "[Ƒŕéé: çļîéñţš þåý ñöţĥîñĝ ƒöŕ îţ. one two three]"
+    },
     "catalog.perYear": {
         "message": "[{money} å ýéåŕ one]"
     },
@@ -8758,6 +8764,9 @@
     },
     "catalog.planSummaryMembership": {
         "message": "[{money} éṽéŕý {freq} one]"
+    },
+    "catalog.planSummaryFreeMembership": {
+        "message": "[Ƒŕéé éṽéŕý {freq} one two]"
     },
     "catalog.sellsAt": {
         "message": "[Šéļļš ƒŕöɱ Šåļéš, ŵîţĥ îţš öŵñ çĥéçķöûţ. one two three]"

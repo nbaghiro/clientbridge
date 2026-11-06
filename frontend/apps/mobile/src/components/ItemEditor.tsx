@@ -8,6 +8,7 @@ import {
     type ProductEditor,
     type ServiceEditor,
     formatMoney,
+    giftAmountsHint,
     mediaUrl,
     strings,
     usePlanEditor,
@@ -484,6 +485,9 @@ function PlanFields({ ed }: { ed: PlanEditor }) {
                                 set("validityDays", x);
                             }}
                         />
+                        {ed.subjectRule !== null ? (
+                            <Text style={styles.hint}>{ed.subjectRule}</Text>
+                        ) : null}
                     </>
                 ) : null}
                 {v.kind === "subscription" ? (
@@ -512,23 +516,22 @@ function PlanFields({ ed }: { ed: PlanEditor }) {
                             value={ed.membershipCover.value}
                             onChange={ed.membershipCover.choose}
                         />
-                        <View style={styles.pair}>
-                            <Num
-                                label={s.includes}
-                                value={v.visitsPerPeriod}
-                                onChange={(x) => {
-                                    set("visitsPerPeriod", x);
-                                }}
-                            />
-                            <Num
-                                label={s.memberPerk}
-                                value={v.memberDiscount}
-                                onChange={(x) => {
-                                    set("memberDiscount", x);
-                                }}
-                            />
-                        </View>
-                        <Text style={styles.hint}>{s.includesHint}</Text>
+                        <Num
+                            label={s.includes}
+                            hint={s.includesHint}
+                            value={v.visitsPerPeriod}
+                            onChange={(x) => {
+                                set("visitsPerPeriod", x);
+                            }}
+                        />
+                        <Num
+                            label={s.memberPerk}
+                            hint={s.memberPerkHint}
+                            value={v.memberDiscount}
+                            onChange={(x) => {
+                                set("memberDiscount", x);
+                            }}
+                        />
                     </>
                 ) : null}
                 {v.kind === "gift" ? (
@@ -545,7 +548,7 @@ function PlanFields({ ed }: { ed: PlanEditor }) {
                                 ed.toggleGiftAmount(Number(k));
                             }}
                         />
-                        <Text style={styles.hint}>{s.giftAmountsHint}</Text>
+                        <Text style={styles.hint}>{giftAmountsHint()}</Text>
                     </>
                 ) : null}
             </DetailSection>
