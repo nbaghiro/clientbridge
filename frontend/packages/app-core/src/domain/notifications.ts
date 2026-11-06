@@ -89,7 +89,9 @@ FROM orders o LEFT JOIN clients c ON c.id = o.client_id
 WHERE o.source = 'online' AND o.pickup_status IS NOT NULL AND o.paid_at IS NOT NULL
   AND ${since("o.paid_at")}
 UNION ALL
-SELECT 'bk-' || b.id, CASE b.status WHEN 'pending' THEN 'booking_request' ELSE 'booking_new' END,
+SELECT 'bk-' || b.id,
+       CASE WHEN b.status = 'pending' OR (b.status = 'canceled' AND b.confirmed_at IS NULL)
+            THEN 'booking_request' ELSE 'booking_new' END,
        b.created_at, b.client_id, c.name, NULL, i.name, NULL, NULL, b.id, s.starts_at
 FROM bookings b JOIN slots s ON s.id = b.slot_id JOIN items i ON i.id = s.item_id
 LEFT JOIN clients c ON c.id = b.client_id

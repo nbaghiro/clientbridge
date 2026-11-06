@@ -46,11 +46,11 @@ async def _unpaid(api: httpx.AsyncClient, db: AsyncSession) -> tuple[str, str]:
     return booking_id, await provider_ref(db, await deposit_payment(db, booking_id))
 
 
-async def test_the_reaper_leaves_a_visit_whose_deposit_settled_during_its_scan(
+async def test_the_reaper_leaves_a_visit_whose_booking_row_says_the_deposit_is_paid(
     api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
     booking_id, ref = await _unpaid(api, db)
-    # a webhook committed mid-scan: only the locked booking row already says the deposit is paid
+    # a settled deposit the payment row doesn't show yet: only the booking row says it is paid
     await db.execute(
         update(Booking).where(Booking.id == booking_id).values(deposit_status="collected")
     )
@@ -60,6 +60,21 @@ async def test_the_reaper_leaves_a_visit_whose_deposit_settled_during_its_scan(
     row = await db.get(Booking, booking_id, populate_existing=True)
     assert row is not None and row.status == "pending"
     assert ref not in gateway.canceled_intents
+
+
+async def test_the_reaper_held_to_one_booking_releases_only_that_one(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    booking_id, ref = await _unpaid(api, db)
+
+    other = await run_reap_unpaid_bookings(
+        db, gateway, _notifier(), clock.now(), booking_id="booking_elsewhere"
+    )
+    assert other == 0 and ref not in gateway.canceled_intents
+    own = await run_reap_unpaid_bookings(
+        db, gateway, _notifier(), clock.now(), booking_id=booking_id
+    )
+    assert own == 1 and ref in gateway.canceled_intents
 
 
 async def test_a_job_never_cancels_the_deposit_of_a_visit_that_has_paid(

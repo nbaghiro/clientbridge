@@ -2014,6 +2014,15 @@ describe("app-core SQL against the replica schema", () => {
         );
         expect(bell.find((r) => r.id === "bk-bk_req")?.kind).toBe("booking_request");
         expect(bell.find((r) => r.id === "bk-bk_1")?.kind).toBe("booking_new");
+        // a declined request arrived as a request, so the bell never calls it a new booking
+        db.run(
+            "UPDATE bookings SET status = 'canceled', canceled_at = '2026-06-27T10:00:00Z' WHERE id = 'bk_req'",
+        );
+        const declined = run(
+            "NOTIFICATION_FEED_SQL",
+            Array<string>(6).fill("2026-06-24T00:00:00.000Z"),
+        );
+        expect(declined.find((r) => r.id === "bk-bk_req")?.kind).toBe("booking_request");
     });
 
     it("feeds the shell: the viewer, counts and setup progress", () => {

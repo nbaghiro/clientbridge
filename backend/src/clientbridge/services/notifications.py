@@ -687,6 +687,10 @@ def booking_requested_message(locale: str, business_name: str, when: str) -> str
     return message(locale, "booking_requested.body", business=business_name, when=when)
 
 
+def _by_name(build: Callable[[str, str, str], str]) -> Callable[[str, Business, str], str]:
+    return lambda locale, business, when: build(locale, business.name, when)
+
+
 def booking_declined_message(locale: str, business_name: str, when: str, refund: str | None) -> str:
     if refund is not None:
         return message(
@@ -1199,37 +1203,29 @@ class Notifier:
         await self._to_client(db, booking.client_id, notice)
 
     async def on_booking_rescheduled(self, db: AsyncSession, booking_id: str) -> None:
-        await self._visit_notice(db, booking_id, booking_rescheduled_message)
+        await self._visit_notice(db, booking_id, _by_name(booking_rescheduled_message))
 
     async def on_booking_canceled(self, db: AsyncSession, booking_id: str) -> None:
-        await self._visit_notice(db, booking_id, booking_canceled_message)
+        await self._visit_notice(db, booking_id, _by_name(booking_canceled_message))
 
     async def on_booking_requested(self, db: AsyncSession, booking_id: str) -> None:
-        await self._visit_notice(db, booking_id, booking_requested_message)
+        await self._visit_notice(db, booking_id, _by_name(booking_requested_message))
 
     async def on_booking_declined(
         self, db: AsyncSession, booking_id: str, refunded_cents: int
     ) -> None:
-        booking = await db.get(Booking, booking_id)
-        if booking is None:
-            return
-        slot = await db.get(Slot, booking.slot_id)
-        business = await db.get(Business, booking.business_id)
-        if slot is None or business is None:
-            return
-        locale = locale_for(business=business)
-        refund = (
-            format_money(locale, refunded_cents, currency_for(business))
-            if refunded_cents > 0
-            else None
-        )
-        notice = booking_declined_message(
-            locale, business.name, _when(locale, business, slot), refund
-        )
-        await self._to_client(db, booking.client_id, notice)
+        def build(locale: str, business: Business, when: str) -> str:
+            refund = (
+                format_money(locale, refunded_cents, currency_for(business))
+                if refunded_cents > 0
+                else None
+            )
+            return booking_declined_message(locale, business.name, when, refund)
+
+        await self._visit_notice(db, booking_id, build)
 
     async def on_booking_released(self, db: AsyncSession, booking_id: str) -> None:
-        await self._visit_notice(db, booking_id, booking_released_message)
+        await self._visit_notice(db, booking_id, _by_name(booking_released_message))
 
     async def on_seat_opened(self, db: AsyncSession, booking_id: str) -> None:
         await self._class_notice(db, booking_id, seat_opened_message)
@@ -1267,7 +1263,7 @@ class Notifier:
         await self._to_client(db, booking.client_id, notice)
 
     async def _visit_notice(
-        self, db: AsyncSession, booking_id: str, build: Callable[[str, str, str], str]
+        self, db: AsyncSession, booking_id: str, build: Callable[[str, Business, str], str]
     ) -> None:
         booking = await db.get(Booking, booking_id)
         if booking is None:
@@ -1277,7 +1273,7 @@ class Notifier:
         if slot is None or business is None:
             return
         locale = locale_for(business=business)
-        notice = build(locale, business.name, _when(locale, business, slot))
+        notice = build(locale, business, _when(locale, business, slot))
         await self._to_client(db, booking.client_id, notice)
 
     async def on_series_booked(

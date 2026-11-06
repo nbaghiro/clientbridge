@@ -283,7 +283,9 @@ async def deposit_action(action: str, booking_id: str, invoice_id: str | None) -
             booking.created_at = clock.now() - timedelta(hours=1)
             await db.commit()
             notifier = Notifier(get_email_sender(), get_sms_sender(), get_push_sender())
-            await run_reap_unpaid_bookings(db, get_payment_gateway(), notifier, clock.now())
+            await run_reap_unpaid_bookings(
+                db, get_payment_gateway(), notifier, clock.now(), booking_id=booking.id
+            )
         else:
             fixture = load_deposit(state, booking_id)
             if not fixture.customer or not invoice_id or fixture.invoice not in (None, invoice_id):

@@ -110,6 +110,31 @@ async def test_declining_a_paid_request_refunds_the_deposit_and_tells_the_client
     assert ".." not in sms.sent[-1].body
 
 
+async def test_a_deposit_stripe_took_before_the_decline_is_refunded_and_the_client_told(
+    api: httpx.AsyncClient,
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+    sms: FakeSmsSender,
+) -> None:
+    await enable_payments(db)
+    booking_id = await _request(api, db)
+    payment_id = await deposit_payment(db, booking_id)
+    gateway.confirmed.add(await provider_ref(db, payment_id))
+
+    res = await as_owner.patch(f"/v1/bookings/{booking_id}", json={"status": "canceled"})
+
+    assert res.status_code == 200, res.text
+    assert sms.sent[-1].body.endswith("You're welcome to book another time.")
+    await settle(api, db, payment_id)
+    booking = await _booking(db, booking_id)
+    assert (booking.status, booking.deposit_status) == ("canceled", "refunded")
+    assert gateway.refunds == [(await provider_ref(db, payment_id), 2750, False)]
+    refund_id = await db.scalar(select(Payment.id).where(Payment.parent_payment_id == payment_id))
+    [notice] = await queued_subjects(db, f"refund:{refund_id}")
+    assert "$27.50" in notice
+
+
 async def test_declining_an_unpaid_request_cancels_its_deposit_and_frees_the_time(
     api: httpx.AsyncClient,
     as_owner: httpx.AsyncClient,

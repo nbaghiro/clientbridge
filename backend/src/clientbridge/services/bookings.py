@@ -6,7 +6,7 @@ from datetime import UTC, date, datetime, time, timedelta
 from typing import Literal
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import ColumnElement, Exists, func, literal, or_, select, text, tuple_
+from sqlalchemy import ColumnElement, Exists, func, literal, or_, select, text, true, tuple_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -3183,7 +3183,12 @@ async def _refund_unanswered(
 
 
 async def run_reap_unpaid_bookings(
-    db: AsyncSession, gateway: PaymentGateway, notifier: Notifier, now: datetime
+    db: AsyncSession,
+    gateway: PaymentGateway,
+    notifier: Notifier,
+    now: datetime,
+    *,
+    booking_id: str | None = None,
 ) -> int:
     """Release online bookings whose deposit went unpaid past the window, and tell the client."""
     from clientbridge.services import billing  # deferred: billing imports this module
@@ -3203,6 +3208,8 @@ async def run_reap_unpaid_bookings(
         Slot.starts_at > now,
         deposits(),
         ~deposits("succeeded"),
+        # the e2e lane reaps only its own booking on the shared tier
+        true() if booking_id is None else Booking.id == booking_id,
     )
     members = await db.execute(
         select(Booking.business_id, Slot.staff_id)
