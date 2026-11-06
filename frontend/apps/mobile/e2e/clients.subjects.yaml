@@ -104,8 +104,16 @@ onFlowComplete:
 - scrollUntilVisible:
       element: ".*Juniper.*"
       direction: DOWN
+      centerElement: true
       timeout: 60000
-- tapOn: ".*Juniper.*"
+# a ten-minute visit is a thin block, and a tap while the grid settles can miss it
+- retry:
+      maxRetries: 3
+      commands:
+          - tapOn: ".*Juniper.*"
+          - extendedWaitUntil:
+                visible: "Close"
+                timeout: 10000
 # a phone shows the pet below the visit's times, so the sheet scrolls to it
 - scrollUntilVisible:
       element: ".*Bernese mountain dog.*"

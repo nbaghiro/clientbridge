@@ -117,10 +117,11 @@ name: NATIVE-ENT-01 A package, a membership and a gift card are set up in the it
           platform: Android
       commands:
           - hideKeyboard
-# every new plan's name holds the run's tag, yet the search finds no tile for any of them
-- extendedWaitUntil:
-      visible: "Nothing matches that search."
-      timeout: 20000
+# no plan shows as a tile though each name holds the tag; the result sits below today's visits
+- scrollUntilVisible:
+      element: "Nothing matches that search."
+      direction: DOWN
+      timeout: 30000
 - takeScreenshot: native-sales-search
 - scrollUntilVisible:
       element: "Package"
