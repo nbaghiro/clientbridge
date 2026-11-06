@@ -24,8 +24,8 @@ AUTH_LIMITS = "auth-limits"
 
 
 def _posts_to(*flows: str) -> str:
-    """Cloud Armor refuses regex capture groups, so a rule names its paths as prefixes."""
-    paths = " || ".join(f"request.path.startsWith('/self-service/{flow}')" for flow in flows)
+    """The policy guards only the auth backend, so a flow matches with or without its prefix."""
+    paths = " || ".join(f"request.path.contains('/self-service/{flow}')" for flow in flows)
     return f"request.method == 'POST' && ({paths})"
 
 
@@ -33,7 +33,7 @@ def _posts_to(*flows: str) -> str:
 AUTH_RULES: tuple[tuple[str, int], ...] = (
     (_posts_to("recovery", "verification"), 10),
     (_posts_to("login", "registration"), 30),
-    ("request.path.startsWith('/self-service/')", 120),
+    ("request.path.contains('/self-service/')", 120),
 )
 # each host's Service: the web image serves the site, app and Connect hosts by Host header
 BACKENDS: dict[Host, tuple[str, int]] = {
