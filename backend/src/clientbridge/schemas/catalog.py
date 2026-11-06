@@ -60,7 +60,7 @@ class ItemBase(Mirror):
     member_discount_bps: int | None = Field(
         default=None, ge=0, le=10000, description="Memberships only: members' retail discount"
     )
-    gift_amounts: list[GiftAmount] | None = Field(
+    gift_amounts: list[int] | None = Field(
         default=None, max_length=12, description="Gift cards only: suggested amounts in cents"
     )
     staff_ids: list[str] = Field(
@@ -76,6 +76,9 @@ class ItemBase(Mirror):
 
 
 class ItemCreate(ItemBase):
+    gift_amounts: list[GiftAmount] | None = Field(
+        default=None, max_length=12, description="Gift cards only: suggested amounts in cents"
+    )
     online_bookable: bool | None = Field(
         default=None, description="Defaults by kind: services and classes only"
     )

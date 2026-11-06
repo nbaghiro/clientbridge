@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
 from clientbridge.models.catalog import Item
-from tests.conftest import Factory
+from tests.conftest import BIZ, Factory
 
 BATH = "it_bath"  # seeded service
 SHAMPOO = "it_shampoo"  # seeded product
@@ -66,6 +66,29 @@ async def test_plan_fields_belong_to_their_kind_422(as_owner: httpx.AsyncClient)
     ):
         res = await as_owner.post("/v1/items", json=body)
         assert res.status_code == 422, body
+
+
+async def test_gift_amounts_take_the_limits_and_refuse_outside_them_on_patch(
+    as_owner: httpx.AsyncClient,
+) -> None:
+    gift = await as_owner.post(
+        "/v1/items", json={"kind": "gift", "name": "G", "gift_amounts": [500, 100_000]}
+    )
+    assert gift.status_code == 201, gift.text
+    for amounts in ([499], [100_001]):
+        res = await as_owner.patch(f"/v1/items/{gift.json()['id']}", json={"gift_amounts": amounts})
+        assert res.status_code == 422, amounts
+
+
+async def test_a_gift_item_saved_with_an_old_amount_can_still_be_archived(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    item = Item(id=new_id("item"), business_id=BIZ, kind="gift", name="G", gift_amounts=[100])
+    db.add(item)
+    await db.flush()
+    res = await as_owner.patch(f"/v1/items/{item.id}", json={"active": False})
+    assert res.status_code == 200, res.text
+    assert res.json()["gift_amounts"] == [100]
 
 
 async def test_package_must_cover_a_bookable_item(as_owner: httpx.AsyncClient) -> None:

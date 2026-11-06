@@ -832,6 +832,7 @@ export function useEntitlementSaleForm(
                         "/v1/gift-cards",
                         {
                             purchaser_client_id: clientId,
+                            item_id: item?.id ?? null,
                             amount_cents: giftCents,
                             recipient: blankToNull(recipient),
                             payment_method_id: card,
