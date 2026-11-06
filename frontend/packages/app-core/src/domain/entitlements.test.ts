@@ -9,6 +9,8 @@ import {
     type PackageRow,
     canConsume,
     consumeSession,
+    giftDefault,
+    giftPresets,
     nextSessionCents,
     sessionsRemaining,
     subscriptionTiming,
@@ -70,6 +72,24 @@ it("passes a stable attempt key when consuming a package session", async () => {
         {},
         { idempotencyKey: "consume-attempt" },
     );
+});
+
+describe("gift card presets", () => {
+    it("offers the chosen gift card item's suggested amounts", () => {
+        expect(giftPresets({ gift_amounts: "{2500,15000}" })).toEqual(["25", "150"]);
+        expect(giftPresets({ gift_amounts: "[15000,20000]" })).toEqual(["150", "200"]);
+    });
+
+    it("falls back to the defaults without an item or its suggestions", () => {
+        expect(giftPresets({ gift_amounts: null })).toEqual(["25", "50", "75", "100"]);
+        expect(giftPresets(null)).toEqual(["25", "50", "75", "100"]);
+    });
+
+    it("starts a sale at $50 when it is offered, else at the first suggestion", () => {
+        expect(giftDefault(["25", "50", "75"])).toBe("50");
+        expect(giftDefault(["150", "200"])).toBe("150");
+        expect(giftDefault([])).toBe("50");
+    });
 });
 
 describe("subscriptionTiming", () => {

@@ -1,0 +1,165 @@
+appId: ${APP_ID}
+name: NATIVE-ENT-01 A package, a membership and a gift card are set up in the item editor and sell only through their own checkouts
+---
+- evalScript: ${output.tag = String(100000 + Math.floor(Math.random() * 900000))}
+- evalScript: ${output.pack = "Five grooms " + output.tag}
+- evalScript: ${output.club = "Groom club " + output.tag}
+- evalScript: ${output.gift = "Groom gift card " + output.tag}
+- runFlow: helpers/owner.yaml
+- tapOn: "Setup"
+- tapOn: "Services & products"
+- tapOn: "Packages & memberships"
+- extendedWaitUntil:
+      visible: "5-Bath Package"
+      timeout: 60000
+
+- tapOn: "Add"
+- tapOn: "Package.*"
+- tapOn: "Next"
+- extendedWaitUntil:
+      visible: "New package"
+      timeout: 20000
+- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Name", VALUE: "${output.pack}" } }
+- scrollUntilVisible:
+      element: "Full Groom — Large Dog · \\$110.00"
+      direction: DOWN
+      centerElement: true
+- tapOn: "Full Groom — Large Dog · \\$110.00"
+- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Visits", VALUE: "5" } }
+# a package without a price shows as free
+- scrollUntilVisible:
+      element: "5 × Full Groom — Large Dog"
+      direction: DOWN
+- assertVisible: "Free: clients pay nothing for it."
+- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Price", VALUE: "400" } }
+- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Valid for \\(days\\)", VALUE: "365" } }
+- scrollUntilVisible:
+      element: "Each one sold is for one pet, or shared by all the client’s pets. You choose when you sell it."
+      direction: DOWN
+- assertVisible: "\\$80.00 a visit · Saves \\$150.00 against 5 × Full Groom — Large Dog"
+- assertNotVisible: "Free: clients pay nothing for it."
+- takeScreenshot: native-package-editor
+- tapOn: "Add to catalog"
+- extendedWaitUntil:
+      notVisible: "New package"
+      timeout: 30000
+- scrollUntilVisible:
+      element: ${output.pack}
+      direction: DOWN
+
+- tapOn: "Add"
+- tapOn: "Membership.*"
+- tapOn: "Next"
+- extendedWaitUntil:
+      visible: "New membership"
+      timeout: 20000
+- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Name", VALUE: "${output.club}" } }
+- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Price", VALUE: "89" } }
+- tapOn: "Every month"
+- scrollUntilVisible:
+      element: "Full Groom — Large Dog · \\$110.00"
+      direction: DOWN
+      centerElement: true
+- tapOn: "Full Groom — Large Dog · \\$110.00"
+- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Visits each period", VALUE: "1" } }
+- runFlow:
+      file: helpers/type-field.yaml
+      env: { FIELD: "Member discount on products \\(%\\)", VALUE: "10" }
+- assertVisible: "Taken off products at checkout."
+# nobody holds a new membership yet, so there is no price to keep
+- assertNotVisible: "Current members keep the price.*"
+- tapOn: "Add to catalog"
+- extendedWaitUntil:
+      notVisible: "New membership"
+      timeout: 30000
+- scrollUntilVisible:
+      element: ${output.club}
+      direction: DOWN
+- tapOn: ${output.club}
+- scrollUntilVisible:
+      element: "Current members keep the price they joined at.*"
+      direction: DOWN
+- takeScreenshot: native-membership-editor
+- runFlow: helpers/close-sheet.yaml
+
+- tapOn: "Add"
+- tapOn: "Gift card.*"
+- tapOn: "Next"
+- extendedWaitUntil:
+      visible: "New gift card"
+      timeout: 20000
+- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Name", VALUE: "${output.gift}" } }
+- tapOn: "\\$150.00"
+- tapOn: "\\$200.00"
+- tapOn: "Add to catalog"
+- extendedWaitUntil:
+      notVisible: "New gift card"
+      timeout: 30000
+
+- tapOn: "Back|Go back|Navigate up"
+- tapOn: "Payments"
+- tapOn: "Sales"
+- tapOn: "New sale"
+- extendedWaitUntil:
+      visible: "All [1-9].*"
+      timeout: 60000
+- tapOn: "All [1-9].*"
+- tapOn: "Search"
+- inputText: ${output.tag}
+# iOS's hideKeyboard is unreliable, so the search closes its keyboard with Return there
+- runFlow:
+      when:
+          platform: iOS
+      commands:
+          - pressKey: Enter
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - hideKeyboard
+# every new plan's name holds the run's tag, yet the search finds no tile for any of them
+- extendedWaitUntil:
+      visible: "Nothing matches that search."
+      timeout: 20000
+- takeScreenshot: native-sales-search
+- scrollUntilVisible:
+      element: "Package"
+      direction: DOWN
+- tapOn: "Package"
+- extendedWaitUntil:
+      visible: "Sell"
+      timeout: 20000
+- scrollUntilVisible:
+      element: ${output.pack}
+      direction: DOWN
+- runFlow: helpers/close-sheet.yaml
+- scrollUntilVisible:
+      element: "Membership"
+      direction: DOWN
+- tapOn: "Membership"
+- extendedWaitUntil:
+      visible: "Sell"
+      timeout: 20000
+- scrollUntilVisible:
+      element: ${output.club}
+      direction: DOWN
+- runFlow: helpers/close-sheet.yaml
+- scrollUntilVisible:
+      element: "Gift card"
+      direction: DOWN
+- tapOn: "Gift card"
+- extendedWaitUntil:
+      visible: "Sell"
+      timeout: 20000
+- scrollUntilVisible:
+      element: ${output.gift}
+      direction: DOWN
+- tapOn: ${output.gift}
+# the chosen gift card's suggested amounts are offered at the sale, in place of the defaults
+- scrollUntilVisible:
+      element: "\\$150"
+      direction: DOWN
+- assertVisible: "\\$200"
+- assertNotVisible: "\\$25"
+- takeScreenshot: native-gift-card-sale
+- runFlow: helpers/close-sheet.yaml

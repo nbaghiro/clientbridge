@@ -189,6 +189,45 @@ async def test_purchase_by_item_uses_item_price(
     assert await ledger.gift_card_balance(db, card) == 0
 
 
+async def test_purchase_by_item_with_an_amount_records_the_item(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await enable_payments(db)
+    item_id = await _gift_item(db, price=0)
+    res = await as_owner.post(
+        "/v1/gift-cards",
+        json={"item_id": item_id, "amount_cents": 15000, "purchaser_client_id": PURCHASER},
+    )
+    assert res.status_code == 201, res.text
+    card = (
+        await db.execute(select(GiftCard).where(GiftCard.id == res.json()["gift_card_id"]))
+    ).scalar_one()
+    assert (card.item_id, card.initial_cents) == (item_id, 15000)
+
+
+@pytest.mark.parametrize("price", [100, 100_001])
+async def test_purchase_gift_item_priced_outside_the_range_409(
+    as_owner: httpx.AsyncClient, db: AsyncSession, price: int
+) -> None:
+    await enable_payments(db)
+    item_id = await _gift_item(db, price=price)
+    res = await as_owner.post(
+        "/v1/gift-cards", json={"item_id": item_id, "purchaser_client_id": PURCHASER}
+    )
+    assert res.status_code == 409, res.text
+
+
+@pytest.mark.parametrize("amount", [500, 100_000])
+async def test_purchase_at_the_gift_card_limits(
+    as_owner: httpx.AsyncClient, db: AsyncSession, amount: int
+) -> None:
+    await enable_payments(db)
+    res = await as_owner.post(
+        "/v1/gift-cards", json={"amount_cents": amount, "purchaser_client_id": PURCHASER}
+    )
+    assert res.status_code == 201, res.text
+
+
 async def test_purchase_not_onboarded_409(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     business = await db.get(Business, BIZ)
     assert business is not None
@@ -222,6 +261,18 @@ async def test_purchase_negative_amount_422(as_owner: httpx.AsyncClient) -> None
         "/v1/gift-cards", json={"amount_cents": -5, "purchaser_client_id": PURCHASER}
     )
     assert res.status_code == 422
+
+
+@pytest.mark.parametrize("amount", [499, 100_001])
+async def test_purchase_outside_gift_card_range_422(
+    as_owner: httpx.AsyncClient, amount: int
+) -> None:
+    res = await as_owner.post(
+        "/v1/gift-cards",
+        json={"amount_cents": amount, "purchaser_client_id": PURCHASER},
+        headers=key(),
+    )
+    assert res.status_code == 422, res.text
 
 
 async def test_purchase_unknown_purchaser_404(

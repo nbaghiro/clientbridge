@@ -3014,7 +3014,6 @@ interface Strings {
         readonly validDays: (n: number) => string;
         readonly every: (interval: number, freq: string) => string;
         readonly perPeriod: (money: string, freq: string) => string;
-        readonly anyAmount: string;
         readonly depositMeta: (label: string) => string;
         readonly skuLine: (sku: string) => string;
         readonly untracked: string;
@@ -3191,6 +3190,7 @@ interface Strings {
         readonly lowAfter: string;
         readonly covers: string;
         readonly coversHint: string;
+        readonly subjectRule: (kind: string) => string;
         readonly chooseService: string;
         readonly visitsLabel: string;
         readonly validForDays: string;
@@ -3203,15 +3203,18 @@ interface Strings {
         readonly memberPerk: string;
         readonly memberPerkHint: string;
         readonly giftAmounts: string;
-        readonly giftAmountsHint: string;
+        readonly giftAmountsHint: (min: string, max: string) => string;
+        readonly giftRange: (min: string, max: string) => string;
         readonly giftNote: string;
         readonly perVisit: (money: string) => string;
         readonly saves: (money: string, n: number, name: string) => string;
         readonly noSaving: string;
+        readonly planFree: string;
         readonly perYear: (money: string) => string;
         readonly planSummaryPackage: (n: number, name: string) => string;
         readonly planSummaryIncomplete: string;
         readonly planSummaryMembership: (money: string, freq: string) => string;
+        readonly planSummaryFreeMembership: (freq: string) => string;
         readonly sellsAt: string;
         readonly membersKeepPrice: string;
         readonly freqLabel: {

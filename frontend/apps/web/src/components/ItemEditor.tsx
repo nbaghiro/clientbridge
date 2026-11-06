@@ -8,6 +8,7 @@ import {
     type ProductEditor,
     type ServiceEditor,
     formatMoney,
+    giftAmountsHint,
     mediaUrl,
     strings,
     usePlanEditor,
@@ -520,6 +521,9 @@ function PlanFields({ ed }: { ed: PlanEditor }) {
                                     }}
                                 />
                             </div>
+                            {ed.subjectRule !== null ? (
+                                <p className="text-xs text-muted">{ed.subjectRule}</p>
+                            ) : null}
                         </>
                     ) : null}
                     {v.kind === "subscription" ? (
@@ -587,7 +591,7 @@ function PlanFields({ ed }: { ed: PlanEditor }) {
                                     ed.toggleGiftAmount(Number(k));
                                 }}
                             />
-                            <p className="text-xs text-muted">{s.giftAmountsHint}</p>
+                            <p className="text-xs text-muted">{giftAmountsHint()}</p>
                         </>
                     ) : null}
                 </div>

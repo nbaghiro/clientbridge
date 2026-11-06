@@ -7,6 +7,7 @@ import {
     type ItemFormValues,
     type ItemRow,
     giftAmounts,
+    giftRangeLabel,
     groupByCategory,
     idList,
     itemFormError,
@@ -290,7 +291,7 @@ describe("item price and status", () => {
         expect(
             itemPriceLabel({ ...base, kind: "subscription", price_cents: 5000, frequency: null }),
         ).toBe(c.perPeriod("$50.00", c.freqLabel.month));
-        expect(itemPriceLabel({ ...base, kind: "gift", price_cents: 2500 })).toBe(c.anyAmount);
+        expect(itemPriceLabel({ ...base, kind: "gift", price_cents: 2500 })).toBe(giftRangeLabel());
     });
 
     it("pills an archived item first, then low or out of stock, else nothing", () => {

@@ -19,6 +19,7 @@ from clientbridge.models.catalog import GiftCard, Item, Package, Subscription
 from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.models.scheduling import Booking, Slot
+from clientbridge.schemas.catalog import GIFT_MAX_CENTS, GIFT_MIN_CENTS
 from clientbridge.schemas.entitlements import (
     GiftCardOut,
     GiftCardPurchase,
@@ -205,19 +206,21 @@ class GiftCardService:
         )
 
     async def _face_value(self, data: GiftCardPurchase) -> int:
-        if (data.item_id is None) == (data.amount_cents is None):
-            raise AppError(
-                "provide exactly one of item_id or amount_cents",
-                status_code=422,
-                code="invalid_gift_card",
-            )
-        if data.amount_cents is not None:
+        if data.item_id is None:
+            if data.amount_cents is None:
+                raise AppError(
+                    "provide item_id, amount_cents or both",
+                    status_code=422,
+                    code="invalid_gift_card",
+                )
             return data.amount_cents
-        item = await self._item(str(data.item_id))
+        item = await self._item(data.item_id)
         if item.kind != "gift":
             raise Conflict("item is not a gift card")
-        if item.price_cents <= 0:
-            raise Conflict("gift card item has no price")
+        if data.amount_cents is not None:
+            return data.amount_cents
+        if not GIFT_MIN_CENTS <= item.price_cents <= GIFT_MAX_CENTS:
+            raise Conflict("gift card item has no price within the gift card limits")
         return item.price_cents
 
     def _assert_admin(self) -> None:
