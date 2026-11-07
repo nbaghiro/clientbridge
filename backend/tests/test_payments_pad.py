@@ -412,6 +412,20 @@ async def test_a_bank_account_whose_mandate_stripe_no_longer_holds_is_not_charge
     assert gateway.mandated_charges == [] and gateway.charges == {}
 
 
+async def test_a_bank_account_whose_mandate_was_revoked_is_refused_as_not_chargeable(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    method, invoice_id = await _active_bank(as_owner, db, gateway)
+    method.mandate_status = "revoked"
+    await db.flush()
+    response = await _charge(as_owner, invoice_id, method.id)
+    assert (response.status_code, response.json()["error"]) == (
+        409,
+        "payment_method_not_chargeable",
+    )
+    assert gateway.mandated_charges == [] and gateway.charges == {}
+
+
 async def test_a_link_is_not_replaced_while_the_client_verifies_the_account(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:

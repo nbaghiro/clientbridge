@@ -1434,6 +1434,7 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 **By hand only**
 
 * A real Canadian PAD debit clearing, which takes business days.
+* A real text reaching a phone through Twilio in step 5; staging has no Twilio number yet.
 
 **Automated by**
 
@@ -1441,11 +1442,9 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 * `CRM-E2E-20 (web)`
 * `STR-E26 (stripe)`
 * `STR-E27 (stripe)`
+* `STR-E30 (stripe)`
 * `NATIVE-PAY-01 (native-stripe)`
-
-**To automate**
-
-* Step 1 on a phone: the native lane runs against a stand-in Stripe, and the phone's card form talks to Stripe directly, so no case saves a card there; STR-E26 saves both cards on web.
+* `NATIVE-PAY-02 (stripe-native)`
 
 **Depends on:** Nothing
 

@@ -1116,7 +1116,8 @@ async def resolve_saved_method_ref(
         raise NotFound("saved card not found")
     if pm.method == "bank_eft" and pm.mandate_status != "active":
         raise Conflict(
-            "the client must complete bank authorization before this account can be charged"
+            "the client must complete bank authorization before this account can be charged",
+            code="payment_method_not_chargeable",
         )
     return pm.provider_ref
 

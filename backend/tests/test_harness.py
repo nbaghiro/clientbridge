@@ -12,6 +12,7 @@ import subprocess
 import sys
 import threading
 import time
+import zipfile
 from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import ExitStack, contextmanager, suppress
 from datetime import UTC, datetime, timedelta
@@ -772,6 +773,7 @@ LANE_FILES = {
     "native-ios": ("apps/mobile/e2e", "*.yaml"),
     "native-android": ("apps/mobile/e2e", "*.yaml"),
     "native-stripe": ("apps/mobile/e2e", "*.yaml"),
+    "stripe-native": ("apps/mobile/e2e", "stripe/*.yaml"),
 }
 
 
@@ -821,6 +823,24 @@ def test_every_sync_case_is_written_once_and_each_project_is_configured() -> Non
     for project in SYNC_CASES:
         engine, _, storage = project.partition("-")
         assert f'"{engine}"' in config and (not storage or f"-{storage}" in config), project
+
+
+def test_the_stripe_lane_names_a_phone_as_platform_and_device() -> None:
+    assert stripe_lane.native_target("ios:ABC-123") == ("ios", "ABC-123")
+    for wrong in ("ios:", "web:ABC", "ABC"):
+        with pytest.raises(argparse.ArgumentTypeError):
+            stripe_lane.native_target(wrong)
+
+
+def test_a_builds_publishable_key_is_read_from_its_compiled_config(tmp_path: Path) -> None:
+    config = json.dumps({"extra": {"stripePublishableKey": "pk_test_built"}})
+    app = tmp_path / "App.app" / "EXConstants.bundle"
+    app.mkdir(parents=True)
+    (app / "app.config").write_text(config)
+    assert native.built_publishable_key("ios", tmp_path / "App.app") == "pk_test_built"
+    with zipfile.ZipFile(tmp_path / "app.apk", "w") as apk:
+        apk.writestr("assets/app.config", json.dumps({"extra": {}}))
+    assert native.built_publishable_key("android", tmp_path / "app.apk") == ""
 
 
 def test_every_walkthrough_lands_in_exactly_one_native_shard() -> None:
@@ -1120,6 +1140,7 @@ def test_provider_runner_retains_cleanup_failures_without_external_services(
         payout_case=False,
         pair="ci-1",
         shard=None,
+        native=None,
         allow_source_changes=False,
         profile="unused",
         merchants=tmp_path / "unused",

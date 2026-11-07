@@ -1,0 +1,84 @@
+appId: ${APP_ID}
+name: NATIVE-PAY-02 On a phone, staff save two cards through Stripe and make the newer one the default, which every device reads
+---
+# a number outside 555-01xx, which is set aside for fiction and never texted
+- evalScript: ${output.phone = "250" + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000))}
+- evalScript: ${output.name = "Rowan Ellery"}
+- evalScript: ${output.expiry = "12" + String((new Date().getFullYear() + 3) % 100)}
+- runScript:
+      file: ../helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/clients
+          BODY: "${JSON.stringify({ name: output.name, phone: output.phone })}"
+- evalScript: ${output.client = output.response.id}
+# the lane files the client before the app gives it a Stripe customer, so cleanup owns what it saves
+- runScript:
+      file: ../helpers/control.js
+      env:
+          ACTION: purchaser
+          PAYLOAD: ${output.client}
+- runFlow: ../helpers/owner.yaml
+- tapOn: "Clients"
+- tapOn: "Search name, phone or pet"
+- inputText: ${output.phone}
+- hideKeyboard
+- extendedWaitUntil:
+      visible: ${".*" + output.name + ".*"}
+      timeout: 60000
+- tapOn: ${".*" + output.name + ".*"}
+- extendedWaitUntil:
+      visible: "Book"
+      timeout: 60000
+# iOS calls Manage visible while it sits under the sticky actions, where a tap lands on Edit
+- swipe:
+      start: "50%,70%"
+      end: "50%,25%"
+      duration: 500
+- tapOn: "Manage"
+- assertVisible: "Payment methods"
+- scrollUntilVisible:
+      element: "Add card"
+      direction: DOWN
+- tapOn: "Add card"
+- extendedWaitUntil:
+      visible: "Card number"
+      timeout: 30000
+# Stripe's card field moves on to the expiry, the code and the postal code as each fills
+- tapOn: "Card number"
+- inputText: "5555555555554444"
+- inputText: ${output.expiry}
+- inputText: "123"
+- inputText: "V8W1A1"
+- tapOn: "Save card"
+- extendedWaitUntil:
+      visible: ".*4444.*"
+      timeout: 90000
+- scrollUntilVisible:
+      element: "Add card"
+      direction: DOWN
+- tapOn: "Add card"
+- extendedWaitUntil:
+      visible: "Card number"
+      timeout: 30000
+- tapOn: "Card number"
+- inputText: "4242424242424242"
+- inputText: ${output.expiry}
+- inputText: "123"
+- inputText: "V8W1A1"
+- tapOn: "Save card"
+- extendedWaitUntil:
+      visible: ".*4242.*"
+      timeout: 90000
+- takeScreenshot: client-cards-saved
+- tapOn: ".*4242.*"
+- tapOn: "Make default"
+- runScript:
+      file: ../helpers/stripe-wallet.js
+      env:
+          CLIENT: ${output.client}
+          DEFAULT: "4242"
+- assertTrue: ${output.recorded === "card:4444:saved,card:4242:default"}
+# saving a card is a SetupIntent at Stripe, so both cards are attached and nothing was charged
+- assertTrue: ${output.provider === "attached 2, setups succeeded,succeeded, charges 0"}
+- takeScreenshot: client-cards-default

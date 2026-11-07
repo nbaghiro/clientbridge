@@ -15,8 +15,9 @@ import threading
 import tomllib
 import traceback
 from collections.abc import Callable
-from contextlib import ExitStack
+from contextlib import ExitStack, nullcontext
 from pathlib import Path
+from typing import IO, Literal
 from uuid import uuid4
 
 from dotenv import dotenv_values
@@ -29,6 +30,7 @@ from clientbridge.integrations.stripe import (
 )
 from e2e import tier
 from e2e.builds import source_snapshot
+from e2e.native import build_native, native_ports_free, run_stripe_flows
 from e2e.recordings import keep_recordings
 from e2e.results import REQUIRED_CASES, Report, browser_cases
 from e2e.shards import case_seconds, listed_cases, shard, shard_filters
@@ -229,6 +231,72 @@ def listener(stack: Stack, processes: ExitStack) -> str:
     return found["secret"]
 
 
+def native_target(value: str) -> tuple[Literal["ios", "android"], str]:
+    platform, _, device = value.partition(":")
+    if platform not in ("ios", "android") or not device:
+        raise argparse.ArgumentTypeError("name the phone as ios:<device> or android:<device>")
+    return platform, device
+
+
+def native_actions(stack: Stack) -> dict[str, Callable[[bytes], bytes | None]]:
+    """What the phone flows ask of the lane: file a client as a purchaser, and read its wallet."""
+
+    def clients(*argv: str) -> bytes:
+        return subprocess.run(
+            [sys.executable, "-m", "e2e.stripe", "clients", *argv],
+            cwd=ROOT / "backend",
+            env=stack.env,
+            capture_output=True,
+            check=True,
+        ).stdout
+
+    def purchaser(body: bytes) -> None:
+        clients("register", body.decode())
+
+    return {
+        "/purchaser": purchaser,
+        "/wallet": lambda body: clients("wallet", body.decode()),
+    }
+
+
+def run_browser(args: argparse.Namespace, stack: Stack, directory: Path, log: IO[bytes]) -> None:
+    stack.use_builds(log)
+    tests = args.tests
+    if args.shard:
+        tests = shard_cases(stack, args.shard)
+        (directory / "shard.json").write_text(json.dumps(tests, indent=2) + "\n")
+    playwright = [
+        "pnpm",
+        "--filter",
+        "connect",
+        "exec",
+        "playwright",
+        "test",
+        "--config=playwright.stripe.config.ts",
+    ]
+    with (directory / "browser.log").open("wb") as browser_log:
+        stack.command([*playwright, *tests], browser_log, frontend=True)
+        if args.shard:
+            # through its project dependencies it would rerun the whole lane
+            stack.env["E2E_OUTPUT_DIR"] = str(reconciliation_results(directory))
+            stack.command(
+                [*playwright, "--project=reconciliation", "--no-deps"],
+                browser_log,
+                frontend=True,
+            )
+    report = directory / "browser-results" / "results.json"
+    # a shard holds part of the lane, so CI requires the cases on the shards merged
+    if args.tests or args.shard:
+        Report.model_validate_json(report.read_text()).validate_evidence([])
+    if args.shard:
+        reconciled = reconciliation_results(directory) / "results.json"
+        Report.model_validate_json(reconciled.read_text()).validate_evidence([])
+    elif not args.tests:
+        Report.model_validate_json(report.read_text()).validate_evidence(
+            REQUIRED_CASES["stripe"], browser_cases("stripe")
+        )
+
+
 def run_lane(args: argparse.Namespace, directory: Path, lease: tier.Lease) -> None:
     stack = Stack(directory, lease)
     stack.configure()
@@ -238,7 +306,7 @@ def run_lane(args: argparse.Namespace, directory: Path, lease: tier.Lease) -> No
     record: dict[str, object] = {
         "project": stack.project,
         "started_at": clock.wall().isoformat(),
-        "surface": "connect-stripe",
+        "surface": "stripe-native" if args.native else "connect-stripe",
         "credentials_mode": args.credentials,
         "activation": args.activation,
         "payout_case": args.payout_case,
@@ -301,41 +369,11 @@ def run_lane(args: argparse.Namespace, directory: Path, lease: tier.Lease) -> No
             try:
                 try:
                     stack.start(processes, log, before_api=before_api, browser_fixtures=False)
-                    stack.use_builds(log)
-                    tests = args.tests
-                    if args.shard:
-                        tests = shard_cases(stack, args.shard)
-                        (directory / "shard.json").write_text(json.dumps(tests, indent=2) + "\n")
-                    playwright = [
-                        "pnpm",
-                        "--filter",
-                        "connect",
-                        "exec",
-                        "playwright",
-                        "test",
-                        "--config=playwright.stripe.config.ts",
-                    ]
-                    with (directory / "browser.log").open("wb") as browser_log:
-                        stack.command([*playwright, *tests], browser_log, frontend=True)
-                        if args.shard:
-                            # through its project dependencies it would rerun the whole lane
-                            stack.env["E2E_OUTPUT_DIR"] = str(reconciliation_results(directory))
-                            stack.command(
-                                [*playwright, "--project=reconciliation", "--no-deps"],
-                                browser_log,
-                                frontend=True,
-                            )
-                    report = directory / "browser-results" / "results.json"
-                    # a shard holds part of the lane, so CI requires the cases on the shards merged
-                    if args.tests or args.shard:
-                        Report.model_validate_json(report.read_text()).validate_evidence([])
-                    if args.shard:
-                        reconciled = reconciliation_results(directory) / "results.json"
-                        Report.model_validate_json(reconciled.read_text()).validate_evidence([])
-                    elif not args.tests:
-                        Report.model_validate_json(report.read_text()).validate_evidence(
-                            REQUIRED_CASES["stripe"], browser_cases("stripe")
-                        )
+                    if args.native:
+                        platform, device = args.native
+                        run_stripe_flows(stack, platform, device, args.tests, native_actions(stack))
+                    else:
+                        run_browser(args, stack, directory, log)
                 finally:
                     keep_recordings(directory)
                     record.update(stack.finish_worker())
@@ -416,12 +454,17 @@ def stack_main(argv: list[str]) -> int:
     parser.add_argument("--payout-case", action="store_true")
     parser.add_argument("--pair", choices=pairs(), help="lease a CI pool pair instead")
     parser.add_argument("--shard", type=shard, help="run one part of the lane, as <index>/<total>")
+    parser.add_argument(
+        "--native", type=native_target, help="run the phone flows instead, on ios|android:<device>"
+    )
     parser.add_argument("tests", nargs=argparse.REMAINDER)
     args = parser.parse_args(argv)
     if args.tests[:1] == ["--"]:
         args.tests = args.tests[1:]
     if args.shard and args.tests:
         parser.error("a shard picks its own cases")
+    if args.native and args.shard:
+        parser.error("the phone flows run whole")
     if args.credentials == "environment" and args.pair is None:
         parser.error("environment credentials lease a pool pair with --pair")
     if args.allow_source_changes and os.environ.get("CI"):
@@ -437,7 +480,11 @@ def stack_main(argv: list[str]) -> int:
                 fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError:
                 raise RuntimeError("another provider run holds the merchant lease") from None
-            with tier.hold(), tier.lease() as lease:
+            with (
+                native_ports_free() if args.native else nullcontext(),
+                tier.hold(),
+                tier.lease() as lease,
+            ):
                 run_lane(args, directory, lease)
     except BaseException as error:
         print(f"Stripe browser run did not complete: {type(error).__name__}", file=sys.stderr)
@@ -447,6 +494,20 @@ def stack_main(argv: list[str]) -> int:
                 print(error.stderr, file=sys.stderr)
         return 1
     return 0
+
+
+def native_build_main(argv: list[str]) -> None:
+    """Build the e2e app with the local sandbox's publishable key, for the phone flows."""
+    parser = argparse.ArgumentParser(prog="python -m e2e.stripe native-build")
+    parser.add_argument("platform", choices=("ios", "android"))
+    parser.add_argument(
+        "--publishable-file", type=Path, default=ROOT / "frontend/apps/connect/.env"
+    )
+    args = parser.parse_args(argv)
+    publishable = dotenv_values(args.publishable_file).get("STRIPE_PUBLISHABLE_KEY") or ""
+    if not publishable.startswith("pk_test_"):
+        raise SystemExit("the Connect environment file must contain a test publishable key")
+    build_native(args.platform, publishable)
 
 
 COMMANDS: dict[str, Callable[[list[str]], int | None]] = {
@@ -462,6 +523,7 @@ COMMANDS: dict[str, Callable[[list[str]], int | None]] = {
     "reconcile": lambda argv: asyncio.run(reconcile_main(argv)),
     "plan": lambda argv: asyncio.run(plan_main(argv)),
     "stack": stack_main,
+    "native-build": native_build_main,
 }
 
 

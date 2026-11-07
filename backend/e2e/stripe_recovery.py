@@ -359,7 +359,7 @@ async def recover_main(argv: list[str]) -> int:
         fcntl.flock(lease, fcntl.LOCK_EX | fcntl.LOCK_NB)
         held = True
         original = json.loads((state.parent / "run.json").read_text())
-        if original.get("surface") != "connect-stripe":
+        if original.get("surface") not in ("connect-stripe", "stripe-native"):
             raise ValueError("manifest does not belong to a provider browser run")
         attempt["original_outcome"] = original.get("outcome")
         manifest = Manifest.model_validate_json(state.read_text())

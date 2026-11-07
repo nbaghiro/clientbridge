@@ -31,6 +31,7 @@ describe("e2e file names", () => {
                 "apps/mobile/e2e/setup.yaml",
                 "apps/mobile/e2e/auth.recovery.yaml",
                 "apps/mobile/e2e/helpers/owner.yaml",
+                "apps/mobile/e2e/stripe/clients.cards.yaml",
             ),
             [],
         );
@@ -50,8 +51,9 @@ describe("e2e file names", () => {
                 "apps/connect/e2e/connect.e2e.ts",
                 "apps/connect/e2e/deposit.spec.ts",
                 "apps/mobile/e2e/01-workday.yaml",
+                "apps/mobile/e2e/stripe/cards.yaml",
             ).length,
-            5,
+            6,
         );
     });
 
