@@ -1,8 +1,8 @@
 #!/bin/sh
 # Pre-commit gate on exactly what is being committed: the staged changes are applied to a temporary
 # worktree at HEAD, so unstaged edits (including other sessions' work in this checkout) can't fail or
-# pass a commit. Runs format-check, lint, generated-code drift and the backend and frontend tests; the
-# backend suite needs the local Postgres from `make up`. Browser, device and sync e2e run in CI.
+# pass a commit. Runs format-check, lint, generated-code drift and the backend, frontend and infra tests;
+# Docker must be running, since the backend suite starts the shared test tier itself. E2e runs in CI.
 set -e
 
 root=$(git rev-parse --show-toplevel)

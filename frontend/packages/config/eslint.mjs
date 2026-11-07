@@ -26,7 +26,7 @@ const MAESTRO_GLOBALS = {
         "PHONE",
         "LINK",
     ]),
-    // what the native lane passes every flow, and the control helper's own arguments
+    // what the native lane passes every flow, and the helpers' own arguments
     ...readonly([
         "E2E_NAMESPACE",
         "MAILPIT_URL",
@@ -39,6 +39,8 @@ const MAESTRO_GLOBALS = {
         "METHOD",
         "PATH",
         "BODY",
+        "SLUG",
+        "WORDS",
     ]),
     output: "writable",
 };

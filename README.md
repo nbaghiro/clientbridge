@@ -16,7 +16,7 @@ net-new product, built around a first-class configurable tax engine and modern p
 - **White space** — beauty/personal-care + multi-discipline wellness solos + cleaning, where Jane App
   (clinical health) and Jobber (home services) don't reach.
 
-For the seeded demo accounts and demo checks, see the [demo section of the engineering guide](.docs/engineering.md#the-demo--qa-account).
+The seeded demo businesses, their logins and what each one shows are in [`.docs/demo.md`](.docs/demo.md).
 
 ## Architecture
 
@@ -44,13 +44,13 @@ typed `/v1` command) · command (`POST /v1`) · webhook/public · job. Payments 
 clientbridge/
 ├── Makefile · docker-compose.yml   root orchestration + local infra (87xx ports)
 ├── .github/workflows/ci.yml        CI: lint, then checks and e2e, then ci-result
-├── .githooks/                      versioned git hooks (pre-commit = format-check + lint)
-├── .docs/                          main docs · design/ · reviews/ · explorations/ · executions/
-├── backend/                        FastAPI app — src/clientbridge/{api,services,models,core,sync,tasks,integrations}
+├── .githooks/                      versioned git hooks (pre-commit = format-check, lint, codegen-check, test)
+├── .docs/                          main docs · company/ · reviews/ · explorations/ · executions/
+├── backend/                        FastAPI app: src/clientbridge/{api,schemas,services,models,core,sync,tasks,integrations}
 ├── frontend/                       pnpm+turbo workspace
-│   ├── apps/{web (Vite), mobile (Expo), connect (Vite), site (Vite, static)}
+│   ├── apps/{web (Vite), mobile (Expo), connect (Vite), admin (Vite), site (Vite, static)}
 │   └── packages/{app-core, tokens, ui, sync, api-client, config}
-└── infra/                          PowerSync sync-rules + config · seeds
+└── infra/                          auth (Kratos config) · powersync (sync rules + config) · pulumi (cloud stacks)
 ```
 
 | Frontend package           | Role                                                                    |
@@ -71,60 +71,56 @@ See the [documentation index](.docs/README.md) for core references, reviews and 
 
 ```sh
 # one-time
+cp .env.example backend/.env  # local settings
 make hooks                    # install the pre-commit hook
 make install                  # backend (uv sync) + frontend (pnpm install) deps
-make up                       # local infra: postgres · powersync · redis · s3 (RustFS) (87xx ports)
-make migrate                  # apply the development schema; `make seed` replaces the demo accounts
+make up                       # local infra: postgres · powersync · auth (Kratos) · mailpit · redis · s3 (RustFS)
+make migrate                  # database roles, the schema, grants and the sync publication
+make seed                     # replace the demo businesses (needs the auth service from `make up`)
 
 # run (separate terminals)
 make dev-api                  # FastAPI        → http://localhost:8701
 make dev-web                  # web (Vite)     → http://localhost:8700
+make dev-connect              # Connect (Vite) → http://localhost:8709
+make dev-admin                # admin (Vite)   → http://localhost:8711
 make dev-mobile               # mobile (Expo)  → http://localhost:8707
 make dev-site                 # marketing site → http://localhost:8710
 make worker                   # arq background jobs (reminders, sweeps, reconciliation)
 ```
+
+Card payments in the demo need the demo businesses linked to the Stripe sandbox, as described in
+[Local sandbox setup](.docs/payments.md#local-sandbox-setup).
 
 Host ports use the **87xx** block; see
 [`.docs/engineering.md`](.docs/engineering.md#ports--the-87xx-block).
 
 ## Development
 
-```sh
-make check          # full local gate: ruff/pyright · eslint/tsc/prettier · pytest (90% branch) · web tests
-make lint           # ruff + pyright (backend) · eslint + tsc (frontend)
-make format         # ruff format · prettier --write
-make gen-api        # regenerate the api-client from the backend OpenAPI (drift-gated)
-make gen-sync-schema# regenerate the PowerSync client schema from the models (drift-gated)
-make test-contract  # real StripeGateway vs stripe-mock (:8708)
-make test-sandbox   # Stripe test-mode flows (dormant until STRIPE_TEST_SECRET_KEY is set)
-make build-site     # marketing site → static HTML in frontend/apps/site/dist
-make test-site      # site browser pass: every page, links, images, phone width, accessibility
-```
-
-The **pre-commit hook** (`make hooks`) runs format-check, lint and codegen-check on every commit. **CI**
-([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on every push to `main` + PR and calls the
-same make targets as the local gate. A **lint** group (format, lint, types, infra and codegen drift) runs
-first; the **checks** group (backend tests, Stripe contract, frontend tests and build, images, site) and
-the **e2e** group (web, Connect, Android and sync lanes) start only when it passes. **ci-result** is the
-one required check and passes only when all three groups passed. Conventions, the gate, and testing live in
-[`.docs/engineering.md`](.docs/engineering.md).
+`make check` runs the full local gate (lint, generated-code drift and the tests), and the pre-commit hook
+installed by `make hooks` runs format-check, lint, codegen-check and the tests on the staged changes.
+The tests need Docker running, because they start the shared test tier themselves. The gate, CI, the test
+suites and the e2e lanes are described in [`.docs/engineering.md`](.docs/engineering.md).
 
 ## Docs
 
-Three docs, plus the design system:
-- [**architecture**](.docs/architecture.md) — the system: stack · the 5 surfaces · data model (41 tables /
-  11 domains) · sync · authorization · frontend.
-- [**engineering**](.docs/engineering.md) — the gate · CI · testing · the vertical-slice method ·
-  copy · ports · the demo/seed · conventions.
-- [**launch-readiness**](.docs/launch-readiness.md) — the launch epics and stories, mirrored in Jira (ENG), plus the after-launch list.
-- [`design/`](.docs/design/) — screens (IA) · tokens · the `app-explorer.html` source.
+The main docs are listed in the [documentation index](.docs/README.md):
+
+- [**architecture**](.docs/architecture.md): the system, data model, sync, authorization and the frontend.
+- [**engineering**](.docs/engineering.md): the gate, CI, testing, local development and conventions.
+- [**demo**](.docs/demo.md): the demo businesses, their logins and what each one shows.
+- [**launch-readiness**](.docs/launch-readiness.md): the launch plan and deferred scope. Its tickets are
+  tracked in Linear (key `CB`).
+- [**payments**](.docs/payments.md): Stripe accounts, merchant payments, payouts and platform billing.
+- [**operations**](.docs/operations.md): environments, secrets, providers, deploys, jobs, alerts and restore.
 
 ## Status
 
-**Alpha, active development.** Backend (all domains across the 5 surfaces, Stripe Connect payments +
-KYC, webhooks, and background jobs) and the web + mobile apps are substantially built on a shared
-view-model layer, with a full integration test suite and green CI. External providers (Stripe, email/SMS/push) run through faked adapters and are not yet wired to
-live services. Naming and theme (**Pewter**) are decided.
+**Alpha, in active development.** The backend, web, mobile, Connect and admin apps are built on a shared
+view-model layer, with an integration test suite and e2e lanes in CI. Stripe, Resend, Twilio, Expo push
+and the Kratos auth service each have a real adapter in
+[`backend/src/clientbridge/integrations/`](backend/src/clientbridge/integrations/). Staging deploys on
+every push to `main` after CI passes, and each deploy runs a smoke check against its hosts. Production
+is not deployed yet.
 
 ---
 

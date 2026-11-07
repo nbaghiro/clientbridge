@@ -13,7 +13,9 @@ from clientbridge.models.catalog import (
     TaxClass,
 )
 
-GiftAmount = Annotated[int, Field(gt=0)]
+GIFT_MIN_CENTS = 500
+GIFT_MAX_CENTS = 100_000
+GiftAmount = Annotated[int, Field(ge=GIFT_MIN_CENTS, le=GIFT_MAX_CENTS)]
 
 
 class ItemBase(Mirror):
@@ -58,7 +60,7 @@ class ItemBase(Mirror):
     member_discount_bps: int | None = Field(
         default=None, ge=0, le=10000, description="Memberships only: members' retail discount"
     )
-    gift_amounts: list[GiftAmount] | None = Field(
+    gift_amounts: list[int] | None = Field(
         default=None, max_length=12, description="Gift cards only: suggested amounts in cents"
     )
     staff_ids: list[str] = Field(
@@ -74,6 +76,9 @@ class ItemBase(Mirror):
 
 
 class ItemCreate(ItemBase):
+    gift_amounts: list[GiftAmount] | None = Field(
+        default=None, max_length=12, description="Gift cards only: suggested amounts in cents"
+    )
     online_bookable: bool | None = Field(
         default=None, description="Defaults by kind: services and classes only"
     )

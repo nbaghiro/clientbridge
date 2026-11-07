@@ -1,12 +1,5 @@
 # Reviews
 
-Reviews describe a particular source snapshot. Their findings and validation results are evidence, not a replacement for the current architecture or an active task tracker.
+A review records findings about one snapshot of the code, dated and named after the commit it read. Put each one in `reviews/<area>/`. Its findings are evidence, not the current architecture or a task list: fixes go on the launch ticket that covers them, and anything durable moves into the main docs. Delete a review once its findings are resolved; git keeps it.
 
-| Area             | Documents                                                                                                                                                     |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Backend          | [System review](backend/overview.md), [cross-cutting principles](backend/principles.md), [file inventory](backend/files.csv).                                 |
-| Product surfaces | [Web and Connect](product/web-and-connect.md), [native mobile](product/mobile.md), [comprehensive product and E2E brief](product/comprehensive-e2e-brief.md). |
-| CI               | [Workflow, flakiness and timings, 2026-10-12](ci/2026-10-12-ci-review.md).                                                                                    |
-| Payments         | [Money flows, 2026-10-28](payments/2026-10-28-money-flows.md).                                                                                                |
-
-The backend hardening execution that answered these findings was closed on 2026-10-13 with one of its 45 tasks done; its plan and task queue are in git history at `c72aee9b` (`.docs/executions/backend-hardening/`), and the current fixes are planned in the codebase review execution. The ledger audit of 2026-10-12 was resolved and folded into the architecture doc.
+There are no open reviews. The October reviews of the backend, CI, money flows and product surfaces were resolved and removed on 2026-11-06; their open items now sit on CB-45, CB-59 and the After launch list in [launch-readiness.md](../launch-readiness.md).

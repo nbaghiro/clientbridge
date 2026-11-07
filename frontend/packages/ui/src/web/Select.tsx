@@ -419,7 +419,7 @@ export function Select<K extends string>({
                                   }
                                   autoComplete="off"
                                   spellCheck={false}
-                                  className="min-w-0 flex-1 bg-transparent py-0.5 text-sm text-ink outline-hidden placeholder:text-muted"
+                                  className="min-w-0 flex-1 bg-transparent py-0.5 text-sm text-ink outline-hidden placeholder:text-muted pointer-coarse:text-base"
                               />
                           </div>
                       ) : null}

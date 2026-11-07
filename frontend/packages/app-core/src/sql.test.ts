@@ -1971,6 +1971,60 @@ describe("app-core SQL against the replica schema", () => {
         expect(run("CLIENT_LAST_VISIT_SQL", ["cl_ann", "2026-06-26T00:00:00.000Z"])).toEqual([]);
     });
 
+    it("lists online requests still ahead and waiting for an answer", () => {
+        scoped("slots", [
+            {
+                id: "ss_req",
+                item_id: "it_cut",
+                staff_id: "st_amy",
+                starts_at: "2026-07-11T17:00:00Z",
+                ends_at: "2026-07-11T18:00:00Z",
+                capacity: 1,
+                status: "scheduled",
+            },
+        ]);
+        const request = {
+            staff_id: "st_amy",
+            client_id: "cl_ben",
+            status: "pending",
+            source: "online",
+            price_cents: 10000,
+            deposit_amount_cents: 0,
+            deposit_status: "none",
+        };
+        scoped("bookings", [
+            { ...request, id: "bk_req", slot_id: "ss_req" },
+            { ...request, id: "bk_past", slot_id: "ss_2" },
+            { ...request, id: "bk_gone", slot_id: "ss_3", deleted_at: TS },
+        ]);
+        expect(
+            pick(
+                run("REQUESTS_SQL", ["2026-06-27T00:00:00.000Z"]),
+                "booking_id",
+                "staff_id",
+                "client_name",
+                "item_name",
+            ),
+        ).toEqual([
+            { booking_id: "bk_req", staff_id: "st_amy", client_name: "ben", item_name: "Cut" },
+        ]);
+        const bell = run(
+            "NOTIFICATION_FEED_SQL",
+            Array<string>(6).fill("2026-06-24T00:00:00.000Z"),
+        );
+        expect(bell.find((r) => r.id === "bk-bk_req")?.kind).toBe("booking_request");
+        expect(bell.find((r) => r.id === "bk-bk_1")?.kind).toBe("booking_new");
+        // a declined request arrived as a request, so the bell never calls it a new booking
+        db.run(
+            "UPDATE bookings SET status = 'canceled', canceled_at = '2026-06-27T10:00:00Z' WHERE id = 'bk_req'",
+        );
+        const declined = run(
+            "NOTIFICATION_FEED_SQL",
+            Array<string>(6).fill("2026-06-24T00:00:00.000Z"),
+        );
+        expect(declined.find((r) => r.id === "bk-bk_req")?.kind).toBe("booking_request");
+    });
+
     it("feeds the shell: the viewer, counts and setup progress", () => {
         expect(run("VIEWER_STAFF_SQL", ["st_amy"])).toEqual([
             { name: null, title: "Groomer", role: "staff", color: null },

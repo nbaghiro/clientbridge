@@ -1194,6 +1194,18 @@ interface Strings {
         readonly keepVisit: string;
         readonly confirmCancel: string;
         readonly confirmNoShow: string;
+        readonly approve: string;
+        readonly decline: string;
+        readonly requestNote: string;
+        readonly declineTitle: string;
+        readonly declineRefund: (amount: string) => string;
+        readonly declineNotify: string;
+        readonly keepRequest: string;
+        readonly confirmDecline: string;
+        readonly settling: string;
+        readonly declinedDone: string;
+        readonly canceledDone: string;
+        readonly outcomeBody: string;
         readonly actionError: string;
         readonly endsIn: (min: number) => string;
         readonly endedAgo: string;
@@ -3002,7 +3014,6 @@ interface Strings {
         readonly validDays: (n: number) => string;
         readonly every: (interval: number, freq: string) => string;
         readonly perPeriod: (money: string, freq: string) => string;
-        readonly anyAmount: string;
         readonly depositMeta: (label: string) => string;
         readonly skuLine: (sku: string) => string;
         readonly untracked: string;
@@ -3179,6 +3190,7 @@ interface Strings {
         readonly lowAfter: string;
         readonly covers: string;
         readonly coversHint: string;
+        readonly subjectRule: (kind: string) => string;
         readonly chooseService: string;
         readonly visitsLabel: string;
         readonly validForDays: string;
@@ -3191,15 +3203,18 @@ interface Strings {
         readonly memberPerk: string;
         readonly memberPerkHint: string;
         readonly giftAmounts: string;
-        readonly giftAmountsHint: string;
+        readonly giftAmountsHint: (min: string, max: string) => string;
+        readonly giftRange: (min: string, max: string) => string;
         readonly giftNote: string;
         readonly perVisit: (money: string) => string;
         readonly saves: (money: string, n: number, name: string) => string;
         readonly noSaving: string;
+        readonly planFree: string;
         readonly perYear: (money: string) => string;
         readonly planSummaryPackage: (n: number, name: string) => string;
         readonly planSummaryIncomplete: string;
         readonly planSummaryMembership: (money: string, freq: string) => string;
+        readonly planSummaryFreeMembership: (freq: string) => string;
         readonly sellsAt: string;
         readonly membersKeepPrice: string;
         readonly freqLabel: {
@@ -3646,6 +3661,9 @@ interface Strings {
             readonly depositTitle: string;
             readonly depositDetail: (client: string, amount: string, time: string) => string;
             readonly depositAction: string;
+            readonly requestTitle: string;
+            readonly requestDetail: (client: string, service: string, when: string) => string;
+            readonly requestAction: string;
             readonly overdueTitle: (n: number) => string;
             readonly overdueDetail: (client: string, amount: string, days: number) => string;
             readonly overdueAction: string;
@@ -3684,7 +3702,6 @@ interface Strings {
             readonly noNext: string;
             readonly noNextBody: string;
             readonly tomorrow: string;
-            readonly messagesForYou: string;
             readonly nothingElse: string;
         };
     };
@@ -4298,6 +4315,7 @@ interface Strings {
         readonly booking: string;
         readonly bookError: string;
         readonly slotTaken: string;
+        readonly resumeFailed: string;
         readonly connectionError: string;
         readonly payTitle: string;
         readonly payBody: (amount: string) => string;
@@ -4917,6 +4935,7 @@ interface Strings {
             readonly orderNew: string;
             readonly orderNewBody: (client: string, n: number) => string;
             readonly bookingNew: string;
+            readonly bookingRequest: string;
             readonly bookingCanceled: string;
             readonly bookingBody: (client: string, item: string, when: string) => string;
             readonly message: (client: string) => string;

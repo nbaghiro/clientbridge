@@ -362,7 +362,9 @@ export function PayStep({ flow }: { flow: PublicBookingFlow }) {
     const r = flow.result;
     const policy = flow.page?.policy ?? null;
     const secret = r?.deposit_client_secret ?? null;
-    if (r === null || secret === null) return null;
+    if (r === null) return null;
+    if (secret === null)
+        return <Skeleton variant="line" count={3} label={strings.common.loading} />;
     return (
         <div className="space-y-4">
             <div>

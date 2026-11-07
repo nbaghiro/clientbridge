@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import {
     type Attempt,
     attemptKey,
+    failedCode,
     failedStatus,
     failureMessage,
     refusal,
@@ -195,6 +196,7 @@ interface PublicBookingClient {
         idempotencyKey: string,
     ) => Promise<PublicBookingResult>;
     getPrograms: (slug: string, q: { itemId: string; staffId: string }) => Promise<PublicProgram[]>;
+    payDeposit: (manageToken: string) => Promise<DepositIntent>;
 }
 
 function bookingBody(input: BookingInput): string {
@@ -251,7 +253,34 @@ export function createPublicBookingClient(baseUrl: string): PublicBookingClient 
                 await request<{ programs: PublicProgram[] }>(`${at(slug)}/programs?${q.toString()}`)
             ).programs;
         },
+        payDeposit: (manageToken) =>
+            request<DepositIntent>(`${baseUrl}/manage/${encodeURIComponent(manageToken)}/deposit`, {
+                method: "POST",
+            }),
     };
+}
+
+interface HeldVisit {
+    result: PublicBookingResult;
+    slot: OpenSlot;
+}
+
+/** A booking still waiting on its deposit, saved so a reload goes back to paying for it. */
+function heldVisit(saved: string | undefined): HeldVisit | null {
+    try {
+        const value = JSON.parse(saved ?? "null") as Partial<HeldVisit> | null;
+        const result = value?.result;
+        const slot = value?.slot;
+        if (
+            typeof result?.booking_id !== "string" ||
+            typeof result.manage_token !== "string" ||
+            typeof slot?.starts_at !== "string"
+        )
+            return null;
+        return { result: { ...result, deposit_client_secret: null }, slot };
+    } catch {
+        return null;
+    }
 }
 
 const ANY_STAFF = "any";
@@ -370,6 +399,8 @@ export interface CalendarEntry {
     starts_at: string;
     ends_at: string;
     location: string;
+    // the business's zone: the event keeps the visit's own clock time wherever it is opened
+    zone: string;
 }
 
 const icsStamp = (iso: string): string =>
@@ -378,21 +409,64 @@ const icsStamp = (iso: string): string =>
         .replace(/[-:]/g, "")
         .replace(/\.\d{3}/, "");
 
+const two = (n: number): string => String(n).padStart(2, "0");
+
+const icsWall = (d: Date, zone: string): string => {
+    const w = wallTime(d, zone);
+    return `${String(w.year)}${two(w.month)}${two(w.day)}T${two(w.hour)}${two(w.minute)}00`;
+};
+
+const icsOffset = (d: Date, zone: string): string => {
+    const w = wallTime(d, zone);
+    const minutes = Math.round(
+        (Date.UTC(w.year, w.month - 1, w.day, w.hour, w.minute) - d.getTime()) / 60_000,
+    );
+    const away = Math.abs(minutes);
+    return `${minutes < 0 ? "-" : "+"}${two(Math.floor(away / 60))}${two(away % 60)}`;
+};
+
+/** The zone's rules for the visits in it: one observance per offset they fall in, in time order. */
+function icsTimezone(zone: string, starts: readonly Date[]): string[] {
+    const sorted = [...starts].sort((a, b) => a.getTime() - b.getTime());
+    const observances: string[] = [];
+    let previous: string | null = null;
+    for (const start of sorted) {
+        const offset = icsOffset(start, zone);
+        if (offset === previous) continue;
+        observances.push(
+            "BEGIN:STANDARD",
+            `DTSTART:${previous === null ? "19700101T000000" : icsWall(start, zone)}`,
+            `TZOFFSETFROM:${previous ?? offset}`,
+            `TZOFFSETTO:${offset}`,
+            "END:STANDARD",
+        );
+        previous = offset;
+    }
+    return ["BEGIN:VTIMEZONE", `TZID:${zone}`, ...observances, "END:VTIMEZONE"];
+}
+
 /** An .ics file with one event per visit, so "Add to calendar" works in Apple, Google and Outlook. */
 export function icsFor(entries: readonly CalendarEntry[]): string {
     const esc = (t: string): string =>
         t.replace(/[\\;,]/g, (c) => `\\${c}`).replace(/\r\n|\r|\n/g, "\\n");
     const stamp = icsStamp(new Date().toISOString());
+    const zones = [...new Set(entries.map((e) => e.zone))];
     return [
         "BEGIN:VCALENDAR",
         "VERSION:2.0",
         "PRODID:-//Clientbridge//Booking//EN",
+        ...zones.flatMap((zone) =>
+            icsTimezone(
+                zone,
+                entries.filter((e) => e.zone === zone).map((e) => parseTimestamp(e.starts_at)),
+            ),
+        ),
         ...entries.flatMap((e) => [
             "BEGIN:VEVENT",
             `UID:${e.uid}@clientbridge.ca`,
             `DTSTAMP:${stamp}`,
-            `DTSTART:${icsStamp(e.starts_at)}`,
-            `DTEND:${icsStamp(e.ends_at)}`,
+            `DTSTART;TZID=${e.zone}:${icsWall(parseTimestamp(e.starts_at), e.zone)}`,
+            `DTEND;TZID=${e.zone}:${icsWall(parseTimestamp(e.ends_at), e.zone)}`,
             `SUMMARY:${esc(e.title)}`,
             `LOCATION:${esc(e.location)}`,
             "END:VEVENT",
@@ -408,7 +482,7 @@ export function bookedEntries(
         days?: readonly { booking_id: string; starts_at: string; ends_at: string }[];
     },
     slot: { starts_at: string; ends_at: string },
-    visit: { slug: string; title: string; location: string },
+    visit: { slug: string; title: string; location: string; zone: string },
 ): CalendarEntry[] {
     const days =
         result.days === undefined || result.days.length === 0
@@ -420,6 +494,7 @@ export function bookedEntries(
         starts_at: d.starts_at,
         ends_at: d.ends_at,
         location: visit.location,
+        zone: visit.zone,
     }));
 }
 
@@ -581,6 +656,7 @@ export function usePublicBookingFlow(
     const storage = initial?.storage;
     const draftKey = `connect-booking:${slug}`;
     const [draft] = useState(() => readPublicDraft(storage, draftKey));
+    const [held] = useState(() => heldVisit(draft.held));
     const selection = useRef({
         itemId: initial?.itemId ?? draft.itemId,
         staffId: initial?.itemId ? initial.staffId : draft.staffId,
@@ -613,12 +689,17 @@ export function usePublicBookingFlow(
     const key = useRef<Attempt | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
 
+    const [heldSlot, setHeldSlot] = useState<OpenSlot | null>(null);
+    const [resumeError, setResumeError] = useState<string | null>(null);
+
     useEffect(() => {
         if (!initialApplied.current) return;
+        const paying = result !== null && step === "pay" && result.manage_token !== null;
+        const visit = paying ? (slots?.find((x) => x.starts_at === startsAt) ?? heldSlot) : null;
         writePublicDraft(
             storage,
             draftKey,
-            result
+            result !== null && visit === null
                 ? null
                 : {
                       itemId,
@@ -629,12 +710,23 @@ export function usePublicBookingFlow(
                       subjectName,
                       subjectAddress,
                       note,
+                      ...(visit !== null && result !== null
+                          ? {
+                                held: JSON.stringify({
+                                    result: { ...result, deposit_client_secret: null },
+                                    slot: visit,
+                                }),
+                            }
+                          : {}),
                   },
         );
     }, [
         storage,
         draftKey,
         result,
+        step,
+        slots,
+        heldSlot,
         itemId,
         staffId,
         startsAt,
@@ -690,8 +782,50 @@ export function usePublicBookingFlow(
         const extras =
             (selected.session_count ?? null) === null &&
             offeredWith(page.addons, selected.id).length > 0;
-        setStep(extras ? "extras" : "time");
-    }, [page, status, selection.itemId, selection.staffId, selection.startsAt, today, zone]);
+        if (held === null) {
+            setStep(extras ? "extras" : "time");
+            return;
+        }
+        setResult(held.result);
+        setHeldSlot(held.slot);
+        setStep("pay");
+        const token = held.result.manage_token ?? "";
+        client.payDeposit(token).then(
+            (intent) => {
+                setResult((r) =>
+                    r === null
+                        ? r
+                        : {
+                              ...r,
+                              deposit_client_secret: intent.client_secret,
+                              stripe_account_id: intent.stripe_account_id,
+                          },
+                );
+            },
+            (e: unknown) => {
+                // in progress: Stripe already took the card and its event hasn't landed yet
+                const code = failedCode(e);
+                if (code === "deposit_not_due" || code === "deposit_in_progress") {
+                    setStep("done");
+                    return;
+                }
+                setResult(null);
+                setHeldSlot(null);
+                setStep(extras ? "extras" : "time");
+                setResumeError(s.resumeFailed);
+            },
+        );
+    }, [
+        page,
+        status,
+        held,
+        client,
+        selection.itemId,
+        selection.staffId,
+        selection.startsAt,
+        today,
+        zone,
+    ]);
 
     useEffect(() => {
         if (itemId === "" || status !== "ready" || !program) return;
@@ -771,7 +905,8 @@ export function usePublicBookingFlow(
         };
     }, [client, slug, itemId, staffId, day, extraMin, program, status, reload]);
 
-    const slot = slots?.find((x) => x.starts_at === startsAt) ?? null;
+    const slot =
+        slots?.find((x) => x.starts_at === startsAt) ?? (result !== null ? heldSlot : null);
     const waitlist = slot?.waitlist === true;
     // a waitlist seat books no add-ons, so the totals leave them out
     const addonLines = waitlist
@@ -829,6 +964,7 @@ export function usePublicBookingFlow(
 
     const book = (): void => {
         if (service === null || slot === null) return;
+        setResumeError(null);
         if (!detailsOk) {
             setTouched(true);
             return;
@@ -1120,15 +1256,18 @@ export function usePublicBookingFlow(
                       slug: page.slug,
                       title: s.calendarTitle(service.name, page.business_name),
                       location: page.business_name,
+                      zone,
                   })
                 : null,
         paid: () => {
             setStep("done");
         },
         busy,
-        error,
+        error: error ?? resumeError,
         restart: () => {
             setResult(null);
+            setHeldSlot(null);
+            setResumeError(null);
             setStartsAt("");
             setAddons({});
             setItemId("");
@@ -1377,6 +1516,7 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
                       starts_at: data.starts_at,
                       ends_at: data.ends_at,
                       location: data.business_name,
+                      zone,
                   },
               ]
             : null,

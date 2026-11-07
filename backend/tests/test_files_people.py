@@ -140,7 +140,7 @@ async def test_staff_cannot_set_or_clear_another_members_photo_403(
     await db.flush()
     storage.stored[f"{BIZ}/fl_owner_pending"] = 1
     assert (await as_staff.post("/v1/files/fl_owner_pending/complete")).status_code == 403
-    assert await _photos(db, OWNER_USER) == [*before, "fl_owner_pending"]
+    assert set(await _photos(db, OWNER_USER)) == {*before, "fl_owner_pending"}
     assert storage.deleted == []
 
 

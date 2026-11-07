@@ -3784,21 +3784,34 @@ async def _recurring_invoice(
     return invoice.id
 
 
-async def cancel_open_deposits(db: AsyncSession, gateway: PaymentGateway, booking: Booking) -> bool:
+async def cancel_open_deposits(
+    db: AsyncSession, gateway: PaymentGateway, booking: Booking, *, skip_locked: bool = False
+) -> bool:
     """Cancel the visit's unpaid deposit intents; False when one has already gone through."""
     business = await db.get(Business, booking.business_id)
     account_id = business.stripe_account_id if business is not None else None
-    rows = await db.execute(
-        scoped(Payment, booking.business_id)
-        .where(
-            Payment.booking_id == booking.id,
-            Payment.kind == "deposit",
-            Payment.status.in_(("pending", "failed")),
-        )
-        .with_for_update()
+    deposits = scoped(Payment, booking.business_id).where(
+        Payment.booking_id == booking.id, Payment.kind == "deposit"
     )
+    if skip_locked:
+        # a job skips a deposit a webhook is settling rather than wait on it, so neither deadlocks
+        total = await db.scalar(deposits.with_only_columns(func.count()))
+        held = (await db.execute(deposits.with_for_update(skip_locked=True))).scalars().all()
+        if len(held) < (total or 0) or any(p.status == "succeeded" for p in held):
+            return False
+        open_rows = [p for p in held if p.status in ("pending", "failed")]
+    else:
+        open_rows = (
+            (
+                await db.execute(
+                    deposits.where(Payment.status.in_(("pending", "failed"))).with_for_update()
+                )
+            )
+            .scalars()
+            .all()
+        )
     canceled = True
-    for payment in rows.scalars().all():
+    for payment in open_rows:
         if payment.provider == "stripe" and payment.provider_ref and account_id is not None:
             try:
                 await gateway.cancel_payment_intent(

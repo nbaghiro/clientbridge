@@ -1,4 +1,4 @@
-// AUTO-GENERATED from .docs/design/app-explorer.html — do not edit by hand.
+// AUTO-GENERATED from themes.css by `make gen-themes`; edit the CSS, not this file.
 
 export const THEME_KEYS = ["pewter", "slate", "calm", "fjord", "birch", "moss"] as const;
 export type ThemeKey = (typeof THEME_KEYS)[number];
@@ -52,7 +52,7 @@ export const themes = {
             avatar: 7,
         },
         borderWidth: 1.5,
-        shadow: "0 1px 2px rgba(20,25,30,.05)",
+        shadow: "0 1px 2px rgba(20, 25, 30, 0.05)",
     },
     slate: {
         color: {
@@ -93,7 +93,7 @@ export const themes = {
             avatar: 8,
         },
         borderWidth: 1.5,
-        shadow: "0 2px 12px rgba(22,27,31,.06)",
+        shadow: "0 2px 12px rgba(22, 27, 31, 0.06)",
     },
     calm: {
         color: {
@@ -134,7 +134,7 @@ export const themes = {
             avatar: 999,
         },
         borderWidth: 1.5,
-        shadow: "0 2px 14px rgba(11,46,41,.05)",
+        shadow: "0 2px 14px rgba(11, 46, 41, 0.05)",
     },
     fjord: {
         color: {
@@ -175,7 +175,7 @@ export const themes = {
             avatar: 9,
         },
         borderWidth: 1.5,
-        shadow: "0 2px 12px rgba(14,60,68,.06)",
+        shadow: "0 2px 12px rgba(14, 60, 68, 0.06)",
     },
     birch: {
         color: {
@@ -216,7 +216,7 @@ export const themes = {
             avatar: 999,
         },
         borderWidth: 1.5,
-        shadow: "0 2px 14px rgba(50,40,25,.06)",
+        shadow: "0 2px 14px rgba(50, 40, 25, 0.06)",
     },
     moss: {
         color: {
@@ -257,7 +257,7 @@ export const themes = {
             avatar: 8,
         },
         borderWidth: 1.5,
-        shadow: "0 2px 12px rgba(30,40,25,.06)",
+        shadow: "0 2px 12px rgba(30, 40, 25, 0.06)",
     },
 } as const;
 

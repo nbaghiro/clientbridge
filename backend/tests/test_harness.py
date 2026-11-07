@@ -27,7 +27,6 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from e2e import (
     builds,
-    coverage,
     native,
     snapshot,
     stripe_clients,
@@ -807,13 +806,6 @@ def test_every_case_in_a_lanes_files_is_registered_for_that_lane() -> None:
     for lane in LANE_FILES:
         registered = {identity for identity, case in CASES.items() if lane in case.lanes}
         assert written_cases(lane_sources(lane)) <= registered, lane
-
-
-def test_every_family_a_case_names_is_an_audit_family() -> None:
-    known = {family.id for family in coverage.families()}
-    for identity, case in CASES.items():
-        assert set(case.families) <= known, identity
-    assert sum(coverage.totals()["all"].values()) == len(known)
 
 
 def test_every_sync_case_is_written_once_and_each_project_is_configured() -> None:

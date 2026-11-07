@@ -21,8 +21,11 @@ import type { DocTotalLine, Intent, SelectOption, TimelineEntry } from "../ui";
 import { strings } from "../strings";
 import { docRates, priceDoc } from "./billing";
 import {
+    GIFT_MAX_CENTS,
+    GIFT_MIN_CENTS,
     giftAmounts,
     giftItems,
+    giftRangeLabel,
     packageOfferings,
     subscriptionPlans,
     useCatalogItems,
@@ -661,12 +664,18 @@ const CASH = "cash";
 const SHARED = "shared";
 
 const GIFT_PRESETS = ["25", "50", "75", "100"];
-const GIFT_MIN_CENTS = 500;
-const GIFT_MAX_CENTS = 100_000;
 
-function giftPresets(item: Parameters<typeof giftAmounts>[0] | null): string[] {
+/** The amounts a gift card item suggests, or the defaults when it suggests none. */
+export function giftPresets(item: Parameters<typeof giftAmounts>[0] | null): string[] {
     const suggested = item === null ? [] : giftAmounts(item);
     return suggested.length > 0 ? suggested.map((c) => String(c / 100)) : [...GIFT_PRESETS];
+}
+
+const GIFT_DEFAULT = "50";
+
+/** The amount a new gift card sale starts at: $50 when it is offered, else the first suggestion. */
+export function giftDefault(presets: readonly string[]): string {
+    return presets.includes(GIFT_DEFAULT) ? GIFT_DEFAULT : (presets[0] ?? GIFT_DEFAULT);
 }
 const SALE_KINDS: WalletKind[] = ["package", "membership", "gift_card"];
 
@@ -721,7 +730,7 @@ export function useEntitlementSaleForm(
     const tax = useTaxSetup();
     const [kind, setKindState] = useState<WalletKind>(opts.kind ?? "package");
     const [itemId, setItemId] = useState("");
-    const [amount, setAmount] = useState("50");
+    const [typedAmount, setAmount] = useState<string | null>(null);
     const [recipient, setRecipient] = useState("");
     const [clientId, setClientId] = useState(opts.clientId ?? "");
     const [subjectId, setSubjectId] = useState(SHARED);
@@ -735,11 +744,13 @@ export function useEntitlementSaleForm(
             ? packageOfferings(catalog)
             : kind === "membership"
               ? subscriptionPlans(catalog)
-              : [];
+              : giftItems(catalog);
     const item = pool.find((i) => i.id === itemId) ?? pool[0] ?? null;
     const saved = checkoutMethods(cards);
     const methods: CheckoutMethod[] =
         kind === "membership" ? saved : [{ id: CASH, label: w.cash }, ...saved];
+    const presets = giftPresets(kind === "gift_card" ? item : null);
+    const amount = typedAmount ?? giftDefault(presets);
     const giftCents = parseCents(amount, BUSINESS_CURRENCY) ?? 0;
     const client = clients.find((c) => c.id === clientId) ?? null;
     const what =
@@ -822,6 +833,7 @@ export function useEntitlementSaleForm(
                         "/v1/gift-cards",
                         {
                             purchaser_client_id: clientId,
+                            item_id: item?.id ?? null,
                             amount_cents: giftCents,
                             recipient: blankToNull(recipient),
                             payment_method_id: card,
@@ -858,6 +870,7 @@ export function useEntitlementSaleForm(
         setKind: (k) => {
             setKindState(k);
             setItemId("");
+            setAmount(null);
             checkout.setMethod(k === "membership" ? (saved[0]?.id ?? NEW_CARD) : CASH);
             checkout.setError(null);
         },
@@ -865,14 +878,20 @@ export function useEntitlementSaleForm(
         items: pool.map((i) => ({
             key: i.id,
             label: i.name,
-            hint: formatMoney(i.price_cents, BUSINESS_CURRENCY),
+            hint:
+                i.kind === "gift"
+                    ? giftRangeLabel()
+                    : formatMoney(i.price_cents, BUSINESS_CURRENCY),
         })),
         noItems: kind !== "gift_card" && pool.length === 0 ? w.noItems(kind) : null,
         itemId: item?.id ?? "",
-        setItemId,
+        setItemId: (id) => {
+            setItemId(id);
+            setAmount(null);
+        },
         amount,
         setAmount,
-        presets: giftPresets(giftItems(catalog)[0] ?? null).map((p) => ({
+        presets: presets.map((p) => ({
             key: p,
             label: formatMoneyShort(Math.round(Number(p) * 100), BUSINESS_CURRENCY),
         })),
@@ -908,6 +927,7 @@ export function useEntitlementSaleForm(
         sold,
         reset: () => {
             setSold(null);
+            setAmount(null);
             checkout.cancel();
         },
     };

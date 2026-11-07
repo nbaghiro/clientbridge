@@ -529,7 +529,7 @@ ITEMS = [
         None,
         None,
         GST,
-        "Gift Cards",
+        "Gift cards",
         "A Birchbark gift card — any amount, any service.",
     ),
 ]

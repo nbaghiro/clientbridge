@@ -51,6 +51,7 @@ type NotificationKind =
     | "refund"
     | "order_new"
     | "booking_new"
+    | "booking_request"
     | "booking_canceled"
     | "message"
     | "invoice_overdue";
@@ -88,8 +89,10 @@ FROM orders o LEFT JOIN clients c ON c.id = o.client_id
 WHERE o.source = 'online' AND o.pickup_status IS NOT NULL AND o.paid_at IS NOT NULL
   AND ${since("o.paid_at")}
 UNION ALL
-SELECT 'bk-' || b.id, 'booking_new', b.created_at, b.client_id, c.name, NULL, i.name, NULL,
-       NULL, b.id, s.starts_at
+SELECT 'bk-' || b.id,
+       CASE WHEN b.status = 'pending' OR (b.status = 'canceled' AND b.confirmed_at IS NULL)
+            THEN 'booking_request' ELSE 'booking_new' END,
+       b.created_at, b.client_id, c.name, NULL, i.name, NULL, NULL, b.id, s.starts_at
 FROM bookings b JOIN slots s ON s.id = b.slot_id JOIN items i ON i.id = s.item_id
 LEFT JOIN clients c ON c.id = b.client_id
 WHERE b.source = 'online' AND b.deleted_at IS NULL AND ${since("b.created_at")}
@@ -135,6 +138,13 @@ const META: Record<
         category: "bookings",
         icon: "calendar",
         intent: "accent",
+        link: "booking",
+        withId: true,
+    },
+    booking_request: {
+        category: "bookings",
+        icon: "calendar",
+        intent: "warning",
         link: "booking",
         withId: true,
     },
@@ -192,6 +202,11 @@ function describeRow(row: FeedRow, zone: string): { title: string; body: string 
             return { title: n.orderNew, body: n.orderNewBody(client, row.number ?? 0) };
         case "booking_new":
             return { title: n.bookingNew, body: n.bookingBody(client, row.item_name ?? "", when) };
+        case "booking_request":
+            return {
+                title: n.bookingRequest,
+                body: n.bookingBody(client, row.item_name ?? "", when),
+            };
         case "booking_canceled":
             return {
                 title: n.bookingCanceled,

@@ -3226,7 +3226,7 @@
         "message": "Confirmed"
     },
     "bookings.legendPending": {
-        "message": "Awaiting deposit"
+        "message": "Needs approval"
     },
     "bookings.legendCompleted": {
         "message": "Completed"
@@ -3346,7 +3346,7 @@
         "args": ["hours", "minutes"]
     },
     "bookings.statusLabel": {
-        "message": "{status, select, confirmed {Confirmed} pending {Awaiting deposit} completed {Completed} no_show {No-show} canceled {Canceled} waitlisted {Waitlist} other {{status}}}",
+        "message": "{status, select, confirmed {Confirmed} pending {Needs approval} completed {Completed} no_show {No-show} canceled {Canceled} waitlisted {Waitlist} other {{status}}}",
         "args": ["status"]
     },
     "bookings.unpaid": {
@@ -3637,6 +3637,45 @@
     },
     "bookings.confirmNoShow": {
         "message": "Mark no-show"
+    },
+    "bookings.approve": {
+        "message": "Approve",
+        "description": "Confirms a booking a new client asked for online"
+    },
+    "bookings.decline": {
+        "message": "Decline",
+        "description": "Turns down a booking a new client asked for online"
+    },
+    "bookings.requestNote": {
+        "message": "A new client asked for this time online. Approve it to confirm the visit, or decline it to free the time."
+    },
+    "bookings.declineTitle": {
+        "message": "Decline this request?"
+    },
+    "bookings.declineRefund": {
+        "message": "The client is told, and their {amount} deposit is refunded to their card.",
+        "args": ["amount"]
+    },
+    "bookings.declineNotify": {
+        "message": "The client is told, and the time opens up again."
+    },
+    "bookings.keepRequest": {
+        "message": "Keep request"
+    },
+    "bookings.confirmDecline": {
+        "message": "Decline request"
+    },
+    "bookings.settling": {
+        "message": "Saved. This visit updates on this device in a moment."
+    },
+    "bookings.declinedDone": {
+        "message": "Request declined"
+    },
+    "bookings.canceledDone": {
+        "message": "Visit canceled"
+    },
+    "bookings.outcomeBody": {
+        "message": "The client has been told."
     },
     "bookings.actionError": {
         "message": "Couldn't update this visit. Please try again."
@@ -8845,9 +8884,6 @@
         "message": "{money} / {freq}",
         "args": ["money", "freq"]
     },
-    "catalog.anyAmount": {
-        "message": "Any amount"
-    },
     "catalog.depositMeta": {
         "message": "{label} deposit",
         "args": ["label"]
@@ -9392,6 +9428,11 @@
     "catalog.coversHint": {
         "message": "Booking one of these will use a visit instead of charging."
     },
+    "catalog.subjectRule": {
+        "message": "{kind, select, pet {Each one sold is for one pet, or shared by all the client’s pets. You choose when you sell it.} student {Each one sold is for one student, or shared by all the client’s students. You choose when you sell it.} property {Each one sold is for one property, or shared by all the client’s properties. You choose when you sell it.} site {Each one sold is for one site, or shared by all the client’s sites. You choose when you sell it.} vehicle {Each one sold is for one vehicle, or shared by all the client’s vehicles. You choose when you sell it.} other {Each one sold covers any of the client’s visits.}}",
+        "args": ["kind"],
+        "description": "Under a package's visits in the item editor; kind is what the business books besides the client, or none"
+    },
     "catalog.chooseService": {
         "message": "Choose a service"
     },
@@ -9429,7 +9470,13 @@
         "message": "Suggested amounts"
     },
     "catalog.giftAmountsHint": {
-        "message": "Staff and clients can still enter any amount."
+        "message": "Staff can still enter any amount from {min} to {max} at the sale.",
+        "args": ["min", "max"]
+    },
+    "catalog.giftRange": {
+        "message": "Any amount from {min} to {max}",
+        "description": "The price of a gift card item, which sells for any amount within the limits",
+        "args": ["min", "max"]
     },
     "catalog.giftNote": {
         "message": "Gift cards don’t expire and can be spent on anything."
@@ -9445,6 +9492,10 @@
     "catalog.noSaving": {
         "message": "No saving against paying each visit"
     },
+    "catalog.planFree": {
+        "message": "Free: clients pay nothing for it.",
+        "description": "In the item editor's summary of a package or membership whose price is empty or zero"
+    },
     "catalog.perYear": {
         "message": "{money} a year",
         "args": ["money"]
@@ -9459,6 +9510,11 @@
     "catalog.planSummaryMembership": {
         "message": "{money} every {freq}",
         "args": ["money", "freq"]
+    },
+    "catalog.planSummaryFreeMembership": {
+        "message": "Free every {freq}",
+        "description": "In the item editor's summary of a membership whose price is empty or zero",
+        "args": ["freq"]
     },
     "catalog.sellsAt": {
         "message": "Sells from Sales, with its own checkout."
@@ -10734,6 +10790,16 @@
     "today.attention.depositAction": {
         "message": "View"
     },
+    "today.attention.requestTitle": {
+        "message": "Booking request"
+    },
+    "today.attention.requestDetail": {
+        "message": "{client} asked for {service}, {when}",
+        "args": ["client", "service", "when"]
+    },
+    "today.attention.requestAction": {
+        "message": "Review"
+    },
     "today.attention.overdueTitle": {
         "message": "Invoice #{n, number, ::group-off} overdue",
         "args": ["n"]
@@ -10856,9 +10922,6 @@
     },
     "today.staff.tomorrow": {
         "message": "Tomorrow"
-    },
-    "today.staff.messagesForYou": {
-        "message": "Messages from your clients"
     },
     "today.staff.nothingElse": {
         "message": "Nothing else on your plate."
@@ -12616,6 +12679,9 @@
     },
     "publicBooking.slotTaken": {
         "message": "That time is no longer open. Pick another time."
+    },
+    "publicBooking.resumeFailed": {
+        "message": "That hold on your time has ended. Pick a time to book again."
     },
     "publicBooking.connectionError": {
         "message": "We couldn't reach the booking page. Check your connection and try again."
@@ -14428,6 +14494,9 @@
     },
     "notifications.kinds.bookingNew": {
         "message": "New online booking"
+    },
+    "notifications.kinds.bookingRequest": {
+        "message": "Booking request"
     },
     "notifications.kinds.bookingCanceled": {
         "message": "Booking cancelled"

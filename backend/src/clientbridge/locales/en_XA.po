@@ -19,6 +19,12 @@ msgstr "[Ýöû'ŕé ƀööķéð ƒöŕ {when} ŵîţĥ {business}. Þļéåš�
 msgid "booking_confirmed.body_link"
 msgstr "[Ýöû'ŕé ƀööķéð ƒöŕ {when} ŵîţĥ {business}. Çĥåñĝé öŕ çåñçéļ: {link}~~~~~~~~~~~~~~~~]"
 
+msgid "booking_declined.body"
+msgstr "[Ýöûŕ ŕéǫûéšţ ŵîţĥ {business} ƒöŕ {when} ŵåšñ'ţ åççéþţéð. Ýöû'ŕé ŵéļçöɱé ţö ƀööķ åñöţĥéŕ ţîɱé.~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "booking_declined.body_refund"
+msgstr "[Ýöûŕ ŕéǫûéšţ ŵîţĥ {business} ƒöŕ {when} ŵåšñ'ţ åççéþţéð, åñð ýöûŕ {amount} ðéþöšîţ îš ƀéîñĝ ŕéƒûñðéð ţö ýöûŕ çåŕð.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+
 msgid "booking_departed.body"
 msgstr "[{member} ƒŕöɱ {business} éẋþéçţš ţö åŕŕîṽé åŕöûñð {time} åñð îš öñ ţĥé ŵåý ñöŵ.~~~~~~~~~~~~~~~~~~~~]"
 

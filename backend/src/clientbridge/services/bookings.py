@@ -6,7 +6,7 @@ from datetime import UTC, date, datetime, time, timedelta
 from typing import Literal
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import ColumnElement, Exists, func, literal, or_, select, text, tuple_
+from sqlalchemy import ColumnElement, Exists, func, literal, or_, select, text, true, tuple_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -142,7 +142,7 @@ _CLASS_CREW = "a class session has no crew; add helpers to a one-to-one visit"
 _CREW_STARTED = "the visit has already started; add helpers before it starts"
 _CREW_MANAGERS = "only an owner or admin can change a visit's crew"
 _ENROLMENT_PAID = "money was taken on this enrolment's invoice; refund it before declining"
-BookingNotice = Literal["confirmed", "canceled", "rescheduled"]
+BookingNotice = Literal["confirmed", "canceled", "rescheduled", "declined"]
 
 
 async def booking_out(db: AsyncSession, booking: Booking, slot: Slot) -> BookingOut:
@@ -204,6 +204,8 @@ async def seats_closed(db: AsyncSession, slot_id: str) -> bool:
 
 
 def _change_notice(before: str, after: str, moved: bool) -> BookingNotice | None:
+    if (before, after) == ("pending", "canceled"):
+        return "declined"
     if after != before and after == "canceled":
         return "canceled"
     if (before, after) == ("pending", "confirmed"):
@@ -902,6 +904,7 @@ class BookingService:
                 if booking.status in _TERMINAL and data.status != booking.status:
                     raise Conflict(f"a {booking.status} booking can't be modified")
             status_then, starts_then = booking.status, slot.starts_at
+            refunded = 0
             if target is not None:
                 staff_id, starts_at, ends_at = target
                 crew = await crew_ids(self.db, self.biz, booking.id)
@@ -967,18 +970,25 @@ class BookingService:
                 cmd.record(f"booking.{data.status}", entity_type="booking", entity_id=booking.id)
                 if held_seat and data.status in ("canceled", "no_show"):
                     await fill_freed_seats(self.db, slot, performed_by=self.principal.user_id)
+                days = [booking]
                 if program_day and before == "pending" and data.status in ("confirmed", "canceled"):
-                    await self._answer_enrolment(cmd, booking, slot, data.status)
+                    days += await self._answer_enrolment(cmd, booking, slot, data.status)
+                if status_then == "pending" and data.status == "canceled":
+                    # refunded last: Stripe can't take a refund back if a later check rolls back
+                    refunded = await self._refund_declined(days)
             await self.db.flush()
             notice = _change_notice(status_then, booking.status, starts_then != slot.starts_at)
             if notice is not None and (notice != "rescheduled" or data.notify):
                 key = delivery_key("booking", booking.id, each=True)
                 notifier = queued_notifier(self.db, self.biz, key)
-                await {
-                    "canceled": notifier.on_booking_canceled,
-                    "confirmed": notifier.on_booking_confirmed,
-                    "rescheduled": notifier.on_booking_rescheduled,
-                }[notice](self.db, booking.id)
+                if notice == "declined":
+                    await notifier.on_booking_declined(self.db, booking.id, refunded)
+                else:
+                    await {
+                        "canceled": notifier.on_booking_canceled,
+                        "confirmed": notifier.on_booking_confirmed,
+                        "rescheduled": notifier.on_booking_rescheduled,
+                    }[notice](self.db, booking.id)
             return await booking_out(self.db, booking, slot)
 
         return await run_command(
@@ -1044,12 +1054,20 @@ class BookingService:
             )
         return BookingCheck(ok=True, resource_id=choice.held, free_resource_ids=choice.free)
 
+    async def _refund_declined(self, days: Sequence[Booking]) -> int:
+        """A declined request gives back the deposit it paid; the cents refunded."""
+        refunded = 0
+        for day in days:
+            if day.deposit_status == "collected":
+                refunded += await refund_deposit(self.db, self.gateway, day)
+        return refunded
+
     async def _answer_enrolment(
         self, cmd: Command, booking: Booking, slot: Slot, status: Literal["confirmed", "canceled"]
-    ) -> None:
-        """An enrolment waiting for approval is approved or declined whole, every day at once."""
+    ) -> list[Booking]:
+        """Approve or decline a waiting enrolment whole, and return its other days."""
         if slot.recurrence_id is None:
-            return
+            return []
         days = await enrolment(
             self.db, self.biz, slot.recurrence_id, booking.client_id, booking.subject_id
         )
@@ -1071,6 +1089,7 @@ class BookingService:
             for day in (booking, *others):
                 if not await billing.void_enrolment_invoice(self.db, day, cmd):
                     raise Conflict(_ENROLMENT_PAID, code="enrolment_paid")
+        return list(others)
 
     def _moves(self, data: BookingMove, slot: Slot) -> bool:
         return (
@@ -3148,13 +3167,28 @@ _REMINDER_WINDOW = timedelta(hours=24)
 async def _deposits_released(db: AsyncSession, gateway: PaymentGateway, booking: Booking) -> bool:
     """For the jobs: a visit whose deposit Stripe couldn't cancel now waits for the next run."""
     try:
-        return await cancel_open_deposits(db, gateway, booking)
+        return await cancel_open_deposits(db, gateway, booking, skip_locked=True)
     except AppError:
         return False
 
 
+async def _refund_unanswered(
+    db: AsyncSession, gateway: PaymentGateway, booking: Booking
+) -> int | None:
+    """For the jobs: a request nobody answered gives its deposit back; None leaves it to staff."""
+    try:
+        return await refund_deposit(db, gateway, booking)
+    except AppError:
+        return None
+
+
 async def run_reap_unpaid_bookings(
-    db: AsyncSession, gateway: PaymentGateway, notifier: Notifier, now: datetime
+    db: AsyncSession,
+    gateway: PaymentGateway,
+    notifier: Notifier,
+    now: datetime,
+    *,
+    booking_id: str | None = None,
 ) -> int:
     """Release online bookings whose deposit went unpaid past the window, and tell the client."""
     from clientbridge.services import billing  # deferred: billing imports this module
@@ -3167,11 +3201,15 @@ async def run_reap_unpaid_bookings(
         Booking.deleted_at.is_(None),
         Booking.source == "online",
         Booking.deposit_amount_cents > 0,
+        # a column of the locked row, so a deposit settled while the scan ran is seen and skipped
+        Booking.deposit_status == "pending",
         Booking.status.not_in(_CLOSED_OR_WAITING),
         Booking.created_at < now - _UNPAID_TTL,
         Slot.starts_at > now,
         deposits(),
         ~deposits("succeeded"),
+        # the e2e lane reaps only its own booking on the shared tier
+        true() if booking_id is None else Booking.id == booking_id,
     )
     members = await db.execute(
         select(Booking.business_id, Slot.staff_id)
@@ -3311,21 +3349,26 @@ async def _close_past_visits(
         )
     ).all()
     slots: dict[str, Slot] = {}
+    declined: list[tuple[str, int]] = []
     changed = 0
     for booking, slot in rows:
+        refunded: int | None = 0
         if booking.status == "confirmed":
             booking.status, booking.completed_at = "completed", now
             action = "booking.auto_complete"
-        elif booking.deposit_status == "collected":
-            continue  # a paid deposit on an unapproved visit is staff's to refund or keep
-        elif booking.deposit_status == "pending" and not await _deposits_released(
-            db, gateway, booking
+        elif (
+            booking.deposit_status == "collected"
+            and (refunded := await _refund_unanswered(db, gateway, booking)) is None
+        ) or (
+            booking.deposit_status == "pending"
+            and not await _deposits_released(db, gateway, booking)
         ):
             continue
         else:
             booking.status, booking.canceled_at = "canceled", now
             action = "booking.auto_cancel"
             await carry_crew(db, business_id, booking, slot)
+            declined.append((booking.id, refunded or 0))
         if booking.deposit_status == "pending":
             booking.deposit_status = "none"
         db.add(
@@ -3345,6 +3388,11 @@ async def _close_past_visits(
         if slot.status != "canceled":
             await complete_when_done(db, slot)
     await db.flush()
+    # the client was told the business would answer, so an unanswered request still hears back
+    for booking_id, refunded in declined:
+        await queued_notifier(
+            db, business_id, delivery_key("booking", f"{booking_id}:unanswered")
+        ).on_booking_declined(db, booking_id, refunded)
     return changed
 
 

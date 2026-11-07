@@ -40,21 +40,21 @@ help:
 	@echo "test-sync        sync streams on the test tier: replica rows per role, revocation, key rotation"
 	@echo "replication-health  local PowerSync readiness, slot, retained WAL and replay lag"
 	@echo "lighthouse-site  Lighthouse budget against the site preview on :8710"
-	@echo "migrate          alembic upgrade head"
+	@echo "migrate          database roles, alembic upgrade head, then grants and the sync publication"
 	@echo "revision         alembic autogenerate (name=...)"
 	@echo "seed             replace the demo businesses' rows; other tenants are kept"
 	@echo "seed-core        the same with only the core businesses that tests and CI run against"
 	@echo "gen-api          regenerate the frontend api-client from the backend OpenAPI"
 	@echo "gen-sync-schema  regenerate the PowerSync client schema from models + sync streams"
-	@echo "gen-themes       regenerate the theme tokens from .docs/design/app-explorer.html"
+	@echo "gen-themes       regenerate themes.ts from the theme source, packages/tokens/src/themes.css"
 	@echo "gen-messages     regenerate the backend messages.pot and en_XA.po from the code and en_CA.po"
 	@echo "preview-emails   render every email design with demo data into .scratchpad/emails"
 	@echo "gen-waitlist-email write the waitlist confirmation the site server sends, from the email layout"
 	@echo "gen-strings      regenerate the strings accessors, en-XA pseudo-locales and Connect's embed.js"
 	@echo "gen-zones        regenerate the frontend's zone table and parity cases from the backend tzdata"
 	@echo "gen-taxes        regenerate the frontend's tax rate table and engine parity cases from the backend"
-	@echo "codegen-check    regenerate client, sync schema, themes, messages and strings; fail if stale"
-	@echo "test             test-backend + test-frontend"
+	@echo "codegen-check    regenerate client, sync schema, themes, messages, strings, zones, taxes and the waitlist email; fail if stale"
+	@echo "test             test-backend + test-frontend + test-infra"
 	@echo "test-backend     pytest in parallel with the 90% branch-coverage gate, each worker on a seeded copy of its own"
 	@echo "test-frontend    the frontend unit tests, with app-core again in three time zones"
 	@echo "test-contract    real StripeGateway vs the test tier's stripe-mock"
@@ -312,9 +312,9 @@ format-check-frontend:
 format-check-infra:
 	cd infra/pulumi && uv run ruff format --check .
 
-# The fast gate the pre-commit hook runs (no tests).
+# Every file codegen-check regenerates and compares.
 GENERATED := frontend/packages/api-client/src/generated.ts frontend/packages/sync/src/schema.ts \
-	frontend/packages/tokens/src/themes.css frontend/packages/tokens/src/themes.ts \
+	frontend/packages/tokens/src/themes.ts \
 	backend/src/clientbridge/locales/messages.pot backend/src/clientbridge/locales/en_XA.po \
 	frontend/packages/app-core/src/strings.ts frontend/packages/app-core/locales/en-XA.json \
 	frontend/apps/site/src/strings.ts frontend/apps/site/locales/en-XA.json \
@@ -323,7 +323,7 @@ GENERATED := frontend/packages/api-client/src/generated.ts frontend/packages/syn
 	frontend/packages/app-core/src/zones.cases.json frontend/packages/app-core/src/taxRates.ts \
 	frontend/packages/app-core/src/taxes.cases.json
 
-# Regenerates the client, sync schema, themes, messages, strings, zones and taxes; fails if any differ.
+# Regenerates the client, sync schema, themes, messages, strings, zones, taxes and the waitlist email; fails if any differ.
 codegen-check: gen-api gen-sync-schema gen-themes gen-messages gen-strings gen-zones gen-taxes \
 		gen-waitlist-email
 	@git diff --quiet -- $(GENERATED) || { git --no-pager diff --stat -- $(GENERATED); \
@@ -334,7 +334,7 @@ precommit: format-check lint codegen-check test
 # Point git at the versioned hooks (run once per clone).
 hooks:
 	git config core.hooksPath .githooks
-	@echo "git hooks installed → .githooks (pre-commit = format-check + lint + codegen-check)"
+	@echo "git hooks installed → .githooks (pre-commit = format-check + lint + codegen-check + test)"
 
 check: lint codegen-check test
 

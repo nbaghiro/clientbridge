@@ -132,8 +132,11 @@ export async function stripeReceipt(
 
 export async function controlStripeRelay(
     page: Page,
-    action: "arm" | "status" | "release",
-    data: { invoice: string; intent: string } | Record<string, never> = {},
+    action: "arm" | "status" | "release" | "redeliver",
+    data:
+        | { invoice: string; intent: string }
+        | { booking: string; intent: string }
+        | Record<string, never> = {},
 ) {
     const url = process.env.STRIPE_BROWSER_RELAY_URL;
     const token = process.env.STRIPE_BROWSER_RELAY_TOKEN;
@@ -147,6 +150,6 @@ export async function controlStripeRelay(
     return (await response.json()) as {
         held?: boolean;
         upstream_status?: number;
-        records?: { status: string; event?: string }[];
+        records?: { status: string; event?: string; intent?: string }[];
     };
 }

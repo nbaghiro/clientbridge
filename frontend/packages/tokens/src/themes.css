@@ -1,4 +1,4 @@
-/* AUTO-GENERATED from .docs/design/app-explorer.html. :root = Pewter; set [data-theme] to switch. */
+/* The theme source: :root = Pewter; set [data-theme] to switch. `make gen-themes` writes themes.ts from it. */
 
 :root,
 [data-theme="pewter"] {

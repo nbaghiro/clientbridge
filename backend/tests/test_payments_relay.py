@@ -139,6 +139,78 @@ def test_relay_passes_unrelated_genuine_events_transparently(relay: Relay) -> No
     assert relay.held is None
 
 
+DEPOSIT: dict[str, object] = {
+    "customer": "cus_deposit",
+    "metadata": {"booking_id": "bk_owned", "business_id": "bz_owned"},
+}
+
+
+def register_deposit(relay: Relay) -> None:
+    state = json.loads(relay.manifest.read_text())
+    state["deposit_fixtures"] = [
+        {"kind": "enrolment", "booking": "bk_owned", "client": "cl_dep", "customer": "cus_deposit"}
+    ]
+    relay.manifest.write_text(json.dumps(state))
+
+
+def test_relay_holds_a_booking_deposit_then_delivers_it_twice(relay: Relay) -> None:
+    sent: list[bytes] = []
+
+    def transport(url: str, body: bytes, signature: str) -> int:
+        sent.append(body)
+        return 200
+
+    relay.transport = transport
+    register_deposit(relay)
+    with pytest.raises(ValueError, match="no released event"):
+        relay.redeliver()
+    relay.arm(Target(booking="bk_owned", intent="pi_owned"))
+    body, signature = signed(relay, **DEPOSIT)
+    assert relay.receive(body, signature) == 202
+    assert sent == []
+    assert relay.release() == 200
+    assert relay.redeliver() == 200
+    assert sent == [body, body]
+    assert [r["status"] for r in relay.records] == ["armed", "held", "released", "redelivered"]
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"customer": "cus_owned"},
+        {"metadata": {"booking_id": "bk_other", "business_id": "bz_owned"}},
+        {
+            "metadata": {
+                "booking_id": "bk_owned",
+                "invoice_id": "inv_owned",
+                "business_id": "bz_owned",
+            }
+        },
+    ],
+)
+def test_relay_rejects_a_deposit_event_outside_its_booking(
+    relay: Relay, changes: dict[str, object]
+) -> None:
+    def transport(url: str, body: bytes, signature: str) -> int:
+        pytest.fail("unsafe event reached upstream")
+
+    relay.transport = transport
+    register_deposit(relay)
+    relay.arm(Target(booking="bk_owned", intent="pi_owned"))
+    with pytest.raises(ValueError, match="ownership mismatch"):
+        relay.receive(*signed(relay, **{**DEPOSIT, **changes}))
+    assert relay.held is None
+
+
+def test_relay_arms_only_one_registered_deposit(relay: Relay) -> None:
+    register_deposit(relay)
+    with pytest.raises(ValueError, match="registered"):
+        relay.arm(Target(booking="bk_other", intent="pi_owned"))
+    with pytest.raises(ValueError, match="registered"):
+        relay.arm(Target(booking="bk_owned", invoice="inv_owned", intent="pi_owned"))
+    assert relay.target is None
+
+
 def test_relay_rejects_invalid_signature_and_unregistered_arm(relay: Relay) -> None:
     with pytest.raises(ValueError, match="registered"):
         relay.arm(Target(invoice="inv_other", intent="pi_owned"))

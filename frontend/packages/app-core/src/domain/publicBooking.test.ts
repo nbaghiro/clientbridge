@@ -133,7 +133,7 @@ describe("open times", () => {
 });
 
 describe("icsFor", () => {
-    it("writes one escaped UTC event with CRLF line endings", () => {
+    it("writes one escaped event on the business's clock, with its zone and CRLF line endings", () => {
         const ics = icsFor([
             {
                 uid: "bk_01J.birch-studio",
@@ -141,25 +141,60 @@ describe("icsFor", () => {
                 starts_at: "2026-10-07 17:00:00+00",
                 ends_at: "2026-10-07T18:30:00Z",
                 location: "Birch Studio, Victoria",
+                zone: ZONE,
             },
         ]);
         const lines = ics.split("\r\n");
-        expect(lines).toHaveLength(12);
-        expect(lines.slice(0, 4)).toEqual([
+        expect(lines).toHaveLength(20);
+        expect(lines.slice(0, 11)).toEqual([
             "BEGIN:VCALENDAR",
             "VERSION:2.0",
             "PRODID:-//Clientbridge//Booking//EN",
-            "BEGIN:VEVENT",
+            "BEGIN:VTIMEZONE",
+            `TZID:${ZONE}`,
+            "BEGIN:STANDARD",
+            "DTSTART:19700101T000000",
+            "TZOFFSETFROM:-0700",
+            "TZOFFSETTO:-0700",
+            "END:STANDARD",
+            "END:VTIMEZONE",
         ]);
-        expect(lines[4]).toBe("UID:bk_01J.birch-studio@clientbridge.ca");
-        expect(lines[5]).toMatch(/^DTSTAMP:\d{8}T\d{6}Z$/);
-        expect(lines.slice(6)).toEqual([
-            "DTSTART:20261007T170000Z",
-            "DTEND:20261007T183000Z",
+        expect(lines[11]).toBe("BEGIN:VEVENT");
+        expect(lines[12]).toBe("UID:bk_01J.birch-studio@clientbridge.ca");
+        expect(lines[13]).toMatch(/^DTSTAMP:\d{8}T\d{6}Z$/);
+        expect(lines.slice(14)).toEqual([
+            `DTSTART;TZID=${ZONE}:20261007T100000`,
+            `DTEND;TZID=${ZONE}:20261007T113000`,
             "SUMMARY:Groom\\, wash\\; trim\\\\",
             "LOCATION:Birch Studio\\, Victoria",
             "END:VEVENT",
             "END:VCALENDAR",
+        ]);
+    });
+
+    it("keeps each day of a program on its own clock across a daylight saving change", () => {
+        const toronto = "America/Toronto";
+        const day = (uid: string, starts: string, ends: string) => ({
+            uid,
+            title: "Camp",
+            starts_at: starts,
+            ends_at: ends,
+            location: "Birch",
+            zone: toronto,
+        });
+        const lines = icsFor([
+            day("bk_1.birch", "2026-10-30T18:00:00Z", "2026-10-30T19:00:00Z"),
+            day("bk_2.birch", "2026-11-02T19:00:00Z", "2026-11-02T20:00:00Z"),
+        ]).split("\r\n");
+        expect(lines.filter((l) => l.startsWith("TZOFFSET"))).toEqual([
+            "TZOFFSETFROM:-0400",
+            "TZOFFSETTO:-0400",
+            "TZOFFSETFROM:-0400",
+            "TZOFFSETTO:-0500",
+        ]);
+        expect(lines.filter((l) => l.startsWith("DTSTART;"))).toEqual([
+            `DTSTART;TZID=${toronto}:20261030T140000`,
+            `DTSTART;TZID=${toronto}:20261102T140000`,
         ]);
     });
 
@@ -171,6 +206,7 @@ describe("icsFor", () => {
                 starts_at: "2026-10-07T17:00:00Z",
                 ends_at: "2026-10-07T18:00:00Z",
                 location: "12 Main St\r\nUnit 4\nVictoria, BC",
+                zone: ZONE,
             },
         ]);
         expect(ics.split("\r\n")).toContain("LOCATION:12 Main St\\nUnit 4\\nVictoria\\, BC");
@@ -182,6 +218,7 @@ describe("icsFor", () => {
             starts_at: "2026-10-07T17:00:00Z",
             ends_at: "2026-10-07T18:00:00Z",
             location: "Birch",
+            zone: ZONE,
         };
         const uid = (ics: string): string | undefined =>
             ics.split("\r\n").find((l) => l.startsWith("UID:"));
@@ -209,7 +246,7 @@ describe("icsFor", () => {
                 ends_at: "2027-03-04T19:00:00Z",
             },
         ];
-        const visit = { slug: "birch", title: "Camp", location: "Birch" };
+        const visit = { slug: "birch", title: "Camp", location: "Birch", zone: ZONE };
         const first = { starts_at: "2027-03-02T18:00:00Z", ends_at: "2027-03-02T19:00:00Z" };
         const entries = bookedEntries({ booking_id: "bk_1", days }, first, visit);
         const lines = icsFor(entries).split("\r\n");
@@ -219,14 +256,14 @@ describe("icsFor", () => {
             "UID:bk_2.birch@clientbridge.ca",
             "UID:bk_3.birch@clientbridge.ca",
         ]);
-        expect(lines.filter((l) => l.startsWith("DTSTART:"))).toEqual([
-            "DTSTART:20270302T180000Z",
-            "DTSTART:20270303T180000Z",
-            "DTSTART:20270304T180000Z",
+        expect(lines.filter((l) => l.startsWith("DTSTART;"))).toEqual([
+            `DTSTART;TZID=${ZONE}:20270302T110000`,
+            `DTSTART;TZID=${ZONE}:20270303T110000`,
+            `DTSTART;TZID=${ZONE}:20270304T110000`,
         ]);
         const slot = { starts_at: "2026-10-07T17:00:00Z", ends_at: "2026-10-07T18:00:00Z" };
         expect(bookedEntries({ booking_id: "bk_9" }, slot, visit)).toEqual([
-            { uid: "bk_9.birch", title: "Camp", location: "Birch", ...slot },
+            { uid: "bk_9.birch", title: "Camp", location: "Birch", zone: ZONE, ...slot },
         ]);
     });
 });
@@ -327,6 +364,7 @@ it("shows a failed availability load and retries without presenting it as an emp
         book: vi.fn(),
         joinWaitlist: vi.fn(),
         getPrograms: vi.fn().mockResolvedValue([]),
+        payDeposit: vi.fn(),
     };
     const { result } = renderHook(() =>
         usePublicBookingFlow(client, "demo", { itemId: "service" }),
@@ -394,6 +432,7 @@ it("asks for extras before the time and looks for times long enough for them", a
         book: vi.fn(),
         joinWaitlist: vi.fn(),
         getPrograms: vi.fn().mockResolvedValue([]),
+        payDeposit: vi.fn(),
     };
     const { result } = renderHook(() => usePublicBookingFlow(client, "demo"));
     await waitFor(() => {
@@ -481,6 +520,7 @@ it.each(["slot_unavailable", "conflict"])("refreshes occupied times (%s)", async
             }),
         joinWaitlist: vi.fn(),
         getPrograms: vi.fn().mockResolvedValue([]),
+        payDeposit: vi.fn(),
     };
     const { result } = renderHook(() =>
         usePublicBookingFlow(client, "demo", {
@@ -786,6 +826,7 @@ describe("the booking tax note", () => {
         book: vi.fn(),
         joinWaitlist: vi.fn(),
         getPrograms: vi.fn().mockResolvedValue([]),
+        payDeposit: vi.fn(),
     });
     const note = async (client: ReturnType<typeof page>): Promise<string | null> => {
         const { result } = renderHook(() =>
@@ -824,5 +865,160 @@ describe("the booking tax note", () => {
             strings.publicBooking.taxNote,
         );
         expect(await note(page({ tax_starts_on: "2026-11-01" }))).toBeNull();
+    });
+});
+
+describe("a reload on the deposit step", () => {
+    const visit = { starts_at: "2026-10-15T17:00:00.000Z", ends_at: "2026-10-15T19:00:00.000Z" };
+    const draft = {
+        itemId: "groom",
+        staffId: "member",
+        startsAt: visit.starts_at,
+        name: "Sam Chen",
+        phone: "2505550140",
+        held: JSON.stringify({
+            result: {
+                booking_id: "booking",
+                status: "pending",
+                manage_token: "manage",
+                deposit_cents: 2750,
+                deposit_client_secret: "pi_old_secret",
+                stripe_account_id: "acct_1",
+                waitlist_position: null,
+            },
+            slot: { ...visit, staff_id: "member" },
+        }),
+    };
+    const storage = () => {
+        const data = new Map([["connect-booking:demo", JSON.stringify(draft)]]);
+        return {
+            data,
+            getItem: (k: string) => data.get(k) ?? null,
+            setItem: (k: string, v: string) => {
+                data.set(k, v);
+            },
+            removeItem: (k: string) => {
+                data.delete(k);
+            },
+        };
+    };
+    const client = (
+        payDeposit: Parameters<typeof usePublicBookingFlow>[0]["payDeposit"],
+    ): Parameters<typeof usePublicBookingFlow>[0] => ({
+        getServices: vi.fn().mockResolvedValue({
+            business_name: "Demo",
+            brand: { logo_url: null, primary: null, tagline: null },
+            services: [
+                {
+                    id: "groom",
+                    name: "Groom",
+                    description: null,
+                    duration_min: 120,
+                    price_cents: 11000,
+                    currency: "CAD",
+                    deposit_required: true,
+                    deposit_amount_cents: 2750,
+                    taxable: true,
+                    image_url: null,
+                    kind: "service",
+                    category: null,
+                    color: null,
+                    staff_ids: ["member"],
+                },
+            ],
+            staff: [{ id: "member", name: "Sam", title: null, color: null, photo_url: null }],
+            addons: [],
+            stripe_account_id: "acct_1",
+            slug: "demo",
+            now: "2026-10-13T17:00:00Z",
+            timezone: ZONE,
+            policy: null,
+            subject: null,
+        }),
+        getDays: vi.fn().mockResolvedValue([]),
+        // the held visit's own time is taken now, so it is never offered again
+        getSlots: vi.fn().mockResolvedValue([]),
+        book: vi.fn(),
+        joinWaitlist: vi.fn(),
+        getPrograms: vi.fn().mockResolvedValue([]),
+        payDeposit,
+    });
+
+    it("goes back to paying for the held visit with a fresh card form", async () => {
+        const pay = vi
+            .fn()
+            .mockResolvedValue({ client_secret: "pi_fresh", stripe_account_id: "acct_1" });
+        const { result } = renderHook(() =>
+            usePublicBookingFlow(client(pay), "demo", { storage: storage() }),
+        );
+        await waitFor(() => {
+            expect(result.current.result?.deposit_client_secret).toBe("pi_fresh");
+        });
+        expect(pay).toHaveBeenCalledWith("manage");
+        expect(result.current.step).toBe("pay");
+        expect(result.current.slot?.starts_at).toBe(visit.starts_at);
+        expect(result.current.fields.name).toBe("Sam Chen");
+    });
+
+    it("shows the confirmation when the deposit went through before the reload", async () => {
+        const paid = Object.assign(new Error("paid"), { status: 409, code: "deposit_not_due" });
+        const { result } = renderHook(() =>
+            usePublicBookingFlow(client(vi.fn().mockRejectedValue(paid)), "demo", {
+                storage: storage(),
+            }),
+        );
+        await waitFor(() => {
+            expect(result.current.step).toBe("done");
+        });
+    });
+
+    it("shows the confirmation when the paid deposit is still settling after the reload", async () => {
+        const settling = Object.assign(new Error("settling"), {
+            status: 409,
+            code: "deposit_in_progress",
+        });
+        const { result } = renderHook(() =>
+            usePublicBookingFlow(client(vi.fn().mockRejectedValue(settling)), "demo", {
+                storage: storage(),
+            }),
+        );
+        await waitFor(() => {
+            expect(result.current.step).toBe("done");
+        });
+        expect(result.current.error).toBeNull();
+    });
+
+    it("says the hold ended and asks for a new time once the visit was released", async () => {
+        const gone = Object.assign(new Error("gone"), { status: 404, code: "not_found" });
+        const { result } = renderHook(() =>
+            usePublicBookingFlow(client(vi.fn().mockRejectedValue(gone)), "demo", {
+                storage: storage(),
+            }),
+        );
+        await waitFor(() => {
+            expect(result.current.error).toBe(s.resumeFailed);
+        });
+        expect(result.current.step).toBe("time");
+        expect(result.current.result).toBeNull();
+        expect(result.current.fields.name).toBe("Sam Chen");
+    });
+
+    it("keeps nothing once the deposit is paid", async () => {
+        const pay = vi
+            .fn()
+            .mockResolvedValue({ client_secret: "pi_fresh", stripe_account_id: "acct_1" });
+        const saved = storage();
+        const { result } = renderHook(() =>
+            usePublicBookingFlow(client(pay), "demo", { storage: saved }),
+        );
+        await waitFor(() => {
+            expect(result.current.result?.deposit_client_secret).toBe("pi_fresh");
+        });
+        act(() => {
+            result.current.paid();
+        });
+        await waitFor(() => {
+            expect(saved.data.has("connect-booking:demo")).toBe(false);
+        });
     });
 });

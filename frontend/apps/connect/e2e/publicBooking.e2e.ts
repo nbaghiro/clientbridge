@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { strings } from "@clientbridge/app-core/public";
 import { expect, test, type Page } from "@playwright/test";
 import { on } from "./support/hosts";
@@ -54,6 +55,27 @@ async function bookVisit(
     const fresh = String(Date.now() % 1_000_000).padStart(6, "0");
     await page.getByRole("textbox", { name: b.phone }).fill(`2507${fresh}`);
     await page.getByRole("button", { name: b.confirm, exact: true }).click();
+}
+
+/** From the service list to the details step, two days out so a manage-link cancel still works. */
+async function bookUpToDetails(page: Page, business: string, service: RegExp): Promise<void> {
+    const b = strings.publicBooking;
+    await page.goto(`/${business}`);
+    const openings = page.waitForResponse(
+        (response) => response.url().includes(`/book/${business}/days?`) && response.ok(),
+    );
+    await page.getByRole("button", { name: service }).click();
+    if (await page.getByRole("heading", { name: b.stepExtras, level: 2 }).isVisible()) {
+        await page.getByRole("button", { name: b.continue }).first().click();
+    }
+    const days = ((await (await openings).json()) as { days: { count: number; closed: boolean }[] })
+        .days;
+    const open = days.findIndex((day, index) => index >= 2 && day.count > 0 && !day.closed);
+    expect(open).toBeGreaterThanOrEqual(2);
+    await page.getByRole("radiogroup", { name: b.date }).getByRole("radio").nth(open).click();
+    await page.getByRole("radiogroup", { name: b.openTimes }).getByRole("radio").first().click();
+    await page.getByRole("button", { name: b.continue }).first().click();
+    await expect(page.getByRole("heading", { name: b.stepDetails, level: 2 })).toBeVisible();
 }
 
 async function cancelThroughManageLink(page: Page): Promise<void> {
@@ -221,8 +243,63 @@ test(
                 `connect-booking:${otherSlug}`,
             ),
         ).toContain("Other Client");
+
+        const b = strings.publicBooking;
+        await page.evaluate(() => {
+            sessionStorage.clear();
+        });
+        await bookUpToDetails(page, slug, /^Bath & Tidy/);
+        await page.getByRole("textbox", { name: b.name }).fill("Robin Typed");
+        await page.getByRole("textbox", { name: b.subject("pet") }).fill("Biscuit");
+        await page.getByRole("textbox", { name: b.phone }).fill("2505550188");
+        await page.reload();
+        await expect(page.getByRole("heading", { name: b.stepDetails, level: 2 })).toBeVisible();
+        await expect(page.getByRole("textbox", { name: b.name })).toHaveValue("Robin Typed");
+        await expect(page.getByRole("textbox", { name: b.subject("pet") })).toHaveValue("Biscuit");
+        await expect(page.getByRole("textbox", { name: b.phone })).toHaveValue("2505550188");
+        await bookUpToDetails(page, otherSlug, /^Dog Walk, 30 minutes/);
+        await expect(page.getByRole("textbox", { name: b.name })).toHaveValue("");
+        await expect(page.getByRole("textbox", { name: b.phone })).toHaveValue("");
     },
 );
+
+test("XB-E2E-22 a confirmed visit's calendar file keeps the business's clock on a phone in another zone", async ({
+    browser,
+}) => {
+    const b = strings.publicBooking;
+    const context = await browser.newContext({
+        baseURL: on("book", "/"),
+        timezoneId: "Europe/Warsaw",
+        acceptDownloads: true,
+    });
+    const page = await context.newPage();
+    await bookUpToDetails(page, otherSlug, /^Dog Walk, 30 minutes/);
+    await page.getByRole("textbox", { name: b.name }).fill("Sam Calendar");
+    await page.getByRole("textbox", { name: b.subject("pet") }).fill("Clover");
+    const fresh = String(Date.now() % 1_000_000).padStart(6, "0");
+    await page.getByRole("textbox", { name: b.phone }).fill(`2507${fresh}`);
+    await page.getByRole("button", { name: b.confirm, exact: true }).click();
+    await expect(page.getByRole("heading", { name: b.doneTitle })).toBeVisible();
+    // the confirmation names the visit's time on the business's clock; the file must say the same
+    const shown = /(\d{1,2}):(\d{2})\s*([ap])\.?m\.?/i.exec(
+        await page
+            .getByText(/ at \d{1,2}:\d{2}/)
+            .first()
+            .innerText(),
+    );
+    expect(shown).not.toBeNull();
+    const [, hour = "0", minute = "00", half = "a"] = shown ?? [];
+    const clock = `${String((Number(hour) % 12) + (half.toLowerCase() === "p" ? 12 : 0)).padStart(2, "0")}${minute}`;
+    const download = page.waitForEvent("download");
+    await page.getByRole("button", { name: b.addToCalendar }).click();
+    const file = await download;
+    const ics = (await readFile(await file.path())).toString("utf8").split("\r\n");
+    expect(ics).toContain("TZID:America/Vancouver");
+    const start = ics.find((line) => line.startsWith("DTSTART;"));
+    expect(start).toMatch(new RegExp(`^DTSTART;TZID=America/Vancouver:\\d{8}T${clock}00$`));
+    await cancelThroughManageLink(page);
+    await context.close();
+});
 
 test("the booking summary mentions tax only when the business charges it", async ({ browser }) => {
     const b = strings.publicBooking;

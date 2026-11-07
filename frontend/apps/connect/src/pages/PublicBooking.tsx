@@ -179,10 +179,10 @@ export function PublicBooking() {
                                         </p>
                                     </div>
                                 </div>
-                                {flow.when ? (
+                                {flow.whenTitle ? (
                                     <p className="flex items-start gap-2 text-sm text-ink-soft">
                                         <Icon name="calendar" size={16} />
-                                        {flow.when}
+                                        {flow.whenTitle}
                                     </p>
                                 ) : null}
                                 <div className="border-t border-line pt-3">
@@ -212,7 +212,9 @@ export function PublicBooking() {
                     showNav ? (
                         <SummaryBar
                             label={
-                                flow.service ? (flow.when ?? flow.service.name) : s.chooseService
+                                flow.service
+                                    ? (flow.whenTitle ?? flow.service.name)
+                                    : s.chooseService
                             }
                             amount={
                                 flow.service ? (
@@ -252,6 +254,7 @@ export function PublicBooking() {
                                   }
                         }
                     >
+                        <StepNotice flow={flow} step="service" />
                         <ServicePicker flow={flow} />
                     </StepCard>
                     {hasExtras ? (
@@ -278,6 +281,7 @@ export function PublicBooking() {
                                       }
                             }
                         >
+                            <StepNotice flow={flow} step="extras" />
                             <SuggestedExtras flow={flow} />
                         </StepCard>
                     ) : null}
@@ -285,7 +289,7 @@ export function PublicBooking() {
                         n={hasExtras ? 3 : 2}
                         title={s.stepTime}
                         editLabel={s.change}
-                        summary={flow.when}
+                        summary={flow.whenTitle}
                         state={flow.step === "time" ? "open" : flow.slot !== null ? "done" : "todo"}
                         onEdit={
                             flow.step === "pay"
@@ -295,6 +299,7 @@ export function PublicBooking() {
                                   }
                         }
                     >
+                        <StepNotice flow={flow} step="time" />
                         <WhenPicker flow={flow} />
                     </StepCard>
                     <StepCard
@@ -314,6 +319,7 @@ export function PublicBooking() {
                         }
                     >
                         <div className="space-y-6">
+                            <StepNotice flow={flow} step="details" />
                             <ReturningPanel returning={returning} flow={flow} />
                             <DetailsForm flow={flow} />
                             <div className="border-t border-line pt-4 lg:hidden">
@@ -335,17 +341,23 @@ export function PublicBooking() {
                             editLabel={s.change}
                             state={flow.step === "pay" ? "open" : "todo"}
                         >
+                            <StepNotice flow={flow} step="pay" />
                             <PayStep flow={flow} />
                         </StepCard>
                     ) : null}
                 </div>
-                {flow.error !== null ? (
-                    <div className="mt-4">
-                        <Notice tone="danger">{flow.error}</Notice>
-                    </div>
-                ) : null}
             </StepLayout>
         </PublicPage>
+    );
+}
+
+/** An error at the top of the open step, which is where the flow leaves the visitor after one. */
+function StepNotice({ flow, step }: { flow: PublicBookingFlow; step: PublicBookingFlow["step"] }) {
+    if (flow.step !== step || flow.error === null) return null;
+    return (
+        <div className="mb-4">
+            <Notice tone="danger">{flow.error}</Notice>
+        </div>
     );
 }
 

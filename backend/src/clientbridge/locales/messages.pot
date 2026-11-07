@@ -19,6 +19,12 @@ msgstr ""
 msgid "booking_confirmed.body_link"
 msgstr ""
 
+msgid "booking_declined.body"
+msgstr ""
+
+msgid "booking_declined.body_refund"
+msgstr ""
+
 msgid "booking_departed.body"
 msgstr ""
 

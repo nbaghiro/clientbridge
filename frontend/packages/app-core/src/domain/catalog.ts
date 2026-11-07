@@ -17,6 +17,7 @@ import {
     formatAmountInput,
     formatList,
     formatMoney,
+    formatMoneyShort,
     formatNumber,
     formatParts,
     formatPercent,
@@ -36,8 +37,26 @@ import { taxName, taxList, taxRateLabel } from "./printing";
 import { bareUrl, shopPageUrl } from "../runtime";
 import { useResources } from "./resources";
 import { staffName, staffNameSql, useStaff } from "./staff";
+import { kindWord, useSubjectKind } from "./subjects";
 
 const s = strings.catalog;
+export const GIFT_MIN_CENTS = 500;
+export const GIFT_MAX_CENTS = 100_000;
+
+function giftLimits(): [string, string] {
+    return [
+        formatMoneyShort(GIFT_MIN_CENTS, BUSINESS_CURRENCY),
+        formatMoneyShort(GIFT_MAX_CENTS, BUSINESS_CURRENCY),
+    ];
+}
+
+export function giftRangeLabel(): string {
+    return s.giftRange(...giftLimits());
+}
+
+export function giftAmountsHint(): string {
+    return s.giftAmountsHint(...giftLimits());
+}
 
 export interface ItemRow {
     variant_parent_id?: string | null;
@@ -435,12 +454,12 @@ export function itemMeta(i: ItemRow): string {
         case "subscription":
             return s.every(i.interval ?? 1, i.frequency ?? "month");
         default:
-            return s.anyAmount;
+            return giftRangeLabel();
     }
 }
 
 export function itemPriceLabel(i: ItemRow): string {
-    if (i.kind === "gift") return s.anyAmount;
+    if (i.kind === "gift") return giftRangeLabel();
     if (i.kind === "subscription")
         return s.perPeriod(formatMoney(i.price_cents, BUSINESS_CURRENCY), freqWord(i.frequency));
     return formatMoney(i.price_cents, BUSINESS_CURRENCY);
@@ -1091,6 +1110,8 @@ export interface PlanEditor extends Taxed {
     giftChoices: number[];
     toggleGiftAmount: (cents: number) => void;
     facts: PlanFacts;
+    /** Who a sold package covers, chosen at the sale; null for other kinds. */
+    subjectRule: string | null;
 }
 
 const GIFT_CHOICES = [2500, 5000, 7500, 10000, 15000, 20000];
@@ -1108,17 +1129,22 @@ function planFacts(v: ItemFormValues, covers: ItemRow | null, editing: boolean):
                 perYear: null,
                 priceNote: null,
             };
-        const full = (covers.price_cents ?? 0) * visits;
+        const full = covers.price_cents === null ? null : covers.price_cents * visits;
         const saving =
-            full > price
-                ? s.saves(formatMoney(full - price, BUSINESS_CURRENCY), visits, covers.name)
-                : s.noSaving;
+            full === null
+                ? null
+                : full > price
+                  ? s.saves(formatMoney(full - price, BUSINESS_CURRENCY), visits, covers.name)
+                  : s.noSaving;
         return {
             summary: s.planSummaryPackage(visits, covers.name),
-            perVisit: formatParts([
-                s.perVisit(formatMoney(Math.round(price / visits), BUSINESS_CURRENCY)),
-                saving,
-            ]),
+            perVisit:
+                price === 0
+                    ? s.planFree
+                    : formatParts([
+                          s.perVisit(formatMoney(Math.round(price / visits), BUSINESS_CURRENCY)),
+                          saving,
+                      ]),
             perYear: null,
             priceNote: null,
         };
@@ -1126,17 +1152,23 @@ function planFacts(v: ItemFormValues, covers: ItemRow | null, editing: boolean):
     if (v.kind === "subscription") {
         const every = Math.max(1, toInt(v.interval) ?? 1);
         return {
-            summary: s.planSummaryMembership(
-                formatMoney(price, BUSINESS_CURRENCY),
-                freqWord(v.frequency),
-            ),
+            summary:
+                price === 0
+                    ? s.planSummaryFreeMembership(freqWord(v.frequency))
+                    : s.planSummaryMembership(
+                          formatMoney(price, BUSINESS_CURRENCY),
+                          freqWord(v.frequency),
+                      ),
             perVisit: null,
-            perYear: s.perYear(
-                formatMoney(
-                    Math.round((price * (PER_YEAR[v.frequency] ?? 12)) / every),
-                    BUSINESS_CURRENCY,
-                ),
-            ),
+            perYear:
+                price === 0
+                    ? s.planFree
+                    : s.perYear(
+                          formatMoney(
+                              Math.round((price * (PER_YEAR[v.frequency] ?? 12)) / every),
+                              BUSINESS_CURRENCY,
+                          ),
+                      ),
             priceNote: editing ? s.membersKeepPrice : null,
         };
     }
@@ -1155,6 +1187,7 @@ export function usePlanEditor(
     const v = form.values;
     const services = items.filter((i) => isActive(i) && BOOKABLE_KINDS.includes(i.kind));
     const covers = services.find((i) => i.id === v.coversItemId) ?? null;
+    const subjectKind = useSubjectKind();
     return {
         ...useTaxed(form),
         coverOptions: services.map((i) => ({
@@ -1186,6 +1219,7 @@ export function usePlanEditor(
             );
         },
         facts: planFacts(v, covers, item !== null),
+        subjectRule: v.kind === "package" ? s.subjectRule(kindWord(subjectKind)) : null,
     };
 }
 
