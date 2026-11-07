@@ -454,8 +454,13 @@ async def _dispute_entries(db: AsyncSession, payment_id: str) -> int:
     return len(rows.scalars().all())
 
 
-def _dispute_event(event_id: str, event_type: str, pi: str, status: str) -> str:
-    obj = {"id": f"dp_{pi}", "payment_intent": pi, "amount": 8000, "status": status}
+def _dispute_event(
+    event_id: str, event_type: str, pi: str, status: str, *, withdrawn: bool = False
+) -> str:
+    obj: dict[str, object] = {"id": f"dp_{pi}", "payment_intent": pi, "amount": 8000}
+    obj["status"] = status
+    if withdrawn:
+        obj["balance_transactions"] = [{"amount": -8000, "fee": 1500}]
     return json.dumps({"id": event_id, "type": event_type, "data": {"object": obj}})
 
 
@@ -534,12 +539,14 @@ async def test_an_update_for_an_unseen_dispute_books_it(
     """A missed or inquiry-stage `created` must not leave the withdrawn funds unbooked."""
     payment = await _succeeded_payment(db, "pi_quiet")
     before = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category="stripe")
-    body = _dispute_event("evt_quiet", "charge.dispute.updated", "pi_quiet", "under_review")
+    body = _dispute_event(
+        "evt_quiet", "charge.dispute.updated", "pi_quiet", "under_review", withdrawn=True
+    )
     assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 200
     await db.refresh(payment)
     assert payment.dispute_status == "under_review"
     after = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category="stripe")
-    assert before - after == 8000
+    assert before - after == 8000 + 1500
 
 
 async def test_a_raising_handler_leaves_a_failed_row_the_retry_then_processes(
@@ -606,20 +613,22 @@ async def test_an_inquiry_that_escalates_books_the_dispute(
     assert (await api.post("/webhooks/stripe", content=opened, headers=GOOD)).status_code == 200
     assert await _dispute_entries(db, payment.id) == 0
     assert ["bank asked" in p.body for p in push.sent] == [True]
-    for event_id, event_type in (
-        ("evt_esc_2", "charge.dispute.updated"),
-        ("evt_esc_3", "charge.dispute.funds_withdrawn"),
+    # Stripe reports the escalation before it withdraws, then the withdrawal with its fee
+    for event_id, event_type, withdrawn, taken in (
+        ("evt_esc_2", "charge.dispute.updated", False, 0),
+        ("evt_esc_3", "charge.dispute.funds_withdrawn", True, 8000 + 1500),
+        ("evt_esc_4", "charge.dispute.updated", True, 8000 + 1500),
     ):
-        body = _dispute_event(event_id, event_type, "pi_esc", "needs_response")
+        body = _dispute_event(event_id, event_type, "pi_esc", "needs_response", withdrawn=withdrawn)
         assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 200
         after = await ledger.balance(
             db, BIZ, owner_type="business", owner_id=BIZ, category="stripe"
         )
-        assert before - after == 8000  # booked once, on the escalation
+        assert before - after == taken
         assert sum(p.body.startswith("Payment disputed") for p in push.sent) == 1
-    await db.refresh(payment)
-    assert payment.dispute_status == "needs_response"
-    lost = _dispute_event("evt_esc_4", "charge.dispute.closed", "pi_esc", "lost")
+        await db.refresh(payment)
+        assert payment.dispute_status == "needs_response"
+    lost = _dispute_event("evt_esc_5", "charge.dispute.closed", "pi_esc", "lost")
     assert (await api.post("/webhooks/stripe", content=lost, headers=GOOD)).status_code == 200
     assert payment.client_id is not None
     owed = await ledger.balance(

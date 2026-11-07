@@ -2392,22 +2392,33 @@ async def _record_dispute(
     payment = await _disputed_payment(db, data, account)
     if payment is None:
         return None
+    await _book_dispute(db, payment, data)
+    return await _note_dispute(db, payment, data)
+
+
+async def _book_dispute(db: AsyncSession, payment: Payment, data: dict[str, object]) -> None:
     amount = data.get("amount")
-    txns = data.get("balance_transactions")
-    fee = sum(
-        int(t["fee"])
-        for t in (txns if isinstance(txns, list) else [])
-        if isinstance(t, dict)
-        and isinstance(t.get("fee"), int)
-        and (not isinstance(t.get("amount"), int) or int(t["amount"]) < 0)
-    )
     await ledger.post_dispute(
         db,
         payment,
         dispute_id=str(data.get("id")),
         amount=amount if isinstance(amount, int) else payment.amount_cents,
-        fee=fee,
+        fee=sum(_withdrawals(data)),
     )
+
+
+def _withdrawals(data: dict[str, object]) -> list[int]:
+    """The fee on each balance transaction that took the disputed funds; none until Stripe does."""
+    txns = data.get("balance_transactions")
+    return [
+        int(t["fee"]) if isinstance(t.get("fee"), int) else 0
+        for t in (txns if isinstance(txns, list) else [])
+        if isinstance(t, dict) and (not isinstance(t.get("amount"), int) or int(t["amount"]) < 0)
+    ]
+
+
+async def _note_dispute(db: AsyncSession, payment: Payment, data: dict[str, object]) -> str | None:
+    """Mirror the open case on the payment and return it; a settled case is left as it ended."""
     if payment.dispute_status in ("won", "lost"):
         return None
     _track_dispute(payment, data)
@@ -2442,13 +2453,18 @@ def _track_dispute(payment: Payment, data: dict[str, object]) -> None:
 async def _update_dispute(
     db: AsyncSession, data: dict[str, object], account: str | None = None
 ) -> str | None:
-    """Track the case; an inquiry escalated to a chargeback is booked now, as the funds leave."""
+    """Track the case, and book an escalated inquiry once Stripe's balance transactions show it."""
+    if _inquiry(data) or data.get("status") == "prevented":
+        return None
     payment = await _disputed_payment(db, data, account)
     if payment is None:
         return None
     first = payment.dispute_status is None
-    recorded = await _record_dispute(db, data, account)
-    return recorded if first else None
+    # Stripe can report the escalation before it withdraws, and only the withdrawal carries the fee
+    if _withdrawals(data):
+        await _book_dispute(db, payment, data)
+    noted = await _note_dispute(db, payment, data)
+    return noted if first else None
 
 
 DISPUTED = "a disputed payment can't be refunded unless the dispute is won"

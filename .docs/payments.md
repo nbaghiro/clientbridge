@@ -409,7 +409,8 @@ sales.
 Dispute and payment-failure events find their payment within the business whose account sent the event,
 as settlement does, so an event can never touch another business's payment. An inquiry
 (`warning_needs_response`) alerts owners and admins once and books nothing; money moves only if it
-escalates. An inquiry keeps its answer-by date in `dispute_respond_by` until it escalates. Dispute and
+escalates, and then from the withdrawal's balance transaction with its fee, since Stripe can report the
+escalation before it withdraws. An inquiry keeps its answer-by date in `dispute_respond_by` until it escalates. Dispute and
 inquiry alerts push to owners' and admins' phones and email the owner's address with the date the
 evidence is due, so an owner who only uses the web still hears in time. A `prevented`
 dispute, which the card network settled before any funds left, also books
