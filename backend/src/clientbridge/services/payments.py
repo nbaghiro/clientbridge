@@ -2515,34 +2515,38 @@ def _returned_fee(data: dict[str, object]) -> int:
 
 
 async def _refresh_account(
-    db: AsyncSession, gateway: PaymentGateway, account_id: str | None, *, closed: bool = False
+    db: AsyncSession,
+    gateway: PaymentGateway,
+    account_id: str | None,
+    *,
+    closed: bool = False,
+    best_effort: bool = False,
 ) -> None:
-    """Mirror a connected account's current state after Stripe reports a change to it."""
+    """Mirror a connected account's current state; `best_effort` leaves it as is if unreadable."""
     if account_id is None:
         return
     business = await _locked_by_account(db, account_id)
     if business is None:
         return
     try:
-        apply_account_status(business, await gateway.get_account(account_id))
+        status = await gateway.get_account(account_id)
     except Exception:
-        if not closed:
+        if closed:
+            # a closed account may no longer be readable; the event alone says it takes nothing
+            _log.warning("closed stripe account %s could not be read", account_id, exc_info=True)
+            business.stripe_charges_enabled = business.stripe_payouts_enabled = False
+            business.stripe_requirements = {
+                **business.stripe_requirements,
+                "disabled_reason": "closed",
+            }
+        elif best_effort:
+            _log.warning("stripe account %s could not be re-read", account_id, exc_info=True)
+            return
+        else:
             raise
-        # a closed account may no longer be readable; the event alone says it takes nothing
-        _log.warning("closed stripe account %s could not be read", account_id, exc_info=True)
-        business.stripe_charges_enabled = business.stripe_payouts_enabled = False
-        business.stripe_requirements = {**business.stripe_requirements, "disabled_reason": "closed"}
+    else:
+        apply_account_status(business, status)
     await db.flush()
-
-
-async def _reread_after_failed_payout(
-    db: AsyncSession, gateway: PaymentGateway, account_id: str | None
-) -> None:
-    """Read the bank a payout failed to sooner than its own event; the payout is recorded anyway."""
-    try:
-        await _refresh_account(db, gateway, account_id)
-    except Exception:
-        _log.warning("re-reading stripe account %s after a failed payout failed", account_id)
 
 
 async def _disputed_payment(
@@ -2599,7 +2603,8 @@ async def _dispatch(
     elif event.type in ("payout.failed", "payout.canceled"):
         await _fail_payout(db, event.account, event.data, event.created)
         if event.type == "payout.failed":
-            await _reread_after_failed_payout(db, gateway, event.account)
+            # reads the failed payout's bank before its own event; the payout stays recorded
+            await _refresh_account(db, gateway, event.account, best_effort=True)
     elif event.type in ("setup_intent.succeeded", "setup_intent.setup_failed"):
         await _reconcile_pad_setup(db, gateway, event.account, str(event.data.get("id")))
     elif event.type == "mandate.updated":

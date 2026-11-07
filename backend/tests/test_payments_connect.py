@@ -317,7 +317,8 @@ def test_a_payout_bank_without_cad_is_flagged_while_payouts_stay_on() -> None:
     assert derive_kyc_status(status) == "enabled"
     both = [_bank("new", currency="usd"), _bank("new", default=True)]
     assert not account_status_from("acct_x", data, both).foreign_bank
-    assert not account_status_from("acct_x", data).foreign_bank
+    assert account_status_from("acct_x", data, []).foreign_bank is False
+    assert account_status_from("acct_x", data).foreign_bank is None
 
 
 def _kyc(

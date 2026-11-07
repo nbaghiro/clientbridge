@@ -279,7 +279,8 @@ def kyc_status(business: Business) -> KycStatus:
 
 def apply_account_status(business: Business, status: ConnectAccount) -> None:
     """Mirror the connected-account KYC state onto the business (Stripe = source of truth)."""
-    previous = business.stripe_requirements
+    # a business not yet flushed has no requirements, only the column default to come
+    previous = business.stripe_requirements or {}
     bank_errored = (
         previous.get("bank_errored") is True if status.bank_errored is None else status.bank_errored
     )

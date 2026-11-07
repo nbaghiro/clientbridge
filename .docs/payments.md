@@ -124,7 +124,8 @@ flowchart LR
   (`bank_setup_in_progress`) until that link expires; the wallet shows the open link until it is used,
   revoked or expires. A used link can't be revoked (`pad_link_used`), and a new one leaves it alone, so an
   authorized account stays saved. A bank account finished on a revoked link is detached at Stripe and never
-  saved. Only a chargeable method (a
+  saved. A revoked mandate leaves the bank account attached at Stripe (checked in the sandbox), and
+  removing a method Stripe already detached, or no longer has, still removes it. Only a chargeable method (a
   card, or a bank account with an active mandate) is ever a client's default. A charge on a saved bank account is
   recorded as `bank_eft` (`charge_method`) by the invoice, deposit, entitlement and sale builders, and its
   refunds copy that method. Stripe debits a saved bank account off session only when the PaymentIntent

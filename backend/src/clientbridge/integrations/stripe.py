@@ -134,7 +134,7 @@ class ConnectAccount:
     current_deadline: int | None = None  # unix time Stripe pauses payouts if currently_due stays
     requirement_errors: tuple[RequirementError, ...] = ()
     payouts_hold: str | None = None  # Stripe's status_details code while payouts are off
-    # None for both bank flags when Stripe couldn't list the banks; the mirror keeps its last read
+    # None for both bank flags when the banks weren't listed; the mirror keeps its last read
     bank_errored: bool | None = False  # the payout bank failed; none go out until it is replaced
     foreign_bank: bool | None = False  # no CAD bank: Stripe converts payouts the books refuse
 
@@ -201,7 +201,7 @@ def _bank_flags(banks: Sequence[dict[str, object]] | None) -> tuple[bool | None,
 
 
 def account_status_from(
-    account_id: str, data: dict[str, object], banks: Sequence[dict[str, object]] | None = ()
+    account_id: str, data: dict[str, object], banks: Sequence[dict[str, object]] | None = None
 ) -> ConnectAccount:
     """Parse an Accounts v2 object (with merchant configuration and requirements) into KYC state."""
     card_status = merchant_capability(data, "card_payments").get("status")
@@ -1638,7 +1638,20 @@ class StripeGateway:
 
     @_keyed
     async def detach_payment_method(self, account_id: str, *, payment_method_id: str) -> None:
-        await stripe.PaymentMethod.detach_async(payment_method_id, stripe_account=account_id)
+        try:
+            await stripe.PaymentMethod.detach_async(payment_method_id, stripe_account=account_id)
+        except stripe.InvalidRequestError as exc:
+            # Stripe refuses, with no code, to detach a method it already detached
+            try:
+                method = await stripe.PaymentMethod.retrieve_async(
+                    payment_method_id, stripe_account=account_id
+                )
+            except stripe.InvalidRequestError as missing:
+                if _missing(missing):
+                    return
+                raise exc from missing
+            if method.customer is not None:
+                raise
 
     @_keyed
     async def get_payment_fees(
