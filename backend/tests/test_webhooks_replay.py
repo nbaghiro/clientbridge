@@ -9,7 +9,8 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
-from clientbridge.integrations.stripe import MissedEvent
+from clientbridge.integrations.stripe import ConnectAccount, MissedEvent
+from clientbridge.models.business import Business
 from clientbridge.models.ledger import Entry
 from clientbridge.models.messaging import Delivery
 from clientbridge.models.payments import Payment
@@ -145,6 +146,40 @@ async def test_events_already_applied_do_not_use_up_the_replay_budget(
     assert await run_replay_missed_events(db, gateway) == 1
     payment = await db.get(Payment, pay_id, populate_existing=True)
     assert payment is not None and payment.status == "succeeded"
+
+
+async def test_an_account_stripe_cannot_read_leaves_the_others_resynced(
+    db: AsyncSession, gateway: FakePaymentGateway, factory: Factory
+) -> None:
+    """A failed re-read rolls back, so the job must not touch the rows it loaded before it."""
+    other_id = (await factory.business()).id
+    paused = {"card_status": "active", "currently_due": ["external_account"]}
+    for business_id, account in ((BIZ, "acct_test"), (other_id, "acct_other")):
+        await db.execute(
+            update(Business)
+            .where(Business.id == business_id)
+            .values(
+                stripe_account_id=account,
+                stripe_charges_enabled=True,
+                stripe_payouts_enabled=False,
+                stripe_requirements=paused,
+            )
+        )
+    await db.flush()
+    gateway.unreadable_accounts.add("acct_test")
+    gateway.accounts["acct_other"] = ConnectAccount(
+        id="acct_other",
+        charges_enabled=True,
+        payouts_enabled=True,
+        currently_due=[],
+        eventually_due=[],
+        past_due=[],
+        disabled_reason=None,
+        card_status="active",
+    )
+    assert await run_replay_missed_events(db, gateway) == 0
+    resynced = await db.get(Business, other_id, populate_existing=True)
+    assert resynced is not None and resynced.stripe_payouts_enabled is True
 
 
 async def _deferred(
