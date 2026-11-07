@@ -1,6 +1,6 @@
 # Launch readiness
 
-The launch QA plan: a pass across every product surface, as 11 areas and 59 tickets. Most of the product is built, so the work is to test each area, fix what comes up and move on. Each ticket is one outcome a business can rely on, and it passes when its QA steps pass on the platforms it names. Each lists the e2e cases that prove it, the cases still to write and what can only be checked by hand.
+The launch QA plan: a pass across every product surface, as 11 areas and 60 tickets. Most of the product is built, so the work is to test each area, fix what comes up and move on. Each ticket is one outcome a business can rely on, and it passes when its QA steps pass on the platforms it names. Each lists the e2e cases that prove it, the cases still to write and what can only be checked by hand.
 
 Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridgeca/initiative/launch-qa-2ad161486768) in the `clientbridgeca` workspace, team Engineering (key `CB`). Each area is a project, each ticket an issue whose description is the ticket's text below, and each dependency a `blocks` relation. The [Launch board](https://linear.app/clientbridgeca/view/e48dd1630428) is the one place to work from. Its columns are the dev flow: Backlog, Selected for dev, In progress, Ready for review, In staging and Done. Its rows are the areas in the order below, so work from the top row down. The first ten areas are the product, each a group of functionality that can be walked end to end; the last, Platform and launch, covers the admin console, the marketing site and a full business day. Every ticket is a product flow tested locally and on staging. Staging and its app redeploy on every push to main, so a ticket's staging steps run against the latest main.
 
@@ -79,6 +79,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 10. Work anywhere | Mobile app on phones, tablets and screen readers | [CB-60](https://linear.app/clientbridgeca/issue/CB-60) | Partly automated |
 | 11. Platform and launch | Admin console | [CB-65](https://linear.app/clientbridgeca/issue/CB-65) | Partly automated |
 | 11. Platform and launch | Marketing site | [CB-66](https://linear.app/clientbridgeca/issue/CB-66) | Partly automated |
+| 11. Platform and launch | App Store and Google Play release | [CB-70](https://linear.app/clientbridgeca/issue/CB-70) | Manual |
 | 11. Platform and launch | Full business day on staging | [CB-68](https://linear.app/clientbridgeca/issue/CB-68) | Manual |
 
 ---
@@ -2618,6 +2619,53 @@ The surfaces around the product: the platform admin console, the marketing site 
 **To automate**
 
 * `OPS-E2E-10` in `apps/connect/e2e/site.e2e.ts`: Start free and Sign in links reach `/signup` and the app.
+
+**Depends on:** Nothing
+
+### App Store and Google Play release (CB-70)
+
+**Covers:** The mobile app's release on the App Store and Google Play: account deletion in the app, Sign in with Apple, the store reviewer account, the privacy labels and Data safety form, Tap to Pay on the store build, and the accounts, signing and push setup a release needs
+**Before you start:** The Apple Developer Program membership for ClientBridge Inc. (it needs a D-U-N-S number first) and a Google Play organization account, each set up as described under Before the first store release in the operations doc. Account deletion and Sign in with Apple are not built yet, so this ticket includes building them.
+
+**Where to test**
+
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator. Email lands in Mailpit at [http://localhost:8715](<http://localhost:8715>).
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android, then the store builds once they exist. Mail to the demo's `.example` addresses isn't sent, so use an address you can read.
+
+**QA steps**
+
+1. Sign in with Apple on an iPhone, once as a new owner and once with the email of an existing owner.
+   **Expect:** the new owner reaches onboarding and the existing owner reaches their business, as Google sign-in does.
+2. Delete an account from the app, as a staff member and as an owner.
+   **Expect:** the app says what deleting removes and asks to confirm; the account can no longer sign in on any device.
+3. Decide what deleting a business's only owner does to the business and its clients' records.
+   **Expect:** a written decision on this ticket, and step 2 follows it.
+4. Install each store build fresh and sign in with the store reviewer account.
+   **Expect:** it opens a demo business with bookings, clients and payments in Stripe test mode, so a reviewer can try every screen without moving real money.
+5. Compare the App Store privacy labels and Play's Data safety form with what the app collects and sends.
+   **Expect:** they match, including photos, contacts the business enters and payment details handled by Stripe.
+6. Take a Tap to Pay payment on an iPhone running the store build.
+   **Expect:** Apple's "How to Tap" screen shows before the first payment, and the payment goes through.
+7. Send a push to a phone running the store build.
+   **Expect:** it arrives, sent with a push-only Expo token.
+8. Decide whether the first release needs a minimum supported app version, which would refuse requests from an older build and ask it to update.
+   **Expect:** a written decision on this ticket.
+9. Submit both builds for review.
+   **Expect:** Apple and Google approve them.
+
+**Done when:** Both stores have approved the app, and a reviewer can sign in, try it and delete the account without help.
+
+**By hand only**
+
+* Store review, the store accounts and listings, and Sign in with Apple, which needs a real Apple ID.
+
+**Automated by**
+
+* No e2e case yet
+
+**To automate**
+
+* `NATIVE-AUTH-04` in `apps/mobile/e2e/auth.delete.yaml`: Delete an account from the app and check it can no longer sign in.
 
 **Depends on:** Nothing
 
