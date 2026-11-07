@@ -449,6 +449,9 @@ test("STR-E30 a bank whose debit its bank refuses loses its mandate, can't be ch
                 },
             );
             expect(charged.status(), await charged.text()).toBe(409);
+            expect(((await charged.json()) as { error: string }).error).toBe(
+                "payment_method_not_chargeable",
+            );
             const preferred = await owner.request.post(
                 `${bookingApi()}/v1/payments/methods/${bank.id}/default`,
                 { headers: { ...headers, "Idempotency-Key": randomUUID() } },

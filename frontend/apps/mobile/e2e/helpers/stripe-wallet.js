@@ -2,14 +2,21 @@
 if (typeof CONTROL_URL === "undefined")
     throw new Error("CONTROL_URL is not set: run the flow through the Stripe lane");
 var wallet = null;
+var refused = null;
 // Maestro's scripts can't sleep, so a count of polls can end before the change lands
 var deadline = Date.now() + 60000;
 while (wallet === null && Date.now() < deadline) {
     var read = http.post(CONTROL_URL + "/wallet", { body: CLIENT });
-    if (read.status !== 200) throw new Error("the lane refused the wallet read: " + read.body);
+    // a read Stripe or the lease check turns down once is retried until the deadline
+    if (read.status !== 200) {
+        refused = read.body;
+        continue;
+    }
     var found = json(read.body);
     if (found.app.some((m) => m.preferred && m.last4 === DEFAULT)) wallet = found;
 }
+if (wallet === null && refused !== null)
+    throw new Error("the lane refused the wallet read: " + refused);
 if (wallet === null) throw new Error("the card ending " + DEFAULT + " never became the default");
 var held = wallet.stripe.methods.map((m) => m.id);
 output.recorded = wallet.app
