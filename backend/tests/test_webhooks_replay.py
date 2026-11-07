@@ -182,6 +182,45 @@ async def test_an_account_stripe_cannot_read_leaves_the_others_resynced(
     assert resynced is not None and resynced.stripe_payouts_enabled is True
 
 
+async def test_the_replay_re_reads_only_open_accounts_that_are_not_enabled(
+    db: AsyncSession, gateway: FakePaymentGateway, factory: Factory
+) -> None:
+    closed_id = (await factory.business()).id
+    states = (
+        (BIZ, "acct_test", True, {"card_status": "active"}),
+        (closed_id, "acct_closed", False, {"card_status": "active", "disabled_reason": "closed"}),
+    )
+    for business_id, account, payouts, requirements in states:
+        await db.execute(
+            update(Business)
+            .where(Business.id == business_id)
+            .values(
+                stripe_account_id=account,
+                stripe_charges_enabled=True,
+                stripe_payouts_enabled=payouts,
+                stripe_requirements=requirements,
+            )
+        )
+    await db.flush()
+    # Stripe reports both paused, which a re-read would mirror onto them
+    for account in ("acct_test", "acct_closed"):
+        gateway.accounts[account] = ConnectAccount(
+            id=account,
+            charges_enabled=True,
+            payouts_enabled=False,
+            currently_due=["external_account"],
+            eventually_due=[],
+            past_due=[],
+            disabled_reason=None,
+            card_status="active",
+        )
+    assert await run_replay_missed_events(db, gateway) == 0
+    enabled = await db.get(Business, BIZ, populate_existing=True)
+    closed = await db.get(Business, closed_id, populate_existing=True)
+    assert enabled is not None and enabled.stripe_payouts_enabled is True
+    assert closed is not None and closed.stripe_requirements["disabled_reason"] == "closed"
+
+
 async def _deferred(
     api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway, event_id: str
 ) -> tuple[str, str]:

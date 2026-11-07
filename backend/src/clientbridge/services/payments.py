@@ -2098,24 +2098,18 @@ def _closed(business: Business) -> bool:
 
 async def run_replay_missed_events(db: AsyncSession, gateway: PaymentGateway) -> int:
     """Apply events Stripe couldn't deliver, from each object's current state at our version."""
-    connected = [
-        b
+    accounts = [
+        b.stripe_account_id
         for b in await db.scalars(
             select(Business).where(Business.stripe_account_id.isnot(None)).order_by(Business.id)
         )
-        if not _closed(b)
+        if b.stripe_account_id is not None and not _closed(b)
     ]
-    # a failed re-read rolls back, which expires these rows, so only their ids are used after
-    stale = [
-        account
-        for b in connected
-        if (account := merchant_account(b)) is not None and kyc_status(b) != "enabled"
-    ]
-    accounts: list[str | None] = [None, *(b.stripe_account_id for b in connected)]
-    for account in stale:
-        await _resync_account(db, gateway, account)
+    await db.commit()
+    for account_id in accounts:
+        await _resync_account(db, gateway, account_id, unless_enabled=True)
     since, budget, applied = clock.now() - _REPLAY_WINDOW, _REPLAY_PER_RUN, 0
-    for account in accounts:
+    for account in (None, *accounts):
         if budget <= 0:
             break
         try:
@@ -2189,11 +2183,18 @@ async def _locked_by_account(db: AsyncSession, account_id: str) -> Business | No
     )
 
 
-async def _resync_account(db: AsyncSession, gateway: PaymentGateway, account_id: str) -> None:
+async def _resync_account(
+    db: AsyncSession, gateway: PaymentGateway, account_id: str, *, unless_enabled: bool = False
+) -> None:
     """Re-read an account from Stripe: thin account events can't be listed as undelivered."""
     try:
         locked = await _locked_by_account(db, account_id)
-        if locked is not None:
+        if (
+            locked is not None
+            and not _closed(locked)
+            and merchant_account(locked) is not None
+            and not (unless_enabled and kyc_status(locked) == "enabled")
+        ):
             apply_account_status(locked, await gateway.get_account(account_id))
         await db.commit()
     except Exception:
