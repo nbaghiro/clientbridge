@@ -19,7 +19,7 @@ A business is ready to run its day in Clientbridge once a few things are in plac
 - Staff invites, roles and working hours.
 - Their payments account, so card payments and Tap to Pay pay out to their bank.
 - Sales tax for their province, with a tax class on each item.
-- Their client list, imported and tidied, with intake forms and waivers ready to sign online.
+- Their clients added, with intake forms and waivers ready to sign online. There's no import yet, so a long client list is entered by hand or added as clients book.
 
 Before anything goes out to a client, such as an invoice, a reminder or a reschedule notice, the app shows exactly what will be sent and asks the owner to confirm. Teaching customers to trust that habit is part of the job.
 

@@ -40,7 +40,7 @@ Google reviews is built but has never run against Google. The first execution sh
 
 Both apps put Reviews in Inbox as a segment only owners and admins see: web at `/inbox?segment=reviews` (`apps/web/src/pages/Inbox.tsx:55-82`, `packages/app-core/src/domain/navigation.ts:140-146`), mobile in the Inbox tab (`apps/mobile/src/screens/Inbox.tsx:62-85`). The OAuth callback returns web users to that tab and native users to `clientbridge://reviews/google` (`services/reviews.py:716-719`).
 
-Keep that home. Reviews are client communication, both apps already agree, and the top-level Reviews item in `.docs/design/app-explorer.html:293` predates the five-destination nav. Every other surface in the goal is missing today.
+Keep that home. Reviews are client communication, both apps already agree, and the top-level Reviews item in the old design explorer predated the five-destination nav. Every other surface in the goal is missing today.
 
 ## Phase 0: decide
 
@@ -126,7 +126,7 @@ If the console asks for verification instead, submit the scope justification and
 
 **1.10 Recruit pilot businesses.** Two or three consenting owners with verified profiles: one with enough reviews to page, one service-area business without a storefront address, and one with no reviews if you can find one. Get written consent for reads and for a named reply, edit and delete on a genuine review, plus a designated phone for invitations. Google has no sandbox; never create a review to test with.
 
-**1.11 Give developers their own key, in code.** A local run needs `GOOGLE_BUSINESS_KMS_KEY` and ADC that can use it (runbook). Add a `dev` key ring and key to `cloud/google_business.py`, granted encrypter/decrypter to a `clientbridge:googleBusinessDevelopers` list in `Pulumi.cloud.yaml`, and export its ID. Then local runs never touch staging's key, and adding a developer is a one-line pull request rather than a console grant. Cover it in the infra suite.
+**1.11 Give developers their own key, in code.** A local run needs `GOOGLE_BUSINESS_KMS_KEY` and ADC that can use it (see operations.md, Google Business Profile). Add a `dev` key ring and key to `cloud/google_business.py`, granted encrypter/decrypter to a `clientbridge:googleBusinessDevelopers` list in `Pulumi.cloud.yaml`, and export its ID. Then local runs never touch staging's key, and adding a developer is a one-line pull request rather than a console grant. Cover it in the infra suite.
 
 Phase exit: the APIs enabled from the cloud stack; non-zero quota on the Business Profile APIs; three OAuth clients; consent works for an outside account, or the blocker is filed and the Testing fallback recorded; privacy policy and site copy published; counsel's answer recorded; pilots recruited.
 
@@ -324,13 +324,13 @@ Public pages show no Google content, by decision: cached content may be kept for
   - the stack keys, the KMS exports (environments and dev) and the developer list;
   - the three plain settings, the two secrets and who reads them;
   - each console-only setting from 0.12 and its value, as the Firebase and sign-in sections do;
-  - the alerts and a link to the runbook.
+  - the alerts and a link to the Google Business Profile section in operations.md.
 
   Also remove the out-of-date "Internal review removal deployment" section (`:423`).
 
 - architecture.md: add `process_google_operations` (every 15 seconds) to the worker schedule, and describe moderation states, caching and revocation.
 - launch-readiness.md: update CB-55, the reviews ticket, and its Linear description to match what shipped.
-- Also: demo.md `:40` and `:252`; engineering.md `:682` and the walkthrough notes; `.docs/reviews/product/web-and-connect.md:58, 146`; `.docs/reviews/product/mobile.md:156-158, 206`; the comment at `packages/app-core/src/domain/clients.ts:991`.
+- Also: demo.md `:40` and `:252`; engineering.md `:682` and the walkthrough notes; the comment at `packages/app-core/src/domain/clients.ts:991`.
 
 **8.2 Close out.** When the feature is live, move what lasts into architecture.md and operations.md and delete this folder and its README entry.
 
@@ -372,7 +372,7 @@ Add the new behaviour from Phase 3 to `test_reviews.py`, `test_reviews_connectio
 - disconnect, and reconnect after revoking access at myaccount.google.com/permissions;
 - go offline.
 
-**9.10 Run the live pilot** on staging with the profiles from 1.10. Follow the runbook's checklist, and add a 7-day token expiry in Testing, a revocation, a reconnect, the quota observed, and an invitation to the designated phone. Record the evidence in progress.md.
+**9.10 Run the live pilot** on staging with the profiles from 1.10. Follow the pilot checklist in operations.md's Google Business Profile section, and add a 7-day token expiry in Testing, a revocation, a reconnect, the quota observed, and an invitation to the designated phone. Record the evidence in progress.md.
 
 ## Phase 10: rollout
 

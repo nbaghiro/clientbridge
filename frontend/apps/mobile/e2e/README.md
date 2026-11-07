@@ -1,6 +1,6 @@
 # Native walkthroughs
 
-These Maestro flows open a release build of the Clientbridge iOS/Android app against a run's own API on the shared test tier. They are separate from the React Native Web component previews. The current verified device and results are recorded in the [mobile surface map](../../../../.docs/reviews/product/mobile.md).
+These Maestro flows open a release build of the Clientbridge iOS/Android app against a run's own API on the shared test tier. They are separate from the React Native Web component previews.
 
 ## Run
 

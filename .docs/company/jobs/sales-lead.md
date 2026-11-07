@@ -21,7 +21,7 @@ Most of the businesses we serve run on three or four separate tools today: one f
 - GST, HST, PST and QST worked out on every sale, with the amount owed always on the Today screen.
 - Packages, memberships, gift cards and an online shop, all in the same checkout.
 
-There are two plans: Premium at $49.99 a month for an owner working alone or with a few staff, and Team at $99.99 a month with the whole staff included. Both come with every feature and a 14-day free trial.
+There are two plans: Premium at $49.99 a month for an owner working alone or with a few staff, who are $10 a month each, and Team at $99.99 a month with the whole staff included. Both come with every feature and a 14-day free trial.
 
 ## What you'll do
 

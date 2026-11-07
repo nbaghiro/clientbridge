@@ -25,7 +25,6 @@ Lane = Literal[
 class Case(BaseModel):
     lanes: list[Lane]
     browsers: bool
-    families: list[str]
     status: Literal["implemented", "verified", "needs_decision", "deferred"]
 
 

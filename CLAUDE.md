@@ -48,7 +48,7 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
   before its FK-dependent children**.
 - External services = an **adapter interface + `get_*` dependency** (e.g. `EmailSender`, `OAuthVerifier`);
   prod implements it, tests override with a recording fake.
-- Server-only tables (`commands`, `webhooks`, `audits`, `devices`, `sync_receipts`, `payment_setup_links`, `returning_challenges`, `visit_records`) are **not** in `sync-rules.yaml` → excluded from the client AppSchema. `users` syncs only `id` and `name`, for users with a staff row in the business.
+- Server-only tables (`commands`, `webhooks`, `audits`, `devices`, `sync_receipts`, `payment_setup_links`, `returning_challenges`, `visit_records`, `deliveries`, `google_business_connections`, `google_business_operations`) are **not** in `sync-rules.yaml` → excluded from the client AppSchema. `users` syncs only `id` and `name`, for users with a staff row in the business.
 - Sync config is edition 3 Sync Streams. Tables that grow with time (messages, slots, bookings) sync through
   the `history_*` streams for a window of months and need a timestamp column of their own; older rows come
   from keyset-paged `GET` reads. Money tables sync in full. Review `tests/fixtures/sync_projections.json`
@@ -63,7 +63,7 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
 - Web (React/Vite/Tailwind) + mobile (Expo RN) share everything UI-agnostic via `@clientbridge/app-core`; only rendering, navigation, and platform APIs differ.
 - **Shared components** live in one package, `@clientbridge/ui`: `src/web/` (DOM + Tailwind, used by web and Connect) and `src/mobile/` (React Native) each implement the props from `app-core/src/ui.ts` under the same file name (`ListPage`, `DetailView`, `Modal`, `Tabs`, `Empty`, `Money`, `ChargeSheet`, `CardForm`…). Every app imports `@clientbridge/ui`; the `react-native` export condition gives mobile the native entry. This is not a cross-platform UI framework: each platform keeps its own idiomatic rendering, the two just live side by side. App screens compose these components and never hand-style a control: buttons, fields, selects, toggles, choices, notices, panels, loading/empty states, badges, stats, stars, steppers, confirm dialogs and page headers all come from `@clientbridge/ui`, and the frontend structure check fails on a raw `<button>`/`<input>`/`<select>`/`<textarea>` with a `className`, or a `Pressable`/`TextInput` with local styles, outside a short allowlist of layout-specific files (calendar grid, tile grids, line rows, nav chrome, debug tools). Status colours come from one palette, `INTENT_COLORS` in `@clientbridge/tokens`.
 - **Every shared component** is a twin (`src/web/<Name>.tsx` and `src/mobile/<Name>.tsx`, same props) with its contract in `app-core/src/ui.ts`, its copy in `strings.ui` and its glyphs in `app-core/icons.ts`; colours come only from `@clientbridge/tokens`. Props use one vocabulary: `variant` (visual form), `layout` (how items are arranged), `size`, `density`, `intent` (status colour), `tone` (text colour of a figure or message), `label` (accessible name), `value`/`defaultValue`/`onChange` (controlled or not), `onPress`, `selected`/`pressed`/`disabled`/`busy`, and slots (`children`, `leading`, `trailing`, `actions`, `footer`, `icon`) rather than boolean flags. Web takes `className` and mobile `style` as an escape hatch merged last; focusable controls take `ref`. The structure check fails when either twin is missing.
-- **One name per concept** across `app-core/src/domain/<concept>.ts`, `strings.<concept>`, the web page and the mobile screen (`hours.ts` · `strings.hours` · `Hours.tsx`). App-core stays flat: `domain/` plus `api`, `hooks`, `format`, `datetime`, `locale`, `ui`, `strings`, `zones`, `icons`, `debug` at the root. Mobile exports `XScreen` for navigator screens and a bare name for embedded sections.
+- **One name per concept** across `app-core/src/domain/<concept>.ts`, `strings.<concept>`, the web page and the mobile screen (`hours.ts` · `strings.hours` · `Hours.tsx`). App-core stays flat: `domain/` plus `api`, `hooks`, `format`, `datetime`, `locale`, `ui`, `strings`, `zones`, `taxRates`, `payCode`, `runtime`, `public`, `icons`, `debug` at the root. Mobile exports `XScreen` for navigator screens and a bare name for embedded sections.
 - **Every feature's view-model is an app-core hook** — the form (`useXForm`: field state + validation + submit, built on the `useAsyncAction` primitive), the list (`useSearch`), the lifecycle actions, and the status→`Intent` decision. A new screen is thin rendering over a shared hook, never re-implemented glue (mirror `useBookingForm` / `useClientForm` / `useDocForm`).
 - Reads = `useQuery` over the local replica (SQL lives in app-core); writes = shared fns taking `ApiLike` (each app builds its concrete `api` from `createSession`). The only platform seams are the **SQLite driver, the token store, and rendering**. Design tokens come from `@clientbridge/tokens` (one source → Tailwind theme + RN theme); per-platform token maps key off the neutral `Intent` type. No cross-platform UI framework (it would rewrite the idiomatic web UI to dedupe the cheapest layer).
 
@@ -149,8 +149,8 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
   comments. The Catalog & Tax audit (2026-06-26) caught an unguarded REST write + a router running raw
   queries — exactly the class of thing this pass exists to catch.
 - **Comments: sparing — the default is no comment.** We are not fans of extensive commenting; prefer self-documenting code (clear names) over prose. Add a comment *only* for a non-obvious *why* or an invariant, and keep it to one line. Never narrate *what* the code does, restate types, summarize a function the name already conveys, write multi-clause block/file-header comments, or add decorative `──── section ────` divider banners — split a file before it needs sign-posting. In the backend, `scripts/check_structure.py` (part of `make lint`)
-  fails on a docstring or comment block longer than one line or a divider banner (in `src`, `tests` and
-  `scripts`), a `*_service.py`/`*_jobs.py` file name, a folder deeper than `clientbridge/<layer>/<file>.py`,
+  fails on a docstring or comment block longer than one line or a divider banner (in `src`, `tests`,
+  `scripts`, `e2e` and `infra/pulumi`), a `*_service.py`/`*_jobs.py` file name, a folder deeper than `clientbridge/<layer>/<file>.py`,
   and a test file not named after a concept. In the frontend, `packages/config/scripts/check-structure.mjs` (part of `pnpm lint`)
   fails on a multi-line comment in any tracked JS/TS file, a lowercase component file, and a concept named differently across app-core, strings, web and mobile (pages named by their nav label map to their concept: Invoices → billing, Inbox → messaging, Team → staff, Schedule → bookings, Gift cards → entitlements, Onboarding → business), and a package export used only in its own file. `knip` (also
   in `pnpm lint`, config in `frontend/knip.json`) fails on unused files, dependencies and exports.
@@ -161,7 +161,9 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
   local database to head.
 - **Regenerate `api-client` (`make gen-api`) whenever the API contract changes**; `make gen-sync-schema`
   after model/sync-rule changes, `make gen-strings` after an app or site catalog edit, `make gen-messages`
-  after a backend catalog edit and `make gen-zones` after a `tzdata` upgrade or a `core/zones.py` change (`make codegen-check` in the pre-commit hook, `make check` and CI fails on drift).
+  after a backend catalog edit, `make gen-zones` after a `tzdata` upgrade or a `core/zones.py` change, `make gen-taxes` after a
+  rate change in `services/tax.py`, `make gen-themes` after editing `packages/tokens/src/themes.css` and `make gen-waitlist-email`
+  after a change to the email layout or the waitlist message (`make codegen-check` in the pre-commit hook, `make check` and CI fails on drift).
 - Python import package = `clientbridge` (at `backend/src/clientbridge/`); the DB name + project are also `clientbridge`.
 
 ## Commands
@@ -169,13 +171,14 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
 
 ## Docs (`.docs/`)
 Keep only the documentation index and main docs at the root: **architecture** (system · data model ·
-sync · authorization · frontend), **engineering** (gate · testing · shipping · ports · demo · conventions),
-**launch-readiness** (launch work and deferred scope), **demo** (demo businesses, logins and what each shows), and **operations** (environments · secrets ·
-providers · deploys · jobs · alerts · restore). Use `.docs/reviews/<area>/` for dated audits,
+sync · authorization · frontend), **engineering** (gate · testing · shipping · ports · seed · conventions),
+**launch-readiness** (launch work and deferred scope), **demo** (demo businesses, logins and what each shows),
+**payments** (Stripe accounts · merchant payments · payouts · platform billing) and **operations** (environments · secrets ·
+providers · deploys · jobs · alerts · restore). Company material such as job descriptions lives in `.docs/company/`. Use `.docs/reviews/<area>/` for dated audits,
 `.docs/explorations/<topic>/` for investigations, and `.docs/executions/<name>/` for each execution's plan,
 task queue and progress; delete an execution's folder once it is implemented, after moving anything durable
 into the main docs. Keep raw logs and temporary artifacts in `.scratchpad/`. Update links after
-moves. See `.docs/README.md`; design system and IA remain in `.docs/design/app-explorer.html`.
+moves. See `.docs/README.md`.
 
 ## Tickets (Linear)
 The launch plan is `.docs/launch-readiness.md` together with Linear's Launch QA initiative (workspace

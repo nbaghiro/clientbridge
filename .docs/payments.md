@@ -265,6 +265,30 @@ An intent that nobody will finish is cancelled rather than left confirmable, so 
   succeeds and a quick resubscribe starts a new subscription. The no-show charge keys on the card, so a
   new default card after a decline is a new charge.
 
+### Saved cards from webhooks
+
+Two connected-account events keep saved methods in step with Stripe (`services/payments.py`):
+
+- `payment_method.attached` records a method attached to one of the business's Customers, deduplicated
+  by its provider reference, so a card the setup command already recorded isn't added twice. Unknown
+  accounts and Customers are ignored. A bank method is recorded only while the client has a bank setup
+  in progress, so a bank from a revoked setup link isn't recorded; it is detached once its setup finishes.
+- `payment_method.automatically_updated` refreshes the brand, last four digits and expiry when Stripe's
+  card updater replaces a reissued or renewed card.
+
+### Booking requests and deposits
+
+When a business approves new clients, a first online booking is a request that can carry a paid deposit.
+The booking rules are in [architecture](architecture.md#online-booking-and-manage-links); the money side is:
+
+- Declining a request refunds a paid deposit to the card, or cancels an unpaid one. The refund goes out
+  last, after every check that could still refuse the decline, and the decline text names the refund.
+- `reap_unpaid_bookings` (every 15 minutes) releases an online booking whose deposit is still unpaid 30
+  minutes after it was made, cancels its open intents and tells the client.
+- A request still unanswered at the business's midnight after its visit is closed by
+  `complete_past_bookings`, which refunds a paid deposit and sends the client the decline notice with the
+  refund. A refund Stripe refuses leaves that request for staff.
+
 Terminal connection tokens are scoped to the business's Terminal Location. When the business address
 changes, the next reader session creates a Location at the new address and the old one is deleted; a
 failed delete is logged and the old Location stays unused in Stripe.
@@ -682,7 +706,7 @@ when `--webhook-url` is supplied. `--write-db` links business accounts and Termi
 fixture saved cards with real sandbox references, and gives each seeded bank account with an active
 mandate a real sandbox PAD account (Stripe's test bank, authorized offline and verified with its test
 micro-deposits). Complete embedded onboarding as each demo owner;
-the script prints the test identity/bank instructions. Rerun linking after `make demo-reset`.
+the script prints the test identity/bank instructions. Rerun linking after `make seed`.
 Seeded historic payments/subscriptions retain fixture references: create a fresh sandbox sale or
 subscription to test actual refunds, cancellation and recovery.
 
@@ -692,57 +716,37 @@ Normal provisioning uses `ENV=dev` and the CLI's verified test-mode account. `--
 expected platform account. The script's `blocked` steps must be resolved; a run is not successful merely
 because some objects were created.
 
-### Finishing the two demo accounts
+### Finishing demo account onboarding
 
-The previously verified sandbox accounts include Birchbark (`acct_1UPnLpFGqw5ObEW5`) and Cedar Coast
-(`acct_1UPnLvFGqw7Th6aZ`), and the local demo database is linked to both. Do not create replacements
-just to finish onboarding. The current seed also includes Northlight Security; provisioning reads each
-business's legal address and phone from `scripts/demo_context.py`. Products, prices, portal configuration
-and Terminal locations already exist for the previously provisioned demos. Final API verification
-showed Cedar Coast needs only agreement acceptance; Birchbark still needs its support phone, owner
-title, bank and agreement. Both remain restricted until those requirements are completed.
+`stripe_setup.py` provisions a sandbox connected account for each of the 13 businesses in
+`DEMO_BUSINESSES` (`scripts/demo_context.py`) and, with `--write-db`, links them. It prefills what the API
+accepts: the legal address and phone, the support phone, the owner's title, the website
+(`https://<slug>.example`) and Stripe's documented test identity. Our accounts use
+`requirements_collector=stripe`, so Stripe collects the rest itself, and only a person can accept the
+service agreement; never fabricate an acceptance timestamp or IP in a script. Staging's nightly seed
+relinks the same accounts with `stripe_setup --link-only` (`infra/pulumi/kubernetes/seed.py`), so
+onboarding finished once on the sandbox holds across reseeds. Don't create replacement accounts just to
+finish onboarding.
 
-On 2026-10-18, CLI prefilling succeeded for Cedar Coast's Canadian test bank, support phone, owner title and Stripe test
-website (`https://accessible.stripe.com`). Birchbark rejected support/identity changes because an
-Account Session had already started onboarding. Stripe can continue reporting pending requirements
-while processing updates; a successful field update alone does not mean charges/payouts are enabled.
-New demo-account creation prefills the support phone, the owner title and the business's website,
-`https://<slug>.example` from `scripts/demo_context.py`; the sandbox accepted `https://inkwell.example`
-when Inkwell's account was created. Existing accounts retain their identifiers, onboarding state and
-the website they were created with.
+To finish onboarding for a demo business, locally or on staging:
 
-Our accounts use `requirements_collector=stripe`. Stripe documents the external-bank-account API for
-application-collected accounts. In this sandbox it accepted Cedar Coast's test bank before onboarding,
-but rejected the same request for Birchbark after its Account Session had started. Do not rely on CLI
-bank setup being available for every account. Review and accept the account agreement in Stripe
-onboarding; do not fabricate an acceptance timestamp/IP in a provisioning script. See [Stripe's bank-account API](https://docs.stripe.com/api/external_account_bank_accounts/create)
-and [account configuration](https://docs.stripe.com/connect/accounts-v2/connected-account-configuration).
+1. Sign in as its owner (the logins are in [demo](demo.md)) and open **Settings → Getting paid**. Confirm
+   the embedded component says it is in test mode.
+2. Choose **Use test phone number** in Stripe's authentication prompt and enter `000000` if asked for a
+   code.
+3. Review the prefilled details. If Stripe still asks for a bank account, use Stripe's Canadian test bank:
+   transit `11000`, institution `000`, account `000123456789` (`11000-000` where a combined routing number
+   is asked for). These are [Stripe's test values](https://docs.stripe.com/connect/testing#payouts). Review
+   a bank that is already linked rather than adding a second one.
+4. Accept the service agreement yourself and finish the form. Stripe can keep showing requirements as
+   pending for a while after they're submitted.
+5. Locally, rerun `make stripe-setup ARGS="--project-name <profile> --apply --write-db"` so Customers and
+   the seeded saved cards are linked now that the account can charge.
 
-Complete the one-time manual step for each business:
-
-1. Sign into the local app as `hannah@birchbark.example` for Birchbark or
-   `owner@cedarcoast.example` for Cedar Coast, with the seeded password `demo1234`.
-2. Open **Setup → Getting paid**, then finish onboarding. Confirm the component says test/sandbox.
-3. Choose **Use test phone number** in Stripe's authentication prompt; use `000000` if prompted for
-   a test verification code. Review and accept the displayed agreements yourself.
-4. Review the prefilled business/person details. If still requested, use title `Owner` and the demo
-   support phone (`+12505550110` for Birchbark; `+16045550120` for Cedar Coast).
-5. Cedar Coast already has a test bank linked; review it rather than adding a duplicate. For Birchbark,
-   enter Stripe's Canadian test bank: transit `11000`, institution `000`, account `000123456789`.
-   If Stripe asks for a combined routing number, use `11000-000`. These are
-   [Stripe's test values](https://docs.stripe.com/connect/testing#payouts), not real bank details.
-6. Finish the form, then rerun the setup/link command so Customers and seeded saved cards can be linked
-   once the merchant can charge:
-
-```sh
-make stripe-setup ARGS="--project-name clientbridge --apply --write-db"
-```
-
-With `make stripe-listen` and the local API running, account events also refresh the KYC mirror; the
-Refresh button on Getting paid reads the account directly. Confirm both charges and payouts are enabled
-before creating fresh test charges and trying a funded payout. Historic seed payments keep fixture
-provider references and must not be used for live sandbox refunds. If you reset the local demo database
-later, rerun linking; you do not need to recreate the Stripe accounts.
+With `make stripe-listen` and the local API running, account events refresh the KYC mirror; the Refresh
+button on Getting paid reads the account directly. Confirm charges and payouts are both enabled before
+creating fresh test charges or trying a funded payout. Seeded historic payments keep fixture provider
+references, so use fresh sandbox transactions for refunds.
 
 ### Credentials and runtime settings
 
@@ -771,7 +775,7 @@ Staging uses a Stripe sandbox and production the live platform account, both on 
 - A Connect webhook endpoint (`connect=true`) at `https://api.D/webhooks/stripe` for the snapshot events in `integrations/stripe.py` `PAYMENT_EVENTS` (aliased as `WEBHOOK_EVENTS` in the setup script), at the pinned API version. Its signing secret is `STRIPE_WEBHOOK_SECRET`. The list now includes `refund.failed`, so an endpoint created before it was added needs that event added.
 - A thin event destination at the same URL for `v2.core.account[requirements].updated`, `v2.core.account[configuration.merchant].capability_status_updated` and `v2.core.account.closed`. Its secret is `STRIPE_THIN_WEBHOOK_SECRET`.
 - A platform endpoint (`connect=false`) at the same URL for `customer.subscription.created`, `.updated` and `.deleted`. Its secret is `STRIPE_PLATFORM_WEBHOOK_SECRET`.
-- The plan products, prices and Billing Portal configuration that `stripe_setup.py` plans (see [the demo account](engineering.md#the-demo--qa-account)); the configuration id is `STRIPE_PORTAL_CONFIGURATION`.
+- The plan products, prices and Billing Portal configuration that `stripe_setup.py` plans (see [Local sandbox setup](#local-sandbox-setup)); the configuration id is `STRIPE_PORTAL_CONFIGURATION`.
 - Payment method domains for `app.D`, `book.D`, `pay.D` and `shop.D`, so Apple Pay, Google Pay and Link show in Elements there. We use direct charges, and Stripe requires the domain to be registered on the connected account that runs the charge (`Stripe-Account` header), not on the platform. When `BASE_DOMAIN` is set, the API registers and enables the four domains on a business's account each time its owner opens the embedded onboarding session (`POST /v1/connect/session`), after the session is issued and committed and outside the business lock (`register_payment_domains` in `integrations/stripe.py`). This covers live accounts with no Dashboard step. Registration is best effort: a failure is logged, onboarding carries on, and the next onboarding session tries again. For accounts that existed before, such as the sandbox demo accounts, `stripe_setup.py --payment-domains D` plans the same registration on each demo account and `--apply` performs it; it refuses live mode like the rest of the script. Check Apple Pay on `book.` in staging after the first deploy.
 - The Dashboard-only settings `stripe_setup.py` prints (`DASHBOARD_STEPS`): Connect profile and branding, payment methods for connected accounts, Terminal, Connect and Billing emails, Smart Retries and Stripe Tax.
 - `STRIPE_SECRET_KEY` (a restricted key if every call the adapter makes is covered, otherwise the secret key) and the publishable key in the stack's `stripePublishableKey`. Production refuses to start with a test key, and staging with a live one.
@@ -806,16 +810,20 @@ original Price unless explicitly changed.
 
 ## Testing and QA
 
-Use the [categorized QA checklist](qa/payments.md) for scenario coverage and the
-[automation plan](qa/payments-automation.md) for real-app recordings, shared sandbox isolation and CI rollout.
+Scenario coverage lives in the launch-readiness tickets for payments: [Stripe payments setup (CB-5)](launch-readiness.md#stripe-payments-setup-cb-5),
+[plan billing (CB-6)](launch-readiness.md#plan-billing-trial-purchase-seats-and-read-only-cb-6),
+[saved cards and bank accounts (CB-12)](launch-readiness.md#saved-cards-and-bank-accounts-cb-12),
+[online booking with deposits (CB-24)](launch-readiness.md#online-booking-with-deposits-cb-24),
+[card payments at the desk (CB-30)](launch-readiness.md#card-payments-at-the-desk-cb-30),
+[invoices and payment links (CB-34)](launch-readiness.md#invoices-and-payment-links-cb-34),
+[memberships (CB-40)](launch-readiness.md#memberships-renewals-and-failed-payments-cb-40),
+[refunds and credit notes (CB-42)](launch-readiness.md#refunds-and-credit-notes-cb-42),
+[disputes and chargebacks (CB-43)](launch-readiness.md#disputes-and-chargebacks-cb-43) and
+[payouts and fee reconciliation (CB-47)](launch-readiness.md#payouts-and-fee-reconciliation-cb-47). The
+automated browser and API cases behind them are listed in `backend/e2e/cases.json`.
 
-| Layer              | Command                                            | What it proves                                                                                                                                           |
-| ------------------ | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Backend regression | `make test-backend`                                | Product behavior, ledger invariants, duplicate/out-of-order events, replay, reconciliation and tenant/role isolation with fakes and disposable Postgres. |
-| Stripe contract    | `make stripe-mock`, then `make test-contract`      | Real adapter request/response shapes against stripe-mock; not provider state or Accounts v2 behavior.                                                    |
-| Provider sandbox   | `make test-sandbox`                                | Real sandbox behavior when test keys are configured; skipped otherwise. May create provider test objects.                                                |
-| Real Stripe in CI  | `make test-stripe-qa STRIPE_QA_ARGS="--pair ci-N"` | The sandbox suite with no skips on a leased pool pair, each scenario's ledger checked against Stripe's balance transactions. Runs on every pull request. |
-| Frontend           | `make test-frontend` and normal lint/type gates    | Shared view-model and client checks; not proof of successful embedded-provider interaction.                                                              |
+The test tiers, from the fake-backed suite through `make test-contract` and the sandbox suite to the
+browser lane, and what each one proves, are in [engineering](engineering.md#stripe-four-tiers-layered-by-cost).
 
 The sandbox tier uses `STRIPE_TEST_SECRET_KEY` and, for existing merchant scenarios, `STRIPE_TEST_CONNECTED_ACCOUNT`;
 the setup script prints the demo account ID. Follow the [test tiers](engineering.md#stripe-four-tiers-layered-by-cost)
@@ -848,57 +856,6 @@ Sandbox payouts do not prove actual bank delivery. Real-device Terminal and wall
 provider/device prerequisites. Keep release sign-off in [launch readiness](launch-readiness.md), rather
 than treating this reference as a completed checklist.
 
-### Sandbox verification record — 2026-10-18
-
-Verified against the authenticated Clientbridge sandbox CLI profile, using the seeded Birchbark
-connected account. CLI/API checks changed its schedule to weekly Friday, monthly day 15, manual and
-daily, retrieving the saved settings after each change. The original daily schedule was restored and
-the Cedar Coast demo account's balance settings remained unchanged. Invalid hourly scheduling and
-monthly day 32 were rejected without changing settings.
-
-A real Account Session accepted `edit_payout_schedule=true`, `standard_payouts=true`,
-`instant_payouts=false`, and `external_account_collection=false`, with Stripe user authentication
-remaining enabled. The worktree's actual `StripeGateway` and web `PaymentAccount` component rendered
-Stripe's sandbox payout screen in an isolated local harness. This exercised the embedded component,
-not the application login/authorization flow.
-
-At the initial check both seeded accounts had payouts disabled, no bank account and zero available funds.
-Subsequent CLI setup added Cedar Coast's test bank; see [demo setup](#finishing-the-two-demo-accounts).
-Stripe displayed “On hold” and withheld the schedule controls; a test payout was rejected for lack of
-a CAD external account. Completing onboarding, editing the schedule through the embedded UI and
-creating a funded sandbox payout remain required before signing off that browser flow. The CLI
-round trips alone do not complete that QA.
-
-### Sandbox verification record, 2026-10-27
-
-These checks ran against the Clientbridge sandbox on Birchbark (`acct_1UPnLpFGqw5ObEW5`) at
-`2026-09-30.endive`, after the October 26 review of every Stripe flow. Each mismatch they found is fixed
-in the behaviour described above.
-
-| Check                                 | Objects                                                            | Result                                                                                                                                                                                                                                                                                                                                                       |
-| ------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| PAD refund                            | `pi_3UV9NTFGqw5ObEW50YLhtfF7`, `pyr_1UV9PsFGqw5ObEW53BnAYjve`      | A `pyr_` refund whose `payment_refund` transaction exists while the refund is still pending; reconciliation expects it until it settles.                                                                                                                                                                                                                     |
-| Returned application fee              | `ch_3UV9IiFGqw5ObEW51mmgt0DW`, `txn_1UV9JLFGqw5ObEW5BTlr9sd7`      | The fee comes back pro rata as an `adjustment` whose source is the charge, and `?source=` leaves it out.                                                                                                                                                                                                                                                     |
-| Failed refund                         | `re_3UV9JpFGqw5ObEW50zW5eBu7`, `txn_1UV9M1FGqw5ObEW5vp32TGxa`      | Reported only by `refund.failed`; its `refund_failure` row is also missing from `?source=`, so reconciliation lists it by type.                                                                                                                                                                                                                              |
-| Dispute after a partial refund        | `du_1UV9LxFGqw5ObEW5pv72TyEY`                                      | An inquiry kept the full amount after a part refund; the reinstated part of a lost dispute is booked from the documented balance transactions, not observed.                                                                                                                                                                                                 |
-| Refund during a dispute               | `du_1UV9K5FGqw5ObEW5RLrvtdnC`                                      | Refused with `charge_disputed` while disputed, allowed during an inquiry. Dispute ids are `du_`.                                                                                                                                                                                                                                                             |
-| Off-session PAD charge                | `mandate_1UV9N2FGqw5ObEW5wikXrsZS`, `pi_3UV9NTFGqw5ObEW50YLhtfF7`  | Succeeds only with `allowed_payment_method_types=["acss_debit"]` and the `mandate`.                                                                                                                                                                                                                                                                          |
-| PAD mandate for memberships           | `sub_1UVBMaFGqw5ObEW5OOAqbrGW`, `mandate_1UVBN7FGqw5ObEW59uyfzvwk` | An interval mandate left a membership's first invoice at `requires_confirmation`; a `default_for: ["invoice", "subscription"]` mandate took one-off charges and billed the membership unprompted. Stripe refuses `default_for` with an interval schedule.                                                                                                    |
-| Undelivered events                    | `evt_3UUs9SFGqw5ObEW50HeXW0Am`                                     | `delivery_success=false` works on the platform and per account, 30 days back.                                                                                                                                                                                                                                                                                |
-| Closed v2 account                     | `acct_1UV9OGFGqwSdYFTi`                                            | Retrievable with `closed: true`, which maps to `disabled_reason: closed`.                                                                                                                                                                                                                                                                                    |
-| Bank change in account management     | STR-E13                                                            | Account management shows bank details only after Stripe's sign-in, which sends its code to the phone number on the Stripe account, so only the person holding that phone can change the bank. Sending the code shows an hCaptcha, so the lane checks the sign-in and that the bank accounts are unchanged, and a completed bank change stays a manual check. |
-| Standalone `tax_fee` and `stripe_fee` | 18 connected accounts                                              | None exist in the sandbox; they are booked from the documented shape.                                                                                                                                                                                                                                                                                        |
-
-The browser lane's STR-E08 made the funded manual payout the record above still needed: after switching
-the QA merchant to a manual schedule in the embedded component, it paid out exactly its run's net
-(`po_1UVH2kFGqw0VgMVoe6SLqkyp`, CAD 18.90). Stripe's component hides the schedule and Pay out while a
-payout is on its way, so that case can run about once a day.
-
-On 2026-10-28 STR-E08 ran end to end (`po_1UVVhCFGqw0VgMVoRgmoxIVw`, CAD 18.90): the payout went to
-transit, stayed out of Deposited while in transit, then moved to the bank when Stripe marked it paid, with
-transit back at zero. That run showed the Payouts page dating the payout a day before Stripe's
-`arrival_date` in a zone west of UTC; the page now shows Stripe's day, matching the payouts CSV.
-
 ## Troubleshooting
 
 | Symptom                                        | Check                                                                                                                                                                                                                                                                                                               |
@@ -911,7 +868,7 @@ transit back at zero. That run showed the Payouts page dating the payout a day b
 | `payment_provider_error` (502)                 | Stripe refused a request we don't map. The API log `stripe error <code> ...` on `clientbridge.stripe` names Stripe's code and request id.                                                                                                                                                                           |
 | Payout has not arrived                         | Stripe's live status, available versus pending funds, selected schedule and bank requirements. A payout counts as deposited only after `payout.paid`, and even then the bank journal is not proof of receipt.                                                                                                       |
 | Ledger drift                                   | Open the business's drift list in admin. Use source/transaction IDs to compare provider net movement with business-owned Stripe journal legs. Check refunds, disputes, fee returns and reversals, then let the next run confirm the fix; acknowledge only a difference that is understood and will not be repaired. |
-| Customer/payment method missing                | Verify the connected-account scope and platform/mode. After a demo reset, relink fixtures or create fresh test transactions.                                                                                                                                                                                        |
+| Customer/payment method missing                | Verify the connected-account scope and platform/mode. After `make seed`, relink fixtures or create fresh test transactions.                                                                                                                                                                                        |
 | Apple Pay / Google Pay / Link absent           | Verify payment method enablement and domain registration on the merchant account (a failed registration is logged when onboarding opens), then browser/device eligibility.                                                                                                                                          |
 | Plan checkout/portal fails                     | Check platform products/lookup keys, portal configuration and platform webhook secret; do not use the merchant Customer as the platform billing customer.                                                                                                                                                           |
 

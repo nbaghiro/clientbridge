@@ -3,7 +3,7 @@
 The canonical description of **how the system is built**: stack, structure, the data model, sync, and
 authorization. For _how we build it_ (the gate, testing, conventions) see [engineering.md](engineering.md);
 for _what's left_ see the launch stories and the after-launch list in
-[launch-readiness.md](launch-readiness.md); for design/IA see [design/](design/).
+[launch-readiness.md](launch-readiness.md).
 
 Clientbridge is a **local-first, all-in-one business OS** for solo and small service providers —
 bookings, clients, catalog, invoicing, payments, messaging, forms, reviews, staff payout-splits — with
@@ -70,22 +70,24 @@ clientbridge/
 │   ├── migrations/versions/    Alembic (one baseline + linear increments)
 │   ├── scripts/                seed_demo · gen_sync_schema · export_openapi
 │   ├── tests/                  integration suite + contract/ + e2e/
+│   ├── e2e/                    setup actions and checks the browser e2e cases call (leased merchant, namespaces)
 │   └── src/clientbridge/
 │       ├── main.py             FastAPI app factory (ASGI entry)
-│       ├── core/               command · scoping · deps · config · security · db · errors · ids · ratelimit
+│       ├── core/               command · scoping · deps · config · security · db · errors · ids · ratelimit…
 │       ├── models/             SQLAlchemy — one file per domain (+ base)
 │       ├── schemas/            Pydantic DTOs — one file per concept
-│       ├── services/           business logic — one file per concept (33)
-│       ├── api/                router.py (mounts /v1) · one router file per concept · public.py · webhooks.py
+│       ├── services/           business logic — one file per concept
+│       ├── api/                router.py (mounts /v1) · one router file per concept · public.py · webhooks.py · admin.py (/admin/v1)
 │       ├── sync/               auth.py (token/JWKS)
-│       ├── integrations/       identity · kratos · stripe · resend · twilio · expo · s3 (provider adapters)
+│       ├── integrations/       identity · kratos · stripe · resend · twilio · expo · s3 · google_business · jobs · http
 │       └── tasks/              worker.py: the arq cron schedule
 ├── frontend/           ── TypeScript · pnpm + turbo ──
 │   ├── apps/
 │   │   ├── web/        React + Vite · provider/admin · :8700
 │   │   ├── mobile/     Expo RN · provider/admin · :8707
 │   │   ├── connect/    public customer app · PowerSync-free · :8709
-│   │   └── site/       marketing site · static prerender · :8710
+│   │   ├── site/       marketing site · static prerender · :8710
+│   │   └── admin/      platform admin console at admin.D · :8711
 │   └── packages/
 │       ├── app-core/   shared view-model hooks + strings + icons + UI prop contracts (ui.ts)
 │       ├── ui/         shared components: src/web (DOM, web + Connect) · src/mobile (React Native)
@@ -95,7 +97,8 @@ clientbridge/
 │       └── config/     shared eslint/prettier, the copy lint rules and the e2e helpers (axe, focus, hover, en-XA)
 ├── infra/powersync/    powersync.yaml (local) · powersync.deployed.yaml (staging, production) · sync-rules.yaml (read authz)
 ├── infra/auth/         the auth service (Kratos): kratos.yml · identity schema · Google mapper · courier body
-└── .docs/              architecture · engineering · launch-readiness · design/
+├── infra/pulumi/       the Pulumi program for staging and production: cloud/ · kubernetes/ · providers
+└── .docs/              architecture · engineering · launch-readiness · demo · operations · payments, plus reviews/ · explorations/ · executions/ · company/
 ```
 
 ---
@@ -133,30 +136,43 @@ with the subclass's HTTP status, and a request that fails validation as `invalid
 | `command.py`    | **The command wrapper.** `run_command(db, principal, *, action, run, response_model, idempotency_key)` — replays a stored response for a repeated key, stages `Command.record(...)` audit rows, then commits mutation + audit + idempotency key as **one atomic unit** (rollback on any error). Money/uniqueness/cross-tenant mutations go through it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `scoping.py`    | **The one place the tenant filter lives.** `scoped(Model, business_id, soft_delete=…)` + `scoped_update`/`scoped_delete`. Services **never** hand-write a `business_id` filter.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `deps.py`       | DI hub — DB session, adapter aliases (`EmailDep`, `GatewayDep`, `IdentityDep`…), the auth chain (`current_identity` asks the auth service who the session is, `current_user` links the local user, `current_principal` re-derives business/role from the DB every request, honoring `X-Business-Id`), and role gates (`assert_role`, `is_manager`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| `config.py`     | Pydantic-settings and the origin lists: `app_origins()` (only `WEB_BASE_URL`; credentialed CORS and the cookie Origin check) and `CORS_ALLOW_ORIGINS` (Connect's `book.`, `pay.` and `shop.` hosts, without credentials, through `core/cors.py`), with `allowed_origin_regex()` adding every business page from `BUSINESS_PAGE_URL`. `ENV` is `dev`, `staging` or `prod`; `BASE_DOMAIN` (`clientbridge.ca`, `staging.clientbridge.ca`) derives every public URL that is not set: the API at `api.` with the auth service under `/auth`, the web app at `app.`, business pages at `<slug>.`, booking at `book.`, the shop at `shop.`, Pay at `pay.`. **Fails closed outside dev:** refuses to boot without `BASE_DOMAIN`, the database, Redis, storage, Stripe, Twilio, Resend and auth email hook settings, the PowerSync signing key, a separate admin URL or a nonzero `TRUSTED_PROXY_HOPS`, or with a set URL or session cookie name that disagrees with `BASE_DOMAIN`, a reserved base domain (`.invalid`, `.localhost`, `.test`…), Redis, storage or the auth service on `localhost`, or an `EMAIL_FROM` at another domain. A deploy also names the session cookie `__Host-cb_session` and reaches the auth service's public API at `AUTH_INTERNAL_URL` (its in-cluster Service over http; empty means `AUTH_PUBLIC_URL`). |
+| `config.py`     | Pydantic-settings and the origin lists: `app_origins()` (only `WEB_BASE_URL`; credentialed CORS and the cookie Origin check) and `CORS_ALLOW_ORIGINS` (Connect's `book.`, `pay.` and `shop.` hosts, without credentials, through `core/cors.py`), with `allowed_origin_regex()` adding every business page from `BUSINESS_PAGE_URL`. `ENV` is `dev`, `staging` or `prod`; `BASE_DOMAIN` (`clientbridge.ca`, `staging.clientbridge.ca`) derives every public URL that is not set: the API at `api.` with the auth service under `/auth`, the web app at `app.`, business pages at `<slug>.`, booking at `book.`, the shop at `shop.`, Pay at `pay.`. **Fails closed outside dev:** the API, worker and migrate step refuse to boot when a required setting or secret is missing or disagrees with `BASE_DOMAIN`; the list is in [operations](operations.md#plain-settings). |
 | `deployment.py` | What a deployed environment derives from `BASE_DOMAIN`, with no imports beyond the standard library so the Pulumi program reuses it: `public_urls` (the API settings), `auth_env` (the auth service's environment over `kratos.yml`), `powersync_env` (PowerSync's for `powersync.deployed.yaml`), the session cookie name and the secret variable names each service needs.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `security.py`   | SHA-256 opaque-token hashing (invites) · the PowerSync token (HS256 or RS256 + a JWKS endpoint for prod).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `ids.py`        | Prefixed-ULID PKs (`bz_…`, `bk_…`), time-sortable.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `errors.py`     | `AppError` taxonomy → HTTP status (`NotFound` 404, `Conflict` 409, `CardDeclined` 402, `TooManyRequests` 429…).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| `ratelimit.py`  | In-process sliding-window limiters, one per worker process, for the six public groups (the site contact form, pay, form, contract, booking, which the shop and returning-client checks share, and invite preview): 30 requests a minute from one address each, 1000 with `ENV=dev`. The address is the `X-Forwarded-For` entry `TRUSTED_PROXY_HOPS` from the right (2 behind Google's load balancer, 0 locally, where the socket peer is used), so a client cannot pick its own key; the contract signer IP comes from the same function. The desk discount PIN has its own limiter in `services/orders.py` (5 tries per 5 minutes).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `ratelimit.py`  | Limits for the six public groups (the site contact form, pay, form, contract, booking, which the shop and returning-client checks share, and invite preview): 30 requests a minute from one address each, 1000 with `ENV=dev`. Outside `ENV=dev`, `allow_action` counts in Redis with a fixed window per scope and key (`INCR`, then `PEXPIRE` on the first hit), so every API process shares the count, and answers 503 when Redis fails; with `ENV=dev` the in-process `RateLimiter` counts instead. The same function backs `connect_refresh_limiter` (6 reads of the account from Stripe a minute per business, past which a refresh answers with the stored status; `services/payments.py`), the auth email cap (see _Identity_) and the admin email lab's `_send_limit` (5 test sends a minute per operator, `services/admin.py`). The address is the `X-Forwarded-For` entry `TRUSTED_PROXY_HOPS` from the right (2 behind Google's load balancer, 0 locally, where the socket peer is used), so a client cannot pick its own key; the contract signer IP comes from the same function. |
 | `logs.py`       | Logging, configured once at startup by the API lifespan and the worker's `on_startup`: INFO and above to stdout, plain text with `ENV=dev` and one JSON object per line otherwise (`time`, `level`, `severity`, `logger`, `message`, `exception` and any `extra` fields). `RequestLog` writes one line per request with the method, the route template (so public tokens stay out of the logs), the status and the duration, in place of uvicorn's access log.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `db.py`         | Async engine + `SessionLocal` + the `Base` model metadata.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `clock.py`      | The one source of the current time: `now()` and `today(zone)` for product logic, `wall()` only for external clocks (the auth service, PowerSync tokens, webhook signatures); tests and the seed freeze it. |
+| `mirrors.py`    | `Mirror`, the base for schemas that copy a table, and `mirror_errors()`, which `test_integrity` runs (see _Conventions_). |
+| `policies.py`   | `TABLE_POLICIES`: every table's scope (tenant, identity, routing or operational), tenant key and owning domain; `table_policy_errors` fails when a table has no policy or its columns disagree with it. |
+| `locale.py`     | The backend's locale entry point: `locale_for(...)`, `message` and `plural` over `en_CA.po`, and Babel's `format_money` and `format_day_and_time` in the business zone (see _Locale and time zones_). |
+| `zones.py`      | The supported Canadian zones and their offsets, read from the pinned `tzdata` package; the only module that reads zone data. |
+| `cors.py`       | `SplitCors`: credentialed CORS for the staff web app's origin, and CORS without credentials for Connect's hosts and business pages. |
+| `phones.py`     | E.164 normalization (`e164`), the reserved 555-0100 to 555-0199 range, and `same_phone` for matching a stored number in SQL. |
+| `emails.py`     | Email address normalization and the reserved test domains (`example.com`, `.test`, `.invalid`…). |
+| `uploads.py`    | A 256 KiB request body cap on the hours week command (413 `upload_too_large`). |
+| `caching.py`    | `NoStoreByDefault`: every response gets `Cache-Control: no-store` unless its route set its own, so a browser can't replay a cached `/v1/me`. |
+| `namespaces.py` | An e2e run's namespace, dev only: ids end in it, and a run's worker sees only rows whose business id carries it. |
 
 ### Role gates
 
 A gate lives in the service method that does the work, via `assert_role(self.principal, …)`, because the
-same services also run from jobs and public flows. Services whose every method is owner/admin (reports,
-the dashboard) gate once in their constructor; others gate per method (POS order-create is staff, void is
-admin). `is_manager(role)` covers the one place that holds a bare role string (service authorization). Never a
-hand-written role tuple check.
+same services also run from jobs and public flows. Services whose every method is owner/admin (reports)
+gate once in their constructor; others gate per method (POS order-create is staff, void is
+admin). `is_manager(role)` checks a bare role string where a method branches on the role instead of
+refusing, most often to let members act on their own rows and managers on anyone's; eight services use it
+(bookings, files, hours, notes, notifications, reviews, staff and visit records). Never a hand-written role
+tuple check.
 
 ### External services
 
 Every external dependency is an **adapter interface (`typing.Protocol`) + a prod implementation + a `get_*()`
 dependency** that tests override with a recording fake — so the boundary is covered without the network.
-Six adapters in `integrations/`, one per provider so they read apart from our own services:
+The adapters live in `integrations/`, one file per provider so they read apart from our own services:
 `stripe.py` (Stripe Connect + Terminal), `resend.py` (email, the SMTP transport for Mailpit in dev, and the Svix check on the delivery webhook), `twilio.py` (SMS, and the dev transport that mails texts to Mailpit), `expo.py` (push), `identity.py`
-(the auth service's interface: `Identity`, `Credential`, `IdentityProvider`) with `kratos.py` (its Ory Kratos implementation and `get_identity_provider`), `s3.py` (S3; RustFS locally).
+(the auth service's interface: `Identity`, `Credential`, `IdentityProvider`) with `kratos.py` (its Ory Kratos implementation and `get_identity_provider`), `s3.py` (S3; RustFS locally), `google_business.py` (the Google Business Profile API, the KMS secret store and the Redis OAuth handoff store) and `jobs.py` (`get_jobs`, which hands the worker a job to start now instead of at the next cron tick). `http.py` holds the one shared `httpx` client per event loop that Resend, Twilio, Expo and Google use.
 
 ### Email design
 
@@ -169,17 +185,11 @@ returns a `Notice` (subject, the plain text and the `EmailView` the HTML shows),
 plain string, with all copy in `en_CA.po`. The header and contour PNGs are bundled in
 `backend/src/clientbridge/email_assets/` and attached inline with Content-ID references by both Resend and
 SMTP. Only images used by a message are attached, so the art does not depend on the marketing site.
-`make preview-emails` renders the four sample emails (sign-in code, staff invite, trial ending, estimate
-declined) into `.scratchpad/emails/`, embedding the same image bytes as data URLs for browser previews.
-Mailpit shows the real MIME message in dev.
-Use `make preview-emails ARGS="--list"` to list samples, or `ARGS="--email staff-invite"` to preview one.
-To send a demo, explicitly choose a recipient, sample and transport:
-`make preview-emails ARGS="--email staff-invite --send-to you@example.com --transport resend"`.
-Resend needs `RESEND_API_KEY` and `EMAIL_FROM`; SMTP uses `SMTP_URL`. Sends carry a `[TEST]` subject,
-synthetic data and nonfunctional `.test` action links, without changing business records. The gallery is
-a browser approximation; inspect actual deliveries in target email clients before approving the design.
 The waitlist confirmation is the one exception: the marketing site's server sends it, so `make gen-waitlist-email`
 writes it to `apps/site/server/waitlist-email.json` with the images the site's build serves at `/email/`.
+Previewing and test-sending the sample emails is covered in [engineering](engineering.md#email-delivery-resend).
+
+### Deliveries
 
 Payment settlement, refunds, booking creation, form sends, trial reminders, admin tests and every
 outbound client message (one-to-one, class and broadcast) persist notification intent in `deliveries`
@@ -196,36 +206,23 @@ distinguishes provider acceptance from delivery.
 SMS uses the business's unique `sms_number` for outbound identity and inbound routing; a retired number
 cannot be reassigned to another business. Public abuse controls use Redis outside development.
 
-Online stock holds are derived from existing order/invoice lines and live payments, excluding lines
-already represented by sale movements. Item locks serialize competing checkouts. Cancelled intents
-release holds; stock corrections or late payment after order expiry cause recorded, keyed refunds.
-In-person negative-stock policy remains supported when it does not consume another checkout's hold.
-
 ### Jobs (`tasks/`)
 
 `tasks/worker.py` is the schedule only: one-line arq cron wrappers that open a session and call a `run_*`
-function in the concept's service. Every 15 minutes: booking reminders, reaping unpaid bookings and unpaid
-shop orders, completing past visits and sending intake forms. Every minute: due deliveries and broadcasts (held during
-quiet hours). Every 30 minutes: pruning used sync receipts. Hourly: pruning unfinished uploads, replaying
-Stripe events that couldn't be delivered (:27), and ledger reconciliation and cancelling day-old staff
-payment intents (:45). Hourly at
-:00, each acting only for businesses whose local time is the hour named: the overdue sweep (07:00), review
-requests (08:00), pickup reminders (09:00) and trial reminders (09:00). Daily (UTC): entitlement expiry and
-device pruning 03:30 and plan seat sync 05:00. Jobs aren't tenant-scoped: each row resolves its own business (and through it the time
-zone and `locale_for(...)` its text renders in), and each is idempotent via a status or timestamp marker.
-The worker evaluates cron times in UTC (`timezone = UTC`) whatever the host's zone.
+function in the concept's service, evaluated in UTC. Jobs aren't tenant-scoped: each row resolves its own
+business (and through it the time zone and `locale_for(...)` its text renders in), and each is idempotent
+via a status or timestamp marker. Every job, its schedule and what a failed run means are listed in
+[operations](operations.md#jobs).
 
-`GET /health` is the liveness check and touches nothing; `GET /ready` (`services/health.py`) runs
-`SELECT 1` with a two-second timeout and answers 503 when it fails
-(`{"status": "unavailable", "failed": ["database"]}`). Redis is not part of readiness: only the public
-rate limits and the worker use it, so an outage answers 503 on the rate-limited public routes and
-restarts the worker without taking the API out of the load balancer.
+`GET /health` is the liveness check and touches nothing, and `GET /ready` (`services/health.py`) answers 503
+when the database doesn't answer `SELECT 1`; Redis is left out of readiness. The probes and alerts are in
+[operations](operations.md#health-checks-and-alerts).
 
 ---
 
 ## The data model
 
-**45 tables** across the 12 domains; credentials and sessions live in the auth service's own database. Stripe Connect custodies funds and pays out; a double-entry ledger (`accounts` + `entries`)
+**47 tables** across the 12 domains (each has a policy in `core/policies.py` `TABLE_POLICIES`); credentials and sessions live in the auth service's own database. Stripe Connect custodies funds and pays out; a double-entry ledger (`accounts` + `entries`)
 records every money movement and is the only place money balances are stored. The SQLAlchemy models in
 `backend/src/clientbridge/models/` are the exact-DDL source of truth; the migrations in
 `migrations/versions/` start from one baseline (squashed before launch) with increments after it.
@@ -259,6 +256,9 @@ records every money movement and is the only place money balances are stored. Th
 - **Concurrency invariants live in SQL:** GiST exclusion constraints stop double-booking a staff
   member or a room or piece of equipment; partial-unique indexes enforce business rules (one active/paused subscription per client+item,
   one invitation per booking enforced by the service).
+- **Lock order for scheduling writes:** the business's hours lock (`lock_hours`), then members' advisory
+  locks in id order (`lock_staff`), then every resource the visit may take (`lock_resources`), then booking
+  rows in id order (`lock_bookings`) and slots, so concurrent writers never deadlock.
 
 ### ID prefixes
 
@@ -267,8 +267,8 @@ shown after it.
 `bz_`businesses `us_`users `st_`staff · `cl_`clients `sj_`subjects `nt_`notes `cns_`consents · `it_`items `pkg_`packages
 `sub_`subscriptions `gc_`gift_cards `stk_`inventory · `ses_`slots `bk_`bookings `bka_`addons `av_`hours
 `sch_`recurrences `rs_`resources · `inv_`invoices `est_`estimates `ord_`orders `ln_`lines · `pay_`payments
-`pm_`payment_methods `psl_`payment_setup_links `acc_`accounts `ent_`entries `jrn_`journal · `th_`threads `msg_`messages `bro_`broadcasts
-· `frm_`forms `ff_`fields `fr_`responses `vr_`visit_records (rows moved from responses keep `fr_`) `con_`contracts `sig_`signatures · `rrq_`review requests (preserved historical invitation IDs remain unchanged)
+`pm_`payment_methods `psl_`payment_setup_links `acc_`accounts `ent_`entries `jrn_`journal `prun_`pay runs (an id in the pay journals' `meta`, not a table) · `th_`threads `msg_`messages `dlv_`deliveries `bro_`broadcasts
+· `frm_`forms `ff_`fields `fr_`responses `vr_`visit_records (rows moved from responses keep `fr_`) `con_`contracts `sig_`signatures · `rrq_`review requests (preserved historical invitation IDs remain unchanged) `gbc_`google_business_connections `gbo_`google_business_operations
 · `fl_`files `aud_`audits `wh_`webhooks `dvt_`devices `idk_`commands `sur_`sync_receipts · `rtc_`returning_challenges
 
 ### Tables by domain
@@ -292,16 +292,16 @@ included, merged ones not).
 
 **catalog (5)** — `items` (**one table drives the whole catalog** via `kind` service/class/product/package/
 subscription/gift — duration, capacity, deposit, recurrence, session_count, `stripe_price_id`, and
-`staff_ids` for who offers a service or class, and `resource_ids` for the pool of rooms or equipment it needs one of), `packages`
+`staff_ids` for who offers a service or class, and `resource_ids` for the pool of rooms or equipment it needs one of; see _Visit flow_ for the membership and package perks), `packages`
 (client's package: `sessions_total` and status, and `subject_id` when it belongs to one of the client's
 subjects, so it covers only that subject's visits, refused with 422 `package_other_subject`; null shares it;
 sessions used is the count of its consumption journals), `subscriptions` (recurring: status, period,
 `provider_ref`; partial-unique one active/paused per client+item), `gift_cards` (`code` unique per business,
 `initial_cents`; the spendable balance is the card's own ledger account, and an active card with nothing
-left reads as redeemed), `inventory` (one signed stock movement per row, `reason` sale/refund/restock, keyed
+left reads as redeemed), `inventory` (one signed stock movement per row, `reason` sale/refund/restock/correction, keyed
 by line and reason; `items.stock_on_hand` is the running total).
 
-**scheduling (7)** — `slots` (the calendar event: capacity-bearing block; appointment = capacity 1, class
+**scheduling (6)** — `slots` (the calendar event: capacity-bearing block; appointment = capacity 1, class
 = capacity N; seats taken are counted from its live bookings; `recurrence_id`; `resource_id`, the room or equipment it holds), `resources` (rooms and equipment by `name`, unique per business in any case, and `active`; turning one off keeps its visits and offers it for nothing new), `bookings` _(soft-del)_ (client↔slot via `slot_id`; denormalized
 `staff_id`; status pending→confirmed→completed/canceled/no_show, or waitlisted on a full class (a seat freed before the session starts goes to the earliest sign-up waiting, and the overnight job closes what is left once the class ends); `source`; deposit terms (the deposit's
 state is derived from the ledger, and a deposit is due when `deposit_amount_cents > 0`); `reminded_at`;
@@ -334,14 +334,14 @@ is set; `item_id`/`booking_id`, `tax_amount_cents`).
 unique `provider_ref` = one row per Stripe object; a payment can have several refunds, one row per Stripe
 refund, each with `parent_payment_id`; a payment targets at most one invoice or one order),
 `payment_methods` (saved card/PAD, `method` card/bank_eft, the same spelling as `payments.method`;
-`preferred` marks the card charged off-session), `payment_setup_links` (a hashed, expiring link a client
+`preferred` marks the card charged off-session), server-only `payment_setup_links` (a hashed, expiring link a client
 opens on `pay.D/setup` to authorize a bank account (PAD), with its SetupIntent and mandate).
 
 **ledger (2)** — `accounts` (one per owner × category × code × currency: owners are a business, client, staff
 member, the platform, a gift card or a package; categories are cash (`stripe`/`bank`/`cash`), `transit` (a payout on its way to the bank), `receivable`,
 liabilities (`tax` per GST/HST/PST/QST code, `gift_card`, `deposit`, `deferred`, `payable` per
 pending/approved stage), income (`revenue`, `fee_revenue`) and expenses (`processing_fee`, `platform_fee`,
-`staff_cost`, `loss` for money lost twice to a refund and a dispute); a cached `balance_cents` that only the trigger on `entries` writes), `entries` (append-only legs grouped by `journal_id`; signed
+`staff_cost`, `loss` for money lost twice to a refund and a dispute), and `itc` (input tax credits claimed on a tax return); a cached `balance_cents` that only the trigger on `entries` writes), `entries` (append-only legs grouped by `journal_id`; signed
 `amount_cents`, debit positive; `event` = what happened; `source_*` = what caused it; `subject_*` = the entity it
 belongs to; `ref` + `leg` unique = idempotency; the account's owner is copied on for sync slicing).
 
@@ -349,7 +349,7 @@ belongs to; `ref` + `leg` unique = idempotency; the account's owner is copied on
 count, inbound messages not yet `read`, are read from `messages`), `messages` (direction in/out,
 `broadcast_id`, `attachments`), `broadcasts` (audience JSONB + `scheduled_at`), and server-only `deliveries` (immutable typed payload, stable key, current transport state and fenced worker claim).
 
-**documents (6)** — `forms`, `fields` (`input` is one of 17 field types), `responses` (public-link token,
+**documents (6)** — `forms`, `fields` (`input` is one of 16 field types), `responses` (public-link token,
 `answers`, immutable issued `definition`, and optional submitted `signature` JSONB; every response is
 a client's, with a token), server-only `visit_records` (what staff write on a booking with a form sent
 by hand: `definition`, `answers` and the author in `signature`; final, read only by its author or a
@@ -370,12 +370,18 @@ Invitations resolve the linked location's Google review URL and enqueue delivery
 lock serializes manual and automatic requests. A client gets at most one request in 30 days; the morning job skips
 archived clients and businesses with `review_requests_enabled` turned off. A text STOP is still enforced.
 Invitation history is not evidence of delivery or a review. No internal feedback collection, moderation or
-reviewer-to-client matching exists. See the [setup and pilot runbook](executions/google-business-reviews/runbook.md).
+reviewer-to-client matching exists.
+
+The Google connection ships behind `GOOGLE_BUSINESS_ENABLED` (off by default). It counts as on only when the
+OAuth client, the KMS key and the redirect URI are also set; while it's off, the connect and review commands
+answer 503 `google_not_configured`, no review request goes out (a manual one is refused with 409
+`google_reconnect_required`), queued reply operations wait, and the Reviews screen says Google reviews are coming soon. Verification against real Google accounts waits on
+Google's approval of API access. Setup is in [operations](operations.md#google-business-profile).
 
 **platform (6)** — `files` (S3 key, `purpose` logo/image/photo/signature/attachment), `audits` (activity
 feed, written only by the app; server-only), `webhooks` (inbound provider events, `event` = the provider's event name;
 **not** business-scoped — routed during processing; a Stripe event's `payload` is cleared once it is
-processed and kept on a failed row; server-only), `devices` (Expo push tokens), `commands`
+processed and kept on a failed row; server-only), `devices` (Expo push tokens; server-only), `commands`
 (unique per business+scope+key — backs `run_command` replay; server-only), `sync_receipts` (one per
 user+device+operation for the hours outbox: payload hash and result, so a replayed upload returns the
 original answer; server-only).
@@ -397,21 +403,14 @@ and `payments`; other discriminators carry a name that says what they mean (`hou
 `fields.input`, `payment_methods.method`, `entries.event`, `webhooks.event`, `accounts.category`,
 `files.purpose`).
 
-> **Why this shape:** the model is a pragmatic "mostly-lean" blend chosen over an option-by-option review —
-> maximally consolidated (shared `lines`/`payments` across documents, one `items(kind)`, one `slots` for 1:1 + group)
-> but split where lifecycles genuinely differ (packages vs subscriptions vs gift cards; forms vs contracts).
-> A deliberately lean schema, with clarity kept exactly where money and lifecycles live.
-
 ---
 
 ## Sync (PowerSync)
 
 **Engine: PowerSync**, self-hosted next to Postgres. Topology = **PowerSync reads the Postgres WAL
-directly**; **writes always go through FastAPI** (server-authoritative). Chosen because it's the only engine
-that delivers, for this stack, _all of_: real offline SQLite on **both** web (WASM) and Expo RN
-(op-sqlite), WAL-driven server-initiated push, and per-business partial replication — with no Node and
-minimal bespoke code. (ElectricSQL rejected: no offline SQLite on RN today. DIY rejected for v1: months of
-build + permanent maintenance.)
+directly**; **writes always go through FastAPI** (server-authoritative). It gives real offline SQLite on
+both web (WASM) and Expo RN (op-sqlite), WAL-driven server-initiated push and per-business partial
+replication, with no Node service of our own.
 
 ```
  Expo (op-sqlite) ─┐                            ┌── logical replication (WAL) ──┐
@@ -441,13 +440,15 @@ build + permanent maintenance.)
 
 ### Device storage
 
-The web replica is a wa-sqlite file in IndexedDB (`IDBBatchAtomicVFS`) in Chromium and Firefox and in the origin private file system (`OPFSCoopSyncVFS`) in WebKit, chosen by `replicaStorage` from `navigator.vendor` in `apps/web/src/lib/powersync.ts`; WebKit's IndexedDB open can stall when a reloaded page reopens the replica. Before opening in WebKit, a small worker (`opfsProbe.ts`) checks that OPFS grants a sync access handle, on a file name of its own so tabs probing together don't collide. The page waits 5 seconds for an answer and tries once more with a new worker. A refusal keeps the replica in IndexedDB, as a private window needs; a `QuotaExceededError` keeps OPFS, so the full device is reported rather than the file with unsent edits hidden; no answer at all fails as stuck. `frontend/package.json` overrides `@journeyapps/wa-sqlite` to 2.0.10, past the 2.0.7 that `@powersync/web` 2.5.0 pins, for its IndexedDB and OPFS fixes, until a PowerSync release pins 2.0.10 or later. Replicas are named per user and deployment (the page's origin on web, the API on mobile), so a new API or sync host in `/config.js` keeps the file and its unsent edits, and they refuse a database that belongs to another account. When the API says the session is gone, the shell removes the replica from the screen and shows sign-in; the data and pending work stay on the device for the same account, and sign-out clears them. Web caches only build assets and the app shell for offline launches, never API responses; `/config.js` and navigations go to the network first and fall back to the cache after 3 seconds. It asks the browser to keep its storage persistent after each first sync of a page until it agrees, except Firefox, which prompts and so is asked once per profile; it shows nothing when the browser declines. Offline session restoration requires a server verification within the past seven days; checks also run each minute and on foregrounding. Missing, expired or future verification timestamps require reconnection without deleting pending work. This is a local app access policy, not protection against someone modifying browser storage. A full device shows its own sync problem. Neither platform encrypts the database at the application level: browser storage does not protect against a script running on the same origin, mobile relies on the platform's file protection, the session token is in SecureStore on mobile, and on web the session is an HttpOnly cookie (`localStorage` keeps the user id and last successful verification time).
+The web replica is a wa-sqlite file in IndexedDB (`IDBBatchAtomicVFS`) in Chromium and Firefox, and in the origin private file system (`OPFSCoopSyncVFS`) in WebKit (`replicaStorage`, passed to PowerSync in `apps/web/src/lib/powersync.ts`). WebKit moved to OPFS because its IndexedDB path stalled inside wa-sqlite when a reloaded page reopened the replica, which the app can't work around, and PowerSync recommends `OPFSCoopSyncVFS` for Safari. Before opening in WebKit, a probe worker (`opfsProbe.ts`) checks that OPFS grants a sync access handle; a refusal, as in a private window, keeps the replica in IndexedDB. `frontend/package.json` overrides `@journeyapps/wa-sqlite` to 2.0.10, past the 2.0.7 that `@powersync/web` 2.5.0 pins, for its IndexedDB and OPFS fixes. Replicas are named per user and deployment and refuse a database that belongs to another account. When the API says the session is gone, the shell shows sign-in and keeps the data and pending work for the same account; sign-out clears them.
 
-Sign-out clears the replica, closes it and, where it's in OPFS, deletes its three files (`<name>`, `<name>-journal` and `<name>-wal`) through `removeReplicaFiles`, which deletes only while it holds the file's `ahp:/<name>` lock, so it never removes a file another tab has open. Other tabs see the session end and close their replica rather than pause it. The name goes on a `cb_replica_trash` list in `localStorage` before anything that can fail, including before the session ends, and sign-out removes the file by name even when no replica is open (signing out from the verify-email screen); the signing-out tab retries every 500 ms for 5 seconds, and every later start retries the listed names, except that a start opening an account takes its own name off the list first, so a file that account reopened with new edits is never deleted. Starts also remove probe files that a terminated probe worker left behind. Replicas of accounts that never signed out on this browser stay, since they may hold unsent edits.
+Web caches only build assets and the app shell for offline launches, never API responses, and asks the browser to keep its storage persistent. Playwright's WebKit can't load a service-worker page while offline, so the two offline reload cases (XB-E2E-05 and OFF-E2E-01) carry `@no-webkit` and `WEBKIT_EXCLUDED` in `backend/e2e/results.py` leaves them out of WebKit's required cases; Chromium and Firefox still run them. Offline session restoration needs a server verification within the past seven days; this is a local access policy, not protection against someone editing browser storage. Neither platform encrypts the database at the application level: browser storage doesn't protect against a script on the same origin, mobile relies on the platform's file protection and keeps the session token in SecureStore, and on web the session is an HttpOnly cookie.
 
-With multi-tab sync off (WebKit and mobile browsers), PowerSync lets one tab at a time hold its sync lock, and another tab's `connect()` doesn't settle until it gets the lock. The controller starts the connection without waiting on it, so a second tab opens the shared file at once, reads what the first tab syncs and takes over syncing when the first tab closes. In Chromium and Firefox one shared worker syncs for every tab, through a database connection it borrows from one of them. A tab that pauses or closes its replica (pause, close, `pagehide`, `leave()`, an account switch) hands the sync on (`@clientbridge/sync/tabs`): it takes a `replica-hand-off:/<name>` Web Lock, tells the other tabs on a `BroadcastChannel`, disconnects the worker so no write is left running through its own connection, closes, and releases the lock, which a dying page also releases. One of the tabs still syncing then reconnects the worker, so sync stops only when the last tab leaves. Two things rule out the shorter path of closing without the disconnect: a close while `connect()` is still creating its sync client leaves that client attached to the worker, and closing the tab whose connection the worker is writing through deadlocks the file in Firefox. Sign-out disconnects without a hand-off, since the session ends in every tab. In Firefox the shared worker keeps the HTTP connection of every sync stream it restarts (each tab that opens, reloads or hands off restarts it), so against an HTTP/1.1 sync endpoint, as on the test tier, sync stops after six restarts until every tab of the origin closes; a single tab with multi-tab sync off doesn't leak. A business is chosen per tab: each web tab keeps its own `business_selection` row, keyed by an id in `sessionStorage`, and a new tab starts from the last choice made in any tab. If a navigation by `leave()` hasn't happened 8 seconds later, the page reopens its replica.
+Sign-out deletes an OPFS replica's files through `removeReplicaFiles` only while it holds the file's lock, so it never removes a file another tab has open; names that couldn't be removed wait on a `cb_replica_trash` list for a later start. Replicas of accounts that never signed out on the browser stay, since they may hold unsent edits.
 
-WebKit can keep a page's Web Locks after a script navigates it away (WebKit bug 316904), and `OPFSCoopSyncVFS` guards each file's access handles with one of those locks, so the next page's open would wait forever. Every full-page navigation in the web app therefore goes through `leave()` in `apps/web/src/lib/powersync.ts`, which closes an OPFS replica first (waiting at most 2 seconds) and then calls `location.assign` or `location.replace`; an eslint rule rejects those calls, `location.reload` and `location.href` assignments anywhere else in `apps/web/src` except `AdminLogin.tsx`, which opens no replica. `pagehide` also starts closing an OPFS replica, which narrows the race for navigations the app doesn't start but can't close it, and a page restored from the back-forward cache runs a full session restore. If the replica still hasn't opened after 20 seconds, the controller abandons the open: later actions run on a fresh queue, so Sign in again and sign-out work, and the abandoned open closes its replica if it ever finishes. The shell shows its own failure (`sync.openStuckTitle`) with Try again, which works when another tab held the file briefly; when a dead page kept the lock, only quitting the browser releases it, and the message says so.
+Several tabs share one replica. In Chromium and Firefox one shared worker syncs for every tab; with multi-tab sync off (WebKit and mobile browsers) one tab holds PowerSync's sync lock and another takes over when it closes. A tab that pauses or closes its replica hands the sync on (`@clientbridge/sync/tabs`) under a Web Lock, so sync stops only when the last tab leaves. Each web tab keeps its own `business_selection` row. A known limit: in Firefox the shared worker keeps the HTTP connection of every sync stream it restarts, so against an HTTP/1.1 sync endpoint, as on the test tier, sync stops after six restarts until every tab of the origin closes.
+
+WebKit can keep a page's Web Locks after a script navigates it away (WebKit bug 316904), which would leave the next page's OPFS open waiting forever. Every full-page navigation in the web app therefore goes through `leave()`, which closes an OPFS replica first, and an eslint rule rejects other `location` navigations in `apps/web/src`. If the replica still hasn't opened after 20 seconds, the controller abandons the open and the shell shows `sync.openStuckTitle` with Try again; when a dead page kept the lock, only quitting the browser releases it, and the message says so.
 
 ### `/sync/token` + JWKS (`sync/auth.py`)
 
@@ -459,7 +460,7 @@ Exchanges an auth session (cookie or `X-Session-Token`) for a short-lived PowerS
 
 ### The client (`packages/sync`)
 
-`schema.ts` is generated from explicit sync projections. The connector exchanges live session credentials at `/sync/token`; PowerSync downloads canonical data. `hours_outbox` and device preferences are local-only tables. The outbox coalesces unattempted changes, freezes attempted payloads, backs off transient failures, and blocks only successors of a rejected staff-week. Accepted proposals are displayed as awaiting updated data, separately from unsent or rejected work. They remain pending until their revision is observed in the replica. If the target disappears, an authenticated read checks access; only a definitive 403/404 retires the accepted proposal. Rejected work and dependent unsent edits can be discarded with confirmation from either platform’s sync banner, even when the original staff editor is inaccessible. Transient failures keep retrying without an attention-required classification. The developer overlay reports queue counts, oldest pending timestamp and the last measured server-acknowledgement-to-replica delay; the latter is retained in local device preferences. Pausing authentication cancels uploads without deleting intent; explicit discard clears the account-scoped replica. A week that waited out a lost connection goes again as soon as the connection returns rather than after its backoff, and a 402 `plan_required` holds the week for 15 minutes at a time instead of rejecting it. Nothing writes to synced tables; if something does, `uploadData` reports the write and drops it, so the next checkpoint restores the server's row instead of PowerSync holding every download behind it. The server takes a device time ahead of its own as now, so a fast clock can't strand a week, and keeps receipts a day past the 90-day retry horizon.
+`schema.ts` is generated from explicit sync projections. The connector exchanges live session credentials at `/sync/token`; PowerSync downloads canonical data. `hours_outbox`, `device_prefs` and `business_selection` (the business each web tab has open) are local-only tables. The outbox coalesces unattempted changes, freezes attempted payloads, backs off transient failures, and blocks only successors of a rejected staff-week. Accepted proposals are displayed as awaiting updated data, separately from unsent or rejected work. They remain pending until their revision is observed in the replica. If the target disappears, an authenticated read checks access; only a definitive 403/404 retires the accepted proposal. Rejected work and dependent unsent edits can be discarded with confirmation from either platform’s sync banner, even when the original staff editor is inaccessible. Transient failures keep retrying without an attention-required classification. The developer overlay reports queue counts, oldest pending timestamp and the last measured server-acknowledgement-to-replica delay; the latter is retained in local device preferences. Pausing authentication cancels uploads without deleting intent; explicit discard clears the account-scoped replica. A week that waited out a lost connection goes again as soon as the connection returns rather than after its backoff, and a 402 `plan_required` holds the week for 15 minutes at a time instead of rejecting it. Nothing writes to synced tables; if something does, `uploadData` reports the write and drops it, so the next checkpoint restores the server's row instead of PowerSync holding every download behind it. The server takes a device time ahead of its own as now, so a fast clock can't strand a week, and keeps receipts a day past the 90-day retry horizon.
 
 Direct writes to synchronized tables are programming errors. There is no generic CRUD endpoint or old-client fallback. Receipts, commands, webhooks and audits remain server-only.
 
@@ -492,8 +493,7 @@ a non-2xx reply makes it retry.
   401 `second_factor_required` (the apps step up instead of signing out); the auth service unreachable is 503, never a
   sign-out.
 - **Origins** — only the staff web app (`WEB_BASE_URL`) gets credentialed CORS, and cookie-authenticated
-  writes must carry its `Origin` (`core/cors.py`, `app_origins()`). The cookie also rides along on
-  same-site requests from `book.`, `pay.`, `shop.` and business pages, which get CORS without credentials.
+  writes must carry its `Origin`; every origin's access is listed in [operations](operations.md#cors).
 - **Provisioning** — the first authenticated request creates the `users` row for the identity
   (`AuthService.provision`), and later ones copy email/name changes and a throttled `last_seen_at`.
 - **Required verification** — signing in does not need a verified email; opening a business and
@@ -511,19 +511,10 @@ a non-2xx reply makes it retry.
   `Referrer-Policy: no-referrer`. The preview is a rate-limited `POST`.
 - **Password changes** — changing or resetting a password revokes every other session of that
   identity (the `revoke_active_sessions` hook on settings and recovery in `kratos.yml`).
-- **Deployed** — the auth service's public API is routed under the API host at `api.<base>/auth`,
-  with the Gateway stripping the prefix, so its session cookie is the host-only
-  `__Host-cb_session` (Secure, path `/`, SameSite Lax) and no other host of the domain, staging
-  included, can read or overwrite it. The web app on `app.<base>` calls it with credentials, which a
-  same-site request carries; mobile sends its session token and never the cookie. Kratos runs
-  `serve --watch-courier` without `--dev`, and every deployed value comes from
-  `core/deployment.auth_env` over `kratos.yml`: the base URL `https://api.<base>/auth/`, CORS and
-  return URLs on `app.<base>` (plus `clientbridge://auth/callback` for mobile), the WebAuthn RP ID
-  `app.<base>`, the UI URLs and the courier hook to the API over the cluster network. Google's
-  callback is `https://api.<base>/auth/self-service/methods/oidc/callback/google`. The API calls
-  `/sessions/whoami` at `AUTH_INTERNAL_URL` and the admin API at `AUTH_ADMIN_URL`, both inside the
-  cluster. `scripts.verify_kratos` runs the pinned Kratos with that environment and the Kratos contract
-  against it.
+- **Deployed** — the auth service's public API is routed under the API host at `api.<base>/auth`, so its
+  session cookie is the host-only `__Host-cb_session`; the hosts, settings and in-cluster addresses are in
+  [operations](operations.md#environments-and-hosts), and `scripts.verify_kratos` runs the pinned Kratos
+  with the deployed environment and the Kratos contract against it.
 - **Rate limits** — Kratos OSS has no login lockout, so Cloud Armor throttles the auth service's
   `/auth/self-service/*` paths per address at the gateway and answers 429, at the per-minute rates in
   `gateway.AUTH_RULES` (CB-1). Guessing spread over many addresses is not stopped. A browser can't read
@@ -536,6 +527,10 @@ a non-2xx reply makes it retry.
   count back, so the courier's retries during an outage don't use up the cap, and a Redis outage lifts
   the cap rather than stopping sign-ups and resets.
 - **Not built in** — the admin API must stay on the private network.
+- **Clients**: the API holds no passwords, sessions or reset tokens; the only token it signs is the
+  short-lived PowerSync JWT. Clients **book without an account** (name and phone on the public page); a
+  returning client proves the phone with a texted code (`returning_challenges`), and a future portal would
+  link a client to a login via `clients.user_id`.
 
 ## Authorization & visibility
 
@@ -548,7 +543,7 @@ Postgres RLS, so read policy lives in the **Sync Streams**, not the DB. Writes a
 | ------------------ | ------------------------------------------- | ------------------------------------------- |
 | **Provider team**  | `staff.role` on a `users` row               | their business(es), role-scoped             |
 | **Client**         | `clients.user_id` (optional, future portal) | only their own relationship with a business |
-| **Platform admin** | Clientbridge-internal                       | cross-tenant (out of this model)            |
+| **Platform admin** | an identity in `PLATFORM_ADMIN_IDENTITY_IDS` | cross-tenant, online only (see _Platform admin_) |
 
 Provider roles (`staff.role`): **owner** (everything incl. billing/ownership) · **admin** (all except
 billing/ownership) · **staff** (own work only, no financials) · **contractor** (own work + own earnings;
@@ -571,11 +566,12 @@ currently same perms as staff).
 Four auto-subscribed streams and three history streams implement the read model (owner-sees-workers'-activity is carried by
 `bookings.staff_id` and the ledger's `owner_type`/`owner_id`; the `audits` trail is server-only):
 
-- **`business_shared`** (every active member): the catalog, rooms and equipment and entitlements, the client book, forms,
-  fields, contracts, files and threads.
+- **`business_shared`** (every active member): the catalog, rooms and equipment, packages and subscriptions, the client book, forms,
+  fields, contracts, files and threads. Gift cards sync only in `business_full`.
 - **`staff_limited`** (staff and contractors): the business row without its tax numbers and billing
   email, but with its legal address and phone so every member's printed documents carry the
-  letterhead, and the team without pay rates or payee flags. Owner/admin read both from `business_full` with
+  letterhead, the team without pay rates or payee flags, and the pickup queue: paid online orders and their
+  `for_pickup` lines, without prices. Owner/admin read all three from `business_full` with
   more columns, so a row never reaches one device with two different column sets. No bucket syncs
   `invite_token` or the Stripe verification fields. Both streams also carry `users.id` and
   `users.name`, and nothing else from `users`, for every user with a staff row in the business,
@@ -590,7 +586,7 @@ Four auto-subscribed streams and three history streams implement the read model 
   slots and bookings, and every member's slots and bookings for owner/admin, each limited to the months
   the device subscribes (see the history window above).
 
-`business_shared` also carries `subjects` (pets, students or properties, as the business's `subject` says,
+`business_shared` also carries `subjects` (pets, students, properties, sites or vehicles, as the business's `subject` says,
 removed ones included so past and booked visits still name them; lists of a client's subjects skip them),
 `notes` and closures (hours rows with no `staff_id`), so every member's calendar can name the subject and
 the day the business is shut;
@@ -605,6 +601,31 @@ or a CTE, or sends pay, tax or billing columns to staff. Role checks in the CTEs
 Writes
 are authorized separately by typed services. Postgres RLS is an optional future
 defense-in-depth for the API, not the sync filter.
+
+---
+
+## Platform admin
+
+Clientbridge's own operators use a separate console, `frontend/apps/admin` (Vite and React with the shared
+`@clientbridge/ui` web components, :8711 locally, `admin.D` deployed). It isn't part of any business's
+navigation and opens no replica: every screen reads the API online, in pages of 50.
+
+- **Access**: the routes live under `/admin/v1` (`api/admin.py` → `services/admin.py`), and every one
+  depends on `PlatformIdentity` (`core/deps.py`): a fresh `whoami` that skips the session cache, a verified
+  email, and an identity id listed in `PLATFORM_ADMIN_IDENTITY_IDS`, or else 403 `platform_access_required`.
+  `DEV_PLATFORM_ADMIN_IDENTITY_IDS` adds the local demo operator only with `ENV=dev`. No business role
+  grants access, and there is no grants table. Who is listed, and how to add someone, is in
+  [operations](operations.md#platform-admins).
+- **Sign-in**: the console mounts only after `GET /admin/v1/session` succeeds. A signed-out visitor goes to
+  the web app's `/admin-login` (`AdminLogin.tsx`) and comes back to the configured admin origin; an account
+  that isn't listed sees access denied. The console checks again on focus and every minute.
+- **What it does**: find businesses, users and clients; investigate a payment with its refunds, ledger legs
+  and a link to it in the Stripe Dashboard; read the audit activity across businesses or for one client;
+  see webhook processing and the database's migration revision against the code's; and preview the sample
+  emails (`services/email_samples.py`, the same builders production uses) and send one as a marked `[TEST]`
+  through the delivery queue, at most 5 a minute per operator. Its few writes are commands through
+  `run_command`, each audited: assigning a business's SMS number, changing its edition (`subject`), and
+  acknowledging a ledger drift finding from reconciliation.
 
 ---
 
@@ -679,7 +700,7 @@ What posts, and where:
 | Gift card redeemed                       | `entitlements.redeem_gift_card`                                                                                          | gift card liability + / revenue −                                                                                                                                                                                                  |
 | Package session used                     | `entitlements.consume_session`                                                                                           | deferred + / revenue − (the last session takes the remainder)                                                                                                                                                                      |
 | Gift card or package expired             | `entitlements.run_expiry_sweeps` (`ledger.post_breakage`)                                                                | gift card liability or deferred + / revenue − (breakage on the unused balance)                                                                                                                                                     |
-| Tax return filed                         | `POST /v1/payments/remittances` (`remittances`)                                                                          | tax(code) + per code owed for the period / bank − ; the period is in the journal's `meta`                                                                                                                                          |
+| Tax return filed                         | `POST /v1/payments/remittances` (`remittances`)                                                                          | tax(code) + per code owed for the period / itc − for the credits claimed / bank − for the rest ; the period and `itc_cents` are in the journal's `meta`                                                                              |
 | Deposit forfeited                        | no-show in `bookings` (or settlement after it)                                                                           | deposit + / revenue − ; a refund or lost dispute takes the forfeit back first                                                                                                                                                      |
 | Deposit applied                          | invoice sent with the booking on a line, or the deposit settling after that (`bookings.apply_deposit`)                   | deposit + / client receivable − ; a void, a refund or a lost dispute of the deposit reverses it                                                                                                                                    |
 | Staff earning accrued / approved / paid  | `earnings` (document fully paid, package cover, `/v1/earnings/approve`, `/v1/earnings/pay`)                              | staff cost + / payable(pending) − ; pending → approved ; approved → bank, the run and the last day of work in the pay's `meta`                                                                                                     |
@@ -751,6 +772,13 @@ subscriptions, and active subscriptions keep the Price they started on. Each ite
 change to the item does not alter issued documents. Which services carry PST in BC, Saskatchewan and
 Manitoba still needs an accountant's confirmation before defaults are set.
 
+What hasn't fixed its tax yet follows the settings: draft invoices, estimates that are still open (not
+converted, not past `valid_until`) and held tickets with no live payment or gift card credit
+(`billing.reprice_open_documents`). They are re-priced when the business's province, time zone or
+registration changes, when a held ticket is charged or takes a gift card, and by
+`billing.run_reprice_open_documents` (the `reprice_open_documents` job) at local midnight for businesses
+whose registration date or a rate starts that day.
+
 ### Selling products
 
 Products are catalog items of kind `product` and sell through the same order, line, tax and ledger path as
@@ -760,9 +788,13 @@ cards, packages and subscriptions are refused as plain lines and sell through th
 entitlement and its liability are created.
 
 - **Stock** is optional per product (`track_stock`, `stock_on_hand`, `low_stock_at`). Every change is a row
-  in `inventory` (sale, refund, restock) keyed by line and reason, so a repeated webhook can't move
+  in `inventory` (sale, refund, restock, correction) keyed by line and reason, so a repeated webhook can't move
   stock twice; `stock_on_hand` is the cached total. Selling below zero is allowed at the till; the online
   shop refuses an order larger than the stock.
+- **Online stock holds** are derived from existing order and invoice lines and live payments, excluding lines
+  already represented by sale movements. Item locks serialize competing checkouts. Cancelled intents
+  release holds; a stock correction or a late payment after an order expires causes a recorded, keyed refund.
+  Selling below zero in person still works when it doesn't take another checkout's hold.
 - **Retail commission:** a paid sale accrues an earning for its staff member at `staff.retail_rate_bps` on the
   product lines before tax, using the same earning journals as bookings.
 - **Staff pay:** owners and admins approve, pay and undo from Payments → Staff pay, by row or by pay run; every
@@ -771,7 +803,9 @@ entitlement and its liability are created.
   member but the owner, with tips apart, and the staff pay CSV lists each payment in a period, an undo on the day
   it was made.
 - **Online shop:** products marked `sell_online` are listed at `shop.D/<slug>` on Connect, and staff share that link and its QR code from Products. An order is paid by
-  card, has `source = online`, and moves through `pickup_status` (unfulfilled, ready, picked up) from Sales.
+  card, has `source = online`, and moves through `pickup_status` (unfulfilled, preparing, ready, picked up) from Sales.
+  Staff and contractors work the pickup queue from `staff_limited`, which syncs paid online orders
+  (`pickup_status` is set only once one is paid) and their `for_pickup` lines without prices.
 - **Booking add-ons:** products the owner offers at booking (`items.addon`, with `addon_for` naming the
   services each goes with) and the client chose on the booking page are stored in `addons` and become lines
   on the invoice created from the booking (`POST /v1/invoices/from-booking/{id}`), each carrying the booking
@@ -787,21 +821,16 @@ entitlement and its liability are created.
   visits as `detail.count`). A removal still never shortens the visit below the service's length, since a
   staff resize may have shortened it. A class seat keeps the class's length.
 - **Crew:** a one-to-one visit can have helpers besides its lead, and only an owner or admin adds or removes
-  them (403 for anyone else, the lead included). `POST /v1/bookings/{id}/crew` locks the helper, checks
-  their calendar the way a booking is checked (and that they offer the service), and writes an `hours`
-  exception for the visit's window with the job as its `reason` and `booking:<id>` as its `note`, so
-  availability, sync and the helper's calendar already treat it as time off.
-  The blocks follow the visit: a staff move or resize, an add-on, a client's move and a series change re-time
-  them (refused, or skipped in a series, when a helper can't follow, with 409 `crew_busy`), a cancel deletes
-  them, a reassigned lead leaves them, and completion keeps them. A member who leaves comes off the crews still
-  ahead, and a block can't be removed as time off (409 `crew_block`). Helpers join only before the visit
-  starts (409 `visit_started`), and can still be taken off afterwards. `GET /v1/bookings/{id}/crew` gives the
-  job to its crew and to managers, since a helper's device syncs only their own bookings. Pay splits at the
-  ledger, not on the documents: a booking line done by the lead is shared evenly among the lead and the
+  them. `POST /v1/bookings/{id}/crew` locks the helper, checks their calendar the way a booking is checked
+  (and that they offer the service), and writes an `hours` exception for the visit's window with the job as
+  its `reason` and `booking:<id>` as its `note`, so availability, sync and the helper's calendar already
+  treat it as time off. The blocks follow the visit: a move, resize, add-on or series change re-times them
+  and is refused when a helper can't follow, a cancel deletes them, and completion keeps them. Helpers join
+  only before the visit starts, and a block can't be removed as time off. `GET /v1/bookings/{id}/crew` gives
+  the job to its crew and to managers, since a helper's device syncs only their own bookings. Pay splits at
+  the ledger, not on the documents: a booking line done by the lead is shared evenly among the lead and the
   helpers (`lines.worker_shares`), so each earns their share at their own rate and a tip follows the same
-  shares, on an invoice or a desk sale alike. The documents keep one line for the visit but name the whole
-  crew from the same split: a receipt's `served_by` (invoice, desk sale and visit receipt), the pay page's
-  `tip_for`, and the visit receipt's practitioner (the lead) followed by the helpers who assisted.
+  shares. Receipts, the pay page and the visit receipt name the whole crew from the same split.
 - **Rooms and equipment:** a service or class can name a pool of `resources` in `items.resource_ids`, and a visit then
   needs a free member and one free resource from the pool, which its slot holds in `slots.resource_id`. Managers add,
   rename and turn them off through `/v1/resources` (409 `resource_name_taken` for a name already used in any case),
@@ -820,36 +849,21 @@ entitlement and its liability are created.
   and resources have no hours or maintenance windows of their own.
 - **Programs:** staff lay out a class's sessions ahead of any booking with `POST /v1/programs`: a class, its
   instructor, a first start, weekdays and a count or end date. Every session is checked the way a booking is
-  (closures, time off and crew blocks, the instructor's hours, other visits, `items.staff_ids`) under the
-  staff lock, and one busy day refuses the whole schedule with 409 `schedule_conflict`. The sessions are
-  empty `slots` tagged with a `recurrences` row that has no client; such a schedule keeps its sessions when
-  bookings come and go, and the client series commands refuse it with 409 `class_schedule`. A class with
-  `items.session_count` is a program: it is never booked one day at a time (409 `program_enrol`), and
-  `POST /v1/programs/{id}/enrolments` (staff) or a Connect booking of its first day books every session
-  still ahead or none, refusing a full day with 409 `program_full`. The first booking carries the price and
-  the deposit and the rest are at no charge, so the invoice from that booking, its receipt and the
-  instructor's earning cover the program once, while each day still gets its own reminder and check-in.
-  Enrolling issues that invoice at once, through the same drafting and issuing as
-  `POST /v1/invoices/from-booking/{id}`: one line naming the program and its day count, due on the first
-  day, and a deposit paid online later applies to it the way any visit's deposit applies to its open
-  invoice. Connect's enrolment response lists each day (`days`), and its calendar file holds one event per
-  day. An enrolment is derived, never stored: the client's (and subject's) live bookings on the schedule.
-  Cancelling it (`/enrolments/cancel`, or any day's manage link before the first day's cutoff) cancels every
-  day ahead, voids its invoice and refunds a paid deposit, and an online deposit left unpaid releases every
-  day with it and voids the invoice. Once money was taken on the invoice itself, cancelling and declining
-  are refused with 409 `enrolment_paid` until that payment is refunded. An enrolment waiting for approval is
-  approved or declined as a whole; a later day can be canceled on its own, but the priced first day
-  only with the whole enrolment (409 `program_first_day`). A schedule is canceled only once no one
-  holds a day still ahead (409 `program_enrolled`), so canceling it never takes a seat or money from anyone. Program days
-  have no waitlist: online waitlists refuse them and a freed seat promotes no one. A class seat is held once
-  per subject, or per client when there is none, so siblings can each take a seat in one session.
-  Removing an instructor (`POST /v1/staff/{id}/remove`) settles each of their schedules whole. Moved to a
-  member, a schedule goes to the first candidate who offers the class and is free for every session still
-  ahead, checked under the staff lock; its sessions (empty and booked), the `recurrences.staff_id` and the
-  bookings and add-ons on those sessions move together. When no candidate fits, the removal is refused with
-  409 `schedule_clash`, whose `detail` names the schedule, the first day that clashes and the problem
-  (`not_offered` when the member doesn't teach the class). Canceled instead, the enrolments on it are
-  canceled with their invoices voided, and the sessions ahead are canceled with the schedule.
+  under the staff lock, and one busy day refuses the whole schedule. The sessions are empty `slots` tagged
+  with a `recurrences` row that has no client, which the client series commands refuse to touch. A class with
+  `items.session_count` is a program: it is never booked one day at a time, and an enrolment
+  (`POST /v1/programs/{id}/enrolments`, or a Connect booking of its first day) books every session still
+  ahead or none. The first booking carries the price and the deposit and the rest are at no charge, so the
+  program's one invoice, issued at enrolment, its receipt and the instructor's earning cover it once, while
+  each day still gets its own reminder and check-in. An enrolment is derived, never stored: the client's (and
+  subject's) live bookings on the schedule. Cancelling it cancels every day ahead, voids its invoice and
+  refunds a paid deposit, and is refused once money was taken on the invoice itself until that is refunded.
+  An enrolment waiting for approval is approved or declined as a whole, and a schedule is canceled only once
+  no one holds a day still ahead. Program days have no waitlist. A class seat is held once per subject, or
+  per client when there is none, so siblings can each take a seat in one session. Removing an instructor
+  moves each of their schedules whole to the first member who offers the class and is free for every session
+  ahead, or cancels it with its enrolments; when the removal asks to move one and nobody fits, it is refused
+  with 409 `schedule_clash`, naming the schedule and the first day that clashes.
 - **Receipts** list every line with its tax, and walk-in sales can take a phone number for the receipt.
   Sales by item is a report with a CSV like the others.
 
@@ -882,8 +896,9 @@ which sends the confirmation; declining is the same call to `canceled`, which re
 the card, cancels an unpaid one, frees the time and sends the decline text (with the refund when there
 was one). The refund goes out last, after every check that could still refuse the decline. Staff answer
 only their own requests; owners and admins answer any. A request still unanswered at the business's
-midnight after its visit is declined without a message by `complete_past_bookings`, which refunds a paid
-deposit too, unless Stripe can't refund it, when it stays for staff.
+midnight after its visit is declined by `complete_past_bookings`, which refunds a paid deposit (unless
+Stripe can't refund it, when the request stays for staff), releases an unpaid one and queues the decline
+text with the refunded amount, once per booking.
 
 The confirmation's calendar file writes each visit on the business's clock (`DTSTART;TZID=<zone>`) with a
 `VTIMEZONE` built from the pinned zone table, one observance per offset its days fall in, so a calendar in
@@ -897,6 +912,62 @@ made. It never waits on a deposit a webhook is settling: it locks the deposit pa
 LOCKED`, keeps a booking any of whose deposits is locked or has succeeded, and skips one whose own row
 already reads the deposit collected, so a payment that lands while the reaper runs is kept, never released
 with its money held. A payment that settles after a release is refunded.
+
+### Visit flow: check-in and checkout
+
+Both ends of a visit are built from data the business already keeps; the flow added one column,
+`files.shared_at`, and no tables.
+
+**What a visit still needs** is worked out on the server when it's read (`visit_needs` in
+`services/bookings.py`), because responses and signatures sync to managers only. It lists the active forms
+sent on booking (`send_on = 'booking'`) that the client hasn't submitted, which is also how a waiver works
+(a signed intake form); contracts the client was asked to sign whose newest signature is older than the
+contract's `version`, so a changed contract asks again; and a pending deposit. These apply to every client of
+the business, not per service. `GET /v1/bookings/{id}/needs` reads one visit and `GET /v1/bookings/needs?day=`
+every open visit starting that local day, staff seeing only their own. A subject's alerts (allergies,
+temperament, an expired vaccination) are worked out on the device and shown in the check-in sheet without
+counting as to-dos.
+
+**Nothing blocks check-in.** The sheet (`useCheckIn` in app-core `today.ts`) lists what's outstanding;
+managers can send or resend a link, and anyone can open a sent link on the device (in an iframe on web, the
+in-app browser on mobile), which refreshes the list when closed. Checking in keeps the first arrival time,
+and its `booking.check_in` audit entry lists anything skipped under `outstanding`. `DELETE
+/v1/bookings/{id}/check-in` undoes a mistaken check-in while the visit is open and unpaid, for the visit's
+own member or a manager. Today shows "n to do" on the agenda; the schedule grid has no such marker. The
+client's manage page lists the same open forms and signatures, and the reminder links to it.
+
+**Paying settles the visit.** Checkout opens the register with the visit on the ticket. When a sale is paid,
+or an invoice is issued, `close_settled_visit` (`services/payments.py`) completes each confirmed visit on it
+that has started, clears a deposit that was never collected and audits `booking.complete_on_payment` or
+`booking.complete_on_invoice`. A visit paid before its start stays open, and a refund doesn't reopen one. A
+sale's visits earn their members' service commission through the same `ensure_earnings` split as an
+invoice's, and a sale that stops being paid reverses pending earnings. Other ways to settle at the register:
+
+- **A package or membership covers the visit.** `POST /v1/packages/{id}/cover` and
+  `POST /v1/subscriptions/{id}/cover` (the visit's own member or a manager) take a started, confirmed visit
+  that isn't on a sale or a live invoice and has no collected deposit, cancel a pending deposit, complete the
+  visit and set `bookings.package_id` or `subscription_id`. The item's `covers_item_id` names the service it
+  covers (none means any). A package posts one session's consumption; a membership needs
+  `visits_per_period` and counts the visits it covered since its current period began (409
+  `membership_visits_used`). Either way the member earns the visit's share of the price.
+- **Member discount.** A membership's `member_discount_bps` gives its active members that discount on product
+  lines at the register, as a named line discount staff can change; the best one wins.
+- **A gift card pays part of a sale.** `POST /v1/orders/{id}/gift-card` redeems up to what the sale owes, in a
+  journal sourced to the sale, which the ledger counts like an applied deposit on the server and in the
+  replica. Editing the ticket's lines or discount, a refund or a void reverses the redemption.
+- **Send as invoice.** A manager can turn a named client's ticket into a sent invoice with the same lines:
+  the ticket is voided and the invoice is created with `send: true`.
+
+After payment the register suggests the next visit with the same member and service (`useNextVisit`): at
+the series' interval, or the client's own gap between their last two visits, at the same time of day, and
+opens the composer prefilled. A visit note is an ordinary message in the client's thread
+(`MessageSend.booking_id` adds the manage link through `visit_note.body`). The manage page shows only the
+booking photos staff shared: `POST /v1/files/{id}/share` sets or clears `files.shared_at` (audited, the
+visit's member or a manager), and `GET /manage/{token}/photos/{file_id}` serves one with the manage token
+as the credential.
+
+Not built: per-service requirements, staff checklists, self check-in, a site sign-off, and split card
+payments.
 
 ### Messaging
 
@@ -920,15 +991,6 @@ refused until the business has a legal address and a public contact method.
 Broadcasts are sent by the job one recipient at a time, claimed with `SKIP LOCKED` and saved before and after
 each send, so delivery is at most once, and they wait during quiet hours (21:00 to 09:00 local). An inbound
 text or Connect message pushes to the business's active staff devices.
-
-### Auth
-
-Owners and staff sign in through the auth service (see _Identity_): email and password, Google, and second
-factors, with the session in an HttpOnly cookie on web and a session token in SecureStore on mobile. The
-API holds no passwords, sessions or reset tokens; the only token it signs is the short-lived PowerSync JWT.
-Clients **book without an account** (name and phone on the public page); a returning client proves
-the phone with a texted code (`returning_challenges`), and a future portal would link a client to a login
-via `clients.user_id`.
 
 ---
 
@@ -1025,10 +1087,10 @@ Inbox and Setup as icons in the header. Payments is one page with tabs (Invoices
 Refunds, Staff pay, Tax returns, Payouts, Reports); staff see Sales and their own pay (the Staff pay tab, named
 My pay and read-only), because every other action is owner or admin on the backend. Inbox has Messages,
 Reviews, Broadcasts, Forms and Contracts; staff see only
-Messages. Setup has Get set up, Business, Services & products, Team & hours, Getting paid, Plan (owner only),
-Sales tax, Online booking, Reminders and Sign-in & security, on both platforms; staff see only Team & hours
-and Sign-in & security, and can edit only their own hours. The visibility rules (`visiblePaymentsTabs`, `setupSectionsFor`,
-`editableStaff`, `canVoidSale`) live in app-core so both apps gate the same way.
+Messages. Setup has Get set up, Business, Services & products, Rooms & equipment, Team & hours, Getting paid,
+Sales tax, Booking page & rules, Messages & reminders and Account & plan, on both platforms; staff see only
+Team & hours and Account & plan, and can edit only their own hours. The visibility rules (`visiblePaymentsTabs`,
+`setupSectionsFor`, `canManagePayments`, `canManageStaff`) live in app-core so both apps gate the same way.
 
 ### Shared components
 
@@ -1177,18 +1239,20 @@ apart visually.
   `src/strings.ts` and formatted with the app-core formatter; `src/content/` keeps structural data (icons,
   photo names, routes) keyed by id. The demo figures in the laptop and phone mocks come from one
   `content/demo.ts`.
-- **Links out:** `VITE_SITE_URL`, `VITE_APP_URL` and `VITE_BOOK_URL` set where the site, the web app and
-  Connect live (production: the main domain, `app.` and `book.`). "Sign in" and "Start free" go to the web
-  app, "See the demo business" to Birchbark's public booking page. The pages ship no JavaScript beyond the
+- **Links out:** `VITE_SITE_URL`, `VITE_APP_URL` and `VITE_PAGE_URL` set where the site, the web app and
+  the business pages live (production: the main domain, `app.` and `https://{slug}.<base>`), and
+  `VITE_DEMO_NAMESPACE` points the demo links at an e2e run's copies of the demo businesses. "Sign in" and
+  "Start free" go to the web app, "See the demo business" to Birchbark's business page. The pages ship no JavaScript beyond the
   phone menu's few inline lines, so these are fixed at build time and `/config.js` does not reach them.
 - **Waitlist build:** before the app is deployed, `VITE_WAITLIST=1` builds a site with no link to the app
   or the demo: every call to action goes to `/waitlist`, whose form posts to `server/` (a small Node server
   that also serves the build). It adds the address to a Resend segment and answers with the thanks or retry
   page, with a hidden spam field and a per-address limit. `render.yaml` on the `site-waitlist` branch deploys
   it to Render; that branch is `main` plus its Render config.
-- **Contact form:** `/contact` posts to the same server, which emails the message to `CONTACT_TO` through
-  Resend with the sender as reply-to. The full deploy serves the site from static files, so it needs an API
-  route for the form before the site moves there.
+- **Contact form:** `/contact` emails the message to `CONTACT_TO` with the sender as reply-to. The waitlist
+  build's server handles it itself; in the full deploy the web image's Caddy proxies `POST /contact` to the
+  API's `/contact` route (`api/site.py`, `CONTACT_UPSTREAM`), which sends through `EmailSender` and is rate
+  limited like the other public groups.
 - **Images:** `scripts/images.ts` encodes the stock photos to AVIF, WebP and JPEG at three widths with sharp;
   pages render them with `<picture>`, `srcset` and fixed dimensions. Fonts are self-hosted (no third-party
   requests).
@@ -1206,11 +1270,11 @@ source, with a **CI drift gate** that fails if the committed output diverges.
 | ----------------- | ------------------------------------- | ------------------------------------------ | ---------------------- |
 | **Sync schema**   | SQLAlchemy models + `sync-rules.yaml` | `packages/sync/src/schema.ts`              | `make gen-sync-schema` |
 | **API client**    | FastAPI OpenAPI                       | `packages/api-client/src/generated.ts`     | `make gen-api`         |
-| **Design tokens** | `.docs/design/app-explorer.html`      | `packages/tokens/src/themes.{ts,css}`      | `make gen-themes`      |
+| **Design tokens** | `packages/tokens/src/themes.css`      | `packages/tokens/src/themes.ts`            | `make gen-themes`      |
 | **Zones**         | `tzdata` through `core/zones.py`      | app-core `zones.ts`, `zones.cases.json`    | `make gen-zones`       |
 | **Tax rates**     | `services/tax.py`                     | app-core `taxRates.ts`, `taxes.cases.json` | `make gen-taxes`       |
 
-The copy catalogs are generated the same way within each side (`make gen-strings`, `make gen-messages`), and `make codegen-check` covers all seven.
+The copy catalogs are generated the same way within each side (`make gen-strings`, `make gen-messages`), as is the waitlist confirmation email (`make gen-waitlist-email`, from the backend's email builder into `apps/site/server/waitlist-email.json`), and `make codegen-check` covers all eight.
 
 `api-client`'s `session.ts` sends the session cookie (web) or session token (mobile), signs out only when
 the API answers 401 so a network failure does not wipe the replica, asks for a step-up on `second_factor_required`,

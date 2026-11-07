@@ -16,7 +16,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 - **This file comes first.** Change a ticket's text here, then copy it to the Linear description so the two match word for word. Status lives only in Linear: Backlog, Selected for dev, In progress, Ready for review, In staging and Done (and Not doing for anything dropped).
 - **Dependencies are rare.** QA runs on the demo businesses, which already have clients, a catalog, staff, hours, Stripe and tax set up, so a ticket depends on another only when its setup needs something that ticket's flow creates and demo data can't supply: a brand-new account or business. Dependencies only suggest an order; everything else can be tested in any order.
 - **Done stays done through automation.** A ticket's Automated by cases run in CI on every pull request, so a change that breaks a Done ticket fails CI before it merges. Retest a Done ticket by hand only when a change touches its By hand only steps; closing its To automate list is what removes that need.
-- **Every ticket uses one layout:** Covers, Before you start, Where to test (one line each for local and staging), QA steps (each with its expected result), Done when, By hand only (when needed), Automated by, To automate and Depends on. Each one carries an Automation label in Linear (Automated, Partly automated or Manual).
+- **Every ticket uses one layout:** Covers, Before you start, Where to test (one line each for local and staging), QA steps (each with its expected result), Done when, By hand only (when needed), Automated by, To automate and Depends on. Each carries an Automation label, in the table below and in Linear, that follows from those lists: Automated when its cases cover every step and it has no By hand only or To automate lines, Partly automated when it has a case and still has one of those lines, and Manual when it has no case yet. Closing a ticket's last By hand only and To automate lines is what moves it to Automated.
 - **Linear changes go through its API:** `linear --workspace clientbridgeca api '<query>' --variables-json '<json>'`. A dependency is `issueRelationCreate` with type `blocks`, from the prerequisite (`issueId`) to the ticket that waits on it (`relatedIssueId`). Priority isn't used.
 
 | Area | Ticket | Linear | Automation |
@@ -33,27 +33,27 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 2. Clients and catalog | Client notes, photos and history | [CB-10](https://linear.app/clientbridgeca/issue/CB-10) | Partly automated |
 | 2. Clients and catalog | Client tags and duplicate merge | [CB-11](https://linear.app/clientbridgeca/issue/CB-11) | Partly automated |
 | 2. Clients and catalog | Services, classes and resources | [CB-13](https://linear.app/clientbridgeca/issue/CB-13) | Partly automated |
-| 2. Clients and catalog | Products and stock | [CB-14](https://linear.app/clientbridgeca/issue/CB-14) | Automated |
+| 2. Clients and catalog | Products and stock | [CB-14](https://linear.app/clientbridgeca/issue/CB-14) | Partly automated |
 | 3. Run the day | Today screen | [CB-44](https://linear.app/clientbridgeca/issue/CB-44) | Partly automated |
 | 3. Run the day | Hours, time off and closures | [CB-16](https://linear.app/clientbridgeca/issue/CB-16) | Partly automated |
 | 3. Run the day | Calendar: book, move and cancel | [CB-17](https://linear.app/clientbridgeca/issue/CB-17) | Partly automated |
-| 3. Run the day | Visit flow: on my way to checkout | [CB-18](https://linear.app/clientbridgeca/issue/CB-18) | Manual |
-| 3. Run the day | Repeat visits | [CB-19](https://linear.app/clientbridgeca/issue/CB-19) | Manual |
-| 3. Run the day | Classes, waitlists and programs | [CB-20](https://linear.app/clientbridgeca/issue/CB-20) | Automated |
+| 3. Run the day | Visit flow: on my way to checkout | [CB-18](https://linear.app/clientbridgeca/issue/CB-18) | Partly automated |
+| 3. Run the day | Repeat visits | [CB-19](https://linear.app/clientbridgeca/issue/CB-19) | Partly automated |
+| 3. Run the day | Classes, waitlists and programs | [CB-20](https://linear.app/clientbridgeca/issue/CB-20) | Partly automated |
 | 3. Run the day | Crew jobs, visit records and photos | [CB-21](https://linear.app/clientbridgeca/issue/CB-21) | Manual |
-| 3. Run the day | Visit reminders | [CB-22](https://linear.app/clientbridgeca/issue/CB-22) | Manual |
+| 3. Run the day | Visit reminders | [CB-22](https://linear.app/clientbridgeca/issue/CB-22) | Partly automated |
 | 4. Book online | Online booking with deposits | [CB-24](https://linear.app/clientbridgeca/issue/CB-24) | Automated |
-| 4. Book online | Returning-client sign-in by text code | [CB-25](https://linear.app/clientbridgeca/issue/CB-25) | Automated |
-| 4. Book online | Booking add-ons billed once | [CB-26](https://linear.app/clientbridgeca/issue/CB-26) | Automated |
+| 4. Book online | Returning-client sign-in by text code | [CB-25](https://linear.app/clientbridgeca/issue/CB-25) | Partly automated |
+| 4. Book online | Booking add-ons billed once | [CB-26](https://linear.app/clientbridgeca/issue/CB-26) | Partly automated |
 | 4. Book online | Reschedule and cancel by link | [CB-27](https://linear.app/clientbridgeca/issue/CB-27) | Partly automated |
-| 4. Book online | Business page and website embed | [CB-28](https://linear.app/clientbridgeca/issue/CB-28) | Automated |
+| 4. Book online | Business page and website embed | [CB-28](https://linear.app/clientbridgeca/issue/CB-28) | Partly automated |
 | 5. Sell at the desk and online | Desk sales and receipts | [CB-29](https://linear.app/clientbridgeca/issue/CB-29) | Partly automated |
 | 5. Sell at the desk and online | Card payments at the desk | [CB-30](https://linear.app/clientbridgeca/issue/CB-30) | Partly automated |
 | 5. Sell at the desk and online | Tap to Pay | [CB-31](https://linear.app/clientbridgeca/issue/CB-31) | Manual |
 | 5. Sell at the desk and online | Tips and discounts | [CB-32](https://linear.app/clientbridgeca/issue/CB-32) | Partly automated |
 | 5. Sell at the desk and online | Saved cards and bank accounts | [CB-12](https://linear.app/clientbridgeca/issue/CB-12) | Partly automated |
 | 5. Sell at the desk and online | Online shop orders and pickup | [CB-41](https://linear.app/clientbridgeca/issue/CB-41) | Partly automated |
-| 6. Invoice and get paid | Estimates to invoices | [CB-33](https://linear.app/clientbridgeca/issue/CB-33) | Automated |
+| 6. Invoice and get paid | Estimates to invoices | [CB-33](https://linear.app/clientbridgeca/issue/CB-33) | Partly automated |
 | 6. Invoice and get paid | Invoices and payment links | [CB-34](https://linear.app/clientbridgeca/issue/CB-34) | Partly automated |
 | 6. Invoice and get paid | Printed and shared documents | [CB-36](https://linear.app/clientbridgeca/issue/CB-36) | Manual |
 | 6. Invoice and get paid | Deposits applied to the bill | [CB-37](https://linear.app/clientbridgeca/issue/CB-37) | Partly automated |
@@ -61,20 +61,20 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 7. Gift cards, packages and memberships | Gift cards: sell and redeem | [CB-38](https://linear.app/clientbridgeca/issue/CB-38) | Partly automated |
 | 7. Gift cards, packages and memberships | Packages: sell, use and expire | [CB-39](https://linear.app/clientbridgeca/issue/CB-39) | Partly automated |
 | 7. Gift cards, packages and memberships | Memberships: renewals and failed payments | [CB-40](https://linear.app/clientbridgeca/issue/CB-40) | Partly automated |
-| 8. Refunds and the books | Refunds and credit notes | [CB-42](https://linear.app/clientbridgeca/issue/CB-42) | Automated |
-| 8. Refunds and the books | Disputes and chargebacks | [CB-43](https://linear.app/clientbridgeca/issue/CB-43) | Automated |
+| 8. Refunds and the books | Refunds and credit notes | [CB-42](https://linear.app/clientbridgeca/issue/CB-42) | Partly automated |
+| 8. Refunds and the books | Disputes and chargebacks | [CB-43](https://linear.app/clientbridgeca/issue/CB-43) | Partly automated |
 | 8. Refunds and the books | Bookkeeper reports and exports | [CB-45](https://linear.app/clientbridgeca/issue/CB-45) | Partly automated |
-| 8. Refunds and the books | GST/HST returns | [CB-46](https://linear.app/clientbridgeca/issue/CB-46) | Automated |
+| 8. Refunds and the books | GST/HST returns | [CB-46](https://linear.app/clientbridgeca/issue/CB-46) | Partly automated |
 | 8. Refunds and the books | Payouts and fee reconciliation | [CB-47](https://linear.app/clientbridgeca/issue/CB-47) | Partly automated |
 | 8. Refunds and the books | Staff pay and T4A | [CB-48](https://linear.app/clientbridgeca/issue/CB-48) | Partly automated |
-| 9. Talk to clients | Inbox: two-way texting | [CB-49](https://linear.app/clientbridgeca/issue/CB-49) | Automated |
-| 9. Talk to clients | STOP and texting consent | [CB-50](https://linear.app/clientbridgeca/issue/CB-50) | Automated |
+| 9. Talk to clients | Inbox: two-way texting | [CB-49](https://linear.app/clientbridgeca/issue/CB-49) | Partly automated |
+| 9. Talk to clients | STOP and texting consent | [CB-50](https://linear.app/clientbridgeca/issue/CB-50) | Partly automated |
 | 9. Talk to clients | Broadcasts to consenting clients | [CB-51](https://linear.app/clientbridgeca/issue/CB-51) | Partly automated |
 | 9. Talk to clients | Intake forms | [CB-53](https://linear.app/clientbridgeca/issue/CB-53) | Partly automated |
-| 9. Talk to clients | Contracts and signatures | [CB-54](https://linear.app/clientbridgeca/issue/CB-54) | Automated |
+| 9. Talk to clients | Contracts and signatures | [CB-54](https://linear.app/clientbridgeca/issue/CB-54) | Partly automated |
 | 9. Talk to clients | Google review requests | [CB-55](https://linear.app/clientbridgeca/issue/CB-55) | Partly automated |
-| 10. Work anywhere | Offline mode and reconnect | [CB-56](https://linear.app/clientbridgeca/issue/CB-56) | Automated |
-| 10. Work anywhere | Multi-tab and multi-device sync | [CB-57](https://linear.app/clientbridgeca/issue/CB-57) | Automated |
+| 10. Work anywhere | Offline mode and reconnect | [CB-56](https://linear.app/clientbridgeca/issue/CB-56) | Partly automated |
+| 10. Work anywhere | Multi-tab and multi-device sync | [CB-57](https://linear.app/clientbridgeca/issue/CB-57) | Partly automated |
 | 10. Work anywhere | Staff push notifications | [CB-59](https://linear.app/clientbridgeca/issue/CB-59) | Partly automated |
 | 10. Work anywhere | Mobile app on phones, tablets and screen readers | [CB-60](https://linear.app/clientbridgeca/issue/CB-60) | Partly automated |
 | 11. Platform and launch | Admin console | [CB-65](https://linear.app/clientbridgeca/issue/CB-65) | Partly automated |
@@ -93,7 +93,7 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 ### Sign-up and sign-in: two-factor, security keys and recovery (CB-1)
 
-**Covers:** Web Login and Setup > Sign-in & security, mobile Login and Sign-in & security, the auth service, Mailpit or real email on staging
+**Covers:** Web Login and Setup > Account & plan, mobile Login and Account & plan, the auth service, Mailpit or real email on staging
 **Before you start:** A fresh email address you can read; a Google account on the same address; an authenticator app; a security key or platform passkey on a laptop; web, an iPhone and an Android phone with the staging build
 
 **Where to test**
@@ -113,7 +113,7 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
     **Expect:** each lands on Today; on mobile, signing out reaches Sign in right away, and killing and reopening the app keeps you signed in.
  5. Reset the password with the emailed code on web and on a phone, with and without a second factor on.
     **Expect:** you are signed in on that device only; the old password fails. With a second factor on, the right code is accepted and the second factor is asked for before the new password. Six wrong codes stop that code with a message that says so; Send a new code then works.
- 6. Change the password in Setup > Sign-in & security.
+ 6. Change the password in Setup > Account & plan.
     **Expect:** the other devices are signed out at their next request; reusing the current password is refused with a plain message.
  7. Sign in with Google on the same address.
     **Expect:** the same account and business open; on mobile the Google button shows the unavailable state.
@@ -143,7 +143,7 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 * `XB-E2E-03 (web)`
 * `NATIVE-IOS-01 (native-ios, native-android)`
 * `web: auth.e2e.ts › signup has its own entry link and invites explain a missing token`
-* `web: auth.e2e.ts › reloading while confirming the email keeps the new account signed in`
+* `web: auth.e2e.ts › a new account stays on the code step, through a reload, until its email is confirmed`
 * `web: auth.e2e.ts › an account whose identity was recreated confirms its email instead of looping`
 * `web: auth.e2e.ts › auth errors offer a clean return to sign in`
 * `web: auth.e2e.ts › sign-in, signup and reset validation at <width>px`
@@ -226,7 +226,7 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator. Email lands in Mailpit at [http://localhost:8715](<http://localhost:8715>).
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-connect dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator. Connect runs at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Email lands in Mailpit at [http://localhost:8715](<http://localhost:8715>).
 * **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Mail to the demo's `.example` addresses isn't sent, so use an address you can read.
 
 **QA steps**
@@ -236,7 +236,7 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 2. Resend one invite and revoke another, then open the revoked link.
    **Expect:** the revoked link explains it is no longer valid.
 3. As staff on web, iPhone and Android: open every destination.
-   **Expect:** own bookings and hours only, Payments > Sales and My pay only, Inbox > Messages only, Setup > Team & hours and Sign-in & security only.
+   **Expect:** own bookings and hours only, Payments > Sales and My pay only, Inbox > Messages only, Setup > Team & hours and Account & plan only.
 4. As staff, try a refund, a void, a restock and editing another member's hours.
    **Expect:** each is refused with a worded reason.
 5. As admin: open owner-only settings (Plan).
@@ -263,15 +263,15 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 * `PLN-E2E-01 (web)`
 * `web: auth.e2e.ts › an invite joins the account that signs up with the invited email`
 * `web: auth.e2e.ts › an invite refuses an account with a different email`
-* `web: auth.e2e.ts › an invitee who skipped confirming the email verifies, then joins`
+* `web: auth.e2e.ts › an invitee confirms the email first, then lands back on the invite and joins`
 * `web: shell.e2e.ts › staff: payments, inbox and setup show only what staff can use`
 * `mobile: staff.yaml (reduced Payments, Inbox and Setup, unregistered)`
 * `sync: revocation.e2e.ts › live renames reach the replica; downgrade, deletion and removal purge its data`
 
 **To automate**
 
-* `TEAM-E2E-01` in `apps/web/e2e/staff.e2e.ts`: Invite lifecycle: two simultaneous accepts, revoke then old URL, resend, expiry (ID07, CFG18).
-* `TEAM-E2E-02` in `apps/web/e2e/staff.e2e.ts`: Admin sees everything but Plan; contractor matches staff (CFG12).
+* `TEAM-E2E-01` in `apps/web/e2e/staff.e2e.ts`: Invite lifecycle: two simultaneous accepts, revoke then old URL, resend, expiry.
+* `TEAM-E2E-02` in `apps/web/e2e/staff.e2e.ts`: Admin sees everything but Plan; contractor matches staff.
 
 **Depends on:** Nothing
 
@@ -308,7 +308,7 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **To automate**
 
-* `TEAM-E2E-03` in `apps/web/e2e/journeys/team.journey.ts`: Removal with reassignment of a series and a class schedule, and the refused case (CFG10, CFG11).
+* `TEAM-E2E-03` in `apps/web/e2e/journeys/team.journey.ts`: Removal with reassignment of a series and a class schedule, and the refused case.
 * `NATIVE-SYN-01` in `apps/mobile/e2e/offline.yaml`: A removed member's phone purges the business on relaunch.
 
 **Depends on:** Nothing
@@ -355,13 +355,13 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **To automate**
 
-* `STR-E09` in `apps/connect/e2e/stripe/payouts.stripe.ts`: Payouts held in Stripe itself, by a failing test bank and a manual payout, instead of the mirrored state, while a card payment still goes through.
+* `STR-E29` in `apps/connect/e2e/stripe/payouts.stripe.ts`: Payouts held in Stripe itself, by a failing test bank and a manual payout, instead of the mirrored state, while a card payment still goes through.
 
 **Depends on:** CB-3
 
 ### Plan billing: trial, purchase, seats and read-only (CB-6)
 
-**Covers:** Setup > Plan on web (mobile shows the plan read-only), Stripe Checkout and Billing Portal, shell notices, the read-only gate on API and Connect
+**Covers:** Setup > Account & plan on web (mobile shows the plan read-only), Stripe Checkout and Billing Portal, shell notices, the read-only gate on API and Connect
 **Before you start:** Staging with Stripe in test mode; a new business on its trial; Cedar Coast Pet Care for an existing trial; Stripe test clocks
 
 **Where to test**
@@ -378,7 +378,7 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 3. Invite a staff member on Premium.
    **Expect:** the seat quantity in Stripe rises by one; the last free seat on a trial fills once and the next invite is refused.
 4. Open the Billing Portal and change the card.
-   **Expect:** the return lands on Setup > Plan.
+   **Expect:** the return lands on Setup > Account & plan.
 5. Advance a test clock past a failed renewal.
    **Expect:** past due, then read-only after cancellation; records stay readable and exportable.
 6. While read-only, try a booking from Connect and a new invoice.
@@ -405,9 +405,9 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **To automate**
 
-* `PLN-E2E-04` in `apps/connect/e2e/stripe/plans.stripe.ts`: Premium monthly Checkout on a test clock, renewal, failed payment to past due to lapsed (PLN01, PLN13, PLN14).
-* `PLN-E2E-05` in `apps/connect/e2e/stripe/plans.stripe.ts`: Yearly plan with the monthly seat item; seat quantity follows invites (PLN04).
-* `PLN-E2E-06` in `apps/web/e2e/plans.e2e.ts`: Portal return and plan change with a lost response (PLN05, PLN07).
+* `PLN-E2E-04` in `apps/connect/e2e/stripe/plans.stripe.ts`: Premium monthly Checkout on a test clock, renewal, failed payment to past due to lapsed.
+* `PLN-E2E-05` in `apps/connect/e2e/stripe/plans.stripe.ts`: Yearly plan with the monthly seat item; seat quantity follows invites.
+* `PLN-E2E-06` in `apps/web/e2e/plans.e2e.ts`: Portal return and plan change with a lost response.
 
 **Depends on:** CB-3
 
@@ -551,7 +551,7 @@ The business loads its clients, what they book for, and the services and product
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator.
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-connect dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator. Connect runs at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
 * **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
 
 **QA steps**
@@ -581,7 +581,7 @@ The business loads its clients, what they book for, and the services and product
 
 **To automate**
 
-* `CRM-E2E-12` in `apps/web/e2e/journeys/client.journey.ts`: Timeline order after a visit: booking, invoice, payment and message (CRM-E19).
+* `CRM-E2E-12` in `apps/web/e2e/journeys/client.journey.ts`: Timeline order after a visit: booking, invoice, payment and message.
 
 **Depends on:** Nothing
 
@@ -613,18 +613,18 @@ The business loads its clients, what they book for, and the services and product
 
 **To automate**
 
-* `CRM-E2E-13` in `apps/web/e2e/clients.e2e.ts`: Set and remove tags in bulk; the broadcast audience count follows (CRM-E05).
+* `CRM-E2E-13` in `apps/web/e2e/clients.e2e.ts`: Set and remove tags in bulk; the broadcast audience count follows.
 
 **Depends on:** Nothing
 
 ### Services, classes and resources (CB-13)
 
-**Covers:** Services & products editor on web and mobile, Setup > Resources, booking page
+**Covers:** Services & products editor on web and mobile, Setup > Rooms & equipment, booking page
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; Ridgeline Strength Studio (Studio and Turf); Riverbend Driving School (three cars)
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator.
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-connect dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator. Connect runs at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
 * **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
 
 **QA steps**
@@ -653,7 +653,7 @@ The business loads its clients, what they book for, and the services and product
 
 **To automate**
 
-* `CFG-E2E-07` in `apps/web/e2e/catalog.e2e.ts`: Buffers and deposit percentage on a service match the slots and deposit Connect offers (CFG05, CFG03).
+* `CFG-E2E-13` in `apps/web/e2e/catalog.e2e.ts`: Buffers and deposit percentage on a service match the slots and deposit Connect offers.
 
 **Depends on:** Nothing
 
@@ -701,7 +701,7 @@ The business loads its clients, what they book for, and the services and product
 
 **To automate**
 
-* `CFG-E2E-08` in `apps/web/e2e/catalog.e2e.ts`: Archive and restore a product: it leaves Sales, invoices, the shop and add-ons (CFG04).
+* `CFG-E2E-14` in `apps/web/e2e/catalog.e2e.ts`: Archive and restore a product: it leaves Sales, invoices, the shop and add-ons.
 
 **Depends on:** Nothing
 
@@ -746,7 +746,7 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 
 **To automate**
 
-* `FIN-REPORT-11` in `apps/web/e2e/reports.e2e.ts`: Today's figures equal the income and GST/HST report for the same day after sales and a refund (FIN16).
+* `FIN-REPORT-11` in `apps/web/e2e/reports.e2e.ts`: Today's figures equal the income and GST/HST report for the same day after sales and a refund.
 
 **Depends on:** Nothing
 
@@ -792,7 +792,7 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 
 **To automate**
 
-* `SCH-E2E-08` in `apps/web/e2e/hours.e2e.ts`: Time off and a closure set from the UI remove those times on Connect (SCH19, CFG14).
+* `SCH-E2E-08` in `apps/web/e2e/hours.e2e.ts`: Time off and a closure set from the UI remove those times on Connect.
 
 **Depends on:** Nothing
 
@@ -803,7 +803,7 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator.
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-connect dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator. Connect runs at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
 * **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
 
 **QA steps**
@@ -837,7 +837,7 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 
 **To automate**
 
-* `SCH-E2E-09` in `apps/web/e2e/bookings.e2e.ts`: Resize and reassign across replicas with the move check's problem and alternatives (SCH01, SCH04).
+* `SCH-E2E-09` in `apps/web/e2e/bookings.e2e.ts`: Resize and reassign across replicas with the move check's problem and alternatives.
 
 **Depends on:** Nothing
 
@@ -872,9 +872,9 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 
 **To automate**
 
-* `SCH-E2E-10` in `apps/web/e2e/journeys/visit.journey.ts`: On my way, check-in with needs, undo, checkout with the visit on the ticket (SCH12, SCH13).
-* `SCH-E2E-11` in `apps/web/e2e/journeys/visit.journey.ts`: No-show forfeits the deposit; complete and no-show refused before start (SCH11).
-* `SCH-E2E-12` in `apps/web/e2e/journeys/visit.journey.ts`: The worker completes past visits and cancels stale requests overnight (SCH17).
+* `SCH-E2E-10` in `apps/web/e2e/journeys/visit.journey.ts`: On my way, check-in with needs, undo, checkout with the visit on the ticket.
+* `SCH-E2E-11` in `apps/web/e2e/journeys/visit.journey.ts`: No-show forfeits the deposit; complete and no-show refused before start.
+* `SCH-E2E-12` in `apps/web/e2e/journeys/visit.journey.ts`: The worker completes past visits and cancels stale requests overnight.
 
 **Depends on:** Nothing
 
@@ -909,8 +909,8 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 
 **To automate**
 
-* `SCH-E2E-13` in `apps/web/e2e/bookings.e2e.ts`: Weekly series across DST, change following, cancel all (SCH14, SCH22).
-* `SCH-E2E-14` in `apps/web/e2e/bookings.e2e.ts`: Series retry notices and a clashing date (SCH15).
+* `SCH-E2E-13` in `apps/web/e2e/bookings.e2e.ts`: Weekly series across DST, change following, cancel all.
+* `SCH-E2E-14` in `apps/web/e2e/bookings.e2e.ts`: Series retry notices and a clashing date.
 
 **Depends on:** Nothing
 
@@ -951,7 +951,7 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 
 **To automate**
 
-* `CLS-E2E-03` in `apps/web/e2e/journeys/entitlements.journey.ts`: Cancel a program enrolment: days cancelled, invoice voided, deposit refunded (SCH07).
+* `CLS-E2E-03` in `apps/web/e2e/journeys/entitlements.journey.ts`: Cancel a program enrolment: days cancelled, invoice voided, deposit refunded.
 
 **Depends on:** Nothing
 
@@ -988,25 +988,25 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 
 **To automate**
 
-* `SCH-E2E-15` in `apps/web/e2e/journeys/visit.journey.ts`: Crew block follows a move, refuses a busy helper, splits the earning (SCH01, FIN07).
+* `SCH-E2E-15` in `apps/web/e2e/journeys/visit.journey.ts`: Crew block follows a move, refuses a busy helper, splits the earning.
 * `SCH-E2E-16` in `apps/web/e2e/bookings.e2e.ts`: Visit record create and amend, then the insurance receipt on Connect.
-* `DOC-E2E-07` in `apps/web/e2e/files.e2e.ts`: Job photos shared to the manage page and revoked (DOC17).
+* `DOC-E2E-07` in `apps/web/e2e/files.e2e.ts`: Job photos shared to the manage page and revoked.
 
 **Depends on:** Nothing
 
 ### Visit reminders (CB-22)
 
-**Covers:** Setup > Reminders on web and mobile, reminder texts
+**Covers:** Setup > Messages & reminders on web and mobile, reminder texts
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a client with a real phone on staging
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile worker`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator. Texts land in Mailpit at [http://localhost:8715](<http://localhost:8715>).
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-connect dev-mobile worker`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator. Connect runs at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Texts land in Mailpit at [http://localhost:8715](<http://localhost:8715>).
 * **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Texts to demo clients show as sent and go nowhere; for real texts, assign the business a staging Twilio number in the admin console.
 
 **QA steps**
 
-1. Open Setup > Reminders.
+1. Open Setup > Messages & reminders.
    **Expect:** the next visit's reminder shows word for word with its send time.
 2. Book a visit for tomorrow.
    **Expect:** the reminder arrives the day before with the right time, address and manage link.
@@ -1029,7 +1029,7 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 
 **To automate**
 
-* `MSG-E2E-17` in `apps/web/e2e/journeys/communication.journey.ts`: The worker sends one reminder matching the preview, and none after a reschedule (SCH18).
+* `MSG-E2E-17` in `apps/web/e2e/journeys/communication.journey.ts`: The worker sends one reminder matching the preview, and none after a reschedule.
 
 **Depends on:** Nothing
 
@@ -1043,12 +1043,12 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 ### Online booking with deposits (CB-24)
 
-**Covers:** Connect booking page, Setup > Online booking, approving and declining requests on Today and the schedule (web and phone), the reaper job
+**Covers:** Connect booking page, Setup > Booking page & rules, approving and declining requests on Today and the schedule (web and phone), the reaper job
 **Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234 (approval for new clients); Cedar Coast (no approval)
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-connect worker`. Open web at [http://localhost:8700](<http://localhost:8700>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-connect dev-mobile worker`. Open web at [http://localhost:8700](<http://localhost:8700>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
 * **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first.
 
 **QA steps**
@@ -1126,7 +1126,7 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 **To automate**
 
-* `CRM-E2E-14` in `apps/web/e2e/journeys/client.journey.ts`: Verification threshold and two concurrent verifications (CRM-E15).
+* `CRM-E2E-14` in `apps/web/e2e/journeys/client.journey.ts`: Verification threshold and two concurrent verifications.
 
 **Depends on:** Nothing
 
@@ -1160,7 +1160,7 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 **To automate**
 
-* `SCH-E2E-18` in `apps/web/e2e/journeys/visit.journey.ts`: Staff add-on refused with visit_no_room; removal never shortens below the service (CFG15).
+* `SCH-E2E-20` in `apps/web/e2e/journeys/visit.journey.ts`: Staff add-on refused with visit_no_room; removal never shortens below the service.
 
 **Depends on:** Nothing
 
@@ -1193,11 +1193,12 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 * `XB-E2E-14 (connect)`
 * `connect: publicManage.e2e.ts › a client opens the manage link and the move picker`
-* `connect: publicBooking.e2e.ts › cancel through the manage link (inside two tests)`
+* `connect: publicBooking.e2e.ts › a new client's online booking waits for approval and opens the manage link`
+* `connect: publicBooking.e2e.ts › a client books a confirmed visit where new clients need no approval`
 
 **To automate**
 
-* `SCH-E2E-19` in `apps/connect/e2e/publicManage.e2e.ts`: Reschedule to a new time, cancel inside the cut-off refused, cancel outside it refunds (SCH05, SCH09).
+* `SCH-E2E-21` in `apps/connect/e2e/publicManage.e2e.ts`: Reschedule to a new time, cancel inside the cut-off refused, cancel outside it refunds.
 * `STR-E18` in `apps/connect/e2e/stripe/deposit.stripe.ts`: Pay a pending deposit from the manage link with a real card.
 
 **Depends on:** Nothing
@@ -1238,7 +1239,7 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 **To automate**
 
-* `EMBED-E2E-02` in `apps/connect/e2e/embed.e2e.ts`: A booking completed inside the embed reaches the staff schedule (OPS15).
+* `EMBED-E2E-02` in `apps/connect/e2e/embed.e2e.ts`: A booking completed inside the embed reaches the staff schedule.
 
 **Depends on:** Nothing
 
@@ -1286,8 +1287,8 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 
 **To automate**
 
-* `SALE-E2E-13` in `apps/web/e2e/pos.e2e.ts`: Hold a ticket, resume on a second device, pay once (SALE07).
-* `SALE-E2E-14` in `apps/web/e2e/pos.e2e.ts`: Walk-in receipt by text matches the sale, with a failed send retried (SALE21).
+* `SALE-E2E-13` in `apps/web/e2e/pos.e2e.ts`: Hold a ticket, resume on a second device, pay once.
+* `SALE-E2E-14` in `apps/web/e2e/pos.e2e.ts`: Walk-in receipt by text matches the sale, with a failed send retried.
 
 **Depends on:** Nothing
 
@@ -1323,8 +1324,8 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 
 **To automate**
 
-* `STR-E19` in `apps/connect/e2e/stripe/desk.stripe.ts`: Desk card checkout with 4242 and with a decline, then saved-card charge (SALE01, PAY-E02).
-* `SALE-E2E-15` in `apps/web/e2e/pos.e2e.ts`: Gift card part tender with cash remainder (SALE06, ENT06).
+* `STR-E19` in `apps/connect/e2e/stripe/desk.stripe.ts`: Desk card checkout with 4242 and with a decline, then saved-card charge.
+* `SALE-E2E-15` in `apps/web/e2e/pos.e2e.ts`: Gift card part tender with cash remainder.
 
 **Depends on:** Nothing
 
@@ -1354,7 +1355,7 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 **By hand only**
 
 * All of it: Tap to Pay needs real NFC hardware and the store-signed app.
-* Interac debit on Tap to Pay is not built (doc CLI-31).
+* Interac debit on Tap to Pay is not built.
 
 **Automated by**
 
@@ -1401,9 +1402,9 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 
 **To automate**
 
-* `SALE-E2E-16` in `apps/web/e2e/pos.e2e.ts`: Line and sale discounts with a percent tip, exact cents and tax (SALE01).
-* `PAY-E2E-04` in `apps/web/e2e/earnings.e2e.ts`: Tips from desk and pay link land on the right member and outside sales (FIN12).
-* `STR-E20` in `apps/connect/e2e/stripe/provider.stripe.ts`: Pay link with a tip settles one charge (BILL17).
+* `SALE-E2E-16` in `apps/web/e2e/pos.e2e.ts`: Line and sale discounts with a percent tip, exact cents and tax.
+* `PAY-E2E-04` in `apps/web/e2e/earnings.e2e.ts`: Tips from desk and pay link land on the right member and outside sales.
+* `STR-E20` in `apps/connect/e2e/stripe/provider.stripe.ts`: Pay link with a tip settles one charge.
 
 **Depends on:** Nothing
 
@@ -1484,12 +1485,16 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 * `FLOW-03-A (journeys)`
 * `FLOW-03-B (journeys)`
 * `XB-E2E-10 (connect)`
-* `connect: publicShop.e2e.ts (four unregistered tests)`
+* `connect: publicShop.e2e.ts › a client finds the shop from the landing page and fills a cart`
+* `connect: publicShop.e2e.ts › the shop says tax is added when the business charges it`
+* `connect: publicShop.e2e.ts › a business that doesn't charge tax never mentions it in the shop`
+* `connect: publicShop.e2e.ts › the shop adds from the grid, changes quantities and checks out in steps`
+* `connect: publicShop.e2e.ts › the shop's order panel folds into a bottom bar on a phone`
 
 **To automate**
 
-* `STR-E22` in `apps/connect/e2e/stripe/shop.stripe.ts`: Shop order paid with a real card, ready and picked up (SALE02).
-* `SALE-E2E-17` in `apps/web/e2e/journeys/stock.journey.ts`: Final-unit race between two online checkouts (SALE03).
+* `STR-E22` in `apps/connect/e2e/stripe/shop.stripe.ts`: Shop order paid with a real card, ready and picked up.
+* `SALE-E2E-17` in `apps/web/e2e/journeys/stock.journey.ts`: Final-unit race between two online checkouts.
 
 **Depends on:** Nothing
 
@@ -1541,7 +1546,8 @@ Estimates become invoices, invoices are paid by link, saved card or by hand, and
 
 **To automate**
 
-* `BILL-DOC-22` in `apps/web/e2e/billing.e2e.ts`: Decline refuses conversion; late public answer after conversion (BILL10).
+* `BILL-DOC-22` in `apps/web/e2e/billing.e2e.ts`: Decline refuses conversion; late public answer after conversion.
+* `BILL-DOC-25` in `apps/web/e2e/billing.e2e.ts`: An estimate with mixed tax classes and a capped fixed discount totals to the hand calculation, and the invoice it converts to keeps those totals.
 
 **Depends on:** Nothing
 
@@ -1603,8 +1609,9 @@ Estimates become invoices, invoices are paid by link, saved card or by hand, and
 
 **To automate**
 
-* `BILL-DOC-23` in `apps/web/e2e/billing.e2e.ts`: Void refused while a payment is in progress (BILL12); the overdue sweep runs once (BILL16).
-* `STR-E21` in `apps/connect/e2e/stripe/provider.stripe.ts`: Charge the remainder to a saved card from Record payment (PAY-E05).
+* `BILL-DOC-23` in `apps/web/e2e/billing.e2e.ts`: Void refused while a payment is in progress; the overdue sweep runs once.
+* `STR-E21` in `apps/connect/e2e/stripe/provider.stripe.ts`: Charge the remainder to a saved card from Record payment.
+* `STR-E30` in `apps/connect/e2e/stripe/tabs.stripe.ts`: Hold Stripe's payment event, as SCH-E2E-17 does for a deposit, and check the invoice stays unpaid in the books until the event arrives, then settles once. Connect shows the invoice paid as soon as Stripe confirms the card, before the event.
 
 **Depends on:** Nothing
 
@@ -1639,7 +1646,7 @@ Estimates become invoices, invoices are paid by link, saved card or by hand, and
 
 **To automate**
 
-* `BILL-DOC-24` in `apps/web/e2e/billing.e2e.ts`: Printed invoice content matches the record (BILL18).
+* `BILL-DOC-24` in `apps/web/e2e/billing.e2e.ts`: Printed invoice content matches the record.
 
 **Depends on:** Nothing
 
@@ -1675,7 +1682,7 @@ Estimates become invoices, invoices are paid by link, saved card or by hand, and
 
 **To automate**
 
-* `FIN-DEPOSIT-14` in `apps/connect/e2e/stripe/deposit.stripe.ts`: Deposit before and after the invoice is issued, and the no-show forfeit (BILL12, SCH11, FIN05).
+* `FIN-DEPOSIT-14` in `apps/connect/e2e/stripe/deposit.stripe.ts`: Deposit before and after the invoice is issued, and the no-show forfeit.
 
 **Depends on:** Nothing
 
@@ -1746,8 +1753,8 @@ The business sells gift cards, packages and memberships, and each is used, renew
 
 **To automate**
 
-* `ENT-E2E-05` in `apps/connect/e2e/stripe/entitlements.stripe.ts`: Card gift card purchase pending to active, decline retry (ENT02, ENT03).
-* `ENT-E2E-06` in `apps/web/e2e/entitlements.e2e.ts`: Last balance race between two desks (ENT05).
+* `ENT-E2E-05` in `apps/connect/e2e/stripe/entitlements.stripe.ts`: Card gift card purchase pending to active, decline retry.
+* `ENT-E2E-06` in `apps/web/e2e/entitlements.e2e.ts`: Last balance race between two desks.
 
 **Depends on:** Nothing
 
@@ -1785,7 +1792,7 @@ The business sells gift cards, packages and memberships, and each is used, renew
 
 **To automate**
 
-* `ENT-E2E-07` in `apps/web/e2e/entitlements.e2e.ts`: Expiry boundary before and after the sweep for a package and a gift card (ENT13).
+* `ENT-E2E-07` in `apps/web/e2e/entitlements.e2e.ts`: Expiry boundary before and after the sweep for a package and a gift card.
 
 **Depends on:** Nothing
 
@@ -1826,7 +1833,7 @@ The business sells gift cards, packages and memberships, and each is used, renew
 
 **To automate**
 
-* `ENT-E2E-08` in `apps/connect/e2e/stripe/memberships.stripe.ts`: Cancel and resell, lost cancel response, covered visit (ENT18, ENT19, ENT20).
+* `ENT-E2E-08` in `apps/connect/e2e/stripe/memberships.stripe.ts`: Cancel and resell, lost cancel response, covered visit.
 
 **Depends on:** Nothing
 
@@ -1877,8 +1884,8 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 
 **To automate**
 
-* `STR-E23` in `apps/connect/e2e/stripe/refunds.stripe.ts`: Pending refund that fails later is reversed; dashboard refund recorded (PAY-E07).
-* `ENT-E2E-09` in `apps/web/e2e/entitlements.e2e.ts`: Refunded gift card can't be redeemed (ENT08).
+* `STR-E23` in `apps/connect/e2e/stripe/refunds.stripe.ts`: Pending refund that fails later is reversed; dashboard refund recorded.
+* `ENT-E2E-09` in `apps/web/e2e/entitlements.e2e.ts`: Refunded gift card can't be redeemed.
 
 **Depends on:** Nothing
 
@@ -1909,7 +1916,7 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 
 **By hand only**
 
-* Suspending a disputed package or gift card while open is not built (doc CLI-39 to do).
+* Suspending a disputed package or gift card while open is not built.
 
 **Automated by**
 
@@ -1919,7 +1926,7 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 
 **To automate**
 
-* `STR-E24` in `apps/connect/e2e/stripe/disputes.stripe.ts`: A won dispute reverses funds and fee (PAY-E19).
+* `STR-E24` in `apps/connect/e2e/stripe/disputes.stripe.ts`: A won dispute reverses funds and fee.
 
 **Depends on:** Nothing
 
@@ -1953,7 +1960,8 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 
 **To automate**
 
-* `FIN-REPORT-12` in `apps/web/e2e/reports.e2e.ts`: Sales by item, GST/HST with PST apart and T4A CSVs against hand totals (FIN17, FIN11).
+* `FIN-REPORT-12` in `apps/web/e2e/reports.e2e.ts`: Sales by item, GST/HST with PST apart and T4A CSVs against hand totals.
+* A backend test in `tests/test_reports.py` after the fix: the sales by item CSV writes an item named `=HYPERLINK(...)` as text. `sales_by_item_csv` (`services/reports.py`) writes names as they are today, so a spreadsheet would run a leading `=`, `+`, `-` or `@` as a formula; the consent export already guards its cells with `_cell` (`services/consents.py`), and the report CSVs need the same.
 
 **Depends on:** Nothing
 
@@ -1986,7 +1994,7 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 
 **To automate**
 
-* `FIN-RETURN-13` in `apps/web/e2e/remittances.filing.ts`: Overlap and partial-range rejection matrix (FIN14, FIN15).
+* `FIN-RETURN-13` in `apps/web/e2e/remittances.filing.ts`: Overlap and partial-range rejection matrix.
 
 **Depends on:** Nothing
 
@@ -2026,7 +2034,6 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 **Automated by**
 
 * `STR-E01 (stripe)`
-* `STR-E08 (stripe, needs_decision)`
 * `STR-E12 (stripe)`
 * `FLOW-10-A (journeys)`
 * `web: payouts.e2e.ts › payout contents paginate and clear when switching to a manual payout`
@@ -2034,7 +2041,8 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 
 **To automate**
 
-* `STR-E25` in `apps/connect/e2e/stripe/reconciliation.stripe.ts`: Withheld webhook replayed once and reconciled (PAY-E10, FIN19).
+* `STR-E25` in `apps/connect/e2e/stripe/reconciliation.stripe.ts`: Withheld webhook replayed once and reconciled.
+* `STR-E08` in `apps/connect/e2e/stripe/payouts.stripe.ts`: A manual payout shows in transit, stays out of Deposited until Stripe pays it, then reaches Bank deposits. It is written but runs only with `STRIPE_PAYOUT_CASE=1`, because the shared merchant needs an available balance that covers the run's charge; the Stripe lane should fund that balance so the case runs every time.
 
 **Depends on:** Nothing
 
@@ -2080,8 +2088,8 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 
 **To automate**
 
-* `PAY-E2E-05` in `apps/web/e2e/earnings.e2e.ts`: Rate matrix (percent, fixed per visit, hourly, retail) and a pay-through-date cut-off (FIN07, FIN09).
-* `PAY-E2E-06` in `apps/web/e2e/earnings.e2e.ts`: T4A after pay, undo and repay, owner left out (FIN11).
+* `PAY-E2E-05` in `apps/web/e2e/earnings.e2e.ts`: Rate matrix (percent, fixed per visit, hourly, retail) and a pay-through-date cut-off.
+* `PAY-E2E-06` in `apps/web/e2e/earnings.e2e.ts`: T4A after pay, undo and repay, owner left out.
 
 **Depends on:** Nothing
 
@@ -2136,9 +2144,9 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **To automate**
 
-* `MSG-E2E-18` in `apps/web/e2e/messaging.e2e.ts`: First-thread contention from two devices (MSG05).
-* `MSG-E2E-22` in `apps/web/e2e/previews.e2e.ts`: Previews for ready, departed, rescheduled, form, contract and review match the delivered text (MSG17).
-* `MSG-E2E-23` in `apps/web/e2e/messaging.e2e.ts`: Delivery retry classification (MSG15).
+* `MSG-E2E-18` in `apps/web/e2e/messaging.e2e.ts`: First-thread contention from two devices.
+* `MSG-E2E-22` in `apps/web/e2e/previews.e2e.ts`: Previews for ready, departed, rescheduled, form, contract and review match the delivered text.
+* `MSG-E2E-23` in `apps/web/e2e/messaging.e2e.ts`: Delivery retry classification.
 
 **Depends on:** Nothing
 
@@ -2175,7 +2183,7 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **To automate**
 
-* `MSG-E2E-19` in `apps/web/e2e/messaging.e2e.ts`: Consent export and a staff-recorded no to offers (MSG20).
+* `MSG-E2E-19` in `apps/web/e2e/messaging.e2e.ts`: Consent export and a staff-recorded no to offers.
 
 **Depends on:** Nothing
 
@@ -2211,8 +2219,8 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **To automate**
 
-* `MSG-E2E-20` in `apps/web/e2e/journeys/communication.journey.ts`: Broadcast to a tag skips STOP and no-offers clients; quiet hours hold (MSG11, MSG12, MSG13).
-* `MSG-E2E-21` in `apps/web/e2e/journeys/communication.journey.ts`: Consent changes during fan-out (MSG09).
+* `MSG-E2E-20` in `apps/web/e2e/journeys/communication.journey.ts`: Broadcast to a tag skips STOP and no-offers clients; quiet hours hold.
+* `MSG-E2E-21` in `apps/web/e2e/journeys/communication.journey.ts`: Consent changes during fan-out.
 
 **Depends on:** Nothing
 
@@ -2252,8 +2260,8 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **To automate**
 
-* `DOC-E2E-08` in `apps/connect/e2e/publicForm.e2e.ts`: Real file upload and the size and type matrix (DOC05, DOC06).
-* `DOC-E2E-09` in `apps/web/e2e/journeys/documents.journey.ts`: Intake job sends once to a new client (DOC10).
+* `DOC-E2E-08` in `apps/connect/e2e/publicForm.e2e.ts`: Real file upload and the size and type matrix.
+* `DOC-E2E-09` in `apps/web/e2e/journeys/documents.journey.ts`: Intake job sends once to a new client.
 
 **Depends on:** Nothing
 
@@ -2296,7 +2304,7 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **To automate**
 
-* `DOC-E2E-10` in `apps/web/e2e/journeys/documents.journey.ts`: Contract create, publish and resend with a lost response (DOC14).
+* `DOC-E2E-10` in `apps/web/e2e/journeys/documents.journey.ts`: Contract create, publish and resend with a lost response.
 
 **Depends on:** Nothing
 
@@ -2335,8 +2343,8 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **To automate**
 
-* `REV-E2E-01` in `apps/web/e2e/reviews.e2e.ts`: Manual invitation, duplicate booking refused, history (REV07, REV08).
-* `REV-E2E-02` in `apps/web/e2e/reviews.e2e.ts`: Connect and select a profile against a recording Google fake (REV01, REV05).
+* `REV-E2E-01` in `apps/web/e2e/reviews.e2e.ts`: Manual invitation, duplicate booking refused, history.
+* `REV-E2E-02` in `apps/web/e2e/reviews.e2e.ts`: Connect and select a profile against a recording Google fake.
 
 **Depends on:** Nothing
 
@@ -2389,6 +2397,9 @@ Staff run their day on any phone, tablet or browser tab, online or not, and ever
 **To automate**
 
 * `NATIVE-OFF-01` in `apps/mobile/e2e/offline.hours.yaml`: Edit hours offline on the phone and see them reach web after reconnect (register the flow).
+* `OFF-E2E-05` in `apps/web/e2e/offline.e2e.ts`: A browser closed mid-write, with no clean shutdown, reopens with its outbox intact and sends it once.
+* `NATIVE-OFF-02` in `apps/mobile/e2e/offline.yaml`: On iOS, the replica is ready right after the first sync; today it isn't in most runs, so the flow waits.
+* `XB-E2E-05` and `OFF-E2E-01` in WebKit: both run in Chromium and Firefox, and WebKit leaves them out (`@no-webkit`) because Playwright's WebKit can't load a service-worker page offline. Lift the exclusion once it can.
 
 **Depends on:** Nothing
 
@@ -2449,7 +2460,7 @@ Staff run their day on any phone, tablet or browser tab, online or not, and ever
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`, with a development build on a real phone, since the simulator gets no push. The web feed is at [http://localhost:8700](<http://localhost:8700>).
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-connect dev-mobile`, with a development build on a real phone, since the simulator gets no push. The web feed is at [http://localhost:8700](<http://localhost:8700>).
 * **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and the staging app on real phones.
 
 **QA steps**
@@ -2473,7 +2484,8 @@ Staff run their day on any phone, tablet or browser tab, online or not, and ever
 
 **To automate**
 
-* `NATIVE-PUSH-01` in `apps/mobile/e2e/notifications.yaml`: Run the push tap flow on Android too (MSG18).
+* `NATIVE-PUSH-01` in `apps/mobile/e2e/notifications.yaml`: Run the push tap flow on Android too.
+* A backend test in `tests/test_notifications_push.py` after the fix: a token Expo reports as `DeviceNotRegistered` is retired after one send. `ExpoPushSender.send` (`integrations/expo.py`) posts every token in one request and only checks the HTTP status today, so it needs to send in Expo's batches of 100, read the push tickets and receipts, and retire dead tokens.
 
 **Depends on:** Nothing
 
@@ -2562,8 +2574,8 @@ The surfaces around the product: the platform admin console, the marketing site 
 
 **To automate**
 
-* `OPS-E2E-08` in `apps/web/e2e/admin.e2e.ts`: SMS number assignment and retirement (OPS07).
-* `OPS-E2E-09` in `apps/web/e2e/admin.e2e.ts`: Drift acknowledge and email sample replay (OPS08, OPS09).
+* `OPS-E2E-08` in `apps/web/e2e/admin.e2e.ts`: SMS number assignment and retirement.
+* `OPS-E2E-09` in `apps/web/e2e/admin.e2e.ts`: Drift acknowledge and email sample replay.
 
 **Depends on:** Nothing
 
@@ -2605,7 +2617,7 @@ The surfaces around the product: the platform admin console, the marketing site 
 
 **To automate**
 
-* `OPS-E2E-10` in `apps/connect/e2e/site.e2e.ts`: Start free and Sign in links reach `/signup` and the app (OPS12).
+* `OPS-E2E-10` in `apps/connect/e2e/site.e2e.ts`: Start free and Sign in links reach `/signup` and the app.
 
 **Depends on:** Nothing
 
@@ -2662,7 +2674,13 @@ Not tracked in Linear. These are pulled in by demand once the launch tickets pas
   today), suspending or offboarding a business through `businesses.status`.
 - **Feature depth:** membership pause, trial and plan change, package sessions used automatically on
   booking, a cancellation policy with a late-cancel fee, configurable reminders, Google and iCal calendar
-  sync, per-staff and travel buffers, conditional form fields, countersigning and a drawn signature.
+  sync, per-staff and travel buffers, conditional form fields, countersigning and a drawn signature, and paying
+  one sale with a gift card and a second method (split tender).
+- **Scheduling depth:** recurrences generated on a rolling window with an identity per occurrence and
+  skipped dates; slots that keep their local wall time and are re-anchored when a zone's rules change; class
+  timetables booked as sessions with a capacity per series; and the rest of the hours model (split days,
+  hours that end after midnight, buffers inside hours). The October design for each is in git history at
+  `.docs/executions/scheduling/design.md` (commit 7122d26c).
 - **Tax and reporting depth:** place of supply by client province, tax-inclusive pricing, compound tax,
   expenses and input tax credits for net profit, real T4A slips and e-filing, client statements, dunning
   and subscription retry.
@@ -2675,8 +2693,11 @@ Not tracked in Linear. These are pulled in by demand once the launch tickets pas
   passkeys) returning our own results and error codes, with the Kratos mapping kept in the api-client's
   `identity.ts`, so a new provider is a new adapter and the hooks, screens and catalog stay.
 - **Platform hygiene:** retention and PII purge, metrics and tracing, blue-green deploys and rollback, more than one currency (CAD is fixed
-  on create), a decision on `clients.custom_fields`.
-- **Sync follow-ups:** window the money tables with balances, lifetime value and old invoice status
+  on create), a decision on `clients.custom_fields`, a version check so an edit made against stale data is refused instead of
+  overwriting a newer one, and an append-only trigger on `audits` like the one on ledger `entries`.
+  Two indexes wait for measured evidence and a schema proposal: `booking_id` lookups, and the cross-tenant
+  indexes the jobs scan, once production EXPLAIN plans show the need.
+- **Sync follow-ups:** SQL pagination and search for the mobile Inbox once threads grow; window the money tables with balances, lifetime value and old invoice status
   served by the API, because at 50k clients the ledger screens take 3 to 12 seconds on a device;
   native resume; sanitized sync diagnostics and retention; whether the hours
   editor can express "no hours set"; an offline check on iOS, which the simulator cannot do per app.
@@ -2729,5 +2750,5 @@ landing page, as a lean PowerSync-free app that can be embedded through `embed.j
   previews as Clientbridge in messages and search, and `robots.txt` disallows every Connect host. Serving
   each business page's title, description, logo and canonical link in its HTML would let link previews and
   production search show the business.
-- **Public edge hardening:** bot protection on booking and pay requests, Redis-backed rate limiting, token
-  expiry, a trustworthy client IP, a per-business `frame-ancestors` policy for embeds.
+- **Public edge hardening:** bot protection on booking and pay requests, token expiry and a per-business
+  `frame-ancestors` policy for embeds.

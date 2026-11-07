@@ -1,9 +1,8 @@
 const fs = require("fs");
 const path = require("path");
 
-const ROOT = path.resolve(__dirname, "../../../..");
 const SRC = path.resolve(__dirname, "../src");
-const html = fs.readFileSync(`${ROOT}/.docs/design/app-explorer.html`, "utf8");
+const css = fs.readFileSync(`${SRC}/themes.css`, "utf8");
 
 const NAMES = {
     pewter: "Pewter",
@@ -15,14 +14,16 @@ const NAMES = {
 };
 const ORDER = ["pewter", "slate", "calm", "fjord", "birch", "moss"];
 
-const re = /\.t-([a-z]+)\s*\{([^}]+)\}/g;
+const re = /\[data-theme="([a-z]+)"\]\s*\{([^}]+)\}/g;
 const raw = {};
 let m;
-while ((m = re.exec(html))) {
+while ((m = re.exec(css))) {
     const vars = {};
     for (const decl of m[2].split(";")) {
         const i = decl.indexOf(":");
-        if (i > 0) vars[decl.slice(0, i).trim()] = decl.slice(i + 1).trim();
+        if (i < 0) continue;
+        const value = decl.slice(i + 1).trim();
+        vars[decl.slice(0, i).trim()] = /^#[0-9a-f]+$/i.test(value) ? value.toUpperCase() : value;
     }
     raw[m[1]] = vars;
 }
@@ -30,18 +31,6 @@ while ((m = re.exec(html))) {
 const firstFont = (v) => (v || "").split(",")[0].replace(/['"]/g, "").trim();
 const px = (v) => parseInt((v || "0").replace(/[^0-9]/g, ""), 10);
 const avatar = (v) => (v && v.includes("%") ? 999 : px(v));
-
-let css =
-    "/* AUTO-GENERATED from .docs/design/app-explorer.html. :root = Pewter; set [data-theme] to switch. */\n\n";
-for (const key of ORDER) {
-    const v = raw[key];
-    if (!v) continue;
-    const sel = key === "pewter" ? ':root,\n[data-theme="pewter"]' : `[data-theme="${key}"]`;
-    css += `${sel} {\n`;
-    for (const [k, val] of Object.entries(v)) css += `    ${k}: ${val};\n`;
-    css += "}\n\n";
-}
-fs.writeFileSync(`${SRC}/themes.css`, css);
 
 const themeObj = (v) => {
     const c = (k) => v[`--${k}`];
@@ -86,7 +75,7 @@ const themeObj = (v) => {
 };
 
 const j = (o) => JSON.stringify(o, null, 4).replace(/"([a-zA-Z0-9]+)":/g, "$1:");
-let ts = "// AUTO-GENERATED from .docs/design/app-explorer.html — do not edit by hand.\n\n";
+let ts = "// AUTO-GENERATED from themes.css by `make gen-themes`; edit the CSS, not this file.\n\n";
 ts += "export const THEME_KEYS = [" + ORDER.map((k) => `"${k}"`).join(", ") + "] as const;\n";
 ts += "export type ThemeKey = (typeof THEME_KEYS)[number];\n\n";
 ts += "export const THEME_LABELS: Record<ThemeKey, string> = " + j(NAMES) + ";\n\n";
