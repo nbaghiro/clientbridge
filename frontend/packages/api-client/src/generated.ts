@@ -5390,6 +5390,18 @@ export interface components {
              */
             payouts_hold?: string | null;
             /**
+             * Bank Errored
+             * @description A payout to the bank failed, so payouts are off until the bank is replaced
+             * @default false
+             */
+            bank_errored: boolean;
+            /**
+             * Foreign Bank
+             * @description No bank takes CAD, so Stripe converts payouts into a currency not tracked
+             * @default false
+             */
+            foreign_bank: boolean;
+            /**
              * Available Cents
              * @description The Stripe balance available to pay out, when connected
              */
@@ -7831,6 +7843,12 @@ export interface components {
             payouts?: components["schemas"]["PayoutOut"][];
             /** Next Cursor */
             next_cursor?: string | null;
+            /**
+             * Foreign Bank
+             * @description Payouts in another currency are left out of the list
+             * @default false
+             */
+            foreign_bank: boolean;
         };
         /** PlanChoice */
         PlanChoice: {

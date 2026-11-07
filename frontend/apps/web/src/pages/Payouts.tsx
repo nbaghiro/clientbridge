@@ -38,13 +38,18 @@ const CHARGE_GRID = "grid grid-cols-[minmax(0,2fr)_8rem_8rem_8rem] items-center 
 
 export function Payouts() {
     const p = usePayouts(api);
-    const account = usePaymentAccount(api);
+    const account = usePaymentAccount(api, p.recheckBank);
     const setup = useSetupProgress();
     const openLink = useOpenLink();
     const connected = setup.steps.find((x) => x.key === "stripe")?.done ?? false;
     const [view, setView] = useState<"payouts" | "charges">("payouts");
     const [open, setOpen] = useState(false);
     if (account.props !== null) return <PaymentAccount {...account.props} />;
+    const bankNotice = p.foreignBank ? (
+        <Notice tone="info" banner>
+            {s.foreignBank}
+        </Notice>
+    ) : null;
     const controls = (
         <div className="flex flex-wrap gap-2">
             <Button
@@ -112,13 +117,16 @@ export function Payouts() {
         );
     if (p.load.state === "empty")
         return (
-            <Empty
-                variant="card"
-                icon="bank"
-                message={s.noPayouts}
-                body={s.noPayoutsBody}
-                actions={controls}
-            />
+            <div className="space-y-6">
+                {bankNotice}
+                <Empty
+                    variant="card"
+                    icon="bank"
+                    message={s.noPayouts}
+                    body={s.noPayoutsBody}
+                    actions={controls}
+                />
+            </div>
         );
 
     const sel = open ? p.selected : null;
@@ -140,6 +148,7 @@ export function Payouts() {
                 summary={view === "charges" ? s.chargesHint : undefined}
                 action={controls}
             />
+            {bankNotice}
             <div className="grid grid-cols-1 gap-3 @2xl:grid-cols-3">
                 <Stat
                     currency={BUSINESS_CURRENCY}

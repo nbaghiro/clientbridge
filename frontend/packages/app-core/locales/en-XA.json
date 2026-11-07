@@ -9623,6 +9623,9 @@
     "gettingPaid.pausedBodyHeld": {
         "message": "[Ýöû çåñ šţîļļ ţåķé çåŕð þåýɱéñţš, ƀûţ Šţŕîþé ĥåš þûţ ýöûŕ þåýöûţš öñ ĥöļð. Çöñţåçţ šûþþöŕţ åñð ŵé'ļļ ĥéļþ šöŕţ îţ öûţ. one two three four five six seven]"
     },
+    "gettingPaid.pausedBodyBank": {
+        "message": "[Ýöû çåñ šţîļļ ţåķé çåŕð þåýɱéñţš, ƀûţ ýöûŕ ƀåñķ ţûŕñéð ðöŵñ ýöûŕ ļåšţ þåýöûţ. Þåýöûţš åŕé öñ ĥöļð ûñţîļ ýöû ûþðåţé ýöûŕ ƀåñķ ðéţåîļš. one two three four five six seven eight]"
+    },
     "gettingPaid.restrictedTitle": {
         "message": "[Çåŕð þåýɱéñţš åŕé þåûšéð one two three]"
     },
@@ -9650,6 +9653,12 @@
     "gettingPaid.reqError.website": {
         "message": "[Ţĥé ŵéƀšîţé çöûļðñ'ţ ƀé ṽéŕîƒîéð. Çĥéçķ ţĥé åððŕéšš åñð ţĥåţ ţĥé šîţé îš ļîṽé. one two three four five]"
     },
+    "gettingPaid.reqError.bankDeclined": {
+        "message": "[Ýöûŕ ƀåñķ ţûŕñéð ðöŵñ ţĥé ļåšţ þåýöûţ. Çĥéçķ ţĥé åççöûñţ ðéţåîļš, öŕ åðð å ðîƒƒéŕéñţ åççöûñţ. one two three four five six]"
+    },
+    "gettingPaid.reqError.bankCurrency": {
+        "message": "[Ţĥîš åççöûñţ îšñ'ţ îñ Çåñåðîåñ ðöļļåŕš. Åðð å Çåñåðîåñ-ðöļļåŕ çĥéǫûîñĝ åççöûñţ ƒöŕ ýöûŕ þåýöûţš. one two three four five six seven]"
+    },
     "gettingPaid.reqError.other": {
         "message": "[Ţĥîš ðéţåîļ çöûļðñ'ţ ƀé ṽéŕîƒîéð. Çĥéçķ îţ åñð šéñð îţ åĝåîñ. one two three four]"
     },
@@ -9661,6 +9670,9 @@
     },
     "gettingPaid.readyBodyDue": {
         "message": "[Çåŕð þåýɱéñţš, Ţåþ ţö Þåý åñð þåýöûţš åŕé åļļ öñ. Šéñð ŵĥåţ'š ļîšţéð ƀéļöŵ ţö ķééþ ţĥéɱ ţĥåţ ŵåý. one two three four five six]"
+    },
+    "gettingPaid.readyBodyBankCurrency": {
+        "message": "[Çåŕð þåýɱéñţš, Ţåþ ţö Þåý åñð þåýöûţš åŕé öñ, ƀûţ ýöûŕ þåýöûţš ĝö ţö å ƀåñķ åççöûñţ îñ åñöţĥéŕ çûŕŕéñçý. Šţŕîþé çöñṽéŕţš éåçĥ öñé, åñð Çļîéñţƀŕîðĝé çåñ'ţ ţŕåçķ ţĥéɱ. Åðð å Çåñåðîåñ-ðöļļåŕ åççöûñţ. one two three four five six seven eight nine ten one two]"
     },
     "gettingPaid.phaseNotConnected": {
         "message": "[Šéţ ûþ çåŕð þåýɱéñţš, ðéþöšîţš åñð Ţåþ ţö Þåý. Îţ ţåķéš åƀöûţ 10 ɱîñûţéš åñð ýöû'ļļ ñééð å þĥöţö ÎĐ åñð ýöûŕ ƀåñķ ðéţåîļš. one two three four five six seven]"
@@ -9742,6 +9754,9 @@
     },
     "gettingPaid.held": {
         "message": "[Ĥéļð ûñţîļ ṽéŕîƒîéð one two]"
+    },
+    "gettingPaid.heldForBank": {
+        "message": "[Ĥéļð ûñţîļ ýöûŕ ƀåñķ îš ûþðåţéð one two three]"
     },
     "gettingPaid.balanceUnknown": {
         "message": "[Šĥöŵñ öñçé çåŕð þåýɱéñţš åŕé öñ one two three]"
@@ -10666,6 +10681,9 @@
     },
     "payouts.returnedNotice": {
         "message": "[Ýöûŕ ƀåñķ ŕéţûŕñéð ţĥîš þåýöûţ. Çĥéçķ ýöûŕ þåýöûţ ƀåñķ ðéţåîļš ƀéƒöŕé ţĥé ñéẋţ þåýöûţ. one two three four five six]"
+    },
+    "payouts.foreignBank": {
+        "message": "[Ýöûŕ þåýöûţš ĝö ţö å ƀåñķ åççöûñţ îñ åñöţĥéŕ çûŕŕéñçý, šö Šţŕîþé çöñṽéŕţš ţĥéɱ åñð ţĥéý åŕéñ'ţ ļîšţéð ĥéŕé. Åðð å Çåñåðîåñ-ðöļļåŕ åççöûñţ îñ Ĝéţţîñĝ þåîð. one two three four five six seven eight nine]"
     },
     "payouts.chargesTitle": {
         "message": "[Ŕéçéñţ çåŕð çĥåŕĝéš one two]"

@@ -50,7 +50,7 @@ export function GettingPaidScreen() {
             refresh();
         }, [refresh]),
     );
-    const warn = paid.phase !== "enabled";
+    const warn = paid.attention;
     const deadline = paid.deadline === null ? "" : formatDate(paid.deadline, zone);
 
     if (paid.account.props !== null) return <PaymentAccount {...paid.account.props} />;
@@ -187,7 +187,7 @@ export function GettingPaidScreen() {
                     <KeyValueList
                         rows={[
                             {
-                                label: paid.payoutsEnabled ? g.available : g.held,
+                                label: paid.balanceLabel,
                                 value:
                                     paid.availableCents === null
                                         ? g.balanceUnknown

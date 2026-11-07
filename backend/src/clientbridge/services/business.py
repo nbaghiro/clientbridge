@@ -279,8 +279,16 @@ def kyc_status(business: Business) -> KycStatus:
 
 def apply_account_status(business: Business, status: ConnectAccount) -> None:
     """Mirror the connected-account KYC state onto the business (Stripe = source of truth)."""
+    # a business not yet flushed has no requirements, only the column default to come
+    previous = business.stripe_requirements or {}
+    bank_errored = (
+        previous.get("bank_errored") is True if status.bank_errored is None else status.bank_errored
+    )
+    foreign_bank = (
+        previous.get("foreign_bank") is True if status.foreign_bank is None else status.foreign_bank
+    )
     business.stripe_charges_enabled = status.charges_enabled
-    business.stripe_payouts_enabled = status.payouts_enabled
+    business.stripe_payouts_enabled = status.payouts_enabled and not bank_errored
     business.stripe_requirements = {
         "currently_due": status.currently_due,
         "eventually_due": status.eventually_due,
@@ -289,6 +297,8 @@ def apply_account_status(business: Business, status: ConnectAccount) -> None:
         "card_status": status.card_status,
         "current_deadline": status.current_deadline,
         "payouts_hold": status.payouts_hold,
+        "bank_errored": bank_errored,
+        "foreign_bank": foreign_bank,
         "requirement_errors": [
             {"requirement": e.requirement, "code": e.code} for e in status.requirement_errors
         ],

@@ -255,6 +255,74 @@ describe("useGettingPaid", () => {
         expect(result.current.chargesEnabled).toBe(true);
     });
 
+    it("asks for a new bank once the bank turns down a payout, with nothing else due", async () => {
+        const api = connected({
+            kyc_status: "payouts_paused",
+            payouts_enabled: false,
+            bank_errored: true,
+        });
+        const { result } = renderHook(() => useGettingPaid(api), { wrapper });
+        await waitFor(() => {
+            expect(result.current.phase).toBe("payouts_paused");
+        });
+        expect(result.current.message).toBe(g.pausedBodyBank);
+        expect(result.current.requirements.map((r) => [r.label, r.errors, r.icon])).toEqual([
+            [g.reqExternalAccount, [g.reqError.bankDeclined], "bank"],
+        ]);
+        expect(result.current.balanceLabel).toBe(g.heldForBank);
+        expect(result.current.canFinish).toBe(false);
+    });
+
+    it("asks for a Canadian-dollar bank while payouts go to one in another currency", async () => {
+        const api = connected({ kyc_status: "enabled", foreign_bank: true });
+        const { result } = renderHook(() => useGettingPaid(api), { wrapper });
+        await waitFor(() => {
+            expect(result.current.phase).toBe("enabled");
+        });
+        expect(result.current.message).toBe(g.readyBodyBankCurrency);
+        expect(result.current.attention).toBe(true);
+        expect(result.current.requirements.map((r) => [r.errors, r.pastDue])).toEqual([
+            [[g.reqError.bankCurrency], false],
+        ]);
+        expect(result.current.balanceLabel).toBe(g.available);
+    });
+
+    it("adds the declined bank to the bank row Stripe asks for and keeps its deadline", async () => {
+        const ahead = new Date(Date.now() + 30 * 86_400_000);
+        const api = connected({
+            kyc_status: "payouts_paused",
+            payouts_enabled: false,
+            bank_errored: true,
+            currently_due: ["external_account"],
+            current_deadline: ahead.toISOString(),
+        });
+        const { result } = renderHook(() => useGettingPaid(api), { wrapper });
+        await waitFor(() => {
+            expect(result.current.phase).toBe("payouts_paused");
+        });
+        expect(result.current.message).toBe(g.pausedBody(formatDate(ahead, "America/Toronto")));
+        expect(
+            result.current.requirements.map((r) => [r.key, r.label, r.errors, r.pastDue]),
+        ).toEqual([["external_account", g.reqExternalAccount, [g.reqError.bankDeclined], true]]);
+    });
+
+    it("keeps asking for what Stripe lists while payouts go to a bank in another currency", async () => {
+        const api = connected({
+            kyc_status: "enabled",
+            foreign_bank: true,
+            currently_due: ["identity.individual.id_numbers"],
+        });
+        const { result } = renderHook(() => useGettingPaid(api), { wrapper });
+        await waitFor(() => {
+            expect(result.current.phase).toBe("enabled");
+        });
+        expect(result.current.message).toBe(g.readyBodyDue);
+        expect(result.current.requirements.map((r) => [r.label, r.errors])).toEqual([
+            [g.reqExternalAccount, [g.reqError.bankCurrency]],
+            [g.reqIdNumber, []],
+        ]);
+    });
+
     it("names the deadline only while it is still ahead", async () => {
         const ahead = new Date(Date.now() + 30 * 86_400_000);
         const cases: [string, string][] = [

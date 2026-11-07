@@ -3,13 +3,14 @@ from datetime import timedelta
 import httpx
 import pytest
 import stripe
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.ids import new_id
 from clientbridge.integrations.stripe import ChargeFees, StripeResource
+from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item, Subscription
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Audit
@@ -111,7 +112,31 @@ async def test_payouts_do_not_read_another_business_account(
     assert (await as_owner.get("/v1/connect/payouts")).json() == {
         "payouts": [],
         "next_cursor": None,
+        "foreign_bank": False,
     }
+
+
+async def test_payouts_to_a_bank_in_another_currency_are_left_out_and_flagged(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    await db.execute(
+        update(Business)
+        .where(Business.id == BIZ)
+        .values(stripe_requirements={"card_status": "active", "foreign_bank": True})
+    )
+    gateway.payouts["acct_test"] = [
+        {
+            "id": "po_usd",
+            "amount": 639,
+            "currency": "usd",
+            "status": "paid",
+            "created": int(clock.now().timestamp()),
+            "arrival_date": int(clock.now().timestamp()),
+        }
+    ]
+    body = (await as_owner.get("/v1/connect/payouts")).json()
+    assert body["payouts"] == [] and body["foreign_bank"] is True
 
 
 async def test_recovers_an_old_membership_charge_from_its_stripe_invoice(

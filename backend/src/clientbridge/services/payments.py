@@ -290,6 +290,8 @@ class PaymentService:
             if isinstance(deadline, int)
             else None,
             payouts_hold=hold if isinstance(hold, str) else None,
+            bank_errored=req.get("bank_errored") is True,
+            foreign_bank=req.get("foreign_bank") is True,
             available_cents=available,
             pending_cents=pending,
         )
@@ -315,7 +317,11 @@ class PaymentService:
                 for row in page.payouts
                 if row.get("currency") == BUSINESS_CURRENCY.lower()
             ]
-            return PayoutsOut(payouts=payouts, next_cursor=page.next_cursor)
+            return PayoutsOut(
+                payouts=payouts,
+                next_cursor=page.next_cursor,
+                foreign_bank=business.stripe_requirements.get("foreign_bank") is True,
+            )
         except (KeyError, ValueError, OverflowError, OSError) as exc:
             raise AppError(
                 "invalid payout response", status_code=502, code="provider_unavailable"
@@ -2509,23 +2515,37 @@ def _returned_fee(data: dict[str, object]) -> int:
 
 
 async def _refresh_account(
-    db: AsyncSession, gateway: PaymentGateway, account_id: str | None, *, closed: bool = False
+    db: AsyncSession,
+    gateway: PaymentGateway,
+    account_id: str | None,
+    *,
+    closed: bool = False,
+    best_effort: bool = False,
 ) -> None:
-    """Mirror a connected account's current state after Stripe reports a change to it."""
+    """Mirror a connected account's current state; `best_effort` leaves it as is if unreadable."""
     if account_id is None:
         return
     business = await _locked_by_account(db, account_id)
     if business is None:
         return
     try:
-        apply_account_status(business, await gateway.get_account(account_id))
+        status = await gateway.get_account(account_id)
     except Exception:
-        if not closed:
+        if closed:
+            # a closed account may no longer be readable; the event alone says it takes nothing
+            _log.warning("closed stripe account %s could not be read", account_id, exc_info=True)
+            business.stripe_charges_enabled = business.stripe_payouts_enabled = False
+            business.stripe_requirements = {
+                **business.stripe_requirements,
+                "disabled_reason": "closed",
+            }
+        elif best_effort:
+            _log.warning("stripe account %s could not be re-read", account_id, exc_info=True)
+            return
+        else:
             raise
-        # a closed account may no longer be readable; the event alone says it takes nothing
-        _log.warning("closed stripe account %s could not be read", account_id, exc_info=True)
-        business.stripe_charges_enabled = business.stripe_payouts_enabled = False
-        business.stripe_requirements = {**business.stripe_requirements, "disabled_reason": "closed"}
+    else:
+        apply_account_status(business, status)
     await db.flush()
 
 
@@ -2554,6 +2574,13 @@ async def _dispatch(
     if event.type in ACCOUNT_EVENTS:
         closed = event.type == ACCOUNT_CLOSED
         await _refresh_account(db, gateway, event.account, closed=closed)
+    elif event.type in (
+        "account.external_account.created",
+        "account.external_account.deleted",
+        "account.external_account.updated",
+    ):
+        # a bank's status and currency change without any account event
+        await _refresh_account(db, gateway, event.account)
     elif event.account is None and event.type in PLAN_EVENTS:
         # a platform subscription bills the business itself; it is never a client membership
         await plans.apply_subscription_event(db, gateway, event)
@@ -2575,6 +2602,9 @@ async def _dispatch(
         await _record_payout(db, event.account, event.data, paid=event.type == "payout.paid")
     elif event.type in ("payout.failed", "payout.canceled"):
         await _fail_payout(db, event.account, event.data, event.created)
+        if event.type == "payout.failed":
+            # reads the failed payout's bank before its own event; the payout stays recorded
+            await _refresh_account(db, gateway, event.account, best_effort=True)
     elif event.type in ("setup_intent.succeeded", "setup_intent.setup_failed"):
         await _reconcile_pad_setup(db, gateway, event.account, str(event.data.get("id")))
     elif event.type == "mandate.updated":

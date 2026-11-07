@@ -330,8 +330,8 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
    **Expect:** back in the app, Getting paid reads ready for payments and payouts.
 2. On another business, leave a requirement unfinished.
    **Expect:** the app names exactly what is missing in plain words, with Stripe's reason when it rejected a detail.
-3. Put payouts on hold in the Stripe sandbox and press Check again.
-   **Expect:** Getting paid shows payouts paused while cards still work.
+3. Swap the bank for Stripe's failing test account (transit 11000, institution 000, account 000111111116), send a manual payout in the Stripe sandbox, and press Check again.
+   **Expect:** Getting paid shows payouts paused and asks for a working bank account, while cards still work.
 4. Open bank details in account management.
    **Expect:** Stripe asks for its own sign-in code before showing them.
 5. Take a $10 test card payment once ready (card 4242).
@@ -343,6 +343,7 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 * Completing Stripe-hosted identity verification as a person, including Stripe's sign-in and its terms.
 * Entering the code Stripe's sign-in sends before it shows bank details.
+* Swapping the bank for Stripe's failing test account in step 3: Stripe refuses bank writes by API on these accounts, and its sign-in stops a headless browser.
 
 **Automated by**
 
@@ -353,10 +354,6 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 * `NATIVE-CFG-02 (native-ios, native-android)`
 * `web: payouts.e2e.ts › payment account entrypoints preserve navigation when payment tools are offline`
 * `connect: smoke/staff.smoke.ts › signs in to today and reads the payment account`
-
-**To automate**
-
-* `STR-E29` in `apps/connect/e2e/stripe/payouts.stripe.ts`: Payouts held in Stripe itself, by a failing test bank and a manual payout, instead of the mirrored state, while a card payment still goes through.
 
 **Depends on:** CB-3
 

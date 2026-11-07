@@ -3525,6 +3525,7 @@ interface Strings {
         readonly pausedBodyNoDate: string;
         readonly pausedBodyReview: string;
         readonly pausedBodyHeld: string;
+        readonly pausedBodyBank: string;
         readonly restrictedTitle: string;
         readonly restrictedBody: string;
         readonly reqError: {
@@ -3535,11 +3536,14 @@ interface Strings {
             readonly address: string;
             readonly businessNumber: string;
             readonly website: string;
+            readonly bankDeclined: string;
+            readonly bankCurrency: string;
             readonly other: string;
         } & Labels;
         readonly readyTitle: string;
         readonly readyBody: string;
         readonly readyBodyDue: string;
+        readonly readyBodyBankCurrency: string;
         readonly phaseNotConnected: string;
         readonly phaseInProgress: string;
         readonly phasePending: string;
@@ -3567,6 +3571,7 @@ interface Strings {
         readonly available: string;
         readonly pending: string;
         readonly held: string;
+        readonly heldForBank: string;
         readonly balanceUnknown: string;
     };
     readonly today: {
@@ -3908,6 +3913,7 @@ interface Strings {
         readonly returned: (when: string) => string;
         readonly payoutRef: string;
         readonly returnedNotice: string;
+        readonly foreignBank: string;
         readonly chargesTitle: string;
         readonly chargesHint: string;
         readonly tabPayouts: string;
