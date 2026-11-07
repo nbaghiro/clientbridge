@@ -143,7 +143,7 @@ async def banks() -> dict[str, object]:
 
 
 async def mirror(state: str) -> dict[str, object]:
-    """Mirror a paused, Stripe-held or rejected state onto the run's business, or read it back."""
+    """Mirror a paused, held, rejected or bank state onto the run's business, or read it back."""
     account = await validate_context()
     settings = get_settings()
     gateway = StripeGateway(settings.stripe_secret_key, settings.stripe_webhook_secret, "CA")
@@ -179,6 +179,12 @@ async def mirror(state: str) -> dict[str, object]:
                     ),
                 ),
             )
+        elif state == "declined":
+            # Stripe errors the bank a payout failed to and leaves the payouts capability on
+            status = replace(status, payouts_enabled=False, bank_errored=True)
+        elif state == "foreign":
+            # every bank in another currency, which Stripe converts payouts into
+            status = replace(status, foreign_bank=True)
         apply_account_status(business, status)
         await db.commit()
         return {
@@ -207,8 +213,15 @@ async def main() -> None:
     parser.add_argument("command", choices=sorted(COMMANDS))
     parser.add_argument("id", nargs="?", default="")
     args = parser.parse_args()
-    if args.command == "mirror" and args.id not in ("paused", "held", "rejected", "stripe"):
-        parser.error("mirror takes paused, held, rejected or stripe")
+    if args.command == "mirror" and args.id not in (
+        "paused",
+        "held",
+        "rejected",
+        "declined",
+        "foreign",
+        "stripe",
+    ):
+        parser.error("mirror takes paused, held, rejected, declined, foreign or stripe")
     try:
         print(json.dumps(await COMMANDS[args.command](args)))
     finally:

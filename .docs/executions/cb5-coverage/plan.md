@@ -1,7 +1,7 @@
 # Stripe payments setup: full coverage and recorded runs
 
-Status: in progress. A1, A3 and C are done (C merged as 95597559). B1, B3 and B5 are written; B2 is covered by existing
-tests. A2 and B4, a real payout hold, are next, then the ticket (D).
+Status: in progress. A1, A2, A3 and C are done (C merged as 95597559). B1 and B5 are written, B2 is covered by
+existing tests, and B3 and B4 are dropped. The ticket (D) is next.
 
 CB-5 has five QA steps. Today two are covered by tests that run in CI (STR-E09 and STR-E13), and STR-E09 writes
 the paused state into our database instead of holding payouts in Stripe. This execution adds tests for the rest,
@@ -61,6 +61,14 @@ video for review.
    and make a manual payout. Passes if Stripe reports payouts disabled with an external account requirement while
    charges stay enabled, and records how long that takes. If not, STR-E09 keeps the mirrored state and the ticket
    says so.
+
+   **Result (2026-11-06, by hand on staging): Stripe never pauses payouts.** The payout failed at once with
+   `no_account` and Stripe marked the bank `errored`, but after seven minutes the payouts capability was still
+   active with nothing due. Getting paid therefore read ready. The app now reads the banks with the account,
+   counts a failed payout bank as payouts off, and re-reads the account on `payout.failed` and on Stripe's
+   `account.external_account.*` events, since a bank changes without an account event. The same run found
+   that onboarding lets an owner pick a USD bank, which Stripe converts every payout into and the CAD-only
+   books refuse; Getting paid and the Payouts tab now ask for a Canadian-dollar account.
 3. **Maestro recording.** Run `setup.yaml` wrapped in `startRecording` and `stopRecording` on the iOS simulator and
    the Android emulator. Passes if both produce a playable mp4 of the whole flow.
 
@@ -93,10 +101,15 @@ video for review.
    the terms are accepted, so a fresh account never carries a rejection reason either. Step 2 is covered instead
    by STR-E15 (real requirement codes in plain words), STR-E09's `rejected` mirror (Stripe's reason for a rejected
    SIN on web) and NATIVE-CFG-02 on mobile.
-4. **STR-E09 on a real hold** (step 3), if A2 passes. An onboarded account is put on hold in Stripe, Check again
-   shows payouts paused, a card payment still goes through, and the bank is restored in `finally`.
+4. **A real failed payout** (step 3). Dropped. Stripe refuses the platform's bank writes on these accounts
+   ("This application does not have the required permissions for this endpoint", 2026-11-06), and swapping the
+   bank in account management needs Stripe's sign-in, which A1 found a headless browser can't pass. A payout to
+   a second, non-default failing bank pauses nothing, since payouts go to the default one. Step 3 is covered
+   instead by `test_a_failed_payout_pauses_payouts_until_the_bank_is_replaced` (a `payout.failed` webhook
+   re-reads the account and an errored bank reads as paused), STR-E09's mirrored `declined` and `foreign` bank
+   states on web and NATIVE-CFG-02's on mobile; swapping in the failing bank stays by hand.
 5. **NATIVE-CFG-02, mobile states**, in `apps/mobile/e2e/setup.payments.yaml`. Written. The native lane's control
-   endpoint takes `account` with `paused`, `due` or `ready` and writes that state on the run's business
+   endpoint takes `account` with `paused`, `due`, `declined`, `foreign` or `ready` and writes that state on the run's business
    (`e2e.actions payment-account`), and the flow checks Getting paid's wording for payouts paused and for a
    rejected SIN. The mobile lane has no Stripe keys, so the screen's refresh falls back to the stored state.
 

@@ -290,6 +290,8 @@ class PaymentService:
             if isinstance(deadline, int)
             else None,
             payouts_hold=hold if isinstance(hold, str) else None,
+            bank_errored=req.get("bank_errored") is True,
+            foreign_bank=req.get("foreign_bank") is True,
             available_cents=available,
             pending_cents=pending,
         )
@@ -315,7 +317,11 @@ class PaymentService:
                 for row in page.payouts
                 if row.get("currency") == BUSINESS_CURRENCY.lower()
             ]
-            return PayoutsOut(payouts=payouts, next_cursor=page.next_cursor)
+            return PayoutsOut(
+                payouts=payouts,
+                next_cursor=page.next_cursor,
+                foreign_bank=business.stripe_requirements.get("foreign_bank") is True,
+            )
         except (KeyError, ValueError, OverflowError, OSError) as exc:
             raise AppError(
                 "invalid payout response", status_code=502, code="provider_unavailable"
@@ -2529,6 +2535,16 @@ async def _refresh_account(
     await db.flush()
 
 
+async def _reread_after_failed_payout(
+    db: AsyncSession, gateway: PaymentGateway, account_id: str | None
+) -> None:
+    """Read the bank a payout failed to sooner than its own event; the payout is recorded anyway."""
+    try:
+        await _refresh_account(db, gateway, account_id)
+    except Exception:
+        _log.warning("re-reading stripe account %s after a failed payout failed", account_id)
+
+
 async def _disputed_payment(
     db: AsyncSession, data: dict[str, object], account: str | None = None
 ) -> Payment | None:
@@ -2554,6 +2570,13 @@ async def _dispatch(
     if event.type in ACCOUNT_EVENTS:
         closed = event.type == ACCOUNT_CLOSED
         await _refresh_account(db, gateway, event.account, closed=closed)
+    elif event.type in (
+        "account.external_account.created",
+        "account.external_account.deleted",
+        "account.external_account.updated",
+    ):
+        # a bank's status and currency change without any account event
+        await _refresh_account(db, gateway, event.account)
     elif event.account is None and event.type in PLAN_EVENTS:
         # a platform subscription bills the business itself; it is never a client membership
         await plans.apply_subscription_event(db, gateway, event)
@@ -2575,6 +2598,8 @@ async def _dispatch(
         await _record_payout(db, event.account, event.data, paid=event.type == "payout.paid")
     elif event.type in ("payout.failed", "payout.canceled"):
         await _fail_payout(db, event.account, event.data, event.created)
+        if event.type == "payout.failed":
+            await _reread_after_failed_payout(db, gateway, event.account)
     elif event.type in ("setup_intent.succeeded", "setup_intent.setup_failed"):
         await _reconcile_pad_setup(db, gateway, event.account, str(event.data.get("id")))
     elif event.type == "mandate.updated":

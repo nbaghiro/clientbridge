@@ -1,5 +1,5 @@
 appId: ${APP_ID}
-name: NATIVE-CFG-02 Getting paid names what Stripe needs while payouts are paused and why it rejected a detail
+name: NATIVE-CFG-02 Getting paid names what Stripe needs while payouts are paused, why it rejected a detail, and a payout bank that turned a payout down or isn't in CAD
 tags:
     - lane
 onFlowComplete:
@@ -41,3 +41,31 @@ onFlowComplete:
       direction: DOWN
 - assertVisible: "ID number \\(SIN\\)"
 - takeScreenshot: getting-paid-rejected
+- tapOn: "Back|Go back|Navigate up"
+- runScript:
+      file: helpers/control.js
+      env:
+          ACTION: account
+          PAYLOAD: declined
+- tapOn: "Getting paid"
+- assertVisible: "Payouts are paused"
+- assertVisible: "You can still take card payments, but your bank turned down your last payout. Payouts are on hold until you update your bank details."
+- scrollUntilVisible:
+      element: "Your bank turned down the last payout. Check the account details, or add a different account."
+      direction: DOWN
+- scrollUntilVisible:
+      element: "Held until your bank is updated"
+      direction: DOWN
+- takeScreenshot: getting-paid-bank-declined
+- tapOn: "Back|Go back|Navigate up"
+- runScript:
+      file: helpers/control.js
+      env:
+          ACTION: account
+          PAYLOAD: foreign
+- tapOn: "Getting paid"
+- assertVisible: "Card payments, Tap to Pay and payouts are on, but your payouts go to a bank account in another currency. Stripe converts each one, and Clientbridge can't track them. Add a Canadian-dollar account."
+- scrollUntilVisible:
+      element: "This account isn't in Canadian dollars. Add a Canadian-dollar chequing account for your payouts."
+      direction: DOWN
+- takeScreenshot: getting-paid-foreign-bank

@@ -1,5 +1,6 @@
 import asyncio
 import json
+from dataclasses import replace
 from pathlib import Path
 from typing import cast
 
@@ -24,11 +25,12 @@ from clientbridge.integrations.stripe import (
     payment_descriptor,
 )
 from clientbridge.models.business import Business, Staff
+from clientbridge.models.ledger import Entry
 from clientbridge.models.platform import Audit, IdempotencyKey
 from clientbridge.services.business import apply_account_status, derive_kyc_status, kyc_status
 from clientbridge.services.payments import PaymentService
 from tests.conftest import STAFF_USER, Factory, FakePaymentGateway
-from tests.helpers import enable_payments
+from tests.helpers import enable_payments, stripe_event
 
 BIZ = "bz_birchbark"
 
@@ -249,6 +251,73 @@ def test_payouts_held_with_nothing_due_keep_stripes_reason() -> None:
     status = account_status_from("acct_x", data)
     assert status.payouts_hold == "restricted_other"
     assert derive_kyc_status(status) == "payouts_paused"
+
+
+def _bank(status: str, *, default: bool = True, currency: str = "cad") -> dict[str, object]:
+    return {
+        "object": "bank_account",
+        "currency": currency,
+        "default_for_currency": default,
+        "status": status,
+    }
+
+
+def test_an_errored_payout_bank_pauses_payouts_while_cards_stay_on() -> None:
+    data = _with(_account(), configuration=_payouts("active"), requirements=None)
+    status = account_status_from("acct_x", data, [_bank("errored")])
+    assert status.charges_enabled and not status.payouts_enabled
+    assert status.bank_errored and status.payouts_hold is None
+    assert derive_kyc_status(status) == "payouts_paused"
+
+
+def test_a_bank_that_failed_verification_pauses_payouts() -> None:
+    data = _with(_account(), configuration=_payouts("active"), requirements=None)
+    status = account_status_from("acct_x", data, [_bank("verification_failed")])
+    assert status.bank_errored and not status.payouts_enabled
+
+
+@pytest.mark.parametrize(
+    "banks",
+    [
+        [_bank("errored", default=False), _bank("verified")],
+        [_bank("errored", currency="usd"), _bank("verified")],
+    ],
+)
+def test_an_errored_bank_that_takes_no_payouts_leaves_them_on(
+    banks: list[dict[str, object]],
+) -> None:
+    data = _with(_account(), configuration=_payouts("active"), requirements=None)
+    status = account_status_from("acct_x", data, banks)
+    assert status.payouts_enabled and not status.bank_errored
+    assert derive_kyc_status(status) == "enabled"
+
+
+def test_an_errored_bank_in_another_currency_pauses_payouts_without_a_cad_bank() -> None:
+    data = _with(_account(), configuration=_payouts("active"), requirements=None)
+    status = account_status_from("acct_x", data, [_bank("errored", currency="usd")])
+    assert status.bank_errored and status.foreign_bank and not status.payouts_enabled
+
+
+async def test_banks_stripe_could_not_list_keep_the_last_mirrored_flags(db: AsyncSession) -> None:
+    business = await db.get_one(Business, BIZ)
+    data = _with(_account(), configuration=_payouts("active"), requirements=None)
+    apply_account_status(business, account_status_from("acct_x", data, [_bank("errored")]))
+    unread = account_status_from("acct_x", data, None)
+    assert unread.bank_errored is None and unread.payouts_enabled
+    apply_account_status(business, unread)
+    assert business.stripe_requirements["bank_errored"] is True
+    assert business.stripe_requirements["foreign_bank"] is False
+    assert not business.stripe_payouts_enabled and kyc_status(business) == "payouts_paused"
+
+
+def test_a_payout_bank_without_cad_is_flagged_while_payouts_stay_on() -> None:
+    data = _with(_account(), configuration=_payouts("active"), requirements=None)
+    status = account_status_from("acct_x", data, [_bank("new", currency="usd")])
+    assert status.foreign_bank and status.payouts_enabled
+    assert derive_kyc_status(status) == "enabled"
+    both = [_bank("new", currency="usd"), _bank("new", default=True)]
+    assert not account_status_from("acct_x", data, both).foreign_bank
+    assert not account_status_from("acct_x", data).foreign_bank
 
 
 def _kyc(
@@ -833,3 +902,89 @@ async def test_refresh_reads_the_account_from_stripe(
     res = await as_owner.post("/v1/connect/refresh")
     assert res.status_code == 200, res.text
     assert res.json()["payouts_enabled"] is True
+
+
+async def test_a_failed_payout_pauses_payouts_until_the_bank_is_replaced(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    ready = ConnectAccount(
+        id="acct_test",
+        charges_enabled=True,
+        payouts_enabled=True,
+        currently_due=[],
+        eventually_due=[],
+        past_due=[],
+        disabled_reason=None,
+        card_status="active",
+    )
+    gateway.accounts["acct_test"] = replace(ready, payouts_enabled=False, bank_errored=True)
+    # a payout in a currency the books refuse still reports the bank that turned it down
+    payout = {"id": "po_bounced", "amount": 639, "currency": "usd", "arrival_date": 1793964159}
+    await stripe_event(as_owner, "payout.failed", payout)
+    body = (await as_owner.get("/v1/connect/status")).json()
+    assert body["kyc_status"] == "payouts_paused" and body["bank_errored"] is True
+    assert body["charges_enabled"] is True and body["payouts_enabled"] is False
+
+    gateway.accounts["acct_test"] = ready
+    body = (await as_owner.post("/v1/connect/refresh")).json()
+    assert body["kyc_status"] == "enabled" and body["bank_errored"] is False
+
+
+async def test_status_flags_a_payout_bank_in_another_currency(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    gateway.accounts["acct_test"] = ConnectAccount(
+        id="acct_test",
+        charges_enabled=True,
+        payouts_enabled=True,
+        currently_due=[],
+        eventually_due=[],
+        past_due=[],
+        disabled_reason=None,
+        card_status="active",
+        foreign_bank=True,
+    )
+    body = (await as_owner.post("/v1/connect/refresh")).json()
+    assert body["kyc_status"] == "enabled" and body["foreign_bank"] is True
+
+
+async def test_a_failed_payout_is_recorded_when_the_account_cannot_be_read(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    gateway.unreadable_accounts.add("acct_test")
+    payout = {"id": "po_unread", "amount": 639, "currency": "cad", "arrival_date": 1793964159}
+    await stripe_event(as_owner, "payout.failed", payout)
+    failed = await db.scalar(select(Entry.id).where(Entry.ref == "payout:po_unread:failed"))
+    assert failed is not None
+
+
+@pytest.mark.parametrize(
+    "event_type",
+    [
+        "account.external_account.created",
+        "account.external_account.updated",
+        "account.external_account.deleted",
+    ],
+)
+async def test_a_bank_event_re_reads_the_account(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway, event_type: str
+) -> None:
+    await enable_payments(db)
+    gateway.accounts["acct_test"] = ConnectAccount(
+        id="acct_test",
+        charges_enabled=True,
+        payouts_enabled=False,
+        currently_due=[],
+        eventually_due=[],
+        past_due=[],
+        disabled_reason=None,
+        card_status="active",
+        bank_errored=True,
+    )
+    bank = {"id": "ba_payout", "object": "bank_account", "currency": "cad", "status": "errored"}
+    await stripe_event(as_owner, event_type, bank)
+    body = (await as_owner.get("/v1/connect/status")).json()
+    assert body["kyc_status"] == "payouts_paused" and body["bank_errored"] is True

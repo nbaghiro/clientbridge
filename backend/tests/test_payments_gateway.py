@@ -696,3 +696,29 @@ async def test_a_first_membership_charge_stripe_refuses_names_why(
             metadata={},
             application_fee_percent=0.3,
         )
+
+
+@pytest.mark.parametrize("readable", [True, False])
+async def test_account_read_lists_the_banks_and_survives_a_bank_list_stripe_refuses(
+    gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch, readable: bool
+) -> None:
+    calls: list[tuple[str, dict[str, object]]] = []
+
+    async def retrieve(account_id: str, params: object = None) -> stripe.StripeObject:
+        return stripe.StripeObject.construct_from({"id": account_id}, "sk")
+
+    async def listing(account_id: str, **params: object) -> stripe.ListObject[stripe.BankAccount]:
+        calls.append((account_id, params))
+        if not readable:
+            raise stripe.APIConnectionError("timed out")
+        bank = {"object": "bank_account", "currency": "usd", "default_for_currency": True}
+        return stripe.ListObject[stripe.BankAccount].construct_from(
+            {"data": [{**bank, "status": "errored"}]}, "sk"
+        )
+
+    monkeypatch.setattr(gateway.client.v2.core.accounts, "retrieve_async", retrieve)
+    monkeypatch.setattr(stripe.Account, "list_external_accounts_async", listing)
+    status = await gateway.get_account("acct_x")
+    assert calls == [("acct_x", {"object": "bank_account", "limit": 100})]
+    expected = (True, True) if readable else (None, None)
+    assert (status.bank_errored, status.foreign_bank) == expected
