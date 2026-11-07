@@ -36,7 +36,8 @@
         "provider.stripe.ts > STRIPE-BROWSER-06 held genuine settlement leaves durable invoice unpaid until release": 59,
         "tabs.stripe.ts > STR-E06 one invoice in two tabs: a decline in the first, then both pay, and only one charge goes through": 52,
         "wallet.stripe.ts > STR-E26 cards saved through Stripe charge nothing, the chosen default pays an invoice off-session, and a removed card can't be charged": 60,
-        "wallet.stripe.ts > STR-E27 a client authorizes a bank account from the setup link, and an invoice debited from it is paid only once Stripe settles": 84
+        "wallet.stripe.ts > STR-E27 a client authorizes a bank account from the setup link, and an invoice debited from it is paid only once Stripe settles": 84,
+        "wallet.stripe.ts > STR-E30 a bank whose debit its bank refuses loses its mandate, can't be charged or made the default, and can still be removed": 68
     },
     "web": {
         "admin.e2e.ts > OPS-E2E-01 only a granted operator reaches the admin ops, and every page stays uncached": 12,

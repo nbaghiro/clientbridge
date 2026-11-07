@@ -41,6 +41,8 @@ const MAESTRO_GLOBALS = {
         "BODY",
         "SLUG",
         "WORDS",
+        "CLIENT",
+        "DEFAULT",
     ]),
     output: "writable",
 };

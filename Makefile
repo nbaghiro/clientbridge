@@ -371,6 +371,12 @@ infra-mobile:
 test-stripe-browser:
 	cd backend && uv run python -m e2e.stripe stack $(STRIPE_BROWSER_ARGS)
 
+# The phone flows that reach the sandbox, on a started device, after `uv run python -m e2e.stripe native-build <platform>`.
+.PHONY: test-stripe-native
+test-stripe-native:
+	@test -n "$(PLATFORM)" -a -n "$(DEVICE)" || { echo "usage: make test-stripe-native PLATFORM=ios|android DEVICE=<id>"; exit 1; }
+	cd backend && uv run python -m e2e.stripe stack --native $(PLATFORM):$(DEVICE) $(ARGS)
+
 # Read-only browser checks of a deployed environment (staging unless SMOKE_* say otherwise).
 test-staging-smoke:
 	cd frontend && pnpm --filter connect exec playwright test --config=playwright.smoke.config.ts $(SMOKE_ARGS)

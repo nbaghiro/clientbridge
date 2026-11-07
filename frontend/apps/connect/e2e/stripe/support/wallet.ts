@@ -181,3 +181,42 @@ export async function advance(control: Locator, next: Locator): Promise<void> {
         await expect(next).toBeVisible({ timeout: 5_000 });
     }).toPass({ timeout: 120_000 });
 }
+
+/** Detaches a saved method at Stripe without the app, as the Dashboard can. */
+export function detachAtStripe(
+    clientId: string,
+    providerRef: string,
+): Promise<{ payment_method: string; customer: string | null }> {
+    return stripeHarness(["clients", "detach", clientId, "--target", providerRef]);
+}
+
+/** Finishes the client's bank setup with Stripe's test bank whose debits the bank refuses. */
+export function authorizeRefusingBank(
+    clientId: string,
+    intentId: string,
+): Promise<{ setup: string; status: string; payment_method: string; mandate: string | null }> {
+    return stripeHarness(["clients", "unauthorized-bank", clientId, "--target", intentId]);
+}
+
+/** Creates a private bank authorization link from the client's wallet. */
+export async function createSetupLink(
+    page: Page,
+    client: ClientFixture,
+): Promise<{ id: string; url: string }> {
+    const wallet = await openWallet(page, client);
+    await wallet.getByRole("button", { name: strings.clients.addBankWeb, exact: true }).click();
+    const created = page.waitForResponse(
+        (r) =>
+            new URL(r.url()).pathname === `/v1/payments/pad-links/${client.id}` &&
+            r.request().method() === "POST",
+    );
+    await wallet
+        .getByRole("button", { name: strings.checkout.bankLinkCreate, exact: true })
+        .click();
+    const response = await created;
+    expect(response.status(), await response.text()).toBe(200);
+    const made = (await response.json()) as { id: string; url: string };
+    await expect(wallet.getByText(made.url, { exact: true })).toBeVisible();
+    await wallet.getByRole("button", { name: strings.common.done, exact: true }).click();
+    return made;
+}
