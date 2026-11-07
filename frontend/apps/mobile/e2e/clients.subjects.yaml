@@ -101,10 +101,12 @@ onFlowComplete:
 - tapOn: "Schedule"
 - tapOn: ${output.dayLabel}
 # the day opens at the start of its hours, which the helper moved to midnight
+# a ten-minute block clips its label, so the label never shows in full
 - scrollUntilVisible:
       element: ".*Juniper.*"
       direction: DOWN
       centerElement: true
+      visibilityPercentage: 10
       timeout: 60000
 # a ten-minute visit is a thin block, and a tap while the grid settles can miss it
 - retry:
