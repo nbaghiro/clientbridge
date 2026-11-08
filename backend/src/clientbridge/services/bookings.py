@@ -137,6 +137,7 @@ _NOT_STARTED = "a visit can be completed or marked a no-show only once it has st
 _ESTIMATE_BOOKED = "the estimate already has a booked visit; cancel it to book the estimate again"
 _ESTIMATE_INVOICED = "the estimate was already invoiced, so its products are billed there"
 _CLOSED_OR_WAITING = ("completed", "canceled", "no_show", "waitlisted")
+_DEPOSIT_UNPAID = "the client hasn't paid this request's deposit yet"
 _INVOICED = "this visit is already invoiced"
 _CLASS_CREW = "a class session has no crew; add helpers to a one-to-one visit"
 _CREW_STARTED = "the visit has already started; add helpers before it starts"
@@ -230,6 +231,16 @@ async def waitlist_position(db: AsyncSession, booking: Booking) -> int | None:
         )
     )
     return int(ahead or 0) + 1
+
+
+def _awaiting_deposit(booking: Booking) -> bool:
+    """An online request still on its deposit; the reaper releases it if the card never lands."""
+    return (
+        booking.status == "pending"
+        and booking.source == "online"
+        and booking.deposit_amount_cents > 0
+        and booking.deposit_status == "pending"
+    )
 
 
 def seat_booking(booking: Booking) -> None:
@@ -950,6 +961,8 @@ class BookingService:
                 await carry_crew(self.db, self.biz, booking, slot)
                 cmd.record("booking.reschedule", entity_type="booking", entity_id=booking.id)
             if data.status is not None and data.status != booking.status:
+                if data.status == "confirmed" and _awaiting_deposit(booking):
+                    raise Conflict(_DEPOSIT_UNPAID, code="deposit_unpaid")
                 held_seat = booking.status in ("pending", "confirmed")
                 booking.status = data.status
                 if data.status == "confirmed":
@@ -1073,6 +1086,8 @@ class BookingService:
         )
         waiting = [b.id for b in days if b.status == "pending" and b.id != booking.id]
         others = await lock_bookings(self.db, self.biz, waiting)
+        if status == "confirmed" and any(_awaiting_deposit(other) for other in others):
+            raise Conflict(_DEPOSIT_UNPAID, code="deposit_unpaid")
         for other in others:
             other.status = status
             if status == "confirmed":

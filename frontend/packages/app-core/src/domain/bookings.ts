@@ -1813,6 +1813,10 @@ function useBookingDetail(event: ScheduleEvent | null, now: Date): BookingDetail
     };
 }
 
+// An online request whose client is still on the deposit step, so it isn't staff's to answer yet.
+export const awaitingDepositSql = `(b.status = 'pending' AND b.source = 'online'
+  AND b.deposit_amount_cents > 0 AND b.deposit_status = 'pending')`;
+
 type LifecycleAction = "complete" | "no_show" | "cancel" | "approve" | "decline";
 
 const LIFECYCLE_STATUS: Record<LifecycleAction, string> = {
@@ -1831,6 +1835,7 @@ export interface BookingActions {
     // A request a new client made online, waiting for the business to take it or turn it down.
     canApprove: boolean;
     canDecline: boolean;
+    requestNote: string | null;
     pending: LifecycleAction | null;
     busy: boolean;
     error: string | null;
@@ -1857,6 +1862,7 @@ export function lifecycleOf(
     | "canReschedule"
     | "canApprove"
     | "canDecline"
+    | "requestNote"
     | "notStartedNote"
 > {
     const open =
@@ -1865,13 +1871,24 @@ export function lifecycleOf(
         (event.status === "confirmed" || event.status === "pending");
     const started = event !== null && event.start <= now;
     const request = open && !started && event.status === "pending";
+    // the client is still on the card form, and the hold is released if the deposit never lands
+    const awaitingDeposit =
+        request &&
+        event.source === "online" &&
+        event.depositRequired &&
+        event.depositStatus === "pending";
     return {
         canComplete: open && started,
         canNoShow: open && started,
         canCancel: open && !started && !request,
         canReschedule: open && !started,
-        canApprove: request,
+        canApprove: request && !awaitingDeposit,
         canDecline: request,
+        requestNote: awaitingDeposit
+            ? s.awaitingDeposit(formatMoney(event.depositAmountCents, BUSINESS_CURRENCY))
+            : request
+              ? s.requestNote
+              : null,
         notStartedNote: open && !started && !request ? s.notStartedNote : null,
     };
 }

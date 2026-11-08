@@ -805,14 +805,15 @@ export function BookingActionBar({
             </View>
         );
     }
-    if (actions.canApprove) {
+    if (actions.canDecline) {
         return (
             <View style={styles.ask}>
-                <Text style={styles.sub}>{s.requestNote}</Text>
+                <Text style={styles.sub}>{actions.requestNote}</Text>
                 <View style={styles.askRow}>
                     <Button
                         grow
                         busy={actions.pending === "approve"}
+                        disabled={!actions.canApprove}
                         onPress={() => {
                             actions.run("approve");
                         }}

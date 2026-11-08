@@ -69,6 +69,15 @@ export function PublicBooking() {
     if (flow.status === "loading") return <PublicStatus kind="loading" />;
     if (flow.status === "not-found")
         return <PublicStatus kind="notFound" title={s.notFoundTitle} body={s.notFoundBody} />;
+    if (flow.status === "error" && flow.limited)
+        return (
+            <PublicStatus
+                kind="error"
+                title={s.busyTitle}
+                body={s.busyBody}
+                onRetry={flow.retryLoad}
+            />
+        );
     if (flow.status === "error" || page === null)
         return <PublicStatus kind="error" title={s.errorTitle} body={s.errorBody} />;
 

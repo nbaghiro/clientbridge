@@ -1234,6 +1234,8 @@ class PublicManageService:
     async def pay_deposit(self, token: str) -> PublicCardIntent:
         """Open the card payment for a visit's unpaid deposit, superseding any earlier attempt."""
         booking, _, business = await self._locked(token)
+        if booking.status in ("canceled", "completed", "no_show"):
+            raise Conflict("this visit is no longer booked", code="booking_closed")
         if not _deposit_due(booking):
             raise Conflict("this visit has no deposit to pay", code="deposit_not_due")
         account_id = _account(business)

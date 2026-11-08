@@ -1996,6 +1996,13 @@ describe("app-core SQL against the replica schema", () => {
             { ...request, id: "bk_req", slot_id: "ss_req" },
             { ...request, id: "bk_past", slot_id: "ss_2" },
             { ...request, id: "bk_gone", slot_id: "ss_3", deleted_at: TS },
+            {
+                ...request,
+                id: "bk_paying",
+                slot_id: "ss_req",
+                deposit_amount_cents: 2750,
+                deposit_status: "pending",
+            },
         ]);
         expect(
             pick(
@@ -2014,6 +2021,13 @@ describe("app-core SQL against the replica schema", () => {
         );
         expect(bell.find((r) => r.id === "bk-bk_req")?.kind).toBe("booking_request");
         expect(bell.find((r) => r.id === "bk-bk_1")?.kind).toBe("booking_new");
+        // a client still on the card form hasn't asked yet
+        expect(bell.find((r) => r.id === "bk-bk_paying")).toBeUndefined();
+        db.run("UPDATE bookings SET deposit_status = 'collected' WHERE id = 'bk_paying'");
+        expect(run("REQUESTS_SQL", ["2026-06-27T00:00:00.000Z"]).map((r) => r.booking_id)).toEqual([
+            "bk_paying",
+            "bk_req",
+        ]);
         // a declined request arrived as a request, so the bell never calls it a new booking
         db.run(
             "UPDATE bookings SET status = 'canceled', canceled_at = '2026-06-27T10:00:00Z' WHERE id = 'bk_req'",

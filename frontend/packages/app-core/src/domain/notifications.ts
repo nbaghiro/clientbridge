@@ -18,6 +18,7 @@ import type { IconName } from "../icons";
 import { strings } from "../strings";
 import type { Intent } from "../ui";
 import type { Viewer } from "./auth";
+import { awaitingDepositSql } from "./bookings";
 import { invoiceStatusSql } from "./ledger";
 import type { ShellTarget } from "./navigation";
 import { canManagePayments } from "./payments";
@@ -96,6 +97,7 @@ SELECT 'bk-' || b.id,
 FROM bookings b JOIN slots s ON s.id = b.slot_id JOIN items i ON i.id = s.item_id
 LEFT JOIN clients c ON c.id = b.client_id
 WHERE b.source = 'online' AND b.deleted_at IS NULL AND ${since("b.created_at")}
+  AND NOT ${awaitingDepositSql}
 UNION ALL
 SELECT 'bkc-' || b.id, 'booking_canceled', b.canceled_at, b.client_id, c.name, NULL, i.name, NULL,
        NULL, b.id, s.starts_at
