@@ -226,6 +226,33 @@ export async function createBookingThroughUi(
     return (await response.json()) as BookingRecord;
 }
 
+/** Books the fixture's client with a member at the first free working time on the given days. */
+export async function bookFreeVisit(
+    page: Page,
+    fixture: BookingFixture,
+    staffId: string,
+    days: readonly number[],
+): Promise<BookingRecord> {
+    for (const offset of days) {
+        const day = addDays(new Date(), offset, fixture.zone);
+        for (const time of ["10:00", "11:00", "13:00", "14:00", "15:00"]) {
+            const response = await page.request.post(`${bookingApi()}/v1/bookings`, {
+                headers: { Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() },
+                data: {
+                    client_id: fixture.clientId,
+                    item_id: fixture.itemId,
+                    staff_id: staffId,
+                    starts_at: combineDayAndTime(day, time, fixture.zone).toISOString(),
+                    notify: false,
+                },
+            });
+            if (response.status() === 201) return (await response.json()) as BookingRecord;
+            expect(response.status(), await response.text()).toBe(409);
+        }
+    }
+    throw new Error("No free working time found for the member on those days");
+}
+
 export async function cancelOwnedBooking(page: Page, bookingId: string): Promise<void> {
     const response = await page.request.patch(`${bookingApi()}/v1/bookings/${bookingId}`, {
         headers: { Origin: new URL(page.url()).origin },

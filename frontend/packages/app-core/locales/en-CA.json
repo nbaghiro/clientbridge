@@ -6288,9 +6288,6 @@
     "clients.history.noteChangeError": {
         "message": "Couldn't change this note. Please try again."
     },
-    "clients.history.editNote": {
-        "message": "Edit"
-    },
     "clients.history.deleteNote": {
         "message": "Delete"
     },
@@ -6316,6 +6313,11 @@
     "clients.history.emptyFilter": {
         "message": "Nothing of this kind yet."
     },
+    "clients.history.emptySince": {
+        "message": "Nothing here since {month}. Show older to read further back.",
+        "description": "A client's timeline with nothing in the months this device keeps; month is like October 2025",
+        "args": ["month"]
+    },
     "clients.history.emptyTitle": {
         "message": "No history yet"
     },
@@ -6324,6 +6326,16 @@
     },
     "clients.history.loadOlder": {
         "message": "Show older"
+    },
+    "clients.history.noteActions": {
+        "message": "Note actions",
+        "description": "Accessible name of the button that opens a note's Pin and Delete menu"
+    },
+    "clients.history.olderFailed": {
+        "message": "We couldn't load older history. Please try again."
+    },
+    "clients.history.olderOffline": {
+        "message": "Older visits and texts need a connection. Try again when you're back online."
     },
     "clients.history.overdue": {
         "message": "Overdue"
@@ -14150,7 +14162,7 @@
         "message": "Remove photo"
     },
     "files.clientPhotoHint": {
-        "message": "Your team sees it beside this client. The client doesn't.",
+        "message": "Your team sees it beside this client, and the client sees it on their booking pages.",
         "description": "Hint under a client's photo in the staff app"
     },
     "files.memberPhotoHint": {

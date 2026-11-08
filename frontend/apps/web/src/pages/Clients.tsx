@@ -629,6 +629,7 @@ function ClientPage({ clientId, view }: { clientId: string; view: View }) {
                     <div className="mt-6">
                         {view === "history" && record !== null ? (
                             <ClientHistory
+                                key={clientId}
                                 clientId={clientId}
                                 aside={
                                     <Panel>

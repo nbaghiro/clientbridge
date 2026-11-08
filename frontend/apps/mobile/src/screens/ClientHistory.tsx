@@ -1,5 +1,6 @@
 import {
     type ClientHistoryFilter,
+    formatParts,
     formatRelativeTime,
     strings,
     toTimeline,
@@ -13,6 +14,7 @@ import {
     Empty,
     Icon,
     LoadFailed,
+    Notice,
     Panel,
     Skeleton,
     Tabs,
@@ -21,6 +23,7 @@ import { type RouteProp, useRoute } from "@react-navigation/native";
 import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
+import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
 import type { RootStackParamList } from "../navigation";
 
@@ -34,7 +37,7 @@ export function ClientHistoryScreen() {
     const zone = useBusinessZone();
     const { clientId } = useRoute<RouteProp<RootStackParamList, "ClientHistory">>().params;
     const viewer = useViewer();
-    const hist = useClientHistory(clientId, viewer?.staffId ?? null);
+    const hist = useClientHistory(api, clientId, viewer?.staffId ?? null);
     const [composing, setComposing] = useState(false);
     const now = new Date();
 
@@ -70,7 +73,10 @@ export function ClientHistoryScreen() {
                         </View>
                         <Text style={styles.pinnedBody}>{n.body}</Text>
                         <Text style={styles.pinnedMeta}>
-                            {h.by(n.author, formatRelativeTime(n.at.toISOString(), zone, now))}
+                            {formatParts([
+                                h.by(n.author, formatRelativeTime(n.at.toISOString(), zone, now)),
+                                n.subjectName,
+                            ])}
                         </Text>
                     </View>
                 ))}
@@ -100,7 +106,7 @@ export function ClientHistoryScreen() {
                     <Empty icon="history" message={h.emptyTitle} body={h.empty} />
                 ) : null}
                 {hist.load.ready && hist.groups.length === 0 ? (
-                    <Empty message={hist.total === 0 ? h.empty : h.emptyFilter} />
+                    <Empty message={hist.emptyMessage} />
                 ) : null}
                 {hist.groups.map((g) => (
                     <View key={g.key} style={styles.group}>
@@ -110,9 +116,17 @@ export function ClientHistoryScreen() {
                         </Panel>
                     </View>
                 ))}
+                {hist.older.error !== null ? (
+                    <Notice tone="danger">{hist.older.error}</Notice>
+                ) : null}
                 {hist.hasOlder ? (
                     <View style={styles.group}>
-                        <Button full variant="outline" onPress={hist.showOlder}>
+                        <Button
+                            full
+                            variant="outline"
+                            busy={hist.older.busy}
+                            onPress={hist.showOlder}
+                        >
                             {h.loadOlder}
                         </Button>
                     </View>

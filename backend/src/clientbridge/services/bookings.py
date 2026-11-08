@@ -6,7 +6,7 @@ from datetime import UTC, date, datetime, time, timedelta
 from typing import Literal
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import ColumnElement, Exists, func, literal, or_, select, text, true, tuple_
+from sqlalchemy import ColumnElement, Exists, and_, func, literal, or_, select, text, true, tuple_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -1128,10 +1128,24 @@ class BookingService:
         await self._client(client_id)
         stmt = (
             scoped(Booking, self.biz, soft_delete=True)
-            .add_columns(Slot.starts_at, Slot.ends_at, Item.name, Item.color, staff_name())
+            .add_columns(
+                Slot.starts_at,
+                Slot.ends_at,
+                Item.name,
+                Item.color,
+                staff_name(),
+                Subject.name,
+                and_(
+                    Booking.status == "canceled",
+                    Booking.confirmed_at.is_(None),
+                    Slot.capacity > 1,
+                    Booking.canceled_at >= Slot.ends_at,
+                ),
+            )
             .join(Slot, Slot.id == Booking.slot_id)
             .join(Item, Item.id == Slot.item_id)
             .outerjoin(Staff, Staff.id == Booking.staff_id)
+            .outerjoin(Subject, Subject.id == Booking.subject_id)
             .where(
                 Booking.client_id == client_id,
                 Slot.starts_at < before
@@ -1142,21 +1156,28 @@ class BookingService:
             .order_by(Slot.starts_at.desc(), Booking.id.desc())
             .limit(limit + 1)
         )
-        done = (
-            scoped(Booking, self.biz, soft_delete=True)
-            .with_only_columns(func.count(Booking.id), func.max(Slot.starts_at))
-            .join(Slot, Slot.id == Booking.slot_id)
-            .where(
-                Booking.client_id == client_id,
-                Booking.status == "completed",
-                Slot.starts_at < before,
-            )
+        own: ColumnElement[bool] = (
+            true()
+            if is_manager(self.principal.role)
+            else Booking.staff_id == self.principal.staff_id
         )
-        if not is_manager(self.principal.role):
-            stmt = stmt.where(Booking.staff_id == self.principal.staff_id)
-            done = done.where(Booking.staff_id == self.principal.staff_id)
-        rows = (await self.db.execute(stmt)).all()
-        completed, last_completed_at = (await self.db.execute(done)).one()
+        rows = (await self.db.execute(stmt.where(own))).all()
+        completed: int | None = None
+        last_completed_at: datetime | None = None
+        if before_id is None:
+            completed, last_completed_at = (
+                await self.db.execute(
+                    scoped(Booking, self.biz, soft_delete=True)
+                    .with_only_columns(func.count(Booking.id), func.max(Slot.starts_at))
+                    .join(Slot, Slot.id == Booking.slot_id)
+                    .where(
+                        Booking.client_id == client_id,
+                        Booking.status == "completed",
+                        Slot.starts_at < before,
+                        own,
+                    )
+                )
+            ).one()
         return VisitPage(
             visits=[
                 VisitOut(
@@ -1171,8 +1192,19 @@ class BookingService:
                     item_name=item_name,
                     item_color=item_color,
                     staff_name=staff_name,
+                    subject_name=subject_name,
+                    waitlist_closed=bool(waitlist_closed),
                 )
-                for booking, starts_at, ends_at, item_name, item_color, staff_name in rows[:limit]
+                for (
+                    booking,
+                    starts_at,
+                    ends_at,
+                    item_name,
+                    item_color,
+                    staff_name,
+                    subject_name,
+                    waitlist_closed,
+                ) in rows[:limit]
             ],
             more=len(rows) > limit,
             completed=completed,

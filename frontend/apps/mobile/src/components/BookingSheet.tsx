@@ -89,7 +89,6 @@ import {
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
 import { pickedPhoto, pickFromLibrary } from "../lib/photos";
-import { CheckInSheet } from "./CheckInSheet";
 import { DocumentPreview } from "./DocumentPreview";
 import { BookingVisitRecords } from "./VisitRecords";
 
@@ -113,12 +112,20 @@ function Departure({ event }: { event: ScheduleEvent }) {
     );
 }
 
-function CheckInCard({ event }: { event: ScheduleEvent }) {
+function CheckInCard({
+    event,
+    done,
+    onCheckIn,
+    onUndone,
+}: {
+    event: ScheduleEvent;
+    done: string | null;
+    onCheckIn: () => void;
+    onUndone: () => void;
+}) {
     const viewer = useViewer();
     const kind = useSubjectKind();
     const zone = useBusinessZone();
-    const [open, setOpen] = useState(false);
-    const [done, setDone] = useState<string | null>(null);
     const undo = useUndoCheckIn(api);
     if (done !== null && event.bookingId !== null) {
         const id = event.bookingId;
@@ -132,9 +139,7 @@ function CheckInCard({ event }: { event: ScheduleEvent }) {
                     variant="outline"
                     busy={undo.busy}
                     onPress={() => {
-                        undo.undo(id, () => {
-                            setDone(null);
-                        });
+                        undo.undo(id, onUndone);
                     }}
                 >
                     {strings.today.undoCheckIn}
@@ -143,35 +148,16 @@ function CheckInCard({ event }: { event: ScheduleEvent }) {
         );
     }
     if (event.bookingId === null || !canCheckIn(event, viewer, kind, zone)) return null;
-    const bookingId = event.bookingId;
     return (
         <Panel style={styles.depart}>
             <Text style={styles.sub}>
                 {kind === "site" ? strings.today.arriveBody : strings.today.checkInBody}
             </Text>
             <View style={styles.dueActions}>
-                <Button
-                    grow
-                    icon="check"
-                    onPress={() => {
-                        setOpen(true);
-                    }}
-                >
+                <Button grow icon="check" onPress={onCheckIn}>
                     {arrivalWords(kind).action}
                 </Button>
             </View>
-            {open ? (
-                <CheckInSheet
-                    bookingId={bookingId}
-                    onClose={() => {
-                        setOpen(false);
-                    }}
-                    onDone={(message) => {
-                        setOpen(false);
-                        setDone(message);
-                    }}
-                />
-            ) : null}
         </Panel>
     );
 }
@@ -504,12 +490,23 @@ function Documents({ event }: { event: ScheduleEvent }) {
     );
 }
 
-export function BookingBody({ detail }: { detail: BookingDetail }) {
+export type BookingPage = "note" | "message" | "checkIn";
+
+export function BookingBody({
+    detail,
+    checkedIn,
+    onUndoneCheckIn,
+    onOpen,
+}: {
+    detail: BookingDetail;
+    checkedIn: string | null;
+    onUndoneCheckIn: () => void;
+    onOpen: (page: BookingPage) => void;
+}) {
     const photos = usePeoplePhotos();
     const zone = useBusinessZone();
     const e = detail.event;
     const { client, subject } = detail;
-    const [messaging, setMessaging] = useState(false);
     const cards = useSavedCards(client?.id ?? "");
     const card = cards.find((x) => x.preferred === 1) ?? cards[0];
     return (
@@ -546,7 +543,14 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
                 />
             </View>
             <Departure event={e} />
-            <CheckInCard key={`checkin:${e.id}`} event={e} />
+            <CheckInCard
+                event={e}
+                done={checkedIn}
+                onCheckIn={() => {
+                    onOpen("checkIn");
+                }}
+                onUndone={onUndoneCheckIn}
+            />
             <DepositDue event={e} />
             {client ? (
                 <DetailSection
@@ -557,7 +561,7 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
                             variant="quiet"
                             icon="message"
                             onPress={() => {
-                                setMessaging(true);
+                                onOpen("message");
                             }}
                         >
                             {s.message}
@@ -653,15 +657,6 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
                             </Text>
                         </View>
                     </Panel>
-                    {messaging ? (
-                        <MessageSheet
-                            clientId={client.id}
-                            name={client.name}
-                            onClose={() => {
-                                setMessaging(false);
-                            }}
-                        />
-                    ) : null}
                 </DetailSection>
             ) : null}
             {e.kind === "class" ? (
@@ -699,12 +694,27 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
             {detail.notes.length > 0 || e.bookingId !== null ? (
                 <DetailSection title={s.detailNotes}>
                     {detail.notes.map((n) => (
-                        <Text key={n.id} style={styles.note}>
-                            {n.body}
-                        </Text>
+                        <View key={n.id} style={styles.note}>
+                            <Text style={styles.noteBody}>{n.body}</Text>
+                            <Text style={styles.noteMeta}>
+                                {formatParts([
+                                    n.by,
+                                    n.subjectName,
+                                    n.pinned ? strings.clients.record.pinned : null,
+                                ])}
+                            </Text>
+                        </View>
                     ))}
                     {e.bookingId !== null ? (
-                        <BookingNoteBox key={`note:${e.bookingId}`} bookingId={e.bookingId} />
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onPress={() => {
+                                onOpen("note");
+                            }}
+                        >
+                            {s.noteAdd}
+                        </Button>
                     ) : null}
                 </DetailSection>
             ) : null}
@@ -725,16 +735,31 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
     );
 }
 
-function BookingNoteBox({ bookingId }: { bookingId: string }) {
-    const composer = useNoteComposer(api, { bookingId });
-    if (!composer.open)
-        return (
-            <Button size="sm" variant="outline" onPress={composer.show}>
-                {s.noteAdd}
-            </Button>
-        );
+// A page of its own, so the keyboard never lifts the visit's actions over the note's Add button.
+export function BookingNoteSheet({
+    bookingId,
+    onClose,
+}: {
+    bookingId: string;
+    onClose: () => void;
+}) {
+    const composer = useNoteComposer(api, { bookingId }, onClose);
     return (
-        <View style={styles.noteBox}>
+        <Modal open onClose={onClose} size="xl">
+            <SheetHeader
+                title={strings.clients.record.addNoteTitle}
+                onClose={onClose}
+                actions={
+                    <Button
+                        variant="link"
+                        busy={composer.busy}
+                        disabled={composer.body.trim() === ""}
+                        onPress={composer.submit}
+                    >
+                        {strings.clients.addShort}
+                    </Button>
+                }
+            />
             <TextField
                 multiline
                 rows={3}
@@ -744,24 +769,8 @@ function BookingNoteBox({ bookingId }: { bookingId: string }) {
                 placeholder={s.notePlaceholder}
                 autoFocus
             />
-            <View style={styles.photoActions}>
-                <Button size="sm" variant="outline" grow onPress={composer.cancel}>
-                    {strings.common.cancel}
-                </Button>
-                <Button
-                    size="sm"
-                    grow
-                    busy={composer.busy}
-                    disabled={composer.body.trim() === ""}
-                    onPress={composer.submit}
-                >
-                    {composer.busy
-                        ? strings.clients.history.savingNote
-                        : strings.clients.history.saveNote}
-                </Button>
-            </View>
             {composer.error !== null ? <Notice tone="danger">{composer.error}</Notice> : null}
-        </View>
+        </Modal>
     );
 }
 
@@ -966,7 +975,7 @@ export function RescheduleSheet({ event, onClose }: { event: ScheduleEvent; onCl
     );
 }
 
-function MessageSheet({
+export function MessageSheet({
     clientId,
     name,
     onClose,
@@ -1354,7 +1363,6 @@ const styles = StyleSheet.create({
     },
     photoImage: { width: "100%", height: "100%" },
     photoActions: { flexDirection: "row", gap: 8, marginTop: 8 },
-    noteBox: { gap: 8, marginTop: 4 },
     statusLine: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 },
     timing: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13, fontWeight: "600" },
     facts: {
@@ -1399,14 +1407,12 @@ const styles = StyleSheet.create({
     sub: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 13, marginTop: 1 },
     note: {
         backgroundColor: c.warnBg,
-        color: c.inkSoft,
-        fontFamily: theme.fonts.ui,
-        fontSize: 14,
-        lineHeight: 20,
         padding: 10,
         borderRadius: theme.radius,
         marginTop: 8,
     },
+    noteBody: { color: c.inkSoft, fontFamily: theme.fonts.ui, fontSize: 14, lineHeight: 20 },
+    noteMeta: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 12, marginTop: 4 },
     addon: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 14 },
     money: {
         color: c.ink,

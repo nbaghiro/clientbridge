@@ -454,6 +454,15 @@ def run_native(
         ).stdout
         device.push(payload)
 
+    def e2e_action(name: str, argv: list[str]) -> bytes:
+        return subprocess.run(
+            [sys.executable, "-m", "e2e.actions", name, *argv],
+            cwd=ROOT / "backend",
+            env=stack.env,
+            capture_output=True,
+            check=True,
+        ).stdout
+
     def payment_account(body: bytes) -> None:
         subprocess.run(
             [sys.executable, "-m", "e2e.actions", "payment-account", body.decode()],
@@ -485,6 +494,8 @@ def run_native(
                 "/account": payment_account,
                 "/photo": lambda body: device.add_photo(body.decode()),
                 "/bank": authorized_bank,
+                "/notes": lambda body: e2e_action("notes", [body.decode()]),
+                "/client-photo": lambda body: e2e_action("client-photo", body.decode().split()),
             },
             stack.directory / "control.log",
         ) as control,

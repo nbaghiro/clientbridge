@@ -56,6 +56,12 @@ export async function expectPhoto(editor: Locator, page: Page, sha256: string): 
         .getByRole("button", { name: strings.files.changePhoto, exact: true })
         .locator("img");
     await expect(image).toBeVisible();
+    return expectImage(image, page, sha256);
+}
+
+/** The image loaded, though an avatar hides it to paint it, and serves the uploaded bytes. */
+export async function expectImage(image: Locator, page: Page, sha256: string): Promise<string> {
+    await expect(image).toHaveCount(1);
     await expect
         .poll(() =>
             image.evaluate(

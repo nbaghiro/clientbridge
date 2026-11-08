@@ -5780,9 +5780,6 @@
     "clients.history.noteChangeError": {
         "message": "[Çöûļðñ'ţ çĥåñĝé ţĥîš ñöţé. Þļéåšé ţŕý åĝåîñ. one two three]"
     },
-    "clients.history.editNote": {
-        "message": "[Éðîţ one]"
-    },
     "clients.history.deleteNote": {
         "message": "[Đéļéţé one]"
     },
@@ -5807,6 +5804,9 @@
     "clients.history.emptyFilter": {
         "message": "[Ñöţĥîñĝ öƒ ţĥîš ķîñð ýéţ. one two]"
     },
+    "clients.history.emptySince": {
+        "message": "[Ñöţĥîñĝ ĥéŕé šîñçé {month}. Šĥöŵ öļðéŕ ţö ŕéåð ƒûŕţĥéŕ ƀåçķ. one two three four]"
+    },
     "clients.history.emptyTitle": {
         "message": "[Ñö ĥîšţöŕý ýéţ one two]"
     },
@@ -5815,6 +5815,15 @@
     },
     "clients.history.loadOlder": {
         "message": "[Šĥöŵ öļðéŕ one two]"
+    },
+    "clients.history.noteActions": {
+        "message": "[Ñöţé åçţîöñš one two]"
+    },
+    "clients.history.olderFailed": {
+        "message": "[Ŵé çöûļðñ'ţ ļöåð öļðéŕ ĥîšţöŕý. Þļéåšé ţŕý åĝåîñ. one two three four]"
+    },
+    "clients.history.olderOffline": {
+        "message": "[Öļðéŕ ṽîšîţš åñð ţéẋţš ñééð å çöññéçţîöñ. Ţŕý åĝåîñ ŵĥéñ ýöû'ŕé ƀåçķ öñļîñé. one two three four five]"
     },
     "clients.history.overdue": {
         "message": "[Öṽéŕðûé one]"
@@ -13182,7 +13191,7 @@
         "message": "[Ŕéɱöṽé þĥöţö one two]"
     },
     "files.clientPhotoHint": {
-        "message": "[Ýöûŕ ţéåɱ šééš îţ ƀéšîðé ţĥîš çļîéñţ. Ţĥé çļîéñţ ðöéšñ'ţ. one two three four]"
+        "message": "[Ýöûŕ ţéåɱ šééš îţ ƀéšîðé ţĥîš çļîéñţ, åñð ţĥé çļîéñţ šééš îţ öñ ţĥéîŕ ƀööķîñĝ þåĝéš. one two three four five six]"
     },
     "files.memberPhotoHint": {
         "message": "[Ýöûŕ ţéåɱ šééš îţ, åñð šö ðö çļîéñţš îƒ ýöû'ŕé öñ ţĥé þûƀļîç þŕöƒîļé. one two three four five]"
