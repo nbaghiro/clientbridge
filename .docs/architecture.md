@@ -427,7 +427,7 @@ replication, with no Node service of our own.
 - **Server-initiated push:** _any_ write that hits Postgres — a Stripe webhook, a cron job, another
   staff member's action — flows back out via the WAL automatically, sub-second, to the relevant devices.
 - **Hours conflicts** reject stale revisions and preserve the proposal for explicit review. The editor offers apply-again against a fresh revision or discard. Money creation remains backend/webhook-only.
-- **History window.** Messages, slots and bookings sync for the past 12 months and the next 24, by UTC month. The replica controller subscribes the three history streams with those months before it connects, so the first sync includes them. The controller refreshes this window every minute while active, including after a suspended timer resumes. Calendar reads subscribe to their requested months and wait for all three streams before treating an empty result as available. Confirmed month coverage is stored locally with a conservative 23-hour lifetime; unavailable offline dates are shown explicitly. A month that leaves the window is unsubscribed and its rows leave the device when the 24-hour TTL ends. Older history is read from the API while online: `GET /v1/bookings/visits` (a client's older visits, plus the count and date of completed ones) and `GET /v1/threads/{id}/messages`. Money tables (invoices, payments, accounts, entries) sync in full, so balances and invoice status stay correct offline. Streams cannot use the current time, so each windowed row needs its own timestamp; bookings carry `starts_at`, a copy of the slot start that `move_slot` keeps in step.
+- **History window.** Messages, slots and bookings sync for the past 12 months and the next 24, by UTC month. The replica controller subscribes the three history streams with those months before it connects, so the first sync includes them. The controller refreshes this window every minute while active, including after a suspended timer resumes. Calendar reads subscribe to their requested months and wait for all three streams before treating an empty result as available. Confirmed month coverage is stored locally with a conservative 23-hour lifetime; unavailable offline dates are shown explicitly. A month that leaves the window is unsubscribed and its rows leave the device when the 24-hour TTL ends. Older history is read from the API while online: `GET /v1/bookings/visits` (a client's older visits, plus the count and date of completed ones on the first page) and `GET /v1/threads/{id}/messages`. The client timeline pages each source that began before the window and hides entries older than the newest point a still-paging source has reached, so it shows no gaps; offline it shows the device's own older notes and money instead. Money tables (invoices, payments, accounts, entries) sync in full, so balances and invoice status stay correct offline. Streams cannot use the current time, so each windowed row needs its own timestamp; bookings carry `starts_at`, a copy of the slot start that `move_slot` keeps in step.
 - **Device query planning.** PowerSync stores each table as JSON behind a view and indexes JSON expressions. Replica indexes are the model indexes without a leading `business_id`, because a device reads one business at a time. The controller runs `PRAGMA optimize=0x10002` after the first sync, because without statistics SQLite prefers the `business_id` index. SQLite ignores a replica index on the right side of a LEFT JOIN, so a one-to-many join goes through the parent's id (`slotBookingsJoin`).
 
 ### Database roles and replication
@@ -649,7 +649,11 @@ types only), scoped to one business like every file. Any member can set a client
 their own, and an owner or admin sets anyone's on the team. Completing an upload deletes the photo it
 replaces, so each person has one, and `DELETE /v1/files/photos/{parent_type}/{parent_id}` clears it. The
 rows sync with the other files, and `usePeoplePhotos` turns them into presigned links for every avatar. A
-client photo is never public. A user's photo is served from `/media/{file_id}`, and appears as
+client photo is never public: the client sees only their own, beside the greeting on the manage link of a
+visit staff booked (`client_photo_url`, served by `GET /manage/{token}/photos/{file_id}`; an online
+booking proves only a phone number, so its link shows none) and beside Welcome back once a text-code
+sign-in has verified them (`photo_url` on the returning profile, a short-lived presigned link).
+A user's photo is served from `/media/{file_id}`, and appears as
 `photo_url` on `PublicStaff`, only while that member is active, bookable online and on the profile's
 `public_staff_ids`.
 
@@ -961,8 +965,8 @@ invoice's, and a sale that stops being paid reverses pending earnings. Other way
 After payment the register suggests the next visit with the same member and service (`useNextVisit`): at
 the series' interval, or the client's own gap between their last two visits, at the same time of day, and
 opens the composer prefilled. A visit note is an ordinary message in the client's thread
-(`MessageSend.booking_id` adds the manage link through `visit_note.body`). The manage page shows only the
-booking photos staff shared: `POST /v1/files/{id}/share` sets or clears `files.shared_at` (audited, the
+(`MessageSend.booking_id` adds the manage link through `visit_note.body`). The manage page shows the client's own photo on a visit staff booked and, of the
+visit's photos, only those staff shared: `POST /v1/files/{id}/share` sets or clears `files.shared_at` (audited, the
 visit's member or a manager), and `GET /manage/{token}/photos/{file_id}` serves one with the manage token
 as the credential.
 

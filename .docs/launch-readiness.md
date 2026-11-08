@@ -30,7 +30,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 1. Get set up | Sales tax by province | [CB-7](https://linear.app/clientbridgeca/issue/CB-7) | Automated |
 | 2. Clients and catalog | Client records: add, edit and search | [CB-8](https://linear.app/clientbridgeca/issue/CB-8) | Automated |
 | 2. Clients and catalog | Client subjects: who or what is booked | [CB-9](https://linear.app/clientbridgeca/issue/CB-9) | Automated |
-| 2. Clients and catalog | Client notes, photos and history | [CB-10](https://linear.app/clientbridgeca/issue/CB-10) | Partly automated |
+| 2. Clients and catalog | Client notes, photos and history | [CB-10](https://linear.app/clientbridgeca/issue/CB-10) | Automated |
 | 2. Clients and catalog | Client tags and duplicate merge | [CB-11](https://linear.app/clientbridgeca/issue/CB-11) | Partly automated |
 | 2. Clients and catalog | Services, classes and resources | [CB-13](https://linear.app/clientbridgeca/issue/CB-13) | Partly automated |
 | 2. Clients and catalog | Products and stock | [CB-14](https://linear.app/clientbridgeca/issue/CB-14) | Partly automated |
@@ -547,7 +547,7 @@ The business loads its clients, what they book for, and the services and product
 
 ### Client notes, photos and history (CB-10)
 
-**Covers:** Client notes, booking notes, photos, client history on web and mobile
+**Covers:** Client notes, booking notes, photos, client history on web and mobile, and the client's photo on Connect
 **Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a client with a year of history
 
 **Where to test**
@@ -561,10 +561,10 @@ The business loads its clients, what they book for, and the services and product
    **Expect:** both devices show it pinned.
 2. Delete the note after the confirm.
    **Expect:** it is gone on both devices.
-3. Add a note to a booking.
-   **Expect:** it shows on the booking panel for staff.
+3. Add a note to a booking, and pin one client note but not another.
+   **Expect:** the booking panel shows staff the booking note with who wrote it, beside the pinned client note marked Pinned; the unpinned note stays on the client record.
 4. Upload a client photo on web.
-   **Expect:** it appears on mobile and Connect avatars only after the upload is confirmed.
+   **Expect:** it appears on mobile, beside the greeting on the manage link of a visit staff booked and beside Welcome back after a text-code sign-in on Connect, only after the upload is confirmed; the manage link of a visit booked online shows no photo.
 5. After a visit, open the timeline.
    **Expect:** booking, invoice, payment and message, newest first.
 6. Scroll past the device's history window.
@@ -575,14 +575,14 @@ The business loads its clients, what they book for, and the services and product
 **Automated by**
 
 * `CRM-E2E-02 (web)`
+* `CRM-E2E-21 (web)`
 * `FILES-E2E-01 (web)`
+* `CRM-E2E-22 (connect)`
+* `CRM-E2E-12 (journeys)`
 * `FLOW-04-A (journeys)`
 * `SYN-E2E-29 (sync)`
+* `NATIVE-CRM-05 (native-ios, native-android)`
 * `web: sync.e2e.ts › history older than the device window is read from the API`
-
-**To automate**
-
-* `CRM-E2E-12` in `apps/web/e2e/journeys/client.journey.ts`: Timeline order after a visit: booking, invoice, payment and message.
 
 **Depends on:** Nothing
 

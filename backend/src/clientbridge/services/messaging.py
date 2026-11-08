@@ -593,6 +593,7 @@ class MessageService:
                     status=message.status,
                     created_at=message.created_at,
                     author=name,
+                    broadcast_id=message.broadcast_id,
                 )
                 for message, name in rows[:limit]
             ],

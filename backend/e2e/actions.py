@@ -9,6 +9,7 @@ import os
 import sys
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
@@ -401,6 +402,71 @@ async def files_main(argv: list[str]) -> None:
         await engine.dispose()
 
 
+async def client_notes(client_id: str) -> list[dict[str, object]]:
+    async with engine.connect() as db:
+        await db.execute(text("SET TRANSACTION READ ONLY"))
+        rows = await db.execute(
+            text(
+                "SELECT n.id, n.parent_type, n.body, n.pinned, n.created_by FROM notes n "
+                "WHERE (n.parent_type = 'client' AND n.parent_id = :client) "
+                "OR (n.parent_type = 'booking' AND n.parent_id IN "
+                "(SELECT b.id FROM bookings b WHERE b.client_id = :client)) ORDER BY n.id"
+            ),
+            {"client": client_id},
+        )
+        return [dict(row) for row in rows.mappings()]
+
+
+def notes_main(argv: list[str]) -> None:
+    """Read a client's and their visits' committed notes, as another device would see them."""
+    parser = argparse.ArgumentParser(prog="python -m e2e.actions notes")
+    parser.add_argument("client_id")
+    args = parser.parse_args(argv)
+    print(json.dumps(asyncio.run(client_notes(args.client_id))))
+
+
+PORTRAIT = (
+    Path(__file__).resolve().parents[1] / "scripts" / "demo_assets" / "face_cl_regular_15.jpg"
+)
+
+
+async def client_photo(client_id: str, file_id: str | None, upload_url: str | None) -> Row:
+    """Upload a client photo as the web does: start it, or send its bytes and confirm it."""
+    picture = PORTRAIT.read_bytes()
+    async with httpx.AsyncClient(base_url=os.environ["API_URL"], timeout=30) as http:
+        owner = run_email(demo_business(FIXTURE_BUSINESS).owner_login)
+        http.headers["X-Session-Token"] = await sign_in(http, email=owner, password=DEMO_PASSWORD)
+        http.headers["X-Business-Id"] = run_id(FIXTURE_BUSINESS)
+        if file_id is None or upload_url is None:
+            started = await http.post(
+                "/v1/files",
+                json={
+                    "parent_type": "client",
+                    "parent_id": client_id,
+                    "purpose": "photo",
+                    "content_type": "image/jpeg",
+                    "size": len(picture),
+                },
+            )
+            started.raise_for_status()
+            body = started.json()
+            return {"id": body["file"]["id"], "upload_url": body["upload_url"]}
+        stored = await http.put(upload_url, content=picture, headers={"Content-Type": "image/jpeg"})
+        stored.raise_for_status()
+        confirmed = await http.post(f"/v1/files/{file_id}/complete", json={})
+        confirmed.raise_for_status()
+        return {"id": file_id}
+
+
+def client_photo_main(argv: list[str]) -> None:
+    parser = argparse.ArgumentParser(prog="python -m e2e.actions client-photo")
+    parser.add_argument("client_id")
+    parser.add_argument("file_id", nargs="?")
+    parser.add_argument("upload_url", nargs="?")
+    args = parser.parse_args(argv)
+    print(json.dumps(asyncio.run(client_photo(args.client_id, args.file_id, args.upload_url))))
+
+
 # no money or saved cards, so a merge is not blocked; no demo name list has it, so it is unique
 DUPLICATE = "Robin Ashgrove"
 
@@ -653,6 +719,8 @@ COMMANDS: dict[str, Callable[[list[str]], None]] = {
     "payment-account": payment_account_main,
     "outreach": lambda argv: asyncio.run(outreach_main(argv)),
     "files": lambda argv: asyncio.run(files_main(argv)),
+    "notes": notes_main,
+    "client-photo": client_photo_main,
     "web-fixtures": web_fixtures_main,
 }
 

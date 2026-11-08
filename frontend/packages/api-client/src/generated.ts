@@ -5475,6 +5475,8 @@ export interface components {
             created_at: string;
             /** Author */
             author: string | null;
+            /** Broadcast Id */
+            broadcast_id: string | null;
         };
         /** ConversationPage */
         ConversationPage: {
@@ -7115,6 +7117,11 @@ export interface components {
              * @description Photos staff took on the visit, oldest first
              */
             photo_urls?: string[];
+            /**
+             * Client Photo Url
+             * @description The client's photo on file
+             */
+            client_photo_url?: string | null;
             /** Reschedules Used */
             reschedules_used: number;
             policy: components["schemas"]["PublicPolicy"];
@@ -9699,6 +9706,11 @@ export interface components {
             /** Subjects */
             subjects: components["schemas"]["ReturningSubject"][];
             last_visit: components["schemas"]["ReturningVisit"] | null;
+            /**
+             * Photo Url
+             * @description The client's photo on file, a link that expires shortly
+             */
+            photo_url?: string | null;
         };
         /** ReturningRequest */
         ReturningRequest: {
@@ -10279,6 +10291,13 @@ export interface components {
             item_color: string | null;
             /** Staff Name */
             staff_name: string | null;
+            /** Subject Name */
+            subject_name: string | null;
+            /**
+             * Waitlist Closed
+             * @description A class waitlist entry that closed unconfirmed
+             */
+            waitlist_closed: boolean;
         };
         /** VisitPage */
         VisitPage: {
@@ -10286,8 +10305,11 @@ export interface components {
             visits: components["schemas"]["VisitOut"][];
             /** More */
             more: boolean;
-            /** Completed */
-            completed: number;
+            /**
+             * Completed
+             * @description Completed visits before `before`, counted on the first page only
+             */
+            completed: number | null;
             /** Last Completed At */
             last_completed_at: string | null;
         };

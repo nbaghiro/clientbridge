@@ -1,6 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
 import httpx
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.models.business import Business
@@ -55,6 +56,34 @@ async def test_older_messages_page_newest_first(
     )
     assert [m["body"] for m in rest.json()["messages"]] == ["message 0"]
     assert rest.json()["more"] is False
+
+
+async def test_older_messages_say_which_came_from_a_broadcast(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    sent = (
+        (
+            await db.execute(
+                select(Message).where(Message.business_id == BIZ, Message.broadcast_id.is_not(None))
+            )
+        )
+        .scalars()
+        .first()
+    )
+    assert sent is not None
+    res = await as_owner.get(
+        f"/v1/threads/{sent.thread_id}/messages",
+        params={"before": (sent.created_at + timedelta(seconds=1)).isoformat(), "limit": 100},
+    )
+    assert res.status_code == 200, res.text
+    page = {m["id"]: m["broadcast_id"] for m in res.json()["messages"]}
+    assert page[sent.id] == sent.broadcast_id
+    thread = await _thread(db)
+    plain = await as_owner.get(
+        f"/v1/threads/{thread}/messages",
+        params={"before": (START + timedelta(days=10)).isoformat()},
+    )
+    assert {m["broadcast_id"] for m in plain.json()["messages"]} == {None}
 
 
 async def test_any_member_reads_older_messages(

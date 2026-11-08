@@ -217,7 +217,7 @@ test("CRM-E2E-02 note creation, pinning and confirmed deletion reach another rep
         const remoteNote = remote.getByRole("listitem").filter({ hasText: body });
         await expect(remoteNote).toBeVisible();
         await note
-            .getByRole("button", { name: strings.clients.history.editNote, exact: true })
+            .getByRole("button", { name: strings.clients.history.noteActions, exact: true })
             .click();
         const pinning = crmCommand(page, `notes/${noteId}`, "PATCH");
         await page
@@ -234,7 +234,7 @@ test("CRM-E2E-02 note creation, pinning and confirmed deletion reach another rep
             persistedNote.getByText(strings.clients.record.pinned, { exact: true }),
         ).toBeVisible();
         await persistedNote
-            .getByRole("button", { name: strings.clients.history.editNote, exact: true })
+            .getByRole("button", { name: strings.clients.history.noteActions, exact: true })
             .click();
         const unpinning = crmCommand(other, `notes/${noteId}`, "PATCH");
         await other
@@ -243,7 +243,7 @@ test("CRM-E2E-02 note creation, pinning and confirmed deletion reach another rep
         expect((await unpinning).status()).toBe(200);
         await expect(note.getByText(strings.clients.record.pinned, { exact: true })).toHaveCount(0);
         await note
-            .getByRole("button", { name: strings.clients.history.editNote, exact: true })
+            .getByRole("button", { name: strings.clients.history.noteActions, exact: true })
             .click();
         await page
             .getByRole("menuitem", { name: strings.clients.history.deleteNote, exact: true })
@@ -257,7 +257,7 @@ test("CRM-E2E-02 note creation, pinning and confirmed deletion reach another rep
             .click();
         await expect(note).toBeVisible();
         await note
-            .getByRole("button", { name: strings.clients.history.editNote, exact: true })
+            .getByRole("button", { name: strings.clients.history.noteActions, exact: true })
             .click();
         await page
             .getByRole("menuitem", { name: strings.clients.history.deleteNote, exact: true })

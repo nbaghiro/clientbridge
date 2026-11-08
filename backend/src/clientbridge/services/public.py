@@ -130,6 +130,7 @@ from clientbridge.services.files import (
     assert_size,
     confirm_upload,
     item_images,
+    latest_photo,
     manage_photo_url,
     media_url,
     mint_upload,
@@ -995,8 +996,11 @@ class PublicManageService:
         return await visit_receipt(self.db, booking, business)
 
     async def photo(self, token: str, file_id: str, storage: FileStorage) -> str:
-        """Where one of the visit's photos can be downloaded; the manage link is the credential."""
+        """Where a shared visit photo or the client's own downloads; the manage link is the key."""
         booking, _, _ = await self._resolve(token)
+        own = await self._client_photo(booking)
+        if own is not None and own.id == file_id:
+            return storage.presign_download(own.s3_key)
         file = (
             await self.db.execute(
                 scoped(File, booking.business_id).where(
@@ -1012,6 +1016,12 @@ class PublicManageService:
         if file is None:
             raise NotFound("not found")
         return storage.presign_download(file.s3_key)
+
+    async def _client_photo(self, booking: Booking) -> File | None:
+        # an online booking proves only a phone number, so its link never shows whose it is
+        if booking.source != "manual":
+            return None
+        return await latest_photo(self.db, booking.business_id, "client", booking.client_id)
 
     async def days(self, token: str, start: date, count: int) -> PublicDays:
         booking, slot, business = await self._resolve(token)
@@ -1462,6 +1472,9 @@ class PublicManageService:
                 manage_photo_url(booking.manage_token or "", file_id)
                 for file_id in await self._photo_ids(booking)
             ],
+            client_photo_url=None
+            if (photo := await self._client_photo(booking)) is None
+            else manage_photo_url(booking.manage_token or "", photo.id),
             reschedules_used=booking.reschedule_count,
             policy=_policy_out(policy_of(business)),
             now=clock.now().astimezone(tz),

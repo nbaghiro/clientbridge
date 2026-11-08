@@ -23,7 +23,7 @@ import { isConnectionFailure, type Load, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { Intent, SelectOption } from "../ui";
 import { type MarketingConsent, consentFor, smsSegments, useConsents } from "./broadcasts";
-import { clientOption, useClients } from "./clients";
+import { clientOption, mergeById, useClients } from "./clients";
 import { staffNameSql } from "./staff";
 import { useReplicaLoad } from "./sync";
 
@@ -333,7 +333,7 @@ export function useConversation(api: ApiLike, thread: InboxThread): Conversation
     };
     const rows = useMemo(
         () =>
-            [...new Map([...earlier.rows, ...local].map((row) => [row.id, row])).values()].sort(
+            mergeById(earlier.rows, local).sort(
                 (a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id),
             ),
         [earlier.rows, local],

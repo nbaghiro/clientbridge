@@ -33,6 +33,9 @@ class ReturningProfile(BaseModel):
     phone: str | None
     subjects: list[ReturningSubject]
     last_visit: ReturningVisit | None
+    photo_url: str | None = Field(
+        default=None, description="The client's photo on file, a link that expires shortly"
+    )
 
 
 class ReturningVerified(BaseModel):

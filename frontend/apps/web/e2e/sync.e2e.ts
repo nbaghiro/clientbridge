@@ -31,18 +31,38 @@ test("history older than the device window is read from the API", async ({ page 
     const visits = page.waitForResponse((r) => r.url().includes("/v1/bookings/visits"));
     await navigate(page, `/clients/${demoId("cl_amelie")}/history`);
     expect((await visits).status()).toBe(200);
+    const main = page.getByRole("main");
+    // the demo welcomed Amélie before the months this device syncs
+    const welcome = main.getByText("Welcome to Birchbark! Text us here any time about Bella.", {
+        exact: true,
+    });
+    const older = main.getByRole("button", { name: strings.clients.history.loadOlder });
+    await expect(older).toBeVisible({ timeout: 60_000 });
+    await expect(welcome).toHaveCount(0);
+    const threadPage = page.waitForResponse((r) =>
+        /\/v1\/threads\/[^/]+\/messages\?before=/.test(r.url()),
+    );
+    const visitPage = page.waitForResponse((r) =>
+        /\/v1\/bookings\/visits\?before=[^&]+&client_id=/.test(r.url()),
+    );
+    for (let shown = 0; shown < 5 && (await older.isVisible()); shown++) {
+        await older.click();
+        await expect
+            .poll(async () => !(await older.isVisible()) || (await older.isEnabled()))
+            .toBe(true);
+    }
+    await expect(older).toBeHidden();
+    expect((await threadPage).status()).toBe(200);
+    expect((await visitPage).status()).toBe(200);
+    await expect(welcome).toHaveCount(1);
+    await expect(main.getByText(strings.clients.history.olderFailed)).toHaveCount(0);
 
     await navigate(page, "/inbox");
-    const main = page.getByRole("main");
     await main
         .getByRole("navigation")
         .getByRole("button")
         .filter({ has: page.getByText("Amélie Tremblay", { exact: true }) })
         .click({ timeout: 60_000 });
-    // the demo welcomed Amélie before the months this device syncs
-    const welcome = main.getByText("Welcome to Birchbark! Text us here any time about Bella.", {
-        exact: true,
-    });
     await expect(welcome).toHaveCount(0);
     const earlier = main.getByRole("button", { name: m.thread.showEarlier, exact: true });
     const messages = page.waitForResponse((r) => /\/v1\/threads\/[^/]+\/messages/.test(r.url()));

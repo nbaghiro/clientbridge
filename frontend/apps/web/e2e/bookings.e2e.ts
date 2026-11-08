@@ -1,8 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { formatFullDate, formatShortTimeRange, strings } from "@clientbridge/app-core/public";
 import { expect, test } from "@playwright/test";
+import { runEmail } from "@clientbridge/config/e2e/run";
 
 import {
+    bookFreeVisit,
     bookingApi,
     cancelOwnedBooking,
     chooseFreeBookingTime,
@@ -13,6 +15,7 @@ import {
     type BookingRecord,
 } from "./support/bookings";
 import { navigate, signIn } from "./support/session";
+import { apiCall, teamMember } from "./support/visit";
 
 test("SCH-PILOT-01 create, reject overlap, reschedule and cancel across replicas", async ({
     page,
@@ -176,6 +179,58 @@ test("SCH-PILOT-01 create, reject overlap, reschedule and cancel across replicas
             await observer.close();
         }
     } finally {
+        await cancelOwnedBooking(page, booking.id);
+    }
+});
+
+test("CRM-E2E-21 a booking note reaches the member's panel with its author, beside only the client notes pinned to every booking", async ({
+    page,
+    browser,
+}) => {
+    await signIn(page);
+    const fixture = await createBookingFixture(page);
+    const diego = await teamMember(page, runEmail("diego@birchbark.example"));
+    const booking = await bookFreeVisit(page, fixture, diego.id, [30, 31, 32, 33, 34, 35, 36]);
+    const quiet = "Paid cash at the last visit.";
+    const pinned = "Allergic to oatmeal shampoo.";
+    const visitNote = "Use the side door; the front step is being fixed.";
+    for (const [body, pin] of [
+        [quiet, false],
+        [pinned, true],
+    ] as const)
+        await apiCall(
+            page,
+            "POST",
+            "/v1/notes",
+            { parent_type: "client", parent_id: fixture.clientId, body, pinned: pin },
+            201,
+        );
+    const staff = await browser.newContext({ baseURL: new URL(page.url()).origin });
+    try {
+        await openBooking(page, fixture, booking.id);
+        await page.getByRole("button", { name: strings.bookings.noteAdd, exact: true }).click();
+        await page
+            .getByRole("textbox", { name: strings.bookings.notePlaceholder, exact: true })
+            .fill(visitNote);
+        const saved = page.waitForResponse(
+            (r) => new URL(r.url()).pathname === "/v1/notes" && r.request().method() === "POST",
+        );
+        await page
+            .getByRole("button", { name: strings.clients.history.saveNote, exact: true })
+            .click();
+        expect((await saved).status()).toBe(201);
+        await expect(page.getByText(visitNote, { exact: true })).toBeVisible();
+
+        const member = await staff.newPage();
+        await signIn(member, { email: runEmail("diego@birchbark.example"), password: "demo1234" });
+        await openBooking(member, fixture, booking.id);
+        const note = (body: string) => member.getByText(body, { exact: true }).locator("..");
+        await expect(note(visitNote)).toContainText(fixture.staffName);
+        await expect(note(pinned)).toContainText(strings.clients.record.pinned);
+        await expect(note(visitNote)).not.toContainText(strings.clients.record.pinned);
+        await expect(member.getByText(quiet, { exact: true })).toHaveCount(0);
+    } finally {
+        await staff.close();
         await cancelOwnedBooking(page, booking.id);
     }
 });

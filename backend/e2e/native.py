@@ -251,6 +251,7 @@ def native_control(
     account: Callable[[bytes], None],
     photo: Callable[[str], None],
     bank: Callable[[str], None],
+    lane_action: Callable[[str, list[str]], bytes],
     log: Path,
 ) -> Iterator[str]:
     """A local endpoint a flow calls to go offline or online, or for a push, account or code."""
@@ -267,6 +268,8 @@ def native_control(
                 "/photo": lambda: photo(body.decode()),
                 "/key": lambda: security_key(body),
                 "/bank": lambda: bank(body.decode()),
+                "/notes": lambda: lane_action("notes", [body.decode()]),
+                "/client-photo": lambda: lane_action("client-photo", body.decode().split()),
             }
             action = actions.get(self.path)
             try:
@@ -419,6 +422,15 @@ def run_native(
         ).stdout
         device.push(payload)
 
+    def e2e_action(name: str, argv: list[str]) -> bytes:
+        return subprocess.run(
+            [sys.executable, "-m", "e2e.actions", name, *argv],
+            cwd=ROOT / "backend",
+            env=stack.env,
+            capture_output=True,
+            check=True,
+        ).stdout
+
     def payment_account(body: bytes) -> None:
         subprocess.run(
             [sys.executable, "-m", "e2e.actions", "payment-account", body.decode()],
@@ -449,6 +461,7 @@ def run_native(
             payment_account,
             device.add_photo,
             authorized_bank,
+            e2e_action,
             stack.directory / "control.log",
         ) as control,
         (stack.directory / "native.log").open("wb") as native_log,

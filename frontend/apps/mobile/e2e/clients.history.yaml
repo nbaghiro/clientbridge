@@ -1,0 +1,296 @@
+appId: ${APP_ID}
+name: NATIVE-CRM-05 Notes from either device, a visit's notes for its member, a confirmed photo and older history
+tags:
+    - lane
+onFlowComplete:
+    - runScript: helpers/restore-week.js
+    - runFlow: helpers/restore-owner.yaml
+---
+- evalScript: ${output.phone = "250" + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000))}
+- evalScript: ${output.name = "Marlow Fenwick"}
+- evalScript: ${output.itemName = "Nail tidy " + output.phone.slice(-4)}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/clients
+          BODY: "${JSON.stringify({ name: output.name, phone: output.phone })}"
+- evalScript: ${output.clientId = output.response.id}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/items
+          BODY: "${JSON.stringify({ kind: 'service', name: output.itemName, duration_min: 10, price_cents: 2000, deposit_type: 'none', online_bookable: false })}"
+- evalScript: ${output.itemId = output.response.id}
+- runScript:
+      file: helpers/book-today.js
+      env:
+          BODY: "${JSON.stringify({ client_id: output.clientId, item_id: output.itemId, staff_id: 'st_diego_' + E2E_NAMESPACE })}"
+- evalScript: ${output.bookingId = output.booking.id}
+- runFlow: helpers/owner.yaml
+# a note added on the phone is pinned from another device
+- tapOn: "Clients"
+- tapOn: "Search name, phone or pet"
+- inputText: ${output.phone}
+- extendedWaitUntil:
+      visible: ${"MF, " + output.name + ".*"}
+      timeout: 60000
+- tapOn: ${"MF, " + output.name + ".*"}
+- extendedWaitUntil:
+      visible: "Book"
+      timeout: 60000
+- scrollUntilVisible:
+      element: "Add note"
+      direction: DOWN
+      centerElement: true
+- tapOn: "Add note"
+- tapOn: "Add a note about.*"
+- inputText: "Use the quiet dryer"
+- tapOn: "Add"
+- extendedWaitUntil:
+      visible: "Use the quiet dryer"
+      timeout: 30000
+- runScript:
+      file: helpers/client-files.js
+      env:
+          ACTION: notes
+          PAYLOAD: ${output.clientId}
+- evalScript: ${output.noteId = output.answer.filter(function (n) { return n.body === "Use the quiet dryer"; })[0].id}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: PATCH
+          PATH: ${"/v1/notes/" + output.noteId}
+          BODY: "${JSON.stringify({ pinned: true })}"
+# iOS reads a note's row only by its text, so the pin is read back on History's heads-up card
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - extendedWaitUntil:
+                visible: "You · .* · Pinned"
+                timeout: 60000
+- scrollUntilVisible:
+      element: "History"
+      direction: UP
+- tapOn: "History"
+- extendedWaitUntil:
+      visible: "(?i)heads up"
+      timeout: 60000
+- assertVisible: "Use the quiet dryer"
+- takeScreenshot: note-pinned-elsewhere
+- runFlow:
+      when:
+          platform: iOS
+      commands:
+          - tapOn: "Back"
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - back
+# iOS leaves History for the client list, Android for the record
+- runFlow:
+      when:
+          notVisible: "Book"
+      commands:
+          - tapOn: ${"MF, " + output.name + ".*"}
+          - extendedWaitUntil:
+                visible: "Book"
+                timeout: 60000
+- scrollUntilVisible:
+      element: "Use the quiet dryer"
+      direction: DOWN
+      centerElement: true
+# deleting it on the phone, after the confirm, removes it for every device
+- tapOn: "Use the quiet dryer"
+- tapOn: "Delete"
+- extendedWaitUntil:
+      visible: "Delete this note\\?"
+      timeout: 10000
+- tapOn: "Delete"
+- extendedWaitUntil:
+      notVisible: "Use the quiet dryer"
+      timeout: 30000
+- runScript:
+      file: helpers/client-files.js
+      env:
+          ACTION: notes
+          PAYLOAD: ${output.clientId}
+- assertTrue: ${!output.answer.some(function (n) { return n.id === output.noteId; })}
+# a note another device adds, then deletes, comes and goes on the phone
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/notes
+          BODY: "${JSON.stringify({ parent_type: 'client', parent_id: output.clientId, body: 'Prefers mornings', pinned: false })}"
+- evalScript: ${output.otherNote = output.response.id}
+- extendedWaitUntil:
+      visible: "Prefers mornings"
+      timeout: 60000
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: DELETE
+          PATH: ${"/v1/notes/" + output.otherNote}
+- extendedWaitUntil:
+      notVisible: "Prefers mornings"
+      timeout: 60000
+# a photo the web starts shows on the phone only once its bytes are confirmed
+- runScript:
+      file: helpers/client-files.js
+      env:
+          ACTION: client-photo
+          PAYLOAD: ${output.clientId}
+- evalScript: ${output.upload = output.answer}
+- extendedWaitUntil:
+      notVisible: "MF"
+      timeout: 8000
+      optional: true
+- assertVisible: "MF"
+- runScript:
+      file: helpers/client-files.js
+      env:
+          ACTION: client-photo
+          PAYLOAD: ${output.clientId + " " + output.upload.id + " " + output.upload.upload_url}
+- extendedWaitUntil:
+      notVisible: "MF"
+      timeout: 60000
+- takeScreenshot: photo-confirmed
+# history older than the phone keeps is read from the server, once
+- runFlow: helpers/close-sheet.yaml
+- tapOn: "Search name, phone or pet"
+- eraseText
+- inputText: "Amélie"
+- extendedWaitUntil:
+      visible: ".*Amélie Tremblay.*"
+      timeout: 60000
+- tapOn: ".*Amélie Tremblay.*"
+- tapOn: "History"
+- extendedWaitUntil:
+      visible: "Messages .*"
+      timeout: 60000
+- repeat:
+      times: 6
+      commands:
+          - scrollUntilVisible:
+                element: "Show older|Bella gets nervous.*"
+                direction: DOWN
+                timeout: 30000
+          - runFlow:
+                when:
+                    visible: "Show older"
+                commands:
+                    - tapOn: "Show older"
+- scrollUntilVisible:
+      element: "Welcome to Birchbark! Text us here any time about Bella."
+      direction: DOWN
+      timeout: 30000
+- assertNotVisible: "Show older"
+- takeScreenshot: older-history
+- runFlow:
+      when:
+          platform: iOS
+      commands:
+          - tapOn: "Back"
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - back
+- runFlow:
+      when:
+          visible: "Book"
+      commands:
+          - runFlow: helpers/close-sheet.yaml
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - hideKeyboard
+# the member sees the visit's note from the front desk, by its author, beside only pinned client notes
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/notes
+          BODY: "${JSON.stringify({ parent_type: 'booking', parent_id: output.bookingId, body: 'Side door, please', pinned: false })}"
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/notes
+          BODY: "${JSON.stringify({ parent_type: 'client', parent_id: output.clientId, body: 'Allergic to oatmeal shampoo', pinned: true })}"
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/notes
+          BODY: "${JSON.stringify({ parent_type: 'client', parent_id: output.clientId, body: 'Paid cash last time', pinned: false })}"
+- tapOn: "Today"
+- tapOn: "Setup"
+- scrollUntilVisible:
+      element: "Sign out"
+      direction: DOWN
+- tapOn: "Sign out"
+- extendedWaitUntil:
+      visible: "Sign in"
+      timeout: 30000
+- tapOn: "you@business.ca"
+- inputText: "diego+${E2E_NAMESPACE}@birchbark.example"
+- tapOn: "••••••••"
+- eraseText
+- inputText: "demo1234"
+- hideKeyboard
+- tapOn:
+      text: "Sign in"
+      below: "Forgot password\\?"
+      optional: true
+- runFlow: helpers/decline-save-password.yaml
+- extendedWaitUntil:
+      visible: "Today"
+      timeout: 60000
+# the visit is found by its service, since a ten-minute block is a thin target on the day grid
+- tapOn: "Search"
+- inputText: ${output.itemName}
+- extendedWaitUntil:
+      visible: ${".*" + output.name + ".*" + output.itemName + ".*"}
+      timeout: 60000
+- tapOn: ${".*" + output.name + ".*" + output.itemName + ".*"}
+- extendedWaitUntil:
+      visible: "Close"
+      timeout: 30000
+- scrollUntilVisible:
+      element: "Side door, please"
+      direction: DOWN
+      timeout: 60000
+- assertVisible: "Hannah Wong · .*"
+- assertVisible: "Allergic to oatmeal shampoo"
+- assertVisible: "Hannah Wong · .* · Pinned"
+- assertNotVisible: "Paid cash last time"
+- takeScreenshot: visit-notes-for-member
+# the member adds a note to the visit in a sheet the keyboard never covers
+- scrollUntilVisible:
+      element: "Add note"
+      direction: DOWN
+      centerElement: true
+- tapOn: "Add note"
+- extendedWaitUntil:
+      visible: "Add a note"
+      timeout: 10000
+- tapOn: "Anything the team should know.*"
+- inputText: "Running ten minutes late"
+- assertVisible: "Add"
+- tapOn: "Add"
+- extendedWaitUntil:
+      visible: "Running ten minutes late"
+      timeout: 30000
+- assertVisible: "Diego Ramirez · .*"
+- runScript:
+      file: helpers/client-files.js
+      env:
+          ACTION: notes
+          PAYLOAD: ${output.clientId}
+- assertTrue: ${output.answer.some(function (n) { return n.body === "Running ten minutes late" && n.parent_type === "booking"; })}

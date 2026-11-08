@@ -33,7 +33,7 @@ import {
     phoneDigits,
     BUSINESS_CURRENCY,
 } from "../format";
-import { useAsyncAction, useNow, useRemote, useSyncedDraft } from "../hooks";
+import { isConnectionFailure, useAsyncAction, useNow, useRemote, useSyncedDraft } from "../hooks";
 import type { Load } from "../hooks";
 import { type IconName, SUBJECT_ICON } from "../icons";
 import { strings } from "../strings";
@@ -578,7 +578,7 @@ export interface ClientDetail {
 
 interface EarlierVisits {
     before: string;
-    completed: number;
+    completed: number | null;
     last_completed_at: string | null;
 }
 
@@ -937,6 +937,128 @@ SELECT m.id, m.direction, m.body, m.created_at AS at
 FROM messages m JOIN threads t ON t.id = m.thread_id
 WHERE t.client_id = ? AND m.broadcast_id IS NULL`;
 
+const VISITS_SOURCE = "visits";
+
+// Older history's sources: each thread since it began, and visits since the client was added.
+export const CLIENT_HISTORY_SOURCES_SQL = `
+SELECT t.id, t.created_at FROM threads t WHERE t.client_id = ?1
+UNION ALL SELECT '${VISITS_SOURCE}', c.created_at FROM clients c WHERE c.id = ?1`;
+
+interface MessageRow {
+    id: string;
+    direction: string;
+    body: string | null;
+    at: string;
+}
+
+interface OlderVisit extends Omit<VisitRow, "waitlist_closed"> {
+    waitlist_closed: boolean;
+}
+
+interface OlderMessage {
+    id: string;
+    direction: string;
+    body: string | null;
+    created_at: string;
+    broadcast_id: string | null;
+}
+
+// One paged read of history older than the device keeps: the visits, or one thread's messages.
+interface OlderSource {
+    // when the source began, so a merge that moves it earlier reads it again
+    from: string;
+    more: boolean;
+    before: string;
+    beforeId: string | null;
+}
+
+/** Entries older than the newest point a still-paging source has reached would leave gaps. */
+export function historyHorizon(
+    sources: readonly Pick<OlderSource, "more" | "before">[],
+): Date | null {
+    const open = sources.filter((x) => x.more).map((x) => parseTimestamp(x.before));
+    return open.length === 0 ? null : new Date(Math.max(...open.map(Number)));
+}
+
+/** Rows by id, the device's copy winning over a page read from the server. */
+export function mergeById<T extends { id: string }>(older: readonly T[], local: readonly T[]): T[] {
+    return [...new Map([...older, ...local].map((row) => [row.id, row])).values()];
+}
+
+interface OlderHistory {
+    clientId: string;
+    visits: VisitRow[];
+    messages: MessageRow[];
+    sources: Record<string, OlderSource>;
+    // the last read found no connection, so the device's own older entries show despite the gaps
+    offline: boolean;
+}
+
+/** The sources that began before the device's history, each where its paging stopped. */
+function olderSources(
+    origins: readonly { id: string; created_at: string }[],
+    start: Date,
+    read: Record<string, OlderSource>,
+): [string, OlderSource][] {
+    const before = start.toISOString();
+    return origins
+        .filter((o) => parseTimestamp(o.created_at) < start)
+        .map((o) => {
+            const kept = read[o.id];
+            return [
+                o.id,
+                kept?.from === o.created_at
+                    ? kept
+                    : { from: o.created_at, more: true, before, beforeId: null },
+            ];
+        });
+}
+
+async function readOlder(
+    api: ApiLike,
+    clientId: string,
+    id: string,
+    source: OlderSource,
+): Promise<{ id: string; visits: VisitRow[]; messages: MessageRow[]; source: OlderSource }> {
+    const params = new URLSearchParams({ before: source.before });
+    if (source.beforeId !== null) params.set("before_id", source.beforeId);
+    if (id === VISITS_SOURCE) {
+        params.set("client_id", clientId);
+        const page = await api.get<{ visits: OlderVisit[]; more: boolean }>(
+            `/v1/bookings/visits?${params.toString()}`,
+        );
+        const last = page.visits[page.visits.length - 1];
+        return {
+            id,
+            visits: page.visits.map((v) => ({ ...v, waitlist_closed: v.waitlist_closed ? 1 : 0 })),
+            messages: [],
+            source: {
+                ...source,
+                more: page.more,
+                before: last?.starts_at ?? source.before,
+                beforeId: last?.id ?? source.beforeId,
+            },
+        };
+    }
+    const page = await api.get<{ messages: OlderMessage[]; more: boolean }>(
+        `/v1/threads/${id}/messages?${params.toString()}`,
+    );
+    const last = page.messages[page.messages.length - 1];
+    return {
+        id,
+        visits: [],
+        messages: page.messages
+            .filter((m) => m.broadcast_id === null)
+            .map((m) => ({ id: m.id, direction: m.direction, body: m.body, at: m.created_at })),
+        source: {
+            ...source,
+            more: page.more,
+            before: last?.created_at ?? source.before,
+            beforeId: last?.id ?? source.beforeId,
+        },
+    };
+}
+
 export type ClientHistoryFilter = "all" | "visits" | "money" | "messages" | "notes";
 
 type HistoryKind = "visit" | "booked" | "invoice" | "payment" | "refund" | "message" | "note";
@@ -1123,22 +1245,28 @@ export interface ClientHistory {
     load: Load;
     hasOlder: boolean;
     showOlder: () => void;
+    // history older than the device keeps, read page by page while online
+    older: { busy: boolean; error: string | null };
+    emptyMessage: string;
     filter: ClientHistoryFilter;
     setFilter: (f: ClientHistoryFilter) => void;
     filters: { key: ClientHistoryFilter; label: string; hint: string }[];
     groups: HistoryGroup[];
     upcoming: HistoryEntry[];
-    total: number;
     notes: ClientNote[];
     pinned: ClientNote[];
     subjects: SubjectRow[];
 }
 
 /** Every visit, invoice, payment, message, review and note for one client, newest first. */
-export function useClientHistory(clientId: string, viewerStaffId: string | null): ClientHistory {
+export function useClientHistory(
+    api: ApiLike,
+    clientId: string,
+    viewerStaffId: string | null,
+): ClientHistory {
     const zone = useBusinessZone();
     const subjectKind = useSubjectKind();
-    const visits = useQuery<VisitRow>(CLIENT_VISITS_SQL, [clientId]);
+    const localVisits = useQuery<VisitRow>(CLIENT_VISITS_SQL, [clientId]);
     const subjects = useQuery<SubjectDbRow>(CLIENT_SUBJECTS_SQL, [clientId]);
     const notes = useQuery<NoteDbRow>(CLIENT_NOTES_SQL, [clientId, clientId]);
     const invoices = useQuery<{
@@ -1152,12 +1280,28 @@ export function useClientHistory(clientId: string, viewerStaffId: string | null)
         CLIENT_PAYMENTS_SQL,
         [clientId],
     );
-    const messages = useQuery<{
-        id: string;
-        direction: string;
-        body: string | null;
-        at: string;
-    }>(CLIENT_MESSAGES_SQL, [clientId]);
+    const localMessages = useQuery<MessageRow>(CLIENT_MESSAGES_SQL, [clientId]);
+    const origins = useQuery<{ id: string; created_at: string }>(CLIENT_HISTORY_SOURCES_SQL, [
+        clientId,
+    ]);
+    const start = useMemo(() => historyStart(), []);
+    const [olderState, setOlder] = useState<OlderHistory | null>(null);
+    const older = olderState?.clientId === clientId ? olderState : null;
+    const sources = useMemo(
+        () => olderSources(origins.data, start, older?.sources ?? {}),
+        [origins.data, start, older?.sources],
+    );
+    const fetching = useAsyncAction();
+    const visitRows = useMemo(
+        () => mergeById(older?.visits ?? [], localVisits.data),
+        [older?.visits, localVisits.data],
+    );
+    const messageRows = useMemo(
+        () => mergeById(older?.messages ?? [], localMessages.data),
+        [older?.messages, localMessages.data],
+    );
+    const horizon = historyHorizon(sources.map(([, x]) => x));
+    const offline = older?.offline === true;
     const [months, setMonths] = useState(3);
     const [filter, setFilter] = useState<ClientHistoryFilter>("all");
     const subjectRows = useMemo(() => subjects.data.map(toSubject), [subjects.data]);
@@ -1170,7 +1314,7 @@ export function useClientHistory(clientId: string, viewerStaffId: string | null)
         const now = new Date();
         const out: HistoryEntry[] = [];
         const ahead: HistoryEntry[] = [];
-        for (const v of visits.data.map(toVisit)) {
+        for (const v of visitRows.map(toVisit)) {
             const label = v.title;
             if (isAhead(v, now)) {
                 ahead.push(
@@ -1244,7 +1388,7 @@ export function useClientHistory(clientId: string, viewerStaffId: string | null)
                 }),
             );
         }
-        for (const m of messages.data) {
+        for (const m of messageRows) {
             const inbound = m.direction === "in";
             const label = inbound ? s.history.textReceived : s.history.textSent;
             out.push(
@@ -1270,13 +1414,14 @@ export function useClientHistory(clientId: string, viewerStaffId: string | null)
             all: out.sort((a, b) => +b.at - +a.at),
             upcoming: ahead.sort((a, b) => +a.at - +b.at),
         };
-    }, [visits.data, invoices.data, payments.data, messages.data, noteRows]);
+    }, [visitRows, invoices.data, payments.data, messageRows, noteRows]);
 
     const load = useReplicaLoad(
-        [visits, notes, invoices, payments, messages],
-        all.length + upcoming.length === 0,
+        [localVisits, notes, invoices, payments, localMessages],
+        all.length + upcoming.length === 0 && horizon === null,
     );
-    const shown = filter === "all" ? all : all.filter((e) => e.filter === filter);
+    const known = horizon === null || offline ? all : all.filter((e) => e.at >= horizon);
+    const shown = filter === "all" ? known : known.filter((e) => e.filter === filter);
     const groups: HistoryGroup[] = [];
     for (const e of shown) {
         const key = dateKey(e.at, zone).slice(0, 7);
@@ -1286,7 +1431,50 @@ export function useClientHistory(clientId: string, viewerStaffId: string | null)
         else group.entries.push(e);
     }
     const count = (f: ClientHistoryFilter): number =>
-        f === "all" ? all.length : all.filter((e) => e.filter === f).length;
+        f === "all" ? known.length : known.filter((e) => e.filter === f).length;
+    // the device keeps whole UTC months, so its window opens on a UTC month
+    const quietSince = horizon === null || offline ? null : formatMonthYear(horizon, "UTC");
+    const loadOlder = (): void => {
+        // only the sources holding the horizon back; the rest already reach further
+        const due = sources.filter(
+            ([, x]) => x.more && parseTimestamp(x.before).getTime() === horizon?.getTime(),
+        );
+        const read = older ?? { clientId, visits: [], messages: [], sources: {}, offline: false };
+        fetching.run(
+            async () => {
+                const pages = await Promise.all(
+                    due.map(([id, x]) => readOlder(api, clientId, id, x)),
+                ).catch((error: unknown) => {
+                    if (isConnectionFailure(error)) {
+                        setOlder({ ...read, offline: true });
+                        setMonths(Number.MAX_SAFE_INTEGER);
+                    }
+                    throw error;
+                });
+                setOlder({
+                    clientId,
+                    visits: mergeById(
+                        read.visits,
+                        pages.flatMap((p) => p.visits),
+                    ),
+                    messages: mergeById(
+                        read.messages,
+                        pages.flatMap((p) => p.messages),
+                    ),
+                    sources: {
+                        ...Object.fromEntries(sources),
+                        ...Object.fromEntries(pages.map((p) => [p.id, p.source])),
+                    },
+                    offline: false,
+                });
+                setMonths(Number.MAX_SAFE_INTEGER);
+            },
+            {
+                errorMessage: (error) =>
+                    isConnectionFailure(error) ? s.history.olderOffline : s.history.olderFailed,
+            },
+        );
+    };
     const filters: { key: ClientHistoryFilter; label: string }[] = [
         { key: "all", label: s.history.filterAll },
         { key: "visits", label: s.history.filterVisits },
@@ -1297,16 +1485,23 @@ export function useClientHistory(clientId: string, viewerStaffId: string | null)
 
     return {
         load,
-        hasOlder: groups.length > months,
+        hasOlder: groups.length > months || horizon !== null,
         showOlder: () => {
-            setMonths(groups.length);
+            if (groups.length > months) setMonths(groups.length);
+            else loadOlder();
         },
+        older: { busy: fetching.busy, error: fetching.error },
+        emptyMessage:
+            known.length > 0
+                ? s.history.emptyFilter
+                : quietSince === null
+                  ? s.history.empty
+                  : s.history.emptySince(quietSince),
         filter,
         setFilter,
         filters: filters.map((f) => ({ ...f, hint: String(count(f.key)) })),
         groups: groups.slice(0, months),
         upcoming,
-        total: all.length,
         notes: noteRows,
         pinned: noteRows.filter((n) => n.pinned),
         subjects: subjectRows,

@@ -4,6 +4,7 @@ import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.models.business import Business
+from clientbridge.models.clients import Subject
 from clientbridge.models.scheduling import Booking, Slot
 from tests.conftest import Factory
 
@@ -72,6 +73,34 @@ async def test_older_visits_page_newest_first(
     )
     assert [v["id"] for v in rest.json()["visits"]] == ["bk_a"]
     assert rest.json()["more"] is False
+    assert rest.json()["completed"] is None
+
+
+async def test_older_visits_name_the_subject_and_a_closed_waitlist(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await _client_with_visits(db)
+    db.add(Subject(id="sj_old_regular", business_id=BIZ, client_id=cid, name="Biscuit"))
+    await db.flush()
+    named = await db.get(Booking, "bk_b")
+    closed = await db.get(Booking, "bk_c")
+    slot = await db.get(Slot, "ss_c")
+    assert named is not None and closed is not None and slot is not None
+    named.subject_id = "sj_old_regular"
+    closed.status = "canceled"
+    closed.canceled_at = slot.ends_at
+    slot.capacity = 6
+    await db.flush()
+    res = await as_owner.get(
+        "/v1/bookings/visits",
+        params={"client_id": cid, "before": (START + timedelta(days=30)).isoformat()},
+    )
+    assert res.status_code == 200, res.text
+    visits = {v["id"]: v for v in res.json()["visits"]}
+    assert visits["bk_b"]["subject_name"] == "Biscuit"
+    assert visits["bk_a"]["subject_name"] is None
+    assert visits["bk_c"]["waitlist_closed"] is True
+    assert visits["bk_a"]["waitlist_closed"] is False
 
 
 async def test_staff_read_only_their_own_older_visits(

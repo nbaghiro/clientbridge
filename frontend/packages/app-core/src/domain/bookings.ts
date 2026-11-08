@@ -14,6 +14,7 @@ import {
     formatDayNumber,
     formatDayTime,
     formatFullDate,
+    formatRelativeTime,
     formatShortDayTime,
     formatShortTimeRange,
     formatTime,
@@ -67,7 +68,7 @@ import { canManagePayments } from "./payments";
 import { isPlace, mapsUrl, visitAddress } from "./publicBooking";
 import { type VisitReceipt, type VisitReceiptView, useVisitReceipt } from "./publicReceipt";
 import { type ResourceRow, activePool, resourceName, useResources } from "./resources";
-import { type StaffRow, staffName, useStaff } from "./staff";
+import { type StaffRow, staffName, staffNameSql, useStaff } from "./staff";
 import {
     type SubjectAlert,
     type SubjectKind,
@@ -1549,6 +1550,18 @@ interface SubjectDetailRow {
 interface NoteRow {
     id: string;
     body: string;
+    pinned: number | null;
+    created_at: string;
+    author_name: string | null;
+    subject_name: string | null;
+}
+
+interface VisitNote {
+    id: string;
+    body: string;
+    pinned: boolean;
+    by: string;
+    subjectName: string | null;
 }
 
 interface SeriesRow {
@@ -1578,12 +1591,18 @@ export const DETAIL_SUBJECT_SQL = `
 SELECT sj.id, sj.name, sj.attributes FROM subjects sj
 JOIN bookings b ON b.subject_id = sj.id WHERE b.id = ?`;
 
+// The visit's own notes, and the client's or the booked subject's notes that are pinned to every booking.
 export const DETAIL_NOTES_SQL = `
-SELECT n.id, n.body FROM notes n
+SELECT n.id, n.body, n.pinned, n.created_at, ${staffNameSql("st")} AS author_name,
+       sj.name AS subject_name
+FROM notes n
+LEFT JOIN staff st ON st.user_id = n.created_by
+LEFT JOIN subjects sj ON n.parent_type = 'subject' AND sj.id = n.parent_id
 WHERE (n.parent_type = 'booking' AND n.parent_id = ?1)
-   OR (n.parent_type = 'client' AND n.parent_id = ?2)
-   OR (n.parent_type = 'subject' AND n.parent_id IN (SELECT subject_id FROM bookings WHERE id = ?1))
-ORDER BY n.created_at DESC`;
+   OR (n.pinned = 1 AND n.parent_type = 'client' AND n.parent_id = ?2)
+   OR (n.pinned = 1 AND n.parent_type = 'subject' AND sj.deleted_at IS NULL
+       AND n.parent_id IN (SELECT subject_id FROM bookings WHERE id = ?1))
+ORDER BY n.pinned DESC, n.created_at DESC`;
 
 export const DETAIL_SERIES_SQL = `
 SELECT r.id, r.frequency, r.interval, r.count,
@@ -1647,7 +1666,7 @@ export interface BookingDetail {
     alerts: SubjectAlert[];
     pickup: string | null;
     tags: string[];
-    notes: NoteRow[];
+    notes: VisitNote[];
     series: string | null;
     depositLine: string | null;
     depositIntent: Intent;
@@ -1782,7 +1801,16 @@ function useBookingDetail(event: ScheduleEvent | null, now: Date): BookingDetail
                   ),
         pickup: subject === null ? null : pickupLine(kind, subject.attributes),
         tags: parseTags(client?.tags ?? null),
-        notes,
+        notes: notes.map((n) => ({
+            id: n.id,
+            body: n.body,
+            pinned: n.pinned === 1,
+            by: strings.clients.history.by(
+                n.author_name ?? strings.clients.history.teammate,
+                formatRelativeTime(n.created_at, zone, now),
+            ),
+            subjectName: n.subject_name,
+        })),
         series: series
             ? series.count === null
                 ? s.seriesLabelOpen(series.position, seriesEvery(series.frequency, series.interval))

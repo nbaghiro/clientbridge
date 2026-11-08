@@ -145,6 +145,8 @@ class VisitOut(Mirror):
     item_name: str
     item_color: str | None
     staff_name: str | None
+    subject_name: str | None
+    waitlist_closed: bool = Field(description="A class waitlist entry that closed unconfirmed")
 
 
 VisitNeedKind = Literal["form", "signature", "deposit"]
@@ -166,8 +168,9 @@ class VisitNeeds(BaseModel):
 class VisitPage(BaseModel):
     visits: list[VisitOut]
     more: bool
-    # completed visits before `before`, however many pages they span
-    completed: int
+    completed: int | None = Field(
+        description="Completed visits before `before`, counted on the first page only"
+    )
     last_completed_at: datetime | None
 
 
