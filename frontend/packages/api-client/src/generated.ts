@@ -9726,7 +9726,7 @@ export interface components {
             last_visit: components["schemas"]["ReturningVisit"] | null;
             /**
              * Photo Url
-             * @description The client's photo on file, a link that expires shortly
+             * @description The client's photo on file, a signed link that expires within the hour
              */
             photo_url?: string | null;
         };

@@ -47,9 +47,7 @@ test("history older than the device window is read from the API", async ({ page 
     );
     for (let shown = 0; shown < 5 && (await older.isVisible()); shown++) {
         await older.click();
-        await expect
-            .poll(async () => !(await older.isVisible()) || (await older.isEnabled()))
-            .toBe(true);
+        await expect(older.and(main.locator(":disabled"))).toHaveCount(0);
     }
     await expect(older).toBeHidden();
     expect((await threadPage).status()).toBe(200);

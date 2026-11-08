@@ -127,10 +127,13 @@ const pages = (): Record<string, unknown[]> => ({
     ],
 });
 
-function fakeApi(fail?: Error): { api: ApiLike; get: ReturnType<typeof vi.fn> } {
+function fakeApi(
+    fail?: Error,
+    fails: (path: string) => boolean = () => true,
+): { api: ApiLike; get: ReturnType<typeof vi.fn> } {
     const queue = pages();
     const get = vi.fn((path: string) => {
-        if (fail !== undefined) return Promise.reject(fail);
+        if (fail !== undefined && fails(path)) return Promise.reject(fail);
         const page = queue[path]?.shift();
         return page === undefined
             ? Promise.reject(new Error(`unexpected ${path}`))
@@ -214,6 +217,39 @@ describe("useClientHistory older history", () => {
         });
         expect(result.current.hasOlder).toBe(true);
         expect(keys(result.current)).toEqual(["ms_recent", "bk_recent"]);
+    });
+
+    it("keeps the pages that loaded when one source fails, and retries only that source", async () => {
+        let threadReads = 0;
+        const { api, get } = fakeApi(
+            new Error("boom"),
+            (path) => path.includes("/threads/") && threadReads++ === 0,
+        );
+        const { result } = renderHook(() => useClientHistory(api, "cl_ann", null));
+        act(() => {
+            result.current.showOlder();
+        });
+        await waitFor(() => {
+            expect(result.current.older.error).toBe(strings.clients.history.olderFailed);
+        });
+        act(() => {
+            result.current.showOlder();
+        });
+        await waitFor(() => {
+            expect(keys(result.current)).toEqual([
+                "ms_recent",
+                "bk_recent",
+                "bk_aug",
+                "ms_welcome",
+                "nt_old",
+                "bk_may",
+            ]);
+        });
+        expect(get.mock.calls.map(([path]) => String(path).split("?")[0])).toEqual([
+            "/v1/threads/th_ann/messages",
+            "/v1/bookings/visits",
+            "/v1/threads/th_ann/messages",
+        ]);
     });
 
     it("offline, shows the device's own older notes and money and keeps the button to retry", async () => {

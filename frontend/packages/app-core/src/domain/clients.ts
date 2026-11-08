@@ -951,17 +951,7 @@ interface MessageRow {
     at: string;
 }
 
-interface OlderVisit extends Omit<VisitRow, "waitlist_closed"> {
-    waitlist_closed: boolean;
-}
-
-interface OlderMessage {
-    id: string;
-    direction: string;
-    body: string | null;
-    created_at: string;
-    broadcast_id: string | null;
-}
+type Schemas = import("@clientbridge/api-client").components["schemas"];
 
 // One paged read of history older than the device keeps: the visits, or one thread's messages.
 interface OlderSource {
@@ -1024,7 +1014,7 @@ async function readOlder(
     if (source.beforeId !== null) params.set("before_id", source.beforeId);
     if (id === VISITS_SOURCE) {
         params.set("client_id", clientId);
-        const page = await api.get<{ visits: OlderVisit[]; more: boolean }>(
+        const page = await api.get<Schemas["VisitPage"]>(
             `/v1/bookings/visits?${params.toString()}`,
         );
         const last = page.visits[page.visits.length - 1];
@@ -1040,7 +1030,7 @@ async function readOlder(
             },
         };
     }
-    const page = await api.get<{ messages: OlderMessage[]; more: boolean }>(
+    const page = await api.get<Schemas["ConversationPage"]>(
         `/v1/threads/${id}/messages?${params.toString()}`,
     );
     const last = page.messages[page.messages.length - 1];
@@ -1442,15 +1432,12 @@ export function useClientHistory(
         const read = older ?? { clientId, visits: [], messages: [], sources: {}, offline: false };
         fetching.run(
             async () => {
-                const pages = await Promise.all(
+                const settled = await Promise.allSettled(
                     due.map(([id, x]) => readOlder(api, clientId, id, x)),
-                ).catch((error: unknown) => {
-                    if (isConnectionFailure(error)) {
-                        setOlder({ ...read, offline: true });
-                        setMonths(Number.MAX_SAFE_INTEGER);
-                    }
-                    throw error;
-                });
+                );
+                const pages = settled.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
+                const failed = settled.find((r) => r.status === "rejected");
+                const offline = failed !== undefined && isConnectionFailure(failed.reason);
                 setOlder({
                     clientId,
                     visits: mergeById(
@@ -1465,9 +1452,10 @@ export function useClientHistory(
                         ...Object.fromEntries(sources),
                         ...Object.fromEntries(pages.map((p) => [p.id, p.source])),
                     },
-                    offline: false,
+                    offline,
                 });
                 setMonths(Number.MAX_SAFE_INTEGER);
+                if (failed !== undefined) throw failed.reason;
             },
             {
                 errorMessage: (error) =>

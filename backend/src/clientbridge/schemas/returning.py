@@ -34,7 +34,8 @@ class ReturningProfile(BaseModel):
     subjects: list[ReturningSubject]
     last_visit: ReturningVisit | None
     photo_url: str | None = Field(
-        default=None, description="The client's photo on file, a link that expires shortly"
+        default=None,
+        description="The client's photo on file, a signed link that expires within the hour",
     )
 
 

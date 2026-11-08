@@ -455,7 +455,10 @@ async def client_photo(client_id: str, file_id: str | None, upload_url: str | No
             started.raise_for_status()
             body = started.json()
             return {"id": body["file"]["id"], "upload_url": body["upload_url"]}
-        stored = await http.put(upload_url, content=picture, headers={"Content-Type": "image/jpeg"})
+        async with httpx.AsyncClient(timeout=30) as storage:
+            stored = await storage.put(
+                upload_url, content=picture, headers={"Content-Type": "image/jpeg"}
+            )
         stored.raise_for_status()
         confirmed = await http.post(f"/v1/files/{file_id}/complete", json={})
         confirmed.raise_for_status()
