@@ -13,11 +13,13 @@ from pydantic import BaseModel, ConfigDict, TypeAdapter
 
 from clientbridge.core import clock
 from clientbridge.core.db import SessionLocal, engine
+from clientbridge.core.scoping import scoped
 from clientbridge.integrations.stripe import (
     close_stripe_client,
 )
 from clientbridge.models.business import Business
 from clientbridge.models.clients import Client
+from clientbridge.models.payments import PaymentMethod
 from e2e.stripe_context import BUSINESS, run_state, save, validate_context
 from e2e.stripe_deposits import deposit_fixtures
 from e2e.stripe_evidence import charge_evidence
@@ -256,7 +258,63 @@ async def saved_methods(account: str, fixture: ClientFixture) -> dict[str, objec
     }
 
 
-async def client_action(action: str, client_id: str, seconds: int) -> dict[str, object]:
+async def recorded_methods(client_id: str) -> list[dict[str, object]]:
+    """The client's saved methods as the app recorded them, which every device reads."""
+    async with SessionLocal() as db:
+        rows = await db.scalars(
+            scoped(PaymentMethod, BUSINESS)
+            .where(PaymentMethod.client_id == client_id)
+            .order_by(PaymentMethod.created_at, PaymentMethod.id)
+        )
+        return [
+            {
+                "method": row.method,
+                "last4": row.last4,
+                "preferred": row.preferred,
+                "provider_ref": row.provider_ref,
+            }
+            for row in rows
+        ]
+
+
+async def detach_method(account: str, fixture: ClientFixture, method_id: str) -> dict[str, object]:
+    """Detach a saved method at Stripe behind the app's back, as the Dashboard can."""
+    method = await stripe.PaymentMethod.retrieve_async(method_id, stripe_account=account)
+    if method.livemode or method.customer != fixture.customer:
+        raise ValueError("the method is not attached to the client fixture's customer")
+    detached = await stripe.PaymentMethod.detach_async(method_id, stripe_account=account)
+    return {"payment_method": detached.id, "customer": detached.customer}
+
+
+async def unauthorized_bank(
+    account: str, fixture: ClientFixture, intent_id: str
+) -> dict[str, object]:
+    """Finish the client's bank setup with Stripe's test bank whose debits the bank refuses."""
+    setup = await stripe.SetupIntent.retrieve_async(intent_id, stripe_account=account)
+    if setup.livemode or setup.customer != fixture.customer:
+        raise ValueError("the setup intent does not belong to the client fixture's customer")
+    confirmed = await stripe.SetupIntent.confirm_async(
+        intent_id,
+        payment_method="pm_acssDebit_debitNotAuthorized",
+        mandate_data={
+            "customer_acceptance": {
+                "type": "online",
+                "online": {"ip_address": "203.0.113.10", "user_agent": "clientbridge-qa"},
+            }
+        },
+        stripe_account=account,
+    )
+    return {
+        "setup": confirmed.id,
+        "status": confirmed.status,
+        "payment_method": confirmed.payment_method,
+        "mandate": confirmed.mandate,
+    }
+
+
+async def client_action(
+    action: str, client_id: str, seconds: int, target: str | None = None
+) -> dict[str, object]:
     account = await validate_context()
     path, state = run_state(account)
     run = str(state["run_id"])
@@ -271,6 +329,17 @@ async def client_action(action: str, client_id: str, seconds: int) -> dict[str, 
     fixture = matches[0]
     if action == "methods":
         return await saved_methods(account, fixture)
+    if action == "wallet":
+        return {
+            "app": await recorded_methods(client_id),
+            "stripe": await saved_methods(account, fixture),
+        }
+    if action in ("detach", "unauthorized-bank"):
+        if target is None:
+            raise ValueError(f"{action} needs --target")
+        if action == "detach":
+            return await detach_method(account, fixture, target)
+        return await unauthorized_bank(account, fixture, target)
     if action == "advance":
         return {
             "clock": fixture.clock,
@@ -332,17 +401,31 @@ async def client_action(action: str, client_id: str, seconds: int) -> dict[str, 
 
 
 async def clients_main(argv: list[str]) -> None:
-    """Register a purchaser, move its test clock, or read its renewals or saved methods."""
+    """Register a purchaser, move its test clock, read its wallet or change it at Stripe."""
     parser = argparse.ArgumentParser(prog="python -m e2e.stripe clients")
     parser.add_argument(
         "action",
-        choices=("register", "register-clock", "advance", "decline", "evidence", "methods"),
+        choices=(
+            "register",
+            "register-clock",
+            "advance",
+            "decline",
+            "evidence",
+            "methods",
+            "wallet",
+            "detach",
+            "unauthorized-bank",
+        ),
     )
     parser.add_argument("client_id")
     parser.add_argument("--seconds", type=int, default=0)
+    # the payment method to detach, or the setup intent to finish with the refusing test bank
+    parser.add_argument("--target")
     args = parser.parse_args(argv)
     try:
-        print(json.dumps(await client_action(args.action, args.client_id, args.seconds)))
+        print(
+            json.dumps(await client_action(args.action, args.client_id, args.seconds, args.target))
+        )
     finally:
         await close_stripe_client()
         await engine.dispose()

@@ -2,7 +2,7 @@ import { useBusinessQuery as useQuery, useRemote, useLoad } from "../hooks";
 import { useBusinessId } from "./business";
 import type { ApiLike } from "../api";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
 import { type Load } from "../hooks";
 import { strings } from "../strings";
@@ -218,6 +218,8 @@ export interface Payouts {
     feesCents: number;
     charges: ChargeView[];
     feesPending: number;
+    foreignBank: boolean;
+    recheckBank: () => void;
     contents: PayoutContents;
     next: (() => void) | null;
     previous: (() => void) | null;
@@ -234,14 +236,26 @@ export function usePayouts(api: ApiLike): Payouts {
     });
     const cursors = paging.businessId === businessId ? paging.cursors : [];
     const cursor = cursors.at(-1);
-    const key = `${businessId ?? ""}:${cursor ?? ""}`;
+    const [bankChecks, setBankChecks] = useState(0);
+    const key = `${businessId ?? ""}:${cursor ?? ""}:${String(bankChecks)}`;
+    // account management can change the payout bank, which only a read from Stripe mirrors
+    const recheckBank = useCallback(() => {
+        const reread = (): void => {
+            setBankChecks((n) => n + 1);
+        };
+        api.post("/v1/connect/refresh", {}).then(reread, reread);
+    }, [api]);
     const payouts = useRemote(
         async () => ({
             key,
             body:
                 businessId === null
-                    ? { payouts: [], next_cursor: null }
-                    : await api.get<{ payouts: PayoutRow[]; next_cursor: string | null }>(
+                    ? { payouts: [], next_cursor: null, foreign_bank: false }
+                    : await api.get<{
+                          payouts: PayoutRow[];
+                          next_cursor: string | null;
+                          foreign_bank: boolean;
+                      }>(
                           `/v1/connect/payouts${cursor === undefined ? "" : `?after=${encodeURIComponent(cursor)}`}`,
                       ),
         }),
@@ -310,5 +324,7 @@ export function usePayouts(api: ApiLike): Payouts {
         feesCents: fees.data[0]?.cents ?? 0,
         charges: chargeViews,
         feesPending: chargeViews.filter((c) => c.feeCents === null).length,
+        foreignBank: page?.foreign_bank ?? false,
+        recheckBank,
     };
 }

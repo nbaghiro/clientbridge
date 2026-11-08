@@ -252,7 +252,7 @@ test.describe("payouts", () => {
         });
 });
 
-test("STR-E09 Getting paid shows payouts paused, held by Stripe or a detail Stripe rejected, from the mirrored account, and Check again reads it back from Stripe", async ({
+test("STR-E09 Getting paid shows payouts paused, held by Stripe, a detail Stripe rejected, a bank that turned a payout down or one in another currency, from the mirrored account, and Check again reads it back from Stripe", async ({
     browser,
 }, info) => {
     await stripeReady();
@@ -286,6 +286,31 @@ test("STR-E09 Getting paid shows payouts paused, held by Stripe or a detail Stri
         });
         await expect(page.getByText(g.reqIdNumber, { exact: true })).toBeVisible();
         await expect(page.getByText(g.reqError.identity, { exact: true })).toBeVisible();
+
+        const declined = await merchant<{ kyc_status: string }>("mirror", "declined");
+        expect(declined).toMatchObject({ kyc_status: "payouts_paused" });
+        await page.reload();
+        await expect(page.getByText(g.pausedBodyBank, { exact: true })).toBeVisible({
+            timeout: 60_000,
+        });
+        await expect(page.getByText(g.reqError.bankDeclined, { exact: true })).toBeVisible();
+        await expect(page.getByText(g.heldForBank, { exact: true })).toBeVisible();
+
+        const foreign = await merchant<{ kyc_status: string }>("mirror", "foreign");
+        expect(foreign).toMatchObject({ kyc_status: "enabled" });
+        await page.reload();
+        await expect(page.getByText(g.readyBodyBankCurrency, { exact: true })).toBeVisible({
+            timeout: 60_000,
+        });
+        await expect(page.getByText(g.reqError.bankCurrency, { exact: true })).toBeVisible();
+        await navigate(page, "/payments/payouts");
+        await expect(page.getByText(p.foreignBank, { exact: true })).toBeVisible({
+            timeout: 60_000,
+        });
+        await navigate(page, "/setup/getting-paid");
+        await expect(page.getByText(g.readyBodyBankCurrency, { exact: true })).toBeVisible({
+            timeout: 60_000,
+        });
 
         const stripeSide = await merchant<{
             charges_enabled: boolean;

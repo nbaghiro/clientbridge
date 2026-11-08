@@ -29,7 +29,7 @@ import { api } from "../lib/api";
 const g = strings.gettingPaid;
 
 function Hero({ paid }: { paid: GettingPaidView }) {
-    const warn = paid.phase !== "enabled";
+    const warn = paid.attention;
     return (
         <Panel
             title={paid.title}
@@ -155,7 +155,7 @@ function Body({ paid }: { paid: GettingPaidView }) {
                         <KeyValueList
                             rows={[
                                 {
-                                    label: paid.payoutsEnabled ? g.available : g.held,
+                                    label: paid.balanceLabel,
                                     value:
                                         paid.availableCents === null ? (
                                             g.balanceUnknown

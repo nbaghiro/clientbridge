@@ -90,7 +90,21 @@ flowchart LR
   `stripe_requirements.payouts_hold` and returned as `payouts_hold`: with nothing due, Getting paid says
   payouts wait on verification for `requirements_pending_verification` or `determining_status`, and that
   Stripe holds them for any other code. A ready account with something due says what is listed keeps it
-  that way.
+  that way. A failed payout leaves the payouts capability active but errors the bank it went to, and
+  Stripe sends nothing more until the bank is replaced: the account read also lists the bank accounts,
+  and when the bank payouts go to (the default CAD one, or a default one when there is no CAD bank) is
+  `errored` or `verification_failed`, payouts count as off and it is mirrored as
+  `stripe_requirements.bank_errored`. Getting paid adds why to the bank row, and says the bank turned a
+  payout down when nothing else is due. Stripe raises no account event for a bank, so the Connect
+  endpoint takes `account.external_account.created`, `.updated` and `.deleted` and re-reads the account
+  on each; `payout.failed` also re-reads it, best-effort so the failed payout is recorded either way,
+  and closing account management on Getting paid or the Payouts tab refreshes it. A bank list Stripe
+  refuses leaves the account readable and keeps the bank flags it last mirrored. Stripe can't limit the
+  currency of a bank the owner adds, and with no CAD bank it converts every payout into the bank's
+  currency, which the books refuse: the account is mirrored with `stripe_requirements.foreign_bank`,
+  Getting paid stays ready but asks for a Canadian-dollar account, and the Payouts tab, which lists only
+  CAD payouts, says why it has none. Existing Connect endpoints pick up the bank events on the next
+  `stripe_setup.py --apply` (production's are edited in the live Dashboard).
 - **Refresh.** `POST /v1/connect/refresh` (owners and admins) reads the account from Stripe and mirrors it,
   for when its events are late or never arrived. It calls Stripe at most six times a minute per business
   and otherwise returns the mirrored status. Getting paid's Refresh button and the return from onboarding
@@ -110,7 +124,8 @@ flowchart LR
   (`bank_setup_in_progress`) until that link expires; the wallet shows the open link until it is used,
   revoked or expires. A used link can't be revoked (`pad_link_used`), and a new one leaves it alone, so an
   authorized account stays saved. A bank account finished on a revoked link is detached at Stripe and never
-  saved. Only a chargeable method (a
+  saved. A revoked mandate leaves the bank account attached at Stripe (checked in the sandbox), and
+  removing a method Stripe already detached, or no longer has, still removes it. Only a chargeable method (a
   card, or a bank account with an active mandate) is ever a client's default. A charge on a saved bank account is
   recorded as `bank_eft` (`charge_method`) by the invoice, deposit, entitlement and sale builders, and its
   refunds copy that method. Stripe debits a saved bank account off session only when the PaymentIntent
@@ -394,7 +409,8 @@ sales.
 Dispute and payment-failure events find their payment within the business whose account sent the event,
 as settlement does, so an event can never touch another business's payment. An inquiry
 (`warning_needs_response`) alerts owners and admins once and books nothing; money moves only if it
-escalates. An inquiry keeps its answer-by date in `dispute_respond_by` until it escalates. Dispute and
+escalates, and then from the withdrawal's balance transaction with its fee, since Stripe can report the
+escalation before it withdraws. An inquiry keeps its answer-by date in `dispute_respond_by` until it escalates. Dispute and
 inquiry alerts push to owners' and admins' phones and email the owner's address with the date the
 evidence is due, so an owner who only uses the web still hears in time. A `prevented`
 dispute, which the card network settled before any funds left, also books

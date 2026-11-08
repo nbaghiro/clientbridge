@@ -10386,6 +10386,9 @@
     "gettingPaid.pausedBodyHeld": {
         "message": "You can still take card payments, but Stripe has put your payouts on hold. Contact support and we'll help sort it out."
     },
+    "gettingPaid.pausedBodyBank": {
+        "message": "You can still take card payments, but your bank turned down your last payout. Payouts are on hold until you update your bank details."
+    },
     "gettingPaid.restrictedTitle": {
         "message": "Card payments are paused"
     },
@@ -10413,6 +10416,12 @@
     "gettingPaid.reqError.website": {
         "message": "The website couldn't be verified. Check the address and that the site is live."
     },
+    "gettingPaid.reqError.bankDeclined": {
+        "message": "Your bank turned down the last payout. Check the account details, or add a different account."
+    },
+    "gettingPaid.reqError.bankCurrency": {
+        "message": "This account isn't in Canadian dollars. Add a Canadian-dollar chequing account for your payouts."
+    },
     "gettingPaid.reqError.other": {
         "message": "This detail couldn't be verified. Check it and send it again."
     },
@@ -10424,6 +10433,9 @@
     },
     "gettingPaid.readyBodyDue": {
         "message": "Card payments, Tap to Pay and payouts are all on. Send what's listed below to keep them that way."
+    },
+    "gettingPaid.readyBodyBankCurrency": {
+        "message": "Card payments, Tap to Pay and payouts are on, but your payouts go to a bank account in another currency. Stripe converts each one, and Clientbridge can't track them. Add a Canadian-dollar account."
     },
     "gettingPaid.phaseNotConnected": {
         "message": "Set up card payments, deposits and Tap to Pay. It takes about 10 minutes and you'll need a photo ID and your bank details."
@@ -10506,6 +10518,9 @@
     },
     "gettingPaid.held": {
         "message": "Held until verified"
+    },
+    "gettingPaid.heldForBank": {
+        "message": "Held until your bank is updated"
     },
     "gettingPaid.balanceUnknown": {
         "message": "Shown once card payments are on"
@@ -11505,6 +11520,9 @@
     },
     "payouts.returnedNotice": {
         "message": "Your bank returned this payout. Check your payout bank details before the next payout."
+    },
+    "payouts.foreignBank": {
+        "message": "Your payouts go to a bank account in another currency, so Stripe converts them and they aren't listed here. Add a Canadian-dollar account in Getting paid."
     },
     "payouts.chargesTitle": {
         "message": "Recent card charges"

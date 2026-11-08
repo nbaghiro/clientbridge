@@ -18,6 +18,7 @@ Lane = Literal[
     "native-ios",
     "native-android",
     "native-stripe",
+    "stripe-native",
     "sync",
 ]
 
@@ -47,6 +48,7 @@ REQUIRED_CASES = {
         "native-android",
         "native-stripe",
         "stripe",
+        "stripe-native",
     )
 }
 

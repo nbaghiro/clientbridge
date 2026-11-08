@@ -70,6 +70,9 @@ PLAN_EVENTS = (
 
 
 PAYMENT_EVENTS = (
+    "account.external_account.created",
+    "account.external_account.deleted",
+    "account.external_account.updated",
     "charge.dispute.closed",
     "charge.dispute.created",
     "charge.dispute.funds_reinstated",
@@ -131,6 +134,9 @@ class ConnectAccount:
     current_deadline: int | None = None  # unix time Stripe pauses payouts if currently_due stays
     requirement_errors: tuple[RequirementError, ...] = ()
     payouts_hold: str | None = None  # Stripe's status_details code while payouts are off
+    # None for both bank flags when the banks weren't listed; the mirror keeps its last read
+    bank_errored: bool | None = False  # the payout bank failed; none go out until it is replaced
+    foreign_bank: bool | None = False  # no CAD bank: Stripe converts payouts the books refuse
 
     @property
     def details_submitted(self) -> bool:
@@ -179,7 +185,24 @@ def _blocked_reason(data: dict[str, object]) -> str | None:
     return None
 
 
-def account_status_from(account_id: str, data: dict[str, object]) -> ConnectAccount:
+# a bank Stripe stops paying out to until the owner replaces it
+FAILED_BANK_STATUSES = ("errored", "verification_failed")
+
+
+def _bank_flags(banks: Sequence[dict[str, object]] | None) -> tuple[bool | None, bool | None]:
+    """Whether the bank payouts go to has failed, and whether no bank takes CAD."""
+    if banks is None:
+        return None, None
+    cad = [bank for bank in banks if bank.get("currency") == SETTLEMENT_CURRENCY]
+    # a CAD balance pays out to the default CAD bank, or with none is converted to a default one
+    payout_banks = [bank for bank in cad or banks if bank.get("default_for_currency") is True]
+    errored = any(bank.get("status") in FAILED_BANK_STATUSES for bank in payout_banks)
+    return errored, bool(banks) and not cad
+
+
+def account_status_from(
+    account_id: str, data: dict[str, object], banks: Sequence[dict[str, object]] | None = None
+) -> ConnectAccount:
     """Parse an Accounts v2 object (with merchant configuration and requirements) into KYC state."""
     card_status = merchant_capability(data, "card_payments").get("status")
     requirements = _dict(data.get("requirements"))
@@ -201,10 +224,12 @@ def account_status_from(account_id: str, data: dict[str, object]) -> ConnectAcco
     payouts = merchant_capability(data, "stripe_balance", "payouts")
     held = _rows(payouts.get("status_details"))
     hold = held[0].get("code") if held and payouts.get("status") != "active" else None
+    bank_errored, foreign_bank = _bank_flags(banks)
     return ConnectAccount(
         id=account_id,
         charges_enabled=card_status == "active",
-        payouts_enabled=payouts.get("status") == "active",
+        # the payouts capability stays active while Stripe sends nothing to a failed bank
+        payouts_enabled=payouts.get("status") == "active" and bank_errored is not True,
         disabled_reason=_blocked_reason(data),
         currently_due=due["currently_due"],
         eventually_due=due["eventually_due"],
@@ -213,6 +238,8 @@ def account_status_from(account_id: str, data: dict[str, object]) -> ConnectAcco
         current_deadline=_unix(deadline),
         requirement_errors=tuple(errors),
         payouts_hold=hold if isinstance(hold, str) else None,
+        bank_errored=bank_errored,
+        foreign_bank=foreign_bank,
     )
 
 
@@ -1137,7 +1164,15 @@ class StripeGateway:
         account = await self.client.v2.core.accounts.retrieve_async(
             account_id, {"include": ["configuration.merchant", "requirements"]}
         )
-        return account_status_from(str(account.id), account.to_dict())
+        banks: list[dict[str, object]] | None
+        try:
+            listed = await stripe.Account.list_external_accounts_async(
+                account_id, object="bank_account", limit=100
+            )
+            banks = [cast(dict[str, object], bank.to_dict()) for bank in listed.data]
+        except stripe.StripeError:
+            banks = None  # the account still reads; the bank flags keep their last mirrored value
+        return account_status_from(str(account.id), account.to_dict(), banks)
 
     @_keyed
     async def balance_transactions(
@@ -1603,7 +1638,20 @@ class StripeGateway:
 
     @_keyed
     async def detach_payment_method(self, account_id: str, *, payment_method_id: str) -> None:
-        await stripe.PaymentMethod.detach_async(payment_method_id, stripe_account=account_id)
+        try:
+            await stripe.PaymentMethod.detach_async(payment_method_id, stripe_account=account_id)
+        except stripe.InvalidRequestError as exc:
+            # Stripe refuses, with no code, to detach a method it already detached
+            try:
+                method = await stripe.PaymentMethod.retrieve_async(
+                    payment_method_id, stripe_account=account_id
+                )
+            except stripe.InvalidRequestError as missing:
+                if _missing(missing):
+                    return
+                raise exc from missing
+            if method.customer is not None:
+                raise
 
     @_keyed
     async def get_payment_fees(

@@ -19,6 +19,8 @@ interface ConnectStatus {
     requirement_errors?: { requirement: string; code: string }[];
     current_deadline: string | null;
     payouts_hold?: string | null;
+    bank_errored: boolean;
+    foreign_bank: boolean;
     available_cents: number | null;
     pending_cents: number | null;
 }
@@ -198,11 +200,13 @@ export interface GettingPaidView {
     phase: ConnectPhase;
     title: string;
     message: string;
+    attention: boolean;
     requirements: ConnectRequirement[];
     deadline: Date | null;
     canFinish: boolean;
     chargesEnabled: boolean;
     payoutsEnabled: boolean;
+    balanceLabel: string;
     availableCents: number | null;
     pendingCents: number | null;
     refreshing: boolean;
@@ -264,6 +268,8 @@ export function useGettingPaid(api: ApiLike): GettingPaidView {
         s?.current_deadline === null || s?.current_deadline === undefined
             ? null
             : parseTimestamp(s.current_deadline);
+    const bankErrored = s?.bank_errored ?? false;
+    const foreignBank = s?.foreign_bank ?? false;
     const past = new Set(s?.past_due ?? []);
     const keys = [...new Set([...(s?.past_due ?? []), ...(s?.currently_due ?? [])])];
     const notices = usePaymentNotices(
@@ -284,25 +290,32 @@ export function useGettingPaid(api: ApiLike): GettingPaidView {
                     ? g.restrictedBody
                     : phase === "payouts_paused"
                       ? keys.length === 0
-                          ? heldForReview(s?.payouts_hold ?? null)
-                              ? g.pausedBodyReview
-                              : g.pausedBodyHeld
+                          ? bankErrored
+                              ? g.pausedBodyBank
+                              : heldForReview(s?.payouts_hold ?? null)
+                                ? g.pausedBodyReview
+                                : g.pausedBodyHeld
                           : deadline === null || deadline.getTime() <= now.getTime()
                             ? g.pausedBodyNoDate
                             : g.pausedBody(formatDate(deadline, zone))
                       : keys.length > 0
                         ? g.readyBodyDue
-                        : g.readyBody;
+                        : foreignBank
+                          ? g.readyBodyBankCurrency
+                          : g.readyBody;
     const errors = s?.requirement_errors ?? [];
+    const payoutsEnabled = s?.payouts_enabled ?? false;
     return {
         phase,
         title: TITLES[phase] ?? "",
         message,
-        requirements: requirementRows(keys, past, errors),
+        attention: phase !== "enabled" || foreignBank,
+        requirements: withPayoutBank(requirementRows(keys, past, errors), bankErrored, foreignBank),
         deadline,
         canFinish: canFinish(phase, keys.length),
         chargesEnabled: s?.charges_enabled ?? false,
-        payoutsEnabled: s?.payouts_enabled ?? false,
+        payoutsEnabled,
+        balanceLabel: payoutsEnabled ? g.available : bankErrored ? g.heldForBank : g.held,
         availableCents: s?.available_cents ?? null,
         pendingCents: s?.pending_cents ?? null,
         refreshing: status === null,
@@ -313,6 +326,36 @@ export function useGettingPaid(api: ApiLike): GettingPaidView {
         notices,
         refresh,
     };
+}
+
+/** Adds why the payout bank fails, one that turned a payout down or isn't in CAD, to its row. */
+function withPayoutBank(
+    rows: ConnectRequirement[],
+    errored: boolean,
+    foreign: boolean,
+): ConnectRequirement[] {
+    if (!errored && !foreign) return rows;
+    const errors = [
+        ...(errored ? [g.reqError.bankDeclined] : []),
+        ...(foreign ? [g.reqError.bankCurrency] : []),
+    ];
+    const label = g.reqExternalAccount;
+    if (!rows.some((r) => r.label === label)) {
+        const why = g.reqWhy.bankAccount;
+        return [
+            { key: "external_account", label, why, errors, pastDue: errored, icon: "bank" },
+            ...rows,
+        ];
+    }
+    return rows.map((r) =>
+        r.label === label
+            ? {
+                  ...r,
+                  errors: [...new Set([...errors, ...r.errors])],
+                  pastDue: r.pastDue || errored,
+              }
+            : r,
+    );
 }
 
 /** Whether payouts with nothing due wait on Stripe's review, rather than a hold only support lifts. */

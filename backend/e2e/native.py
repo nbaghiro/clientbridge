@@ -13,7 +13,8 @@ import socket
 import subprocess
 import sys
 import threading
-from collections.abc import Callable, Coroutine, Iterator
+import zipfile
+from collections.abc import Callable, Coroutine, Iterator, Mapping
 from contextlib import ExitStack, contextmanager
 from functools import partial
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -54,6 +55,13 @@ STORAGE_PORT = f"tcp:{tier.PORTS['s3']}"
 NATIVE_BUILDS = {
     "ios": ROOT / ".scratchpad" / "native" / "ClientbridgeE2E.app",
     "android": ROOT / ".scratchpad" / "native" / "clientbridge-e2e.apk",
+}
+
+
+# the same app with the sandbox's publishable key compiled in, for flows that reach real Stripe
+NATIVE_STRIPE_BUILDS = {
+    "ios": ROOT / ".scratchpad" / "native" / "ClientbridgeE2E-stripe.app",
+    "android": ROOT / ".scratchpad" / "native" / "clientbridge-e2e-stripe.apk",
 }
 
 
@@ -246,15 +254,9 @@ def security_key(body: bytes) -> None:
 
 @contextmanager
 def native_control(
-    link: NativeLink,
-    push: Callable[[bytes], None],
-    account: Callable[[bytes], None],
-    photo: Callable[[str], None],
-    bank: Callable[[str], None],
-    lane_action: Callable[[str, list[str]], bytes],
-    log: Path,
+    link: NativeLink, lane: Mapping[str, Callable[[bytes], bytes | None]], log: Path
 ) -> Iterator[str]:
-    """A local endpoint a flow calls to go offline or online, or for a push, account or code."""
+    """A local endpoint a flow calls to go offline or online, for a code or a lane action."""
 
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self) -> None:
@@ -262,14 +264,9 @@ def native_control(
             actions: dict[str, Callable[[], bytes | None]] = {
                 "/offline": link.offline,
                 "/online": link.online,
-                "/push": lambda: push(body),
-                "/account": lambda: account(body),
                 "/totp": lambda: totp(body.decode()).encode(),
-                "/photo": lambda: photo(body.decode()),
                 "/key": lambda: security_key(body),
-                "/bank": lambda: bank(body.decode()),
-                "/notes": lambda: lane_action("notes", [body.decode()]),
-                "/client-photo": lambda: lane_action("client-photo", body.decode().split()),
+                **{path: partial(act, body) for path, act in lane.items()},
             }
             action = actions.get(self.path)
             try:
@@ -322,12 +319,29 @@ def native_ports_free() -> Iterator[None]:
         yield
 
 
-def build_native(platform: str) -> None:
+def build_native(platform: str, publishable_key: str = "") -> None:
+    builds = NATIVE_STRIPE_BUILDS if publishable_key else NATIVE_BUILDS
     subprocess.run(
-        [str(MOBILE / "scripts" / "e2e-build.sh"), platform, str(NATIVE_BUILDS[platform])],
-        env={**os.environ, "ANDROID_HOME": str(ANDROID_HOME), **native_urls(platform)},
+        [str(MOBILE / "scripts" / "e2e-build.sh"), platform, str(builds[platform])],
+        env={
+            **os.environ,
+            "ANDROID_HOME": str(ANDROID_HOME),
+            **native_urls(platform),
+            "STRIPE_PUBLISHABLE_KEY": publishable_key,
+        },
         check=True,
     )
+
+
+def built_publishable_key(platform: str, build: Path) -> str:
+    """The Stripe publishable key an e2e build has compiled in; empty when it has none."""
+    if platform == "ios":
+        raw = (build / "EXConstants.bundle" / "app.config").read_bytes()
+    else:
+        with zipfile.ZipFile(build) as apk:
+            raw = apk.read("assets/app.config")
+    extra = json.loads(raw).get("extra") or {}
+    return str(extra.get("stripePublishableKey") or "")
 
 
 def native_flows(tests: list[str]) -> list[str]:
@@ -335,6 +349,52 @@ def native_flows(tests: list[str]) -> list[str]:
     names = tests or sorted(flow.name for flow in (MOBILE / "e2e").glob("*.yaml"))
     # with several inputs, Maestro accepts a flow's media file only when an input contains it
     return [str(Path("e2e") / name) for name in [*names, "assets"]]
+
+
+def maestro_command(
+    stack: Stack, device: str, flows: list[str], report: Path, filters: list[str]
+) -> list[str]:
+    return [
+        "maestro",
+        "--device",
+        device,
+        "test",
+        "--driver-host-port",
+        str(DRIVER_PORT),
+        *flows,
+        "-e",
+        f"APP_ID={NATIVE_APP_ID}",
+        "-e",
+        f"E2E_NAMESPACE={stack.namespace}",
+        "-e",
+        f"MAILPIT_URL={stack.env['MAILPIT_URL']}",
+        "-e",
+        f"AUTH_ADMIN_URL={stack.env['AUTH_ADMIN_URL']}",
+        "-e",
+        f"AUTH_URL={tier.environment()['AUTH_PUBLIC_URL']}",
+        "-e",
+        f"API_URL={stack.api}",
+        *filters,
+        "--format",
+        "junit",
+        "--output",
+        str(report),
+        "--test-output-dir",
+        str(stack.directory / "native-artifacts"),
+        "--debug-output",
+        str(stack.directory / "native-debug"),
+        "--flatten-debug-output",
+    ]
+
+
+def native_link(stack: Stack) -> NativeLink:
+    return NativeLink(
+        {
+            NATIVE_PORTS["api"]: stack.api_port,
+            NATIVE_PORTS["auth"]: tier.PORTS["auth"],
+            NATIVE_PORTS["powersync"]: tier.PORTS["powersync"],
+        }
+    )
 
 
 def run_native(
@@ -358,48 +418,20 @@ def run_native(
     flows = native_flows(args.tests)
     if recording():
         flows = recorded_flows(flows, MOBILE, stack.directory / "native-flows")
-    command = [
-        "maestro",
-        "--device",
+    command = maestro_command(
+        stack,
         args.device,
-        "test",
-        "--driver-host-port",
-        str(DRIVER_PORT),
-        *flows,
-        "-e",
-        f"APP_ID={NATIVE_APP_ID}",
-        "-e",
-        f"E2E_NAMESPACE={stack.namespace}",
-        "-e",
-        f"MAILPIT_URL={stack.env['MAILPIT_URL']}",
-        "-e",
-        f"AUTH_ADMIN_URL={stack.env['AUTH_ADMIN_URL']}",
-        "-e",
-        f"AUTH_URL={tier.environment()['AUTH_PUBLIC_URL']}",
-        "-e",
-        f"API_URL={stack.api}",
-        # flows tagged stripe need the stand-in Stripe, and every other flow runs without one
-        *(["--include-tags", "stripe"] if args.fake_stripe else ["--exclude-tags", "stripe"]),
-        # only the iOS simulator takes a push without a push service
-        *(["--exclude-tags", "ios"] if args.platform == "android" else []),
-        "--format",
-        "junit",
-        "--output",
-        str(report),
-        "--test-output-dir",
-        str(stack.directory / "native-artifacts"),
-        "--debug-output",
-        str(stack.directory / "native-debug"),
-        "--flatten-debug-output",
-    ]
-    device = NativeDevice(args.platform, args.device)
-    link = NativeLink(
-        {
-            NATIVE_PORTS["api"]: stack.api_port,
-            NATIVE_PORTS["auth"]: tier.PORTS["auth"],
-            NATIVE_PORTS["powersync"]: tier.PORTS["powersync"],
-        }
+        flows,
+        report,
+        [
+            # flows tagged stripe need the stand-in Stripe, and every other flow runs without one
+            *(["--include-tags", "stripe"] if args.fake_stripe else ["--exclude-tags", "stripe"]),
+            # only the iOS simulator takes a push without a push service
+            *(["--exclude-tags", "ios"] if args.platform == "android" else []),
+        ],
     )
+    device = NativeDevice(args.platform, args.device)
+    link = native_link(stack)
     link.online()
     processes.callback(link.close)
 
@@ -440,10 +472,10 @@ def run_native(
             check=True,
         )
 
-    def authorized_bank(intent_id: str) -> None:
+    def authorized_bank(body: bytes) -> None:
         if stand_in is None:
             raise RuntimeError("the bank action needs the stand-in Stripe (--fake-stripe)")
-        for payload in stand_in.authorize(intent_id):
+        for payload in stand_in.authorize(body.decode()):
             sent = httpx.post(
                 f"{stack.api}/webhooks/stripe",
                 content=payload,
@@ -457,11 +489,14 @@ def run_native(
         device.installed(build),
         native_control(
             link,
-            message_push,
-            payment_account,
-            device.add_photo,
-            authorized_bank,
-            e2e_action,
+            {
+                "/push": message_push,
+                "/account": payment_account,
+                "/photo": lambda body: device.add_photo(body.decode()),
+                "/bank": authorized_bank,
+                "/notes": lambda body: e2e_action("notes", [body.decode()]),
+                "/client-photo": lambda body: e2e_action("client-photo", body.decode().split()),
+            },
             stack.directory / "control.log",
         ) as control,
         (stack.directory / "native.log").open("wb") as native_log,
@@ -478,3 +513,51 @@ def run_native(
     lane = "native-stripe" if args.fake_stripe else f"native-{args.platform}"
     required = [] if args.tests else REQUIRED_CASES[lane]
     validate_native_evidence(report.read_text(), required)
+
+
+def run_stripe_flows(
+    stack: Stack,
+    platform: Literal["ios", "android"],
+    device_id: str,
+    tests: list[str],
+    lane: Mapping[str, Callable[[bytes], bytes | None]],
+) -> None:
+    """The flows that reach real Stripe; the Stripe lane owns their credentials and cleanup."""
+    build = NATIVE_STRIPE_BUILDS[platform]
+    if not build.exists():
+        raise RuntimeError(
+            f"no e2e build at {build}; run python -m e2e.stripe native-build {platform}"
+        )
+    if built_publishable_key(platform, build) != stack.env["STRIPE_PUBLISHABLE_KEY"]:
+        raise RuntimeError(f"{build} has another sandbox's publishable key; build it again")
+    names = tests or sorted(flow.name for flow in (MOBILE / "e2e" / "stripe").glob("*.yaml"))
+    flows = [str(Path("e2e") / "stripe" / name) for name in names]
+    if recording():
+        flows = recorded_flows(flows, MOBILE, stack.directory / "native-flows")
+    report = stack.directory / "native-results.xml"
+    command = maestro_command(stack, device_id, flows, report, [])
+    device = NativeDevice(platform, device_id)
+    link = native_link(stack)
+    link.online()
+    try:
+        with (
+            device.installed(build),
+            native_control(link, lane, stack.directory / "control.log") as control,
+            (stack.directory / "native.log").open("wb") as native_log,
+        ):
+            command += ["-e", f"CONTROL_URL={control}"]
+            process = subprocess.Popen(
+                command,
+                cwd=MOBILE,
+                stdout=native_log,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+            )
+            try:
+                process.wait()
+            finally:
+                stack.stop_owned(process)
+                keep_recordings(stack.directory)
+    finally:
+        link.close()
+    validate_native_evidence(report.read_text(), [] if tests else REQUIRED_CASES["stripe-native"])

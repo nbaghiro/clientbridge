@@ -101,11 +101,20 @@ onFlowComplete:
 - tapOn: "Schedule"
 - tapOn: ${output.dayLabel}
 # the day opens at the start of its hours, which the helper moved to midnight
+# scrolling down finds the block at the bottom edge, under iOS's tab bar, and Maestro's centring
+# scrolls on past a thin block, so a short swipe lifts it and an upward scroll covers an early visit
 - scrollUntilVisible:
       element: ".*Juniper.*"
       direction: DOWN
-      centerElement: true
       timeout: 60000
+- swipe:
+      start: 50%, 70%
+      end: 50%, 40%
+      duration: 600
+- scrollUntilVisible:
+      element: ".*Juniper.*"
+      direction: UP
+      timeout: 20000
 # a ten-minute visit is a thin block, and a tap while the grid settles can miss it
 - retry:
       maxRetries: 3

@@ -151,6 +151,8 @@ ACCOUNT_STATES: dict[str, tuple[bool, bool, dict[str, object]]] = {
             ],
         },
     ),
+    "declined": (True, False, {"bank_errored": True}),
+    "foreign": (True, True, {"foreign_bank": True}),
     "ready": (True, True, {}),
 }
 
@@ -174,6 +176,8 @@ async def payment_account(state: str) -> dict[str, object]:
             "requirement_errors": [],
             "current_deadline": None,
             "payouts_hold": None,
+            "bank_errored": False,
+            "foreign_bank": False,
             **requirements,
         }
         await db.commit()

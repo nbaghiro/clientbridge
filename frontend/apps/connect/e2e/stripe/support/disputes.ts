@@ -278,6 +278,12 @@ export async function startedDepositVisit(page: Page, notify: boolean) {
         },
     });
     expect(changed.status(), await changed.text()).toBe(200);
+    // the quarter-hourly job completes a visit from an earlier day before the test can act on it
+    const policy = await page.request.patch(`${api}/v1/online-booking`, {
+        headers: { Origin: origin, "Idempotency-Key": randomUUID() },
+        data: { policy: { auto_complete: false } },
+    });
+    expect(policy.status(), await policy.text()).toBe(200);
     // the visit must have started before it can be marked a no-show or settled by its invoice
     for (let back = 1; back <= 7; back++) {
         const day = addDays(new Date(), -back, booking.zone);

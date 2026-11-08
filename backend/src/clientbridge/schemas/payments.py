@@ -51,6 +51,14 @@ class ConnectStatus(BaseModel):
         default=None,
         description="Stripe's reason payouts are off, such as requirements_pending_verification",
     )
+    bank_errored: bool = Field(
+        default=False,
+        description="A payout to the bank failed, so payouts are off until the bank is replaced",
+    )
+    foreign_bank: bool = Field(
+        default=False,
+        description="No bank takes CAD, so Stripe converts payouts into a currency not tracked",
+    )
     available_cents: int | None = Field(
         default=None, description="The Stripe balance available to pay out, when connected"
     )
@@ -71,6 +79,9 @@ class PayoutOut(BaseModel):
 class PayoutsOut(BaseModel):
     payouts: list[PayoutOut] = Field(default_factory=list)
     next_cursor: str | None = None
+    foreign_bank: bool = Field(
+        default=False, description="Payouts in another currency are left out of the list"
+    )
 
 
 class PayoutTransactionOut(BaseModel):

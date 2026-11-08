@@ -39,7 +39,7 @@ const c = theme.colors;
 
 export function Payouts() {
     const p = usePayouts(api);
-    const account = usePaymentAccount(api);
+    const account = usePaymentAccount(api, p.recheckBank);
     const setup = useSetupProgress();
     const connected = setup.steps.find((x) => x.key === "stripe")?.done ?? false;
     const openLink = useOpenLink();
@@ -88,6 +88,11 @@ export function Payouts() {
                     {strings.paymentAccount.manageOnWeb}
                 </Button>
                 {web.error !== null ? <Notice tone="danger">{web.error}</Notice> : null}
+                {p.foreignBank ? (
+                    <Notice tone="info" banner>
+                        {s.foreignBank}
+                    </Notice>
+                ) : null}
                 <Button
                     disabled={!account.ready}
                     variant="outline"

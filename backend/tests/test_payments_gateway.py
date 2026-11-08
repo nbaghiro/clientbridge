@@ -94,6 +94,51 @@ async def test_canceling_an_intent_the_account_doesnt_have_is_a_conflict(
         await gateway.cancel_payment_intent("acct_x", payment_intent_id="pi_gone")
 
 
+def _method_of(customer: str | None) -> object:
+    async def retrieve(*args: object, **kwargs: object) -> object:
+        return stripe.PaymentMethod.construct_from({"id": "pm_x", "customer": customer}, "sk_test")
+
+    return retrieve
+
+
+not_attached = stripe.InvalidRequestError(
+    "The payment method you provided is not attached to a customer so detachment is impossible.",
+    None,
+)
+
+
+async def test_detaching_a_method_stripe_already_detached_succeeds(
+    gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(stripe.PaymentMethod, "detach_async", _raises(not_attached))
+    monkeypatch.setattr(stripe.PaymentMethod, "retrieve_async", _method_of(None))
+    await gateway.detach_payment_method("acct_x", payment_method_id="pm_x")
+
+
+async def test_detaching_a_method_stripe_no_longer_has_succeeds(
+    gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(stripe.PaymentMethod, "detach_async", _raises(_missing("payment_method")))
+    monkeypatch.setattr(stripe.PaymentMethod, "retrieve_async", _raises(_missing("id")))
+    await gateway.detach_payment_method("acct_x", payment_method_id="pm_gone")
+
+
+async def test_a_detach_stripe_refuses_for_an_attached_method_still_fails(
+    gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    refused = stripe.InvalidRequestError("refused", None)
+    monkeypatch.setattr(stripe.PaymentMethod, "detach_async", _raises(refused))
+    monkeypatch.setattr(stripe.PaymentMethod, "retrieve_async", _method_of("cus_x"))
+    with pytest.raises(stripe.InvalidRequestError) as failed:
+        await gateway.detach_payment_method("acct_x", payment_method_id="pm_x")
+    assert failed.value is refused
+    unreadable = stripe.InvalidRequestError("unreadable", None)
+    monkeypatch.setattr(stripe.PaymentMethod, "retrieve_async", _raises(unreadable))
+    with pytest.raises(stripe.InvalidRequestError) as failed:
+        await gateway.detach_payment_method("acct_x", payment_method_id="pm_x")
+    assert failed.value is refused
+
+
 @pytest.mark.parametrize(
     "failure",
     [
@@ -696,3 +741,29 @@ async def test_a_first_membership_charge_stripe_refuses_names_why(
             metadata={},
             application_fee_percent=0.3,
         )
+
+
+@pytest.mark.parametrize("readable", [True, False])
+async def test_account_read_lists_the_banks_and_survives_a_bank_list_stripe_refuses(
+    gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch, readable: bool
+) -> None:
+    calls: list[tuple[str, dict[str, object]]] = []
+
+    async def retrieve(account_id: str, params: object = None) -> stripe.StripeObject:
+        return stripe.StripeObject.construct_from({"id": account_id}, "sk")
+
+    async def listing(account_id: str, **params: object) -> stripe.ListObject[stripe.BankAccount]:
+        calls.append((account_id, params))
+        if not readable:
+            raise stripe.APIConnectionError("timed out")
+        bank = {"object": "bank_account", "currency": "usd", "default_for_currency": True}
+        return stripe.ListObject[stripe.BankAccount].construct_from(
+            {"data": [{**bank, "status": "errored"}]}, "sk"
+        )
+
+    monkeypatch.setattr(gateway.client.v2.core.accounts, "retrieve_async", retrieve)
+    monkeypatch.setattr(stripe.Account, "list_external_accounts_async", listing)
+    status = await gateway.get_account("acct_x")
+    assert calls == [("acct_x", {"object": "bank_account", "limit": 100})]
+    expected = (True, True) if readable else (None, None)
+    assert (status.bank_errored, status.foreign_bank) == expected

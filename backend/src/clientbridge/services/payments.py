@@ -290,6 +290,8 @@ class PaymentService:
             if isinstance(deadline, int)
             else None,
             payouts_hold=hold if isinstance(hold, str) else None,
+            bank_errored=req.get("bank_errored") is True,
+            foreign_bank=req.get("foreign_bank") is True,
             available_cents=available,
             pending_cents=pending,
         )
@@ -315,7 +317,11 @@ class PaymentService:
                 for row in page.payouts
                 if row.get("currency") == BUSINESS_CURRENCY.lower()
             ]
-            return PayoutsOut(payouts=payouts, next_cursor=page.next_cursor)
+            return PayoutsOut(
+                payouts=payouts,
+                next_cursor=page.next_cursor,
+                foreign_bank=business.stripe_requirements.get("foreign_bank") is True,
+            )
         except (KeyError, ValueError, OverflowError, OSError) as exc:
             raise AppError(
                 "invalid payout response", status_code=502, code="provider_unavailable"
@@ -1110,7 +1116,8 @@ async def resolve_saved_method_ref(
         raise NotFound("saved card not found")
     if pm.method == "bank_eft" and pm.mandate_status != "active":
         raise Conflict(
-            "the client must complete bank authorization before this account can be charged"
+            "the client must complete bank authorization before this account can be charged",
+            code="payment_method_not_chargeable",
         )
     return pm.provider_ref
 
@@ -2091,19 +2098,18 @@ def _closed(business: Business) -> bool:
 
 async def run_replay_missed_events(db: AsyncSession, gateway: PaymentGateway) -> int:
     """Apply events Stripe couldn't deliver, from each object's current state at our version."""
-    connected = [
-        b
+    accounts = [
+        b.stripe_account_id
         for b in await db.scalars(
             select(Business).where(Business.stripe_account_id.isnot(None)).order_by(Business.id)
         )
-        if not _closed(b)
+        if b.stripe_account_id is not None and not _closed(b)
     ]
-    for business in connected:
-        if merchant_account(business) is not None and kyc_status(business) != "enabled":
-            await _resync_account(db, gateway, business)
-    accounts: list[str | None] = [None, *(b.stripe_account_id for b in connected)]
+    await db.commit()
+    for account_id in accounts:
+        await _resync_account(db, gateway, account_id, unless_enabled=True)
     since, budget, applied = clock.now() - _REPLAY_WINDOW, _REPLAY_PER_RUN, 0
-    for account in accounts:
+    for account in (None, *accounts):
         if budget <= 0:
             break
         try:
@@ -2177,17 +2183,23 @@ async def _locked_by_account(db: AsyncSession, account_id: str) -> Business | No
     )
 
 
-async def _resync_account(db: AsyncSession, gateway: PaymentGateway, business: Business) -> None:
+async def _resync_account(
+    db: AsyncSession, gateway: PaymentGateway, account_id: str, *, unless_enabled: bool = False
+) -> None:
     """Re-read an account from Stripe: thin account events can't be listed as undelivered."""
-    assert business.stripe_account_id is not None
     try:
-        locked = await _locked_by_account(db, business.stripe_account_id)
-        if locked is not None:
-            apply_account_status(locked, await gateway.get_account(business.stripe_account_id))
+        locked = await _locked_by_account(db, account_id)
+        if (
+            locked is not None
+            and not _closed(locked)
+            and merchant_account(locked) is not None
+            and not (unless_enabled and kyc_status(locked) == "enabled")
+        ):
+            apply_account_status(locked, await gateway.get_account(account_id))
         await db.commit()
     except Exception:
         await db.rollback()
-        _log.warning("re-reading stripe account %s failed", business.stripe_account_id)
+        _log.warning("re-reading stripe account %s failed", account_id)
 
 
 async def _replay(db: AsyncSession, gateway: PaymentGateway, missed: MissedEvent) -> int:
@@ -2380,22 +2392,33 @@ async def _record_dispute(
     payment = await _disputed_payment(db, data, account)
     if payment is None:
         return None
+    await _book_dispute(db, payment, data)
+    return await _note_dispute(db, payment, data)
+
+
+async def _book_dispute(db: AsyncSession, payment: Payment, data: dict[str, object]) -> None:
     amount = data.get("amount")
-    txns = data.get("balance_transactions")
-    fee = sum(
-        int(t["fee"])
-        for t in (txns if isinstance(txns, list) else [])
-        if isinstance(t, dict)
-        and isinstance(t.get("fee"), int)
-        and (not isinstance(t.get("amount"), int) or int(t["amount"]) < 0)
-    )
     await ledger.post_dispute(
         db,
         payment,
         dispute_id=str(data.get("id")),
         amount=amount if isinstance(amount, int) else payment.amount_cents,
-        fee=fee,
+        fee=sum(_withdrawals(data)),
     )
+
+
+def _withdrawals(data: dict[str, object]) -> list[int]:
+    """The fee on each balance transaction that took the disputed funds; none until Stripe does."""
+    txns = data.get("balance_transactions")
+    return [
+        int(t["fee"]) if isinstance(t.get("fee"), int) else 0
+        for t in (txns if isinstance(txns, list) else [])
+        if isinstance(t, dict) and (not isinstance(t.get("amount"), int) or int(t["amount"]) < 0)
+    ]
+
+
+async def _note_dispute(db: AsyncSession, payment: Payment, data: dict[str, object]) -> str | None:
+    """Mirror the open case on the payment and return it; a settled case is left as it ended."""
     if payment.dispute_status in ("won", "lost"):
         return None
     _track_dispute(payment, data)
@@ -2430,13 +2453,18 @@ def _track_dispute(payment: Payment, data: dict[str, object]) -> None:
 async def _update_dispute(
     db: AsyncSession, data: dict[str, object], account: str | None = None
 ) -> str | None:
-    """Track the case; an inquiry escalated to a chargeback is booked now, as the funds leave."""
+    """Track the case, and book an escalated inquiry once Stripe's balance transactions show it."""
+    if _inquiry(data) or data.get("status") == "prevented":
+        return None
     payment = await _disputed_payment(db, data, account)
     if payment is None:
         return None
     first = payment.dispute_status is None
-    recorded = await _record_dispute(db, data, account)
-    return recorded if first else None
+    # Stripe can report the escalation before it withdraws, and only the withdrawal carries the fee
+    if _withdrawals(data):
+        await _book_dispute(db, payment, data)
+    noted = await _note_dispute(db, payment, data)
+    return noted if first else None
 
 
 DISPUTED = "a disputed payment can't be refunded unless the dispute is won"
@@ -2509,23 +2537,37 @@ def _returned_fee(data: dict[str, object]) -> int:
 
 
 async def _refresh_account(
-    db: AsyncSession, gateway: PaymentGateway, account_id: str | None, *, closed: bool = False
+    db: AsyncSession,
+    gateway: PaymentGateway,
+    account_id: str | None,
+    *,
+    closed: bool = False,
+    best_effort: bool = False,
 ) -> None:
-    """Mirror a connected account's current state after Stripe reports a change to it."""
+    """Mirror a connected account's current state; `best_effort` leaves it as is if unreadable."""
     if account_id is None:
         return
     business = await _locked_by_account(db, account_id)
     if business is None:
         return
     try:
-        apply_account_status(business, await gateway.get_account(account_id))
+        status = await gateway.get_account(account_id)
     except Exception:
-        if not closed:
+        if closed:
+            # a closed account may no longer be readable; the event alone says it takes nothing
+            _log.warning("closed stripe account %s could not be read", account_id, exc_info=True)
+            business.stripe_charges_enabled = business.stripe_payouts_enabled = False
+            business.stripe_requirements = {
+                **business.stripe_requirements,
+                "disabled_reason": "closed",
+            }
+        elif best_effort:
+            _log.warning("stripe account %s could not be re-read", account_id, exc_info=True)
+            return
+        else:
             raise
-        # a closed account may no longer be readable; the event alone says it takes nothing
-        _log.warning("closed stripe account %s could not be read", account_id, exc_info=True)
-        business.stripe_charges_enabled = business.stripe_payouts_enabled = False
-        business.stripe_requirements = {**business.stripe_requirements, "disabled_reason": "closed"}
+    else:
+        apply_account_status(business, status)
     await db.flush()
 
 
@@ -2554,6 +2596,13 @@ async def _dispatch(
     if event.type in ACCOUNT_EVENTS:
         closed = event.type == ACCOUNT_CLOSED
         await _refresh_account(db, gateway, event.account, closed=closed)
+    elif event.type in (
+        "account.external_account.created",
+        "account.external_account.deleted",
+        "account.external_account.updated",
+    ):
+        # a bank's status and currency change without any account event
+        await _refresh_account(db, gateway, event.account)
     elif event.account is None and event.type in PLAN_EVENTS:
         # a platform subscription bills the business itself; it is never a client membership
         await plans.apply_subscription_event(db, gateway, event)
@@ -2575,6 +2624,9 @@ async def _dispatch(
         await _record_payout(db, event.account, event.data, paid=event.type == "payout.paid")
     elif event.type in ("payout.failed", "payout.canceled"):
         await _fail_payout(db, event.account, event.data, event.created)
+        if event.type == "payout.failed":
+            # reads the failed payout's bank before its own event; the payout stays recorded
+            await _refresh_account(db, gateway, event.account, best_effort=True)
     elif event.type in ("setup_intent.succeeded", "setup_intent.setup_failed"):
         await _reconcile_pad_setup(db, gateway, event.account, str(event.data.get("id")))
     elif event.type == "mandate.updated":
@@ -4841,7 +4893,7 @@ async def run_reconcile_payments(
             account_id = None if _closed(business) else merchant_account(business)
             if account_id is not None:
                 # a lost account event would otherwise leave a paused account looking enabled
-                await _resync_account(db, gateway, business)
+                await _resync_account(db, gateway, account_id)
                 found += await reconcile_stripe_transactions(db, gateway, identity, account_id)
                 found += await _reconcile_balance(db, gateway, identity, account_id)
             stale = await ledger.stale_accounts(db, identity)
