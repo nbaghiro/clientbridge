@@ -611,6 +611,19 @@ async def test_approving_one_day_of_a_requested_enrolment_approves_every_day(
     assert {b.status for b in await bookings(db, [r.id for r in rows])} == {"confirmed"}
 
 
+async def test_an_enrolment_request_waits_for_its_first_day_deposit(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    program_id = await program(as_owner, db)
+    rows = await bookings(db, ids(await enrol(as_owner, program_id, "cl_amelie"), "booking_ids"))
+    for row in rows:
+        row.status, row.source = "pending", "online"
+    rows[0].deposit_amount_cents, rows[0].deposit_status = 2000, "pending"
+    await db.flush()
+    res = await as_owner.patch(f"/v1/bookings/{rows[2].id}", json={"status": "confirmed"})
+    assert res.status_code == 409 and res.json()["error"] == "deposit_unpaid"
+
+
 async def test_declining_a_requested_enrolment_cancels_every_day(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:

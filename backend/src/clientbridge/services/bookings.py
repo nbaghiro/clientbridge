@@ -6,7 +6,7 @@ from datetime import UTC, date, datetime, time, timedelta
 from typing import Literal
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import ColumnElement, Exists, func, literal, or_, select, text, true, tuple_
+from sqlalchemy import ColumnElement, Exists, and_, func, literal, or_, select, text, true, tuple_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -137,6 +137,7 @@ _NOT_STARTED = "a visit can be completed or marked a no-show only once it has st
 _ESTIMATE_BOOKED = "the estimate already has a booked visit; cancel it to book the estimate again"
 _ESTIMATE_INVOICED = "the estimate was already invoiced, so its products are billed there"
 _CLOSED_OR_WAITING = ("completed", "canceled", "no_show", "waitlisted")
+_DEPOSIT_UNPAID = "the client hasn't paid this request's deposit yet"
 _INVOICED = "this visit is already invoiced"
 _CLASS_CREW = "a class session has no crew; add helpers to a one-to-one visit"
 _CREW_STARTED = "the visit has already started; add helpers before it starts"
@@ -230,6 +231,16 @@ async def waitlist_position(db: AsyncSession, booking: Booking) -> int | None:
         )
     )
     return int(ahead or 0) + 1
+
+
+def _awaiting_deposit(booking: Booking) -> bool:
+    """An online request still on its deposit; the reaper releases it if the card never lands."""
+    return (
+        booking.status == "pending"
+        and booking.source == "online"
+        and booking.deposit_amount_cents > 0
+        and booking.deposit_status == "pending"
+    )
 
 
 def seat_booking(booking: Booking) -> None:
@@ -950,6 +961,8 @@ class BookingService:
                 await carry_crew(self.db, self.biz, booking, slot)
                 cmd.record("booking.reschedule", entity_type="booking", entity_id=booking.id)
             if data.status is not None and data.status != booking.status:
+                if data.status == "confirmed" and _awaiting_deposit(booking):
+                    raise Conflict(_DEPOSIT_UNPAID, code="deposit_unpaid")
                 held_seat = booking.status in ("pending", "confirmed")
                 booking.status = data.status
                 if data.status == "confirmed":
@@ -1073,6 +1086,8 @@ class BookingService:
         )
         waiting = [b.id for b in days if b.status == "pending" and b.id != booking.id]
         others = await lock_bookings(self.db, self.biz, waiting)
+        if status == "confirmed" and any(_awaiting_deposit(other) for other in others):
+            raise Conflict(_DEPOSIT_UNPAID, code="deposit_unpaid")
         for other in others:
             other.status = status
             if status == "confirmed":
@@ -1128,10 +1143,24 @@ class BookingService:
         await self._client(client_id)
         stmt = (
             scoped(Booking, self.biz, soft_delete=True)
-            .add_columns(Slot.starts_at, Slot.ends_at, Item.name, Item.color, staff_name())
+            .add_columns(
+                Slot.starts_at,
+                Slot.ends_at,
+                Item.name,
+                Item.color,
+                staff_name(),
+                Subject.name,
+                and_(
+                    Booking.status == "canceled",
+                    Booking.confirmed_at.is_(None),
+                    Slot.capacity > 1,
+                    Booking.canceled_at >= Slot.ends_at,
+                ),
+            )
             .join(Slot, Slot.id == Booking.slot_id)
             .join(Item, Item.id == Slot.item_id)
             .outerjoin(Staff, Staff.id == Booking.staff_id)
+            .outerjoin(Subject, Subject.id == Booking.subject_id)
             .where(
                 Booking.client_id == client_id,
                 Slot.starts_at < before
@@ -1142,21 +1171,28 @@ class BookingService:
             .order_by(Slot.starts_at.desc(), Booking.id.desc())
             .limit(limit + 1)
         )
-        done = (
-            scoped(Booking, self.biz, soft_delete=True)
-            .with_only_columns(func.count(Booking.id), func.max(Slot.starts_at))
-            .join(Slot, Slot.id == Booking.slot_id)
-            .where(
-                Booking.client_id == client_id,
-                Booking.status == "completed",
-                Slot.starts_at < before,
-            )
+        own: ColumnElement[bool] = (
+            true()
+            if is_manager(self.principal.role)
+            else Booking.staff_id == self.principal.staff_id
         )
-        if not is_manager(self.principal.role):
-            stmt = stmt.where(Booking.staff_id == self.principal.staff_id)
-            done = done.where(Booking.staff_id == self.principal.staff_id)
-        rows = (await self.db.execute(stmt)).all()
-        completed, last_completed_at = (await self.db.execute(done)).one()
+        rows = (await self.db.execute(stmt.where(own))).all()
+        completed: int | None = None
+        last_completed_at: datetime | None = None
+        if before_id is None:
+            completed, last_completed_at = (
+                await self.db.execute(
+                    scoped(Booking, self.biz, soft_delete=True)
+                    .with_only_columns(func.count(Booking.id), func.max(Slot.starts_at))
+                    .join(Slot, Slot.id == Booking.slot_id)
+                    .where(
+                        Booking.client_id == client_id,
+                        Booking.status == "completed",
+                        Slot.starts_at < before,
+                        own,
+                    )
+                )
+            ).one()
         return VisitPage(
             visits=[
                 VisitOut(
@@ -1171,8 +1207,19 @@ class BookingService:
                     item_name=item_name,
                     item_color=item_color,
                     staff_name=staff_name,
+                    subject_name=subject_name,
+                    waitlist_closed=bool(waitlist_closed),
                 )
-                for booking, starts_at, ends_at, item_name, item_color, staff_name in rows[:limit]
+                for (
+                    booking,
+                    starts_at,
+                    ends_at,
+                    item_name,
+                    item_color,
+                    staff_name,
+                    subject_name,
+                    waitlist_closed,
+                ) in rows[:limit]
             ],
             more=len(rows) > limit,
             completed=completed,

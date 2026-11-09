@@ -426,6 +426,22 @@ async def latest_photos(
     return dict(rows.tuples().all())
 
 
+async def latest_photo(
+    db: AsyncSession, business_id: str, parent_type: str, parent_id: str
+) -> File | None:
+    return await db.scalar(
+        scoped(File, business_id)
+        .where(
+            File.parent_type == parent_type,
+            File.purpose == "photo",
+            File.parent_id == parent_id,
+            File.uploaded_at.is_not(None),
+        )
+        .order_by(File.created_at.desc(), File.id.desc())
+        .limit(1)
+    )
+
+
 async def item_images(
     db: AsyncSession, business_id: str, item_ids: Sequence[str]
 ) -> dict[str, str]:

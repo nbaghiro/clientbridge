@@ -4,6 +4,8 @@ type PublicLoadStatus = "loading" | "not-found" | "error" | "ready";
 
 interface PublicResource<T> {
     status: PublicLoadStatus;
+    // the error was the server's rate limit, so waiting a minute is the fix, not the connection
+    limited: boolean;
     data: T | null;
     setData: (value: T) => void;
     retry: () => void;
@@ -26,12 +28,14 @@ export function usePublicResource<T>(
     const [loading, setLoading] = useState(true);
     const [notFound, setNotFound] = useState(false);
     const [loadError, setLoadError] = useState(false);
+    const [limited, setLimited] = useState(false);
     const [attempt, setAttempt] = useState(0);
 
     useEffect(() => {
         let live = true;
         setLoading(true);
         setLoadError(false);
+        setLimited(false);
         load(token)
             .then((d) => {
                 if (live) setData(d);
@@ -39,7 +43,10 @@ export function usePublicResource<T>(
             .catch((err: unknown) => {
                 if (!live) return;
                 if (statusOf(err) === 404) setNotFound(true);
-                else setLoadError(true);
+                else {
+                    setLoadError(true);
+                    setLimited(statusOf(err) === 429);
+                }
             })
             .finally(() => {
                 if (live) setLoading(false);
@@ -58,6 +65,7 @@ export function usePublicResource<T>(
             : "ready";
     return {
         status,
+        limited,
         data,
         setData,
         retry: () => {

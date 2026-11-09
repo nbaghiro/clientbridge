@@ -534,7 +534,7 @@ test("owner: clients, records, notes, subjects, wallet and merge", async ({ page
         const record = main.getByRole("complementary", { name: r.pane });
         await record
             .getByRole("listitem")
-            .getByRole("button", { name: strings.clients.history.editNote })
+            .getByRole("button", { name: strings.clients.history.noteActions })
             .first()
             .click();
         const menu = page.getByRole("menu");

@@ -364,7 +364,13 @@ export function PayStep({ flow }: { flow: PublicBookingFlow }) {
     const secret = r?.deposit_client_secret ?? null;
     if (r === null) return null;
     if (secret === null)
-        return <Skeleton variant="line" count={3} label={strings.common.loading} />;
+        return flow.retryPay !== null ? (
+            <Button icon="refresh" onPress={flow.retryPay}>
+                {strings.ui.retry}
+            </Button>
+        ) : (
+            <Skeleton variant="line" count={3} label={strings.common.loading} />
+        );
     return (
         <div className="space-y-4">
             <div>

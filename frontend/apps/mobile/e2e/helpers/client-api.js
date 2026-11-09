@@ -23,4 +23,4 @@ var sent = http.request(API_URL + PATH, {
 });
 if (sent.status >= 300)
     throw new Error(METHOD + " " + PATH + " failed: " + sent.status + " " + sent.body);
-output.response = json(sent.body);
+output.response = sent.body ? json(sent.body) : null;

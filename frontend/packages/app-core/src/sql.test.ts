@@ -998,7 +998,23 @@ function scheduleRows(): void {
     ]);
     scoped("notes", [
         { id: "nt_b", parent_type: "booking", parent_id: "bk_c1", body: "Nervous" },
-        { id: "nt_c", parent_type: "client", parent_id: "cl_ann", body: "Likes mornings" },
+        {
+            id: "nt_c",
+            parent_type: "client",
+            parent_id: "cl_ann",
+            body: "Likes mornings",
+            pinned: 1,
+        },
+        { id: "nt_quiet", parent_type: "client", parent_id: "cl_ann", body: "Paid cash once" },
+        {
+            id: "nt_rex",
+            parent_type: "subject",
+            parent_id: "sj_rex",
+            body: "Pulls on the lead",
+            pinned: 1,
+            created_at: "2026-06-27T09:00:00Z",
+        },
+        { id: "nt_rex_quiet", parent_type: "subject", parent_id: "sj_rex", body: "Blue towel" },
     ]);
     scoped("hours", [
         {
@@ -1998,6 +2014,13 @@ describe("app-core SQL against the replica schema", () => {
             { ...request, id: "bk_req", slot_id: "ss_req" },
             { ...request, id: "bk_past", slot_id: "ss_2" },
             { ...request, id: "bk_gone", slot_id: "ss_3", deleted_at: TS },
+            {
+                ...request,
+                id: "bk_paying",
+                slot_id: "ss_req",
+                deposit_amount_cents: 2750,
+                deposit_status: "pending",
+            },
         ]);
         expect(
             pick(
@@ -2016,6 +2039,69 @@ describe("app-core SQL against the replica schema", () => {
         );
         expect(bell.find((r) => r.id === "bk-bk_req")?.kind).toBe("booking_request");
         expect(bell.find((r) => r.id === "bk-bk_1")?.kind).toBe("booking_new");
+        // a client still on the card form hasn't asked yet
+        expect(bell.find((r) => r.id === "bk-bk_paying")).toBeUndefined();
+        db.run("UPDATE bookings SET deposit_status = 'collected' WHERE id = 'bk_paying'");
+        expect(run("REQUESTS_SQL", ["2026-06-27T00:00:00.000Z"]).map((r) => r.booking_id)).toEqual([
+            "bk_paying",
+            "bk_req",
+        ]);
+        // it became a request when the deposit landed, so a bell opened before then shows it unread
+        scoped("payments", [
+            {
+                id: "pay_hold",
+                client_id: "cl_ben",
+                kind: "deposit",
+                booking_id: "bk_paying",
+                amount_cents: 2750,
+                currency: "CAD",
+                method: "card",
+                provider: "stripe",
+                status: "succeeded",
+                paid_at: "2026-06-25T09:00:00Z",
+            },
+        ]);
+        expect(
+            run("NOTIFICATION_FEED_SQL", Array<string>(6).fill("2026-06-24T00:00:00.000Z")).find(
+                (r) => r.id === "bk-bk_paying",
+            )?.at,
+        ).toBe("2026-06-25T09:00:00Z");
+        // a class enrolment is answered whole, so its later days wait on the first day's deposit
+        scoped(
+            "slots",
+            (
+                [
+                    ["ss_e1", "2026-07-12T17:00:00Z"],
+                    ["ss_e2", "2026-07-19T17:00:00Z"],
+                ] as const
+            ).map(([id, starts_at]) => ({
+                id,
+                item_id: "it_cut",
+                staff_id: "st_amy",
+                recurrence_id: "rc_class",
+                starts_at,
+                ends_at: starts_at,
+                capacity: 1,
+                status: "scheduled",
+            })),
+        );
+        scoped("bookings", [
+            {
+                ...request,
+                id: "bk_e1",
+                slot_id: "ss_e1",
+                deposit_amount_cents: 2000,
+                deposit_status: "pending",
+            },
+            { ...request, id: "bk_e2", slot_id: "ss_e2" },
+        ]);
+        expect(run("REQUESTS_SQL", ["2026-06-27T00:00:00.000Z"]).map((r) => r.booking_id)).toEqual([
+            "bk_paying",
+            "bk_req",
+        ]);
+        expect(
+            pick(run("BOOKING_EVENT_SQL", ["bk_e2"]), "booking_id", "awaiting_deposit_cents"),
+        ).toEqual([{ booking_id: "bk_e2", awaiting_deposit_cents: 2000 }]);
         // a declined request arrived as a request, so the bell never calls it a new booking
         db.run(
             "UPDATE bookings SET status = 'canceled', canceled_at = '2026-06-27T10:00:00Z' WHERE id = 'bk_req'",
@@ -2293,6 +2379,11 @@ describe("app-core SQL against the replica schema", () => {
         expect(run("CLIENT_MESSAGES_SQL", ["cl_ann"]).every((r) => r.direction !== null)).toBe(
             true,
         );
+        expect(run("CLIENT_HISTORY_SOURCES_SQL", ["cl_ann"]).map((r) => r.id)).toEqual([
+            "th_1",
+            "visits",
+        ]);
+        expect(run("CLIENT_HISTORY_SOURCES_SQL", ["cl_ben"]).map((r) => r.id)).toEqual(["visits"]);
         expect(
             pick(
                 run("CLIENT_FOOTPRINT_SQL", ["cl_ann", "cl_ben"]),
@@ -2560,10 +2651,18 @@ describe("app-core SQL against the replica schema", () => {
         expect(run("DETAIL_CLIENT_SQL", ["cl_ann"]).map((r) => r.name)).toEqual(["Ann"]);
         expect(run("DETAIL_SUBJECT_SQL", ["bk_c1"]).map((r) => r.name)).toEqual(["Rex"]);
         expect(
-            run("DETAIL_NOTES_SQL", ["bk_c1", "cl_ann"])
-                .map((r) => r.id)
-                .sort(),
-        ).toEqual(["nt_b", "nt_c"]);
+            pick(run("DETAIL_NOTES_SQL", ["bk_c1", "cl_ann"]), "id", "pinned", "subject_name"),
+        ).toEqual([
+            { id: "nt_rex", pinned: 1, subject_name: "Rex" },
+            { id: "nt_c", pinned: 1, subject_name: null },
+            { id: "nt_b", pinned: null, subject_name: null },
+        ]);
+        db.run("UPDATE subjects SET deleted_at = ? WHERE id = 'sj_rex'", [TS]);
+        expect(run("DETAIL_NOTES_SQL", ["bk_c1", "cl_ann"]).map((r) => r.id)).toEqual([
+            "nt_c",
+            "nt_b",
+        ]);
+        db.run("UPDATE subjects SET deleted_at = NULL WHERE id = 'sj_rex'");
         expect(pick(run("DETAIL_SERIES_SQL", ["ss_c2"]), "id", "position")).toEqual([
             { id: "sch_1", position: 2 },
         ]);

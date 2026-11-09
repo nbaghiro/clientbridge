@@ -217,7 +217,7 @@ async def test_a_cancelled_or_waitlisted_booking_has_nothing_to_pay(
 
     ok(await api.post(f"/manage/{seated.manage_token}/cancel", headers=key()))
     canceled = await _pay(api, seated.manage_token)
-    assert canceled.status_code == 409 and canceled.json()["error"] == "deposit_not_due"
+    assert canceled.status_code == 409 and canceled.json()["error"] == "booking_closed"
     assert await _deposits(db, seated.id) == []
 
 
@@ -233,7 +233,7 @@ async def test_staff_cancel_closes_the_opened_deposit(
     assert ref in gateway.canceled_intents
     assert [d.status for d in await _deposits(db, booking.id)] == ["canceled"]
     res = await _pay(api, booking.manage_token)
-    assert res.status_code == 409 and res.json()["error"] == "deposit_not_due"
+    assert res.status_code == 409 and res.json()["error"] == "booking_closed"
 
 
 async def test_a_deposit_paid_from_the_link_is_refunded_on_a_cancel(

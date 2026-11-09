@@ -30,7 +30,12 @@ import type { Intent } from "../ui";
 import type { Viewer } from "./auth";
 import { afterReview, outgoing } from "./previews";
 import { useInvoices } from "./billing";
-import { type ScheduleEvent, slotBookingsJoin, slotOverlapSql } from "./bookings";
+import {
+    awaitingDepositSql,
+    type ScheduleEvent,
+    slotBookingsJoin,
+    slotOverlapSql,
+} from "./bookings";
 import { isPlace } from "./publicBooking";
 import {
     type SubjectAlert,
@@ -318,6 +323,7 @@ JOIN slots s ON s.id = b.slot_id
 JOIN items i ON i.id = s.item_id
 LEFT JOIN clients c ON c.id = b.client_id
 WHERE b.status = 'pending' AND b.deleted_at IS NULL AND ${utcSql("s.starts_at")} > datetime(?)
+  AND NOT ${awaitingDepositSql}
 ORDER BY ${utcSql("s.starts_at")}, b.id`;
 
 interface RequestRow {

@@ -47,6 +47,7 @@ class ConversationMessage(Mirror):
     status: MessageStatus
     created_at: datetime
     author: str | None
+    broadcast_id: str | None
 
 
 class ConversationPage(BaseModel):

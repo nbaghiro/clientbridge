@@ -228,6 +228,15 @@
     "api.depositNotDue": {
         "message": "This deposit is already paid or no longer due."
     },
+    "api.bookingClosed": {
+        "message": "This visit was cancelled, so there's nothing to pay."
+    },
+    "api.depositUnpaid": {
+        "message": "The client hasn't paid the deposit yet. You can approve the request once it's paid."
+    },
+    "api.tooManyRequests": {
+        "message": "Too many tries in a short time. Wait a minute and try again."
+    },
     "api.checkoutPaid": {
         "message": "The card payment already went through, so it can't be canceled."
     },
@@ -3653,6 +3662,10 @@
     "bookings.requestNote": {
         "message": "A new client asked for this time online. Approve it to confirm the visit, or decline it to free the time."
     },
+    "bookings.awaitingDeposit": {
+        "message": "Waiting for the client to pay the {amount} deposit. You can approve the request once it's paid, and the time frees up on its own if it isn't.",
+        "args": ["amount"]
+    },
     "bookings.declineTitle": {
         "message": "Decline this request?"
     },
@@ -6292,9 +6305,6 @@
     "clients.history.noteChangeError": {
         "message": "Couldn't change this note. Please try again."
     },
-    "clients.history.editNote": {
-        "message": "Edit"
-    },
     "clients.history.deleteNote": {
         "message": "Delete"
     },
@@ -6320,6 +6330,11 @@
     "clients.history.emptyFilter": {
         "message": "Nothing of this kind yet."
     },
+    "clients.history.emptySince": {
+        "message": "Nothing here since {month}. Show older to read further back.",
+        "description": "A client's timeline with nothing in the months this device keeps; month is like October 2025",
+        "args": ["month"]
+    },
     "clients.history.emptyTitle": {
         "message": "No history yet"
     },
@@ -6328,6 +6343,16 @@
     },
     "clients.history.loadOlder": {
         "message": "Show older"
+    },
+    "clients.history.noteActions": {
+        "message": "Note actions",
+        "description": "Accessible name of the button that opens a note's Pin and Delete menu"
+    },
+    "clients.history.olderFailed": {
+        "message": "We couldn't load older history. Please try again."
+    },
+    "clients.history.olderOffline": {
+        "message": "Older visits and texts need a connection. Try again when you're back online."
     },
     "clients.history.overdue": {
         "message": "Overdue"
@@ -12687,6 +12712,9 @@
     "publicBooking.resumeFailed": {
         "message": "That hold on your time has ended. Pick a time to book again."
     },
+    "publicBooking.resumeRetry": {
+        "message": "We couldn't open the payment just now. Your time is still held, so try again in a minute."
+    },
     "publicBooking.connectionError": {
         "message": "We couldn't reach the booking page. Check your connection and try again."
     },
@@ -12767,6 +12795,12 @@
     },
     "publicBooking.errorBody": {
         "message": "Check your connection and try again."
+    },
+    "publicBooking.busyTitle": {
+        "message": "Too many tries just now"
+    },
+    "publicBooking.busyBody": {
+        "message": "Wait a minute, then try again."
     },
     "publicBooking.minutes": {
         "message": "{n, number} min",
@@ -14199,7 +14233,7 @@
         "message": "Remove photo"
     },
     "files.clientPhotoHint": {
-        "message": "Your team sees it beside this client. The client doesn't.",
+        "message": "Your team sees it beside this client, and the client sees it on their booking pages.",
         "description": "Hint under a client's photo in the staff app"
     },
     "files.memberPhotoHint": {

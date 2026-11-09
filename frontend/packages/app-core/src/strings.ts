@@ -83,6 +83,9 @@ interface Strings {
         readonly paymentActionRequired: string;
         readonly invoiceChanged: string;
         readonly depositNotDue: string;
+        readonly bookingClosed: string;
+        readonly depositUnpaid: string;
+        readonly tooManyRequests: string;
         readonly checkoutPaid: string;
         readonly depositInProgress: string;
         readonly cardPaymentsUnavailable: string;
@@ -1198,6 +1201,7 @@ interface Strings {
         readonly approve: string;
         readonly decline: string;
         readonly requestNote: string;
+        readonly awaitingDeposit: (amount: string) => string;
         readonly declineTitle: string;
         readonly declineRefund: (amount: string) => string;
         readonly declineNotify: string;
@@ -1911,7 +1915,6 @@ interface Strings {
             readonly savingNote: string;
             readonly noteError: string;
             readonly noteChangeError: string;
-            readonly editNote: string;
             readonly deleteNote: string;
             readonly deleteNoteTitle: string;
             readonly deleteNoteBody: string;
@@ -1920,9 +1923,13 @@ interface Strings {
             readonly by: (who: string, when: string) => string;
             readonly empty: string;
             readonly emptyFilter: string;
+            readonly emptySince: (month: string) => string;
             readonly emptyTitle: string;
             readonly headsUp: string;
             readonly loadOlder: string;
+            readonly noteActions: string;
+            readonly olderFailed: string;
+            readonly olderOffline: string;
             readonly overdue: string;
             readonly upcoming: string;
             readonly since: (when: string) => string;
@@ -4317,6 +4324,7 @@ interface Strings {
         readonly bookError: string;
         readonly slotTaken: string;
         readonly resumeFailed: string;
+        readonly resumeRetry: string;
         readonly connectionError: string;
         readonly payTitle: string;
         readonly payBody: (amount: string) => string;
@@ -4341,6 +4349,8 @@ interface Strings {
         readonly notFoundBody: string;
         readonly errorTitle: string;
         readonly errorBody: string;
+        readonly busyTitle: string;
+        readonly busyBody: string;
         readonly minutes: (n: number) => string;
         readonly hoursMinutes: (h: number, m: number) => string;
         readonly today: string;

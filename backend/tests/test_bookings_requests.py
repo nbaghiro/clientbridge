@@ -15,6 +15,7 @@ from tests.conftest import BIZ, Factory, FakePaymentGateway, FakeSmsSender
 from tests.helpers import (
     deposit_payment,
     enable_payments,
+    ok,
     payment,
     provider_ref,
     queued_subjects,
@@ -155,6 +156,51 @@ async def test_declining_an_unpaid_request_cancels_its_deposit_and_frees_the_tim
     assert sms.sent[-1].body.endswith("You're welcome to book another time.")
     again = await _request(api, db, phone="+16045550272")
     assert (await _booking(db, again)).status == "pending"
+
+
+async def test_an_unpaid_request_cant_be_approved_until_its_deposit_lands(
+    api: httpx.AsyncClient, as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
+) -> None:
+    await enable_payments(db)
+    booking_id = await _request(api, db)
+    payment_id = await deposit_payment(db, booking_id)
+    sent = len(sms.sent)
+
+    refused = await as_owner.patch(f"/v1/bookings/{booking_id}", json={"status": "confirmed"})
+
+    assert refused.status_code == 409 and refused.json()["error"] == "deposit_unpaid"
+    assert (await _booking(db, booking_id)).status == "pending"
+    assert len(sms.sent) == sent
+    await settle(api, db, payment_id)
+    approved = await as_owner.patch(f"/v1/bookings/{booking_id}", json={"status": "confirmed"})
+    assert approved.status_code == 200, approved.text
+
+
+async def test_a_business_that_cant_take_cards_asks_no_deposit_online(
+    api: httpx.AsyncClient, as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await enable_payments(db, None)
+    page = ok(await api.get(f"/book/{SLUG}/services")).json()
+    groom = next(x for x in page["services"] if x["id"] == LARGE_GROOM)
+    assert (groom["deposit_required"], groom["deposit_amount_cents"]) == (False, 0)
+    booking_id = await _request(api, db)
+
+    booking = await _booking(db, booking_id)
+    assert (booking.deposit_amount_cents, booking.deposit_status) == (0, "none")
+    ok(await as_owner.patch(f"/v1/bookings/{booking_id}", json={"status": "confirmed"}))
+
+
+async def test_a_released_request_tells_a_returning_client_its_time_is_gone(
+    api: httpx.AsyncClient, as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await enable_payments(db)
+    booking_id = await _request(api, db)
+    token = (await _booking(db, booking_id)).manage_token
+    ok(await as_owner.patch(f"/v1/bookings/{booking_id}", json={"status": "canceled"}))
+
+    res = await api.post(f"/manage/{token}/deposit")
+
+    assert res.status_code == 409 and res.json()["error"] == "booking_closed"
 
 
 async def test_a_declined_request_is_answered_once(

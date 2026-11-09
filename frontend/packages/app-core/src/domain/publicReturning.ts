@@ -14,6 +14,7 @@ interface ReturningProfile {
         subject_id: string | null;
         starts_at: string;
     } | null;
+    photo_url?: string | null;
 }
 
 interface ReturningVerified {

@@ -1285,6 +1285,72 @@ describe("a reload on the deposit step", () => {
         expect(result.current.fields.name).toBe("Sam Chen");
     });
 
+    it("asks for a new time, never a paid confirmation, once staff or the reaper cancel the hold", async () => {
+        const closed = Object.assign(new Error("closed"), { status: 409, code: "booking_closed" });
+        const freed = client(vi.fn().mockRejectedValue(closed));
+        freed.getSlots = vi
+            .fn()
+            .mockResolvedValue([{ ...visit, staff_id: "member", waitlist: false }]);
+        const { result } = renderHook(() =>
+            usePublicBookingFlow(freed, "demo", { storage: storage() }),
+        );
+        await waitFor(() => {
+            expect(result.current.error).toBe(s.resumeFailed);
+        });
+        await waitFor(() => {
+            expect(result.current.slots).toHaveLength(1);
+        });
+        expect(result.current.step).toBe("time");
+        expect(result.current.slot).toBeNull();
+        expect(result.current.result).toBeNull();
+    });
+
+    it("keeps the hold when the payment can't open for a reason that doesn't end the visit", async () => {
+        const off = Object.assign(new Error("off"), {
+            status: 409,
+            code: "card_payments_unavailable",
+        });
+        const { result } = renderHook(() =>
+            usePublicBookingFlow(client(vi.fn().mockRejectedValue(off)), "demo", {
+                storage: storage(),
+            }),
+        );
+        await waitFor(() => {
+            expect(result.current.error).toBe(s.resumeRetry);
+        });
+        expect(result.current.step).toBe("pay");
+        expect(result.current.result?.manage_token).toBe("manage");
+        expect(result.current.retryPay).not.toBeNull();
+    });
+
+    it("keeps the held visit on the payment step while the server is busy, and opens it on retry", async () => {
+        const busy = Object.assign(new Error("busy"), { status: 429, code: "too_many_requests" });
+        const pay = vi
+            .fn()
+            .mockRejectedValueOnce(busy)
+            .mockResolvedValue({ client_secret: "pi_fresh", stripe_account_id: "acct_1" });
+        const saved = storage();
+        const stable = client(pay);
+        const { result } = renderHook(() =>
+            usePublicBookingFlow(stable, "demo", { storage: saved }),
+        );
+        await waitFor(() => {
+            expect(result.current.error).toBe(s.resumeRetry);
+        });
+        expect(result.current.step).toBe("pay");
+        expect(result.current.result?.manage_token).toBe("manage");
+        expect(saved.getItem("connect-booking:demo")).toContain('"held"');
+        act(() => {
+            result.current.retryPay?.();
+        });
+        await waitFor(() => {
+            expect(result.current.result?.deposit_client_secret).toBe("pi_fresh");
+        });
+        expect(pay).toHaveBeenCalledTimes(2);
+        expect(result.current.error).toBeNull();
+        expect(result.current.retryPay).toBeNull();
+    });
+
     it("keeps nothing once the deposit is paid", async () => {
         const pay = vi
             .fn()

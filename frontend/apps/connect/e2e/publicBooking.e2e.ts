@@ -228,6 +228,8 @@ test(
         await expect(
             page.getByRole("heading", { name: strings.publicBooking.stepTime }),
         ).toBeVisible();
+        // WebKit aborts a navigation that starts while routed API calls are still in flight
+        await page.waitForLoadState("networkidle");
         await page.goto(`/${otherSlug}`);
         await expect(page.getByRole("button", { name: /^Dog Walk, 30 minutes/ })).toBeVisible();
         await expect(

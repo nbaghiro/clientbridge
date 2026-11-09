@@ -265,12 +265,21 @@ function BookingNotes({ detail }: { detail: BookingDetail }) {
         <DetailSection title={s.detailNotes}>
             <div className="space-y-2">
                 {detail.notes.map((n) => (
-                    <p
+                    <div
                         key={n.id}
                         className="rounded-md bg-warn-bg/60 px-3 py-2 text-sm leading-relaxed text-ink-soft"
                     >
-                        {n.body}
-                    </p>
+                        <p className="whitespace-pre-line">{n.body}</p>
+                        <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted">
+                            {n.by}
+                            {n.subjectName !== null ? (
+                                <Badge label={n.subjectName} intent="neutral" />
+                            ) : null}
+                            {n.pinned ? (
+                                <Badge label={strings.clients.record.pinned} intent="warning" />
+                            ) : null}
+                        </p>
+                    </div>
                 ))}
                 {bookingId !== null ? (
                     <BookingNoteBox key={bookingId} bookingId={bookingId} />
@@ -653,9 +662,10 @@ export function BookingActionBar({
     }
     return (
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-            {actions.canApprove ? (
+            {actions.canDecline ? (
                 <Button
                     busy={actions.pending === "approve"}
+                    disabled={!actions.canApprove}
                     icon="check"
                     onPress={() => {
                         actions.run("approve");
@@ -717,8 +727,8 @@ export function BookingActionBar({
             {actions.notStartedNote !== null ? (
                 <p className="w-full text-xs text-muted">{actions.notStartedNote}</p>
             ) : null}
-            {actions.canApprove ? (
-                <p className="w-full text-xs text-muted">{s.requestNote}</p>
+            {actions.requestNote !== null ? (
+                <p className="w-full text-xs text-muted">{actions.requestNote}</p>
             ) : null}
             {actions.settling !== null ? (
                 <p className="w-full text-xs text-muted">{actions.settling}</p>

@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
-from clientbridge.core.deps import DbSession, SmsDep
+from clientbridge.core.deps import DbSession, SmsDep, StorageDep
 from clientbridge.core.ratelimit import public_booking_rate_limit
 from clientbridge.schemas.returning import (
     ReturningChallengeOut,
@@ -25,6 +25,6 @@ async def request_returning_code(
 
 @router.post("/verify", response_model=ReturningVerified)
 async def verify_returning_code(
-    slug: str, data: ReturningVerify, db: DbSession, _: RateLimited
+    slug: str, data: ReturningVerify, db: DbSession, storage: StorageDep, _: RateLimited
 ) -> ReturningVerified:
-    return await ReturningService(db).verify(slug, data)
+    return await ReturningService(db).verify(slug, data, storage)

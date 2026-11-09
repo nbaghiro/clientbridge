@@ -203,6 +203,15 @@
     "api.depositNotDue": {
         "message": "[Ţĥîš ðéþöšîţ îš åļŕéåðý þåîð öŕ ñö ļöñĝéŕ ðûé. one two three]"
     },
+    "api.bookingClosed": {
+        "message": "[Ţĥîš ṽîšîţ ŵåš çåñçéļļéð, šö ţĥéŕé'š ñöţĥîñĝ ţö þåý. one two three four]"
+    },
+    "api.depositUnpaid": {
+        "message": "[Ţĥé çļîéñţ ĥåšñ'ţ þåîð ţĥé ðéþöšîţ ýéţ. Ýöû çåñ åþþŕöṽé ţĥé ŕéǫûéšţ öñçé îţ'š þåîð. one two three four five]"
+    },
+    "api.tooManyRequests": {
+        "message": "[Ţöö ɱåñý ţŕîéš îñ å šĥöŕţ ţîɱé. Ŵåîţ å ɱîñûţé åñð ţŕý åĝåîñ. one two three four]"
+    },
     "api.checkoutPaid": {
         "message": "[Ţĥé çåŕð þåýɱéñţ åļŕéåðý ŵéñţ ţĥŕöûĝĥ, šö îţ çåñ'ţ ƀé çåñçéļéð. one two three four]"
     },
@@ -3356,6 +3365,9 @@
     "bookings.requestNote": {
         "message": "[Å ñéŵ çļîéñţ åšķéð ƒöŕ ţĥîš ţîɱé öñļîñé. Åþþŕöṽé îţ ţö çöñƒîŕɱ ţĥé ṽîšîţ, öŕ ðéçļîñé îţ ţö ƒŕéé ţĥé ţîɱé. one two three four five six seven]"
     },
+    "bookings.awaitingDeposit": {
+        "message": "[Ŵåîţîñĝ ƒöŕ ţĥé çļîéñţ ţö þåý ţĥé {amount} ðéþöšîţ. Ýöû çåñ åþþŕöṽé ţĥé ŕéǫûéšţ öñçé îţ'š þåîð, åñð ţĥé ţîɱé ƒŕééš ûþ öñ îţš öŵñ îƒ îţ îšñ'ţ. one two three four five six seven eight]"
+    },
     "bookings.declineTitle": {
         "message": "[Đéçļîñé ţĥîš ŕéǫûéšţ? one two]"
     },
@@ -5783,9 +5795,6 @@
     "clients.history.noteChangeError": {
         "message": "[Çöûļðñ'ţ çĥåñĝé ţĥîš ñöţé. Þļéåšé ţŕý åĝåîñ. one two three]"
     },
-    "clients.history.editNote": {
-        "message": "[Éðîţ one]"
-    },
     "clients.history.deleteNote": {
         "message": "[Đéļéţé one]"
     },
@@ -5810,6 +5819,9 @@
     "clients.history.emptyFilter": {
         "message": "[Ñöţĥîñĝ öƒ ţĥîš ķîñð ýéţ. one two]"
     },
+    "clients.history.emptySince": {
+        "message": "[Ñöţĥîñĝ ĥéŕé šîñçé {month}. Šĥöŵ öļðéŕ ţö ŕéåð ƒûŕţĥéŕ ƀåçķ. one two three four]"
+    },
     "clients.history.emptyTitle": {
         "message": "[Ñö ĥîšţöŕý ýéţ one two]"
     },
@@ -5818,6 +5830,15 @@
     },
     "clients.history.loadOlder": {
         "message": "[Šĥöŵ öļðéŕ one two]"
+    },
+    "clients.history.noteActions": {
+        "message": "[Ñöţé åçţîöñš one two]"
+    },
+    "clients.history.olderFailed": {
+        "message": "[Ŵé çöûļðñ'ţ ļöåð öļðéŕ ĥîšţöŕý. Þļéåšé ţŕý åĝåîñ. one two three four]"
+    },
+    "clients.history.olderOffline": {
+        "message": "[Öļðéŕ ṽîšîţš åñð ţéẋţš ñééð å çöññéçţîöñ. Ţŕý åĝåîñ ŵĥéñ ýöû'ŕé ƀåçķ öñļîñé. one two three four five]"
     },
     "clients.history.overdue": {
         "message": "[Öṽéŕðûé one]"
@@ -11789,6 +11810,9 @@
     "publicBooking.resumeFailed": {
         "message": "[Ţĥåţ ĥöļð öñ ýöûŕ ţîɱé ĥåš éñðéð. Þîçķ å ţîɱé ţö ƀööķ åĝåîñ. one two three four]"
     },
+    "publicBooking.resumeRetry": {
+        "message": "[Ŵé çöûļðñ'ţ öþéñ ţĥé þåýɱéñţ ĵûšţ ñöŵ. Ýöûŕ ţîɱé îš šţîļļ ĥéļð, šö ţŕý åĝåîñ îñ å ɱîñûţé. one two three four five six]"
+    },
     "publicBooking.connectionError": {
         "message": "[Ŵé çöûļðñ'ţ ŕéåçĥ ţĥé ƀööķîñĝ þåĝé. Çĥéçķ ýöûŕ çöññéçţîöñ åñð ţŕý åĝåîñ. one two three four five]"
     },
@@ -11860,6 +11884,12 @@
     },
     "publicBooking.errorBody": {
         "message": "[Çĥéçķ ýöûŕ çöññéçţîöñ åñð ţŕý åĝåîñ. one two three]"
+    },
+    "publicBooking.busyTitle": {
+        "message": "[Ţöö ɱåñý ţŕîéš ĵûšţ ñöŵ one two]"
+    },
+    "publicBooking.busyBody": {
+        "message": "[Ŵåîţ å ɱîñûţé, ţĥéñ ţŕý åĝåîñ. one two three]"
     },
     "publicBooking.minutes": {
         "message": "[{n, number} ɱîñ one]"
@@ -13218,7 +13248,7 @@
         "message": "[Ŕéɱöṽé þĥöţö one two]"
     },
     "files.clientPhotoHint": {
-        "message": "[Ýöûŕ ţéåɱ šééš îţ ƀéšîðé ţĥîš çļîéñţ. Ţĥé çļîéñţ ðöéšñ'ţ. one two three four]"
+        "message": "[Ýöûŕ ţéåɱ šééš îţ ƀéšîðé ţĥîš çļîéñţ, åñð ţĥé çļîéñţ šééš îţ öñ ţĥéîŕ ƀööķîñĝ þåĝéš. one two three four five six]"
     },
     "files.memberPhotoHint": {
         "message": "[Ýöûŕ ţéåɱ šééš îţ, åñð šö ðö çļîéñţš îƒ ýöû'ŕé öñ ţĥé þûƀļîç þŕöƒîļé. one two three four five]"

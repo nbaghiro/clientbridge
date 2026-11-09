@@ -130,6 +130,7 @@ from clientbridge.services.files import (
     assert_size,
     confirm_upload,
     item_images,
+    latest_photo,
     manage_photo_url,
     media_url,
     mint_upload,
@@ -181,9 +182,23 @@ def _account(business: Business) -> str | None:
     return business.stripe_account_id if business.stripe_charges_enabled else None
 
 
+def _drop_uncollectable_deposits(business: Business, bookings: list[Booking]) -> None:
+    """A business that can't take cards asks no deposit online, so its bookings owe none."""
+    if _account(business) is not None:
+        return
+    for booking in bookings:
+        booking.deposit_amount_cents = 0
+        booking.deposit_status = "none"
+
+
 def _service_out(
-    item: Item, image_url: str | None, staff_ids: list[str] | None = None
+    item: Item,
+    image_url: str | None,
+    staff_ids: list[str] | None = None,
+    *,
+    takes_deposits: bool = True,
 ) -> PublicService:
+    deposit = deposit_cents(item) if takes_deposits else 0
     return PublicService(
         id=item.id,
         name=item.name,
@@ -191,8 +206,8 @@ def _service_out(
         duration_min=item.duration_min,
         price_cents=item.price_cents,
         currency=item.currency,
-        deposit_required=item.deposit_type != "none",
-        deposit_amount_cents=deposit_cents(item),
+        deposit_required=item.deposit_type != "none" and takes_deposits,
+        deposit_amount_cents=deposit,
         taxable=item.tax_class != "exempt",
         image_url=image_url,
         kind=item.kind,
@@ -256,7 +271,13 @@ class PublicBookingService:
             business_name=business.name,
             brand=public_brand(business),
             services=[
-                _service_out(i, images.get(i.id), [x for x in ids if offers(i, x)]) for i in items
+                _service_out(
+                    i,
+                    images.get(i.id),
+                    [x for x in ids if offers(i, x)],
+                    takes_deposits=_account(business) is not None,
+                )
+                for i in items
             ],
             staff=[
                 PublicStaff(
@@ -426,6 +447,7 @@ class PublicBookingService:
                 booking.status = "pending"
                 booking.confirmed_at = None
             self._extras(business, booking, data, addons)
+            _drop_uncollectable_deposits(business, [booking])
             secret = await self._open_deposit(business, booking, client)
             result = PublicBookingResult(
                 booking_id=booking.id,
@@ -507,6 +529,7 @@ class PublicBookingService:
         first = bookings[0]
         ends = {d.id: d.ends_at for d in days}
         self._extras(business, first, data, [])
+        _drop_uncollectable_deposits(business, bookings)
         secret = await self._open_deposit(business, first, client)
         cmd.record(_BOOK_SCOPE, entity_type="booking", entity_id=first.id)
         return PublicBookingResult(
@@ -577,6 +600,7 @@ class PublicBookingService:
             self.db.add(booking)
             await self.db.flush()
             self._extras(business, booking, data, addons)
+            _drop_uncollectable_deposits(business, [booking])
             await self.db.flush()
             cmd.record(_WAITLIST_SCOPE, entity_type="booking", entity_id=booking.id)
             await queued_notifier(
@@ -995,8 +1019,11 @@ class PublicManageService:
         return await visit_receipt(self.db, booking, business)
 
     async def photo(self, token: str, file_id: str, storage: FileStorage) -> str:
-        """Where one of the visit's photos can be downloaded; the manage link is the credential."""
+        """Where a shared visit photo or the client's own downloads; the manage link is the key."""
         booking, _, _ = await self._resolve(token)
+        own = await self._client_photo(booking)
+        if own is not None and own.id == file_id:
+            return storage.presign_download(own.s3_key)
         file = (
             await self.db.execute(
                 scoped(File, booking.business_id).where(
@@ -1012,6 +1039,12 @@ class PublicManageService:
         if file is None:
             raise NotFound("not found")
         return storage.presign_download(file.s3_key)
+
+    async def _client_photo(self, booking: Booking) -> File | None:
+        # an online booking proves only a phone number, so its link never shows whose it is
+        if booking.source != "manual":
+            return None
+        return await latest_photo(self.db, booking.business_id, "client", booking.client_id)
 
     async def days(self, token: str, start: date, count: int) -> PublicDays:
         booking, slot, business = await self._resolve(token)
@@ -1260,6 +1293,8 @@ class PublicManageService:
         if await self._paying_before_locks(token):
             raise Conflict("this deposit is already being paid", code="deposit_in_progress")
         booking, _, business = await self._locked(token)
+        if booking.status in ("canceled", "completed", "no_show"):
+            raise Conflict("this visit is no longer booked", code="booking_closed")
         if not _deposit_due(booking):
             raise Conflict("this visit has no deposit to pay", code="deposit_not_due")
         account_id = _account(business)
@@ -1525,6 +1560,9 @@ class PublicManageService:
                 manage_photo_url(booking.manage_token or "", file_id)
                 for file_id in await self._photo_ids(booking)
             ],
+            client_photo_url=None
+            if (photo := await self._client_photo(booking)) is None
+            else manage_photo_url(booking.manage_token or "", photo.id),
             reschedules_used=booking.reschedule_count,
             policy=_policy_out(policy_of(business)),
             now=clock.now().astimezone(tz),

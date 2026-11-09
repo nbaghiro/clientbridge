@@ -427,7 +427,7 @@ replication, with no Node service of our own.
 - **Server-initiated push:** _any_ write that hits Postgres — a Stripe webhook, a cron job, another
   staff member's action — flows back out via the WAL automatically, sub-second, to the relevant devices.
 - **Hours conflicts** reject stale revisions and preserve the proposal for explicit review. The editor offers apply-again against a fresh revision or discard. Money creation remains backend/webhook-only.
-- **History window.** Messages, slots and bookings sync for the past 12 months and the next 24, by UTC month. The replica controller subscribes the three history streams with those months before it connects, so the first sync includes them. The controller refreshes this window every minute while active, including after a suspended timer resumes. Calendar reads subscribe to their requested months and wait for all three streams before treating an empty result as available. Confirmed month coverage is stored locally with a conservative 23-hour lifetime; unavailable offline dates are shown explicitly. A month that leaves the window is unsubscribed and its rows leave the device when the 24-hour TTL ends. Older history is read from the API while online: `GET /v1/bookings/visits` (a client's older visits, plus the count and date of completed ones) and `GET /v1/threads/{id}/messages`. Money tables (invoices, payments, accounts, entries) sync in full, so balances and invoice status stay correct offline. Streams cannot use the current time, so each windowed row needs its own timestamp; bookings carry `starts_at`, a copy of the slot start that `move_slot` keeps in step.
+- **History window.** Messages, slots and bookings sync for the past 12 months and the next 24, by UTC month. The replica controller subscribes the three history streams with those months before it connects, so the first sync includes them. The controller refreshes this window every minute while active, including after a suspended timer resumes. Calendar reads subscribe to their requested months and wait for all three streams before treating an empty result as available. Confirmed month coverage is stored locally with a conservative 23-hour lifetime; unavailable offline dates are shown explicitly. A month that leaves the window is unsubscribed and its rows leave the device when the 24-hour TTL ends. Older history is read from the API while online: `GET /v1/bookings/visits` (a client's older visits, plus the count and date of completed ones on the first page) and `GET /v1/threads/{id}/messages`. The client timeline pages each source that began before the window and hides entries older than the newest point a still-paging source has reached, so it shows no gaps; offline it shows the device's own older notes and money instead. Money tables (invoices, payments, accounts, entries) sync in full, so balances and invoice status stay correct offline. Streams cannot use the current time, so each windowed row needs its own timestamp; bookings carry `starts_at`, a copy of the slot start that `move_slot` keeps in step.
 - **Device query planning.** PowerSync stores each table as JSON behind a view and indexes JSON expressions. Replica indexes are the model indexes without a leading `business_id`, because a device reads one business at a time. The controller runs `PRAGMA optimize=0x10002` after the first sync, because without statistics SQLite prefers the `business_id` index. SQLite ignores a replica index on the right side of a LEFT JOIN, so a one-to-many join goes through the parent's id (`slotBookingsJoin`).
 
 ### Database roles and replication
@@ -649,7 +649,11 @@ types only), scoped to one business like every file. Any member can set a client
 their own, and an owner or admin sets anyone's on the team. Completing an upload deletes the photo it
 replaces, so each person has one, and `DELETE /v1/files/photos/{parent_type}/{parent_id}` clears it. The
 rows sync with the other files, and `usePeoplePhotos` turns them into presigned links for every avatar. A
-client photo is never public. A user's photo is served from `/media/{file_id}`, and appears as
+client photo is never public: the client sees only their own, beside the greeting on the manage link of a
+visit staff booked (`client_photo_url`, served by `GET /manage/{token}/photos/{file_id}`; an online
+booking proves only a phone number, so its link shows none) and beside Welcome back once a text-code
+sign-in has verified them (`photo_url` on the returning profile, a short-lived presigned link).
+A user's photo is served from `/media/{file_id}`, and appears as
 `photo_url` on `PublicStaff`, only while that member is active, bookable online and on the profile's
 `public_staff_ids`.
 
@@ -888,22 +892,27 @@ move pushes to the visit's member and the managers and shows in the bell, and th
 staff apps says how often the client moved it online and when. A booked visit whose deposit is still pending can be paid
 from the same page (`POST /manage/{token}/deposit`): it opens the deposit PaymentIntent the booking page
 uses, replays a live attempt, cancels a failed or older one first, and refuses with 409 when the business
-can't take cards (`card_payments_unavailable`), nothing is due (`deposit_not_due`) or an earlier attempt is
-already going through (`deposit_in_progress`). The webhook settles it as any deposit. Until it does, a
-pending deposit payment whose intent Stripe already took (`PaymentGateway.payment_intent_status`, asked
-only for a deposit still owed and before the booking's locks) makes the page read `deposit_paying` rather
-than due, so it offers no second payment; a cancel in that window answers `deposit: "paying"`, and the
-payment is refunded if it lands on the canceled visit. An applied deposit is on the bill and a disputed one
-waits on the dispute, so a cancel leaves either to the business, answers `deposit: "kept"`, and the page
-says so rather than promising a refund. A confirmation for a
+can't take cards (`card_payments_unavailable`), the deposit is paid or the visit is still on the waitlist
+(`deposit_not_due`), the visit was canceled, completed or marked a no-show (`booking_closed`) or an earlier
+attempt is already going through (`deposit_in_progress`). The webhook settles it as any deposit. Until it
+does, a pending deposit payment whose intent Stripe already took (`PaymentGateway.payment_intent_status`,
+asked only for a deposit still owed and before the booking's locks) makes the page read `deposit_paying`
+rather than due, so it offers no second payment; a cancel in that window answers `deposit: "paying"`, and
+the payment is refunded if it lands on the canceled visit. An applied deposit is on the bill and a disputed
+one waits on the dispute, so a cancel leaves either to the business, answers `deposit: "kept"`, and the
+page says so rather than promising a refund. A business that can't take cards asks no deposit online: the
+booking page shows none, and its online bookings, enrolments and waitlist spots record none. A confirmation for a
 staff-made booking with a pending deposit carries the link with a line asking for it, when the business
 takes cards. A time outside the lead time or the horizon is refused with 409 `slot_unavailable`, like any
 time that isn't open.
 
 When the business approves new clients, a first online booking is a request: `status = pending` with no
 `confirmed_at`, shown as Needs approval on the schedule, as a Booking request on Today's Needs you (one per
-program enrolment) and as a request in the bell. Approving is `PATCH /v1/bookings/{id}` to `confirmed`,
-which sends the confirmation; declining is the same call to `canceled`, which refunds a paid deposit to
+program enrolment) and as a request in the bell. A request whose client is still paying its deposit (or,
+for an enrolment, its first day's) isn't staff's to answer yet: Today and the bell leave it out, the bell
+dates it from when the deposit landed, and Approve waits with a note, since the hold is released if the
+card never lands. Approving is `PATCH /v1/bookings/{id}` to `confirmed`, which sends the confirmation and
+refuses such a request with 409 `deposit_unpaid`; declining is the same call to `canceled`, which refunds a paid deposit to
 the card, cancels an unpaid one, frees the time and sends the decline text (with the refund when there
 was one). The refund goes out last, after every check that could still refuse the decline. Staff answer
 only their own requests; owners and admins answer any. A request still unanswered at the business's
@@ -972,8 +981,8 @@ invoice's, and a sale that stops being paid reverses pending earnings. Other way
 After payment the register suggests the next visit with the same member and service (`useNextVisit`): at
 the series' interval, or the client's own gap between their last two visits, at the same time of day, and
 opens the composer prefilled. A visit note is an ordinary message in the client's thread
-(`MessageSend.booking_id` adds the manage link through `visit_note.body`). The manage page shows only the
-booking photos staff shared: `POST /v1/files/{id}/share` sets or clears `files.shared_at` (audited, the
+(`MessageSend.booking_id` adds the manage link through `visit_note.body`). The manage page shows the client's own photo on a visit staff booked and, of the
+visit's photos, only those staff shared: `POST /v1/files/{id}/share` sets or clears `files.shared_at` (audited, the
 visit's member or a manager), and `GET /manage/{token}/photos/{file_id}` serves one with the manage token
 as the credential.
 

@@ -11,6 +11,7 @@ import {
     SUBJECT_ICON,
 } from "@clientbridge/app-core/public";
 import {
+    Avatar,
     Button,
     Choice,
     TextField,
@@ -69,6 +70,15 @@ export function PublicBooking() {
     if (flow.status === "loading") return <PublicStatus kind="loading" />;
     if (flow.status === "not-found")
         return <PublicStatus kind="notFound" title={s.notFoundTitle} body={s.notFoundBody} />;
+    if (flow.status === "error" && flow.limited)
+        return (
+            <PublicStatus
+                kind="error"
+                title={s.busyTitle}
+                body={s.busyBody}
+                onRetry={flow.retryLoad}
+            />
+        );
     if (flow.status === "error" || page === null)
         return <PublicStatus kind="error" title={s.errorTitle} body={s.errorBody} />;
 
@@ -534,9 +544,14 @@ function ReturningPanel({
     const profile = r.profile;
     return (
         <section className="mb-5 rounded-xl border border-line bg-surface p-4">
-            <h2 className="font-semibold text-ink">
-                {profile ? t.welcome(profile.name) : t.title}
-            </h2>
+            <div className="flex items-center gap-3">
+                {profile ? (
+                    <Avatar name={profile.name} src={profile.photo_url ?? null} size="md" />
+                ) : null}
+                <h2 className="font-semibold text-ink">
+                    {profile ? t.welcome(profile.name) : t.title}
+                </h2>
+            </div>
             {profile ? (
                 <div className="mt-3 space-y-3">
                     {r.canBookUsual ? (

@@ -13,6 +13,7 @@ import { freshPhone, textedCode } from "./auth";
 import { bookingApi, createBookingFixture, type BookingFixture } from "./bookings";
 import { connectUrl } from "./business";
 import { select } from "./db";
+import { expectImage } from "./files";
 import { pastExtras } from "./visit";
 
 export interface ClientFixture {
@@ -61,10 +62,8 @@ export async function openWallet(page: Page, client: ClientFixture): Promise<Loc
 
 export async function editClient(page: Page, client: ClientFixture): Promise<Locator> {
     const record = await openClient(page, client);
-    // a note's menu button is also named Edit; the record's own button shows the word
     await record
         .getByRole("button", { name: strings.clients.record.editShort, exact: true })
-        .filter({ hasText: strings.clients.record.editShort })
         .click();
     const editor = page.getByRole("dialog", { name: strings.clients.edit.editTitle, exact: true });
     await expect(editor.getByRole("textbox", { name: strings.clients.edit.nameLabel })).toHaveValue(
@@ -258,6 +257,7 @@ export async function verifyReturning(
     page: Page,
     f: ReturningFixture,
     week: number,
+    photoSha256: string | null = null,
 ): Promise<void> {
     const b = strings.publicBooking;
     const t = strings.publicReturning;
@@ -311,11 +311,23 @@ export async function verifyReturning(
     const result = await verified;
     expect(result.status(), await result.text()).toBe(200);
     const body = (await result.json()) as { profile: Record<string, unknown> };
-    expect(Object.keys(body.profile).sort()).toEqual(["last_visit", "name", "phone", "subjects"]);
+    expect(Object.keys(body.profile).sort()).toEqual([
+        "last_visit",
+        "name",
+        "phone",
+        "photo_url",
+        "subjects",
+    ]);
     expect(body.profile.last_visit).toBeNull();
-    await expect(
-        page.getByRole("heading", { name: t.welcome(f.clientName), exact: true }),
-    ).toBeVisible();
+    const welcome = page.getByRole("heading", { name: t.welcome(f.clientName), exact: true });
+    await expect(welcome).toBeVisible();
+    if (photoSha256 === null) expect(body.profile.photo_url).toBeNull();
+    else
+        await expectImage(
+            page.locator("section").filter({ has: welcome }).locator("img"),
+            page,
+            photoSha256,
+        );
     await page
         .getByRole("group", { name: t.choose("pet"), exact: true })
         .getByRole("button", { name: "Clover", exact: true })

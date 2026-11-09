@@ -253,7 +253,7 @@ function NoteItem({ note, manager }: { note: ClientNote; manager: boolean }) {
                     <IconButton
                         icon="more"
                         size="sm"
-                        label={strings.clients.history.editNote}
+                        label={strings.clients.history.noteActions}
                         onPress={() => {
                             setMenu(true);
                         }}

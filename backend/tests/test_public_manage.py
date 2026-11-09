@@ -13,7 +13,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.models.business import Business
 from clientbridge.models.clients import Client
 from clientbridge.models.documents import Form, FormResponse
-from clientbridge.models.platform import Device, File
+from clientbridge.models.platform import Device, File, FileParent
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.schemas.public import (
     ManageReschedule,
@@ -573,12 +573,17 @@ async def test_a_lapsed_business_takes_no_rescheduled_visits(
 
 
 async def _photo(
-    db: AsyncSession, booking_id: str, *, uploaded: bool = True, shared: bool = True
+    db: AsyncSession,
+    booking_id: str,
+    *,
+    uploaded: bool = True,
+    shared: bool = True,
+    parent_type: FileParent = "booking",
 ) -> str:
     file = File(
         id=new_id("file"),
         business_id=BIZ,
-        parent_type="booking",
+        parent_type=parent_type,
         parent_id=booking_id,
         purpose="photo",
         s3_key=f"photos/{booking_id}/{new_id('file')}.jpg",
@@ -607,6 +612,45 @@ async def test_the_manage_link_shows_only_the_visits_shared_photos(
     for missing in (pending, private, other):
         assert (await api.get(f"/manage/{token}/photos/{missing}")).status_code == 404
     assert (await api.get(f"/manage/not-a-token/photos/{shown}")).status_code == 404
+
+
+async def test_the_manage_link_shows_the_clients_current_photo(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    token = await _book(api)
+    booking = (await db.execute(select(Booking).where(Booking.manage_token == token))).scalar_one()
+    booking.source = "manual"
+    await db.flush()
+    assert (await api.get(f"/manage/{token}")).json()["client_photo_url"] is None
+    replaced = await _photo(db, booking.client_id, parent_type="client", shared=False)
+    older = await db.get(File, replaced)
+    assert older is not None
+    older.created_at = clock.now() - timedelta(days=1)
+    current = await _photo(db, booking.client_id, parent_type="client", shared=False)
+    pending = await _photo(db, booking.client_id, parent_type="client", uploaded=False)
+    other_client = (
+        await db.execute(
+            select(Booking.client_id).where(Booking.client_id != booking.client_id).limit(1)
+        )
+    ).scalar_one()
+    other = await _photo(db, other_client, parent_type="client", shared=False)
+    view = (await api.get(f"/manage/{token}")).json()
+    assert view["client_photo_url"].endswith(f"/manage/{token}/photos/{current}")
+    found = await api.get(f"/manage/{token}/photos/{current}")
+    assert found.status_code == 302 and found.headers["location"].startswith("https://files.test/")
+    for missing in (replaced, pending, other):
+        assert (await api.get(f"/manage/{token}/photos/{missing}")).status_code == 404
+
+
+async def test_an_online_booking_never_shows_whose_phone_it_used(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    token = await _book(api)
+    booking = (await db.execute(select(Booking).where(Booking.manage_token == token))).scalar_one()
+    assert booking.source == "online"
+    photo = await _photo(db, booking.client_id, parent_type="client", shared=False)
+    assert (await api.get(f"/manage/{token}")).json()["client_photo_url"] is None
+    assert (await api.get(f"/manage/{token}/photos/{photo}")).status_code == 404
 
 
 async def test_the_manage_link_lists_what_the_client_still_owes(
