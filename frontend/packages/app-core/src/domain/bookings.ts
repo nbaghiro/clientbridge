@@ -290,23 +290,31 @@ export function slotOverlapSql(start: string, end: string): string {
   AND ${utcSql("s.starts_at")} < datetime(${end}) AND ${utcSql("s.ends_at")} > datetime(${start})`;
 }
 
-// The request itself, or every day of its class enrolment, which staff answer whole.
-const REQUEST_DAYS = `FROM bookings d JOIN slots ds ON ds.id = d.slot_id
-  WHERE d.deleted_at IS NULL AND (d.id = b.id OR (s.recurrence_id IS NOT NULL
-    AND ds.recurrence_id = s.recurrence_id AND d.client_id = b.client_id
-    AND d.subject_id IS b.subject_id))`;
+// The days of a request's class enrolment, which staff answer whole, found through the slot indexes.
+const ENROLMENT_DAYS = `FROM slots ds JOIN bookings d ON d.slot_id = ds.id
+  WHERE ds.recurrence_id = s.recurrence_id AND d.client_id = b.client_id
+    AND d.subject_id IS b.subject_id AND d.deleted_at IS NULL`;
 
 // The deposit an online request's client is still paying, so it isn't staff's to answer yet.
-const awaitingDepositCentsSql = `CASE WHEN b.status = 'pending' AND b.source = 'online' THEN
-  (SELECT d.deposit_amount_cents ${REQUEST_DAYS} AND d.status = 'pending'
-     AND d.deposit_amount_cents > 0 AND d.deposit_status = 'pending' LIMIT 1) END`;
+const awaitingDepositCentsSql = `CASE WHEN b.status = 'pending' AND b.source = 'online' THEN COALESCE(
+  CASE WHEN b.deposit_amount_cents > 0 AND b.deposit_status = 'pending' THEN b.deposit_amount_cents END,
+  CASE WHEN s.recurrence_id IS NOT NULL THEN (SELECT d.deposit_amount_cents ${ENROLMENT_DAYS}
+    AND +d.status = 'pending' AND d.deposit_amount_cents > 0 AND d.deposit_status = 'pending'
+    LIMIT 1) END) END`;
 
 export const awaitingDepositSql = `(COALESCE(${awaitingDepositCentsSql}, 0) > 0)`;
 
+// `+` keeps SQLite on the booking_id index rather than scanning every succeeded payment per row.
+const PAID_DEPOSIT = `p.kind = 'deposit' AND +p.status = 'succeeded'`;
+
 // When a request became staff's to answer: once its deposit landed, or when it was made.
-export const requestAtSql = `COALESCE((SELECT MAX(p.paid_at) FROM payments p
-  WHERE p.kind = 'deposit' AND p.status = 'succeeded'
-    AND p.booking_id IN (SELECT d.id ${REQUEST_DAYS})), b.created_at)`;
+export const requestAtSql = `COALESCE(CASE WHEN b.confirmed_at IS NULL THEN COALESCE(
+  (SELECT MAX(p.paid_at) FROM payments p WHERE p.booking_id = b.id AND ${PAID_DEPOSIT}),
+  CASE WHEN s.recurrence_id IS NOT NULL THEN (SELECT MAX(p.paid_at) FROM slots ds
+    JOIN bookings d ON d.slot_id = ds.id JOIN payments p ON p.booking_id = d.id
+    WHERE ds.recurrence_id = s.recurrence_id AND d.client_id = b.client_id
+      AND d.subject_id IS b.subject_id AND d.deleted_at IS NULL AND ${PAID_DEPOSIT}) END) END,
+  b.created_at)`;
 
 const EVENT_SELECT = `
 SELECT s.id AS slot_id, s.starts_at, s.ends_at, s.staff_id, s.capacity, s.status AS slot_status,
