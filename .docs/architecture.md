@@ -887,16 +887,22 @@ or cancel within the cut-offs (`/manage/{token}`). The server enforces the cut-o
 refunds a paid deposit on an allowed cancel. A booked visit whose deposit is still pending can be paid
 from the same page (`POST /manage/{token}/deposit`): it opens the deposit PaymentIntent the booking page
 uses, replays a live attempt, cancels a failed or older one first, and refuses with 409 when the business
-can't take cards (`card_payments_unavailable`), nothing is due (`deposit_not_due`) or an earlier attempt is
-already going through (`deposit_in_progress`). The webhook settles it as any deposit. A confirmation for a
+can't take cards (`card_payments_unavailable`), the deposit is paid or the visit is still on the waitlist
+(`deposit_not_due`), the visit was canceled, completed or marked a no-show (`booking_closed`) or an earlier
+attempt is already going through (`deposit_in_progress`). The webhook settles it as any deposit. A business
+that can't take cards asks no deposit online: the booking page shows none, and its online bookings,
+enrolments and waitlist spots record none. A confirmation for a
 staff-made booking with a pending deposit carries the link with a line asking for it, when the business
 takes cards. A time outside the lead time or the horizon is refused with 409 `slot_unavailable`, like any
 time that isn't open.
 
 When the business approves new clients, a first online booking is a request: `status = pending` with no
 `confirmed_at`, shown as Needs approval on the schedule, as a Booking request on Today's Needs you (one per
-program enrolment) and as a request in the bell. Approving is `PATCH /v1/bookings/{id}` to `confirmed`,
-which sends the confirmation; declining is the same call to `canceled`, which refunds a paid deposit to
+program enrolment) and as a request in the bell. A request whose client is still paying its deposit (or,
+for an enrolment, its first day's) isn't staff's to answer yet: Today and the bell leave it out, the bell
+dates it from when the deposit landed, and Approve waits with a note, since the hold is released if the
+card never lands. Approving is `PATCH /v1/bookings/{id}` to `confirmed`, which sends the confirmation and
+refuses such a request with 409 `deposit_unpaid`; declining is the same call to `canceled`, which refunds a paid deposit to
 the card, cancels an unpaid one, frees the time and sends the decline text (with the refund when there
 was one). The refund goes out last, after every check that could still refuse the decline. Staff answer
 only their own requests; owners and admins answer any. A request still unanswered at the business's

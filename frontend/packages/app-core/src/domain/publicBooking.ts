@@ -835,9 +835,8 @@ export function usePublicBookingFlow(
                     setStep("done");
                     return;
                 }
-                const failed = failedStatus(e);
-                // a busy or unreachable server ends nothing, so the time stays the client's
-                if (failed === null || failed === 429 || failed >= 500) {
+                // only a closed or missing booking ends the hold; anything else keeps the time theirs
+                if (code !== "booking_closed" && failedStatus(e) !== 404) {
                     setPayStalled(true);
                     setResumeError(s.resumeRetry);
                     return;

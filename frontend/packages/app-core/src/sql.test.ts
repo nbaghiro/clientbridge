@@ -2044,6 +2044,62 @@ describe("app-core SQL against the replica schema", () => {
             "bk_paying",
             "bk_req",
         ]);
+        // it became a request when the deposit landed, so a bell opened before then shows it unread
+        scoped("payments", [
+            {
+                id: "pay_hold",
+                client_id: "cl_ben",
+                kind: "deposit",
+                booking_id: "bk_paying",
+                amount_cents: 2750,
+                currency: "CAD",
+                method: "card",
+                provider: "stripe",
+                status: "succeeded",
+                paid_at: "2026-06-25T09:00:00Z",
+            },
+        ]);
+        expect(
+            run("NOTIFICATION_FEED_SQL", Array<string>(6).fill("2026-06-24T00:00:00.000Z")).find(
+                (r) => r.id === "bk-bk_paying",
+            )?.at,
+        ).toBe("2026-06-25T09:00:00Z");
+        // a class enrolment is answered whole, so its later days wait on the first day's deposit
+        scoped(
+            "slots",
+            (
+                [
+                    ["ss_e1", "2026-07-12T17:00:00Z"],
+                    ["ss_e2", "2026-07-19T17:00:00Z"],
+                ] as const
+            ).map(([id, starts_at]) => ({
+                id,
+                item_id: "it_cut",
+                staff_id: "st_amy",
+                recurrence_id: "rc_class",
+                starts_at,
+                ends_at: starts_at,
+                capacity: 1,
+                status: "scheduled",
+            })),
+        );
+        scoped("bookings", [
+            {
+                ...request,
+                id: "bk_e1",
+                slot_id: "ss_e1",
+                deposit_amount_cents: 2000,
+                deposit_status: "pending",
+            },
+            { ...request, id: "bk_e2", slot_id: "ss_e2" },
+        ]);
+        expect(run("REQUESTS_SQL", ["2026-06-27T00:00:00.000Z"]).map((r) => r.booking_id)).toEqual([
+            "bk_paying",
+            "bk_req",
+        ]);
+        expect(
+            pick(run("BOOKING_EVENT_SQL", ["bk_e2"]), "booking_id", "awaiting_deposit_cents"),
+        ).toEqual([{ booking_id: "bk_e2", awaiting_deposit_cents: 2000 }]);
         // a declined request arrived as a request, so the bell never calls it a new booking
         db.run(
             "UPDATE bookings SET status = 'canceled', canceled_at = '2026-06-27T10:00:00Z' WHERE id = 'bk_req'",

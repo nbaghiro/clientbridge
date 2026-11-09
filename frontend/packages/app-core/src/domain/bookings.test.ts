@@ -818,13 +818,31 @@ describe("closing a visit", () => {
             depositRequired: true,
             depositAmountCents: 2750,
         } as const;
-        const paying = event("a", at(10), at(11), { ...deposit, depositStatus: "pending" });
+        const paying = event("a", at(10), at(11), {
+            ...deposit,
+            depositStatus: "pending",
+            awaitingDepositCents: 2750,
+        });
         expect(lifecycleOf(paying, at(9))).toMatchObject({
             canApprove: false,
             canDecline: true,
             requestNote: s.awaitingDeposit(formatMoney(2750, "CAD")),
         });
-        const paid = event("a", at(10), at(11), { ...deposit, depositStatus: "collected" });
+        // a later day of a class enrolment waits on the first day's deposit
+        const laterDay = event("b", at(10), at(11), {
+            status: "pending",
+            source: "online",
+            awaitingDepositCents: 2000,
+        });
+        expect(lifecycleOf(laterDay, at(9))).toMatchObject({
+            canApprove: false,
+            requestNote: s.awaitingDeposit(formatMoney(2000, "CAD")),
+        });
+        const paid = event("a", at(10), at(11), {
+            ...deposit,
+            depositStatus: "collected",
+            awaitingDepositCents: null,
+        });
         expect(lifecycleOf(paid, at(9))).toMatchObject({
             canApprove: true,
             requestNote: s.requestNote,

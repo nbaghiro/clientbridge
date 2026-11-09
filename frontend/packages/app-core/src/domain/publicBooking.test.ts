@@ -1023,6 +1023,24 @@ describe("a reload on the deposit step", () => {
         expect(result.current.result).toBeNull();
     });
 
+    it("keeps the hold when the payment can't open for a reason that doesn't end the visit", async () => {
+        const off = Object.assign(new Error("off"), {
+            status: 409,
+            code: "card_payments_unavailable",
+        });
+        const { result } = renderHook(() =>
+            usePublicBookingFlow(client(vi.fn().mockRejectedValue(off)), "demo", {
+                storage: storage(),
+            }),
+        );
+        await waitFor(() => {
+            expect(result.current.error).toBe(s.resumeRetry);
+        });
+        expect(result.current.step).toBe("pay");
+        expect(result.current.result?.manage_token).toBe("manage");
+        expect(result.current.retryPay).not.toBeNull();
+    });
+
     it("keeps the held visit on the payment step while the server is busy, and opens it on retry", async () => {
         const busy = Object.assign(new Error("busy"), { status: 429, code: "too_many_requests" });
         const pay = vi

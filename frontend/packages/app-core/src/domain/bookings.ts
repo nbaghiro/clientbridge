@@ -101,6 +101,8 @@ export interface CalendarEvent {
     depositRequired: boolean;
     depositAmountCents: number;
     depositStatus: string;
+    // An online request's deposit, or its class enrolment's, that the client hasn't paid yet.
+    awaitingDepositCents?: number | null;
     itemId: string;
     // The service's buffers, which the server counts as part of the visit when checking overlaps.
     bufferBeforeMin: number;
@@ -267,6 +269,7 @@ interface EventRow {
     source: string | null;
     deposit_amount_cents: number | null;
     deposit_status: string | null;
+    awaiting_deposit_cents: number | null;
     booking_price: number | null;
     departed_at: string | null;
     checked_in_at: string | null;
@@ -287,6 +290,24 @@ export function slotOverlapSql(start: string, end: string): string {
   AND ${utcSql("s.starts_at")} < datetime(${end}) AND ${utcSql("s.ends_at")} > datetime(${start})`;
 }
 
+// The request itself, or every day of its class enrolment, which staff answer whole.
+const REQUEST_DAYS = `FROM bookings d JOIN slots ds ON ds.id = d.slot_id
+  WHERE d.deleted_at IS NULL AND (d.id = b.id OR (s.recurrence_id IS NOT NULL
+    AND ds.recurrence_id = s.recurrence_id AND d.client_id = b.client_id
+    AND d.subject_id IS b.subject_id))`;
+
+// The deposit an online request's client is still paying, so it isn't staff's to answer yet.
+const awaitingDepositCentsSql = `CASE WHEN b.status = 'pending' AND b.source = 'online' THEN
+  (SELECT d.deposit_amount_cents ${REQUEST_DAYS} AND d.status = 'pending'
+     AND d.deposit_amount_cents > 0 AND d.deposit_status = 'pending' LIMIT 1) END`;
+
+export const awaitingDepositSql = `(COALESCE(${awaitingDepositCentsSql}, 0) > 0)`;
+
+// When a request became staff's to answer: once its deposit landed, or when it was made.
+export const requestAtSql = `COALESCE((SELECT MAX(p.paid_at) FROM payments p
+  WHERE p.kind = 'deposit' AND p.status = 'succeeded'
+    AND p.booking_id IN (SELECT d.id ${REQUEST_DAYS})), b.created_at)`;
+
 const EVENT_SELECT = `
 SELECT s.id AS slot_id, s.starts_at, s.ends_at, s.staff_id, s.capacity, s.status AS slot_status,
        s.recurrence_id, s.resource_id,
@@ -297,6 +318,7 @@ SELECT s.id AS slot_id, s.starts_at, s.ends_at, s.staff_id, s.capacity, s.status
           AND x.status NOT IN ('canceled', 'waitlisted') AND x.deleted_at IS NULL) AS booked_count,
        b.id AS booking_id, b.status AS booking_status, b.client_id, c.name AS client_name,
        sj.name AS subject_name, b.source, b.deposit_amount_cents, b.deposit_status,
+       ${awaitingDepositCentsSql} AS awaiting_deposit_cents,
        b.price_cents AS booking_price, b.departed_at, b.checked_in_at, b.created_at AS booked_at,
        b.reminded_at,
        (SELECT COUNT(*) FROM addons a WHERE a.booking_id = b.id) AS addon_count,
@@ -343,6 +365,7 @@ function enrich(r: EventRow, staff: Map<string, StaffRow>, now: Date, zone: stri
         depositRequired: (r.deposit_amount_cents ?? 0) > 0,
         depositAmountCents: r.deposit_amount_cents ?? 0,
         depositStatus: r.deposit_status ?? "none",
+        awaitingDepositCents: r.awaiting_deposit_cents,
         kind: isClass ? "class" : "visit",
         itemId: r.item_id,
         bufferBeforeMin: r.buffer_before_min,
@@ -1841,10 +1864,6 @@ function useBookingDetail(event: ScheduleEvent | null, now: Date): BookingDetail
     };
 }
 
-// An online request whose client is still on the deposit step, so it isn't staff's to answer yet.
-export const awaitingDepositSql = `(b.status = 'pending' AND b.source = 'online'
-  AND b.deposit_amount_cents > 0 AND b.deposit_status = 'pending')`;
-
 type LifecycleAction = "complete" | "no_show" | "cancel" | "approve" | "decline";
 
 const LIFECYCLE_STATUS: Record<LifecycleAction, string> = {
@@ -1900,23 +1919,20 @@ export function lifecycleOf(
     const started = event !== null && event.start <= now;
     const request = open && !started && event.status === "pending";
     // the client is still on the card form, and the hold is released if the deposit never lands
-    const awaitingDeposit =
-        request &&
-        event.source === "online" &&
-        event.depositRequired &&
-        event.depositStatus === "pending";
+    const awaitingCents = request ? (event.awaitingDepositCents ?? null) : null;
     return {
         canComplete: open && started,
         canNoShow: open && started,
         canCancel: open && !started && !request,
         canReschedule: open && !started,
-        canApprove: request && !awaitingDeposit,
+        canApprove: request && awaitingCents === null,
         canDecline: request,
-        requestNote: awaitingDeposit
-            ? s.awaitingDeposit(formatMoney(event.depositAmountCents, BUSINESS_CURRENCY))
-            : request
-              ? s.requestNote
-              : null,
+        requestNote:
+            awaitingCents !== null
+                ? s.awaitingDeposit(formatMoney(awaitingCents, BUSINESS_CURRENCY))
+                : request
+                  ? s.requestNote
+                  : null,
         notStartedNote: open && !started && !request ? s.notStartedNote : null,
     };
 }
