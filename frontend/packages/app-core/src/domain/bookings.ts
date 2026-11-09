@@ -101,6 +101,8 @@ export interface CalendarEvent {
     depositRequired: boolean;
     depositAmountCents: number;
     depositStatus: string;
+    // An online request's deposit, or its class enrolment's, that the client hasn't paid yet.
+    awaitingDepositCents?: number | null;
     itemId: string;
     // The service's buffers, which the server counts as part of the visit when checking overlaps.
     bufferBeforeMin: number;
@@ -267,6 +269,7 @@ interface EventRow {
     source: string | null;
     deposit_amount_cents: number | null;
     deposit_status: string | null;
+    awaiting_deposit_cents: number | null;
     booking_price: number | null;
     departed_at: string | null;
     checked_in_at: string | null;
@@ -287,6 +290,32 @@ export function slotOverlapSql(start: string, end: string): string {
   AND ${utcSql("s.starts_at")} < datetime(${end}) AND ${utcSql("s.ends_at")} > datetime(${start})`;
 }
 
+// The days of a request's class enrolment, which staff answer whole, found through the slot indexes.
+const ENROLMENT_DAYS = `FROM slots ds JOIN bookings d ON d.slot_id = ds.id
+  WHERE ds.recurrence_id = s.recurrence_id AND d.client_id = b.client_id
+    AND d.subject_id IS b.subject_id AND d.deleted_at IS NULL`;
+
+// The deposit an online request's client is still paying, so it isn't staff's to answer yet.
+const awaitingDepositCentsSql = `CASE WHEN b.status = 'pending' AND b.source = 'online' THEN COALESCE(
+  CASE WHEN b.deposit_amount_cents > 0 AND b.deposit_status = 'pending' THEN b.deposit_amount_cents END,
+  CASE WHEN s.recurrence_id IS NOT NULL THEN (SELECT d.deposit_amount_cents ${ENROLMENT_DAYS}
+    AND +d.status = 'pending' AND d.deposit_amount_cents > 0 AND d.deposit_status = 'pending'
+    LIMIT 1) END) END`;
+
+export const awaitingDepositSql = `(COALESCE(${awaitingDepositCentsSql}, 0) > 0)`;
+
+// `+` keeps SQLite on the booking_id index rather than scanning every succeeded payment per row.
+const PAID_DEPOSIT = `p.kind = 'deposit' AND +p.status = 'succeeded'`;
+
+// When a request became staff's to answer: once its deposit landed, or when it was made.
+export const requestAtSql = `COALESCE(CASE WHEN b.confirmed_at IS NULL THEN COALESCE(
+  (SELECT MAX(p.paid_at) FROM payments p WHERE p.booking_id = b.id AND ${PAID_DEPOSIT}),
+  CASE WHEN s.recurrence_id IS NOT NULL THEN (SELECT MAX(p.paid_at) FROM slots ds
+    JOIN bookings d ON d.slot_id = ds.id JOIN payments p ON p.booking_id = d.id
+    WHERE ds.recurrence_id = s.recurrence_id AND d.client_id = b.client_id
+      AND d.subject_id IS b.subject_id AND d.deleted_at IS NULL AND ${PAID_DEPOSIT}) END) END,
+  b.created_at)`;
+
 const EVENT_SELECT = `
 SELECT s.id AS slot_id, s.starts_at, s.ends_at, s.staff_id, s.capacity, s.status AS slot_status,
        s.recurrence_id, s.resource_id,
@@ -297,6 +326,7 @@ SELECT s.id AS slot_id, s.starts_at, s.ends_at, s.staff_id, s.capacity, s.status
           AND x.status NOT IN ('canceled', 'waitlisted') AND x.deleted_at IS NULL) AS booked_count,
        b.id AS booking_id, b.status AS booking_status, b.client_id, c.name AS client_name,
        sj.name AS subject_name, b.source, b.deposit_amount_cents, b.deposit_status,
+       ${awaitingDepositCentsSql} AS awaiting_deposit_cents,
        b.price_cents AS booking_price, b.departed_at, b.checked_in_at, b.created_at AS booked_at,
        b.reminded_at,
        (SELECT COUNT(*) FROM addons a WHERE a.booking_id = b.id) AS addon_count,
@@ -343,6 +373,7 @@ function enrich(r: EventRow, staff: Map<string, StaffRow>, now: Date, zone: stri
         depositRequired: (r.deposit_amount_cents ?? 0) > 0,
         depositAmountCents: r.deposit_amount_cents ?? 0,
         depositStatus: r.deposit_status ?? "none",
+        awaitingDepositCents: r.awaiting_deposit_cents,
         kind: isClass ? "class" : "visit",
         itemId: r.item_id,
         bufferBeforeMin: r.buffer_before_min,
@@ -1859,6 +1890,7 @@ export interface BookingActions {
     // A request a new client made online, waiting for the business to take it or turn it down.
     canApprove: boolean;
     canDecline: boolean;
+    requestNote: string | null;
     pending: LifecycleAction | null;
     busy: boolean;
     error: string | null;
@@ -1885,6 +1917,7 @@ export function lifecycleOf(
     | "canReschedule"
     | "canApprove"
     | "canDecline"
+    | "requestNote"
     | "notStartedNote"
 > {
     const open =
@@ -1893,13 +1926,21 @@ export function lifecycleOf(
         (event.status === "confirmed" || event.status === "pending");
     const started = event !== null && event.start <= now;
     const request = open && !started && event.status === "pending";
+    // the client is still on the card form, and the hold is released if the deposit never lands
+    const awaitingCents = request ? (event.awaitingDepositCents ?? null) : null;
     return {
         canComplete: open && started,
         canNoShow: open && started,
         canCancel: open && !started && !request,
         canReschedule: open && !started,
-        canApprove: request,
+        canApprove: request && awaitingCents === null,
         canDecline: request,
+        requestNote:
+            awaitingCents !== null
+                ? s.awaitingDeposit(formatMoney(awaitingCents, BUSINESS_CURRENCY))
+                : request
+                  ? s.requestNote
+                  : null,
         notStartedNote: open && !started && !request ? s.notStartedNote : null,
     };
 }

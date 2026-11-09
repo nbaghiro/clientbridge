@@ -83,6 +83,9 @@ interface Strings {
         readonly paymentActionRequired: string;
         readonly invoiceChanged: string;
         readonly depositNotDue: string;
+        readonly bookingClosed: string;
+        readonly depositUnpaid: string;
+        readonly tooManyRequests: string;
         readonly checkoutPaid: string;
         readonly depositInProgress: string;
         readonly cardPaymentsUnavailable: string;
@@ -1197,6 +1200,7 @@ interface Strings {
         readonly approve: string;
         readonly decline: string;
         readonly requestNote: string;
+        readonly awaitingDeposit: (amount: string) => string;
         readonly declineTitle: string;
         readonly declineRefund: (amount: string) => string;
         readonly declineNotify: string;
@@ -4319,6 +4323,7 @@ interface Strings {
         readonly bookError: string;
         readonly slotTaken: string;
         readonly resumeFailed: string;
+        readonly resumeRetry: string;
         readonly connectionError: string;
         readonly payTitle: string;
         readonly payBody: (amount: string) => string;
@@ -4343,6 +4348,8 @@ interface Strings {
         readonly notFoundBody: string;
         readonly errorTitle: string;
         readonly errorBody: string;
+        readonly busyTitle: string;
+        readonly busyBody: string;
         readonly minutes: (n: number) => string;
         readonly hoursMinutes: (h: number, m: number) => string;
         readonly today: string;

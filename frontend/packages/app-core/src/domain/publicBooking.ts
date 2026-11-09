@@ -648,7 +648,12 @@ export function usePublicBookingFlow(
         startsAt?: string | undefined;
     },
 ) {
-    const { status, data: page } = usePublicResource(client.getServices, slug);
+    const {
+        status,
+        limited,
+        data: page,
+        retry: retryLoad,
+    } = usePublicResource(client.getServices, slug);
     const kind = page?.subject ?? null;
     // Until the page loads nothing is shown, so the visitor's own zone stands in.
     const zone = page?.timezone ?? deviceZone();
@@ -691,6 +696,12 @@ export function usePublicBookingFlow(
 
     const [heldSlot, setHeldSlot] = useState<OpenSlot | null>(null);
     const [resumeError, setResumeError] = useState<string | null>(null);
+    const [resuming, setResuming] = useState<{
+        token: string;
+        back: BookingStep;
+        attempt: number;
+    } | null>(null);
+    const [payStalled, setPayStalled] = useState(false);
 
     useEffect(() => {
         if (!initialApplied.current) return;
@@ -789,9 +800,22 @@ export function usePublicBookingFlow(
         setResult(held.result);
         setHeldSlot(held.slot);
         setStep("pay");
-        const token = held.result.manage_token ?? "";
-        client.payDeposit(token).then(
+        setResuming({
+            token: held.result.manage_token ?? "",
+            back: extras ? "extras" : "time",
+            attempt: 0,
+        });
+    }, [page, status, held, selection.itemId, selection.staffId, selection.startsAt, today, zone]);
+
+    useEffect(() => {
+        if (resuming === null) return;
+        let live = true;
+        client.payDeposit(resuming.token).then(
             (intent) => {
+                if (!live) return;
+                setResuming(null);
+                setPayStalled(false);
+                setResumeError(null);
                 setResult((r) =>
                     r === null
                         ? r
@@ -803,29 +827,34 @@ export function usePublicBookingFlow(
                 );
             },
             (e: unknown) => {
+                if (!live) return;
                 // in progress: Stripe already took the card and its event hasn't landed yet
                 const code = failedCode(e);
                 if (code === "deposit_not_due" || code === "deposit_in_progress") {
+                    setResuming(null);
                     setStep("done");
                     return;
                 }
+                // only a closed or missing booking ends the hold; anything else keeps the time theirs
+                if (code !== "booking_closed" && failedStatus(e) !== 404) {
+                    setPayStalled(true);
+                    setResumeError(s.resumeRetry);
+                    return;
+                }
+                setResuming(null);
                 setResult(null);
                 setHeldSlot(null);
-                setStep(extras ? "extras" : "time");
+                // the freed time is offered again, so the draft's time mustn't pick it for them
+                initialTime.current = "";
+                setStartsAt("");
+                setStep(resuming.back);
                 setResumeError(s.resumeFailed);
             },
         );
-    }, [
-        page,
-        status,
-        held,
-        client,
-        selection.itemId,
-        selection.staffId,
-        selection.startsAt,
-        today,
-        zone,
-    ]);
+        return () => {
+            live = false;
+        };
+    }, [client, resuming]);
 
     useEffect(() => {
         if (itemId === "" || status !== "ready" || !program) return;
@@ -1060,6 +1089,8 @@ export function usePublicBookingFlow(
 
     return {
         status,
+        limited,
+        retryLoad,
         page,
         today,
         zone,
@@ -1262,9 +1293,19 @@ export function usePublicBookingFlow(
         paid: () => {
             setStep("done");
         },
+        retryPay:
+            payStalled && resuming !== null
+                ? () => {
+                      setPayStalled(false);
+                      setResumeError(null);
+                      setResuming({ ...resuming, attempt: resuming.attempt + 1 });
+                  }
+                : null,
         busy,
         error: error ?? resumeError,
         restart: () => {
+            setResuming(null);
+            setPayStalled(false);
             setResult(null);
             setHeldSlot(null);
             setResumeError(null);

@@ -228,6 +228,15 @@
     "api.depositNotDue": {
         "message": "This deposit is already paid or no longer due."
     },
+    "api.bookingClosed": {
+        "message": "This visit was cancelled, so there's nothing to pay."
+    },
+    "api.depositUnpaid": {
+        "message": "The client hasn't paid the deposit yet. You can approve the request once it's paid."
+    },
+    "api.tooManyRequests": {
+        "message": "Too many tries in a short time. Wait a minute and try again."
+    },
     "api.checkoutPaid": {
         "message": "The card payment already went through, so it can't be canceled."
     },
@@ -3648,6 +3657,10 @@
     },
     "bookings.requestNote": {
         "message": "A new client asked for this time online. Approve it to confirm the visit, or decline it to free the time."
+    },
+    "bookings.awaitingDeposit": {
+        "message": "Waiting for the client to pay the {amount} deposit. You can approve the request once it's paid, and the time frees up on its own if it isn't.",
+        "args": ["amount"]
     },
     "bookings.declineTitle": {
         "message": "Decline this request?"
@@ -12695,6 +12708,9 @@
     "publicBooking.resumeFailed": {
         "message": "That hold on your time has ended. Pick a time to book again."
     },
+    "publicBooking.resumeRetry": {
+        "message": "We couldn't open the payment just now. Your time is still held, so try again in a minute."
+    },
     "publicBooking.connectionError": {
         "message": "We couldn't reach the booking page. Check your connection and try again."
     },
@@ -12775,6 +12791,12 @@
     },
     "publicBooking.errorBody": {
         "message": "Check your connection and try again."
+    },
+    "publicBooking.busyTitle": {
+        "message": "Too many tries just now"
+    },
+    "publicBooking.busyBody": {
+        "message": "Wait a minute, then try again."
     },
     "publicBooking.minutes": {
         "message": "{n, number} min",

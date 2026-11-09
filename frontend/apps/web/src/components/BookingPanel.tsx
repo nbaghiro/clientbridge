@@ -662,9 +662,10 @@ export function BookingActionBar({
     }
     return (
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-            {actions.canApprove ? (
+            {actions.canDecline ? (
                 <Button
                     busy={actions.pending === "approve"}
+                    disabled={!actions.canApprove}
                     icon="check"
                     onPress={() => {
                         actions.run("approve");
@@ -726,8 +727,8 @@ export function BookingActionBar({
             {actions.notStartedNote !== null ? (
                 <p className="w-full text-xs text-muted">{actions.notStartedNote}</p>
             ) : null}
-            {actions.canApprove ? (
-                <p className="w-full text-xs text-muted">{s.requestNote}</p>
+            {actions.requestNote !== null ? (
+                <p className="w-full text-xs text-muted">{actions.requestNote}</p>
             ) : null}
             {actions.settling !== null ? (
                 <p className="w-full text-xs text-muted">{actions.settling}</p>
