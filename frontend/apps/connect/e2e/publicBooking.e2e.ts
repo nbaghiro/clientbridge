@@ -82,7 +82,11 @@ async function cancelThroughManageLink(page: Page): Promise<void> {
     const m = strings.publicManage;
     await page.getByRole("button", { name: strings.publicBooking.manage }).click();
     await expect(page).toHaveURL(/\/m\//);
-    await expect(page.getByText(m.title, { exact: true })).toBeVisible();
+    await expect(
+        page
+            .getByText(m.title, { exact: true })
+            .or(page.getByText(m.requestLabel, { exact: true })),
+    ).toBeVisible();
     await page.getByRole("button", { name: m.cancel }).click();
     await page.getByRole("button", { name: m.cancelConfirm }).click();
     await expect(page.getByRole("heading", { name: m.canceledTitle })).toBeVisible();

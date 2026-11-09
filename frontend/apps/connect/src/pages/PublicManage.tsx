@@ -27,6 +27,7 @@ import {
     SlotChips,
 } from "@clientbridge/ui";
 import { cssVar } from "@clientbridge/tokens";
+import { useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { addToCalendar } from "../components/BookingSteps";
@@ -69,6 +70,11 @@ export function PublicManage() {
     const { token = "" } = useParams<{ token: string }>();
     const mg = useManageBooking(manage, token);
     const v = mg.booking;
+    const done = mg.mode === "moved" || mg.mode === "canceled";
+    // on a phone the dialog closes far down the page, above which the result shows
+    useEffect(() => {
+        if (done) window.scrollTo({ top: 0, behavior: "smooth" });
+    }, [done]);
     if (mg.status === "loading") return <PublicStatus kind="loading" />;
     if (mg.status === "not-found")
         return <PublicStatus kind="notFound" title={s.notFoundTitle} body={s.notFoundBody} />;
@@ -80,7 +86,10 @@ export function PublicManage() {
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-8">
                 <div className="min-w-0 space-y-5">
                     <p className="text-[15px] text-ink-soft">{s.hello(firstName(v.client_name))}</p>
-                    {mg.mode === "moved" || mg.mode === "canceled" ? (
+                    {mg.requestLine !== null && !done ? (
+                        <Notice tone="info">{mg.requestLine}</Notice>
+                    ) : null}
+                    {done ? (
                         <div className="rounded-3xl border border-line bg-surface p-6 shadow-card">
                             <ManageDone mg={mg} />
                         </div>
@@ -206,6 +215,9 @@ export function PublicManage() {
                         <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
                             <h2 className="mb-2 font-display text-lg font-bold">{s.policyTitle}</h2>
                             <p className="text-sm text-ink-soft">{mg.policyLine}</p>
+                            {mg.movesLine !== null ? (
+                                <p className="mt-1 text-sm text-ink-soft">{mg.movesLine}</p>
+                            ) : null}
                             {v.policy.self_service ? (
                                 <div className="mt-5">
                                     <div className="relative h-2.5 overflow-hidden rounded-full bg-line">
@@ -331,7 +343,7 @@ export function PublicManage() {
                         {mg.depositError !== null ? (
                             <Notice tone="danger">{mg.depositError}</Notice>
                         ) : null}
-                        <p className="text-xs text-muted">{mg.policyLine}</p>
+                        {mg.live ? <p className="text-xs text-muted">{mg.policyLine}</p> : null}
                     </section>
                     {v.has_receipt === true ? <VisitReceipt token={token} /> : null}
                 </aside>
@@ -456,8 +468,8 @@ function BookingFacts({ mg }: { mg: ManageBookingFlow }) {
     return (
         <div className="space-y-4">
             <FactList facts={facts} label={s.title} />
-            <ToDo mg={mg} />
-            {v.addons.length > 0 || mg.hasDeposit || mg.depositDue ? (
+            {mg.live ? <ToDo mg={mg} /> : null}
+            {v.addons.length > 0 || mg.depositPaidFact || mg.depositPaying || mg.depositDue ? (
                 <dl className="space-y-1 border-t border-line-soft pt-3 text-sm">
                     {v.addons.map((a) => (
                         <div key={a.name} className="flex justify-between gap-3">
@@ -467,13 +479,19 @@ function BookingFacts({ mg }: { mg: ManageBookingFlow }) {
                             <dd className="text-muted">{s.extras}</dd>
                         </div>
                     ))}
-                    {mg.hasDeposit ? (
+                    {mg.depositPaidFact ? (
                         <div className="flex justify-between gap-3">
                             <dt className="text-ink-soft">{s.deposit}</dt>
                             <dd className="flex items-center gap-1 text-ok-fg">
                                 <Icon name="check" size={13} />
                                 {s.depositPaid(mg.deposit)}
                             </dd>
+                        </div>
+                    ) : null}
+                    {mg.depositPaying ? (
+                        <div className="flex justify-between gap-3">
+                            <dt className="text-ink-soft">{s.deposit}</dt>
+                            <dd className="text-muted">{s.depositProcessing(mg.deposit)}</dd>
                         </div>
                     ) : null}
                     {mg.depositDue ? (
@@ -595,7 +613,12 @@ function MovePicker({ mg }: { mg: ManageBookingFlow }) {
                 >
                     {s.back}
                 </Button>
-                <Button grow disabled={mg.pick === ""} busy={mg.busy} onPress={mg.confirmMove}>
+                <Button
+                    grow
+                    disabled={mg.pick === "" || !mg.canMove}
+                    busy={mg.busy}
+                    onPress={mg.confirmMove}
+                >
                     {mg.busy
                         ? s.moving
                         : mg.pickTime !== null
@@ -619,7 +642,13 @@ function CancelConfirm({ mg }: { mg: ManageBookingFlow }) {
             </Notice>
             {mg.error !== null ? <Notice tone="danger">{mg.error}</Notice> : null}
             <div className="flex flex-col gap-2 sm:flex-row-reverse">
-                <Button variant="danger" grow busy={mg.busy} onPress={mg.confirmCancel}>
+                <Button
+                    variant="danger"
+                    grow
+                    disabled={!mg.canCancel}
+                    busy={mg.busy}
+                    onPress={mg.confirmCancel}
+                >
                     {mg.busy ? s.canceling : mg.labels.cancelConfirm}
                 </Button>
                 <Button
@@ -647,7 +676,7 @@ function ManageDone({ mg }: { mg: ManageBookingFlow }) {
             </h1>
             <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
                 {moved
-                    ? s.movedBody(mg.when)
+                    ? mg.movedBody(mg.when)
                     : (mg.refundMessage ??
                       (mg.refundLabel === null
                           ? s.canceledNoDeposit

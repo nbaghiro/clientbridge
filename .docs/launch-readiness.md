@@ -45,7 +45,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 4. Book online | Online booking with deposits | [CB-24](https://linear.app/clientbridgeca/issue/CB-24) | Automated |
 | 4. Book online | Returning-client sign-in by text code | [CB-25](https://linear.app/clientbridgeca/issue/CB-25) | Partly automated |
 | 4. Book online | Booking add-ons billed once | [CB-26](https://linear.app/clientbridgeca/issue/CB-26) | Partly automated |
-| 4. Book online | Reschedule and cancel by link | [CB-27](https://linear.app/clientbridgeca/issue/CB-27) | Partly automated |
+| 4. Book online | Reschedule and cancel by link | [CB-27](https://linear.app/clientbridgeca/issue/CB-27) | Automated |
 | 4. Book online | Business page and website embed | [CB-28](https://linear.app/clientbridgeca/issue/CB-28) | Partly automated |
 | 5. Sell at the desk and online | Desk sales and receipts | [CB-29](https://linear.app/clientbridgeca/issue/CB-29) | Partly automated |
 | 5. Sell at the desk and online | Card payments at the desk | [CB-30](https://linear.app/clientbridgeca/issue/CB-30) | Partly automated |
@@ -1164,7 +1164,7 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 ### Reschedule and cancel by link (CB-27)
 
-**Covers:** Connect manage page `/m/<token>`
+**Covers:** Connect manage page `/m/<token>`, the request and move texts, the visit's history, bell and push on web and mobile
 **Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
 
 **Where to test**
@@ -1174,30 +1174,31 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 **QA steps**
 
-1. From the confirmation link, move a booking to another open time.
-   **Expect:** staff see the new time; the move limit counts down.
-2. Cancel inside the cut-off.
-   **Expect:** refused with the reason.
+1. From the confirmation link (or the link in the request text), move a booking to another open time, then move it again.
+   **Expect:** the page shows the move in view, even on a phone, and counts down the moves left; staff see the new time, "Moved online by the client" with when in the visit's history, the move in the bell and a push on the visit's member's and managers' phones; the client's move text has the link; after the last move allowed, Reschedule is off with the reason.
+2. Cancel inside the cut-off, and also confirm a cancel the business's cut-off overtook while the page was open.
+   **Expect:** refused with the reason in both cases; the page reloads to show Cancel off.
 3. Cancel outside it.
-   **Expect:** the slot opens and a paid deposit is refunded.
-4. On a booking with a deposit due, pay it from the link.
-   **Expect:** the deposit is collected once even with two tabs.
-5. Open the receipt and shared photos, and send the business a message.
+   **Expect:** the slot opens and a paid deposit is refunded, unless it's already on a bill, which stays with the business; the page says which, also after a reload.
+4. On a booking with a deposit due, pay it from the link with two tabs open, paying in one and then the other.
+   **Expect:** the deposit is collected once; the second tab says it's paid, and a fresh tab offers no second payment while Stripe confirms it.
+5. Open the receipt and shared photos of a past visit, and send the business a message.
    **Expect:** the message lands in the Inbox thread.
 
 **Done when:** Clients change their plans without staff, and the business's rules are enforced on the server.
 
 **Automated by**
 
+* `SCH-E2E-21 (journeys)`
+* `SCH-E2E-22 (journeys)`
 * `XB-E2E-14 (connect)`
+* `XB-E2E-23 (connect)`
+* `STR-E18 (stripe)`
+* `NATIVE-SCH-02 (native-ios, native-android)`
 * `connect: publicManage.e2e.ts › a client opens the manage link and the move picker`
+* `connect: publicManage.e2e.ts › a client's fresh tab offers no second payment while Stripe confirms the deposit, and a cancel then promises its refund only if it lands`
 * `connect: publicBooking.e2e.ts › a new client's online booking waits for approval and opens the manage link`
 * `connect: publicBooking.e2e.ts › a client books a confirmed visit where new clients need no approval`
-
-**To automate**
-
-* `SCH-E2E-21` in `apps/connect/e2e/publicManage.e2e.ts`: Reschedule to a new time, cancel inside the cut-off refused, cancel outside it refunds.
-* `STR-E18` in `apps/connect/e2e/stripe/deposit.stripe.ts`: Pay a pending deposit from the manage link with a real card.
 
 **Depends on:** Nothing
 

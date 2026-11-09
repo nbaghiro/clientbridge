@@ -1682,7 +1682,6 @@ class Clearcoat(Demo):
         booking = self.book(
             "isabelle", "isabelle", WASH, ANH, start, "confirmed", original - timedelta(days=8)
         )
-        booking.reschedule_count = 1
         moved = datetime.combine(rained, time(7, 30), self.ctx.zone).astimezone(UTC)
         booking.updated_at = moved
         local = self.local(start)

@@ -964,6 +964,8 @@ function scheduleRows(): void {
             deposit_amount_cents: 0,
             deposit_status: "none",
             reminded_at: "2027-01-04T17:00:00Z",
+            reschedule_count: 2,
+            rescheduled_at: "2027-01-03T09:00:00Z",
         },
         {
             id: "bk_c2",
@@ -2010,7 +2012,7 @@ describe("app-core SQL against the replica schema", () => {
         ]);
         const bell = run(
             "NOTIFICATION_FEED_SQL",
-            Array<string>(6).fill("2026-06-24T00:00:00.000Z"),
+            Array<string>(7).fill("2026-06-24T00:00:00.000Z"),
         );
         expect(bell.find((r) => r.id === "bk-bk_req")?.kind).toBe("booking_request");
         expect(bell.find((r) => r.id === "bk-bk_1")?.kind).toBe("booking_new");
@@ -2020,9 +2022,18 @@ describe("app-core SQL against the replica schema", () => {
         );
         const declined = run(
             "NOTIFICATION_FEED_SQL",
-            Array<string>(6).fill("2026-06-24T00:00:00.000Z"),
+            Array<string>(7).fill("2026-06-24T00:00:00.000Z"),
         );
         expect(declined.find((r) => r.id === "bk-bk_req")?.kind).toBe("booking_request");
+        // each move the client makes from their link is its own bell item
+        db.run("UPDATE bookings SET rescheduled_at = '2026-06-26T08:00:00Z' WHERE id = 'bk_1'");
+        const moved = run(
+            "NOTIFICATION_FEED_SQL",
+            Array<string>(7).fill("2026-06-24T00:00:00.000Z"),
+        ).filter((r) => r.kind === "booking_moved");
+        expect(pick(moved, "id", "at", "ref_id")).toEqual([
+            { id: "bkm-bk_1-2026-06-26T08:00:00Z", at: "2026-06-26T08:00:00Z", ref_id: "bk_1" },
+        ]);
     });
 
     it("feeds the shell: the viewer, counts and setup progress", () => {
@@ -2078,7 +2089,7 @@ describe("app-core SQL against the replica schema", () => {
     });
 
     it("derives the bell from synced rows since a date", () => {
-        const since = Array<string>(6).fill("2026-06-24T00:00:00.000Z");
+        const since = Array<string>(7).fill("2026-06-24T00:00:00.000Z");
         const feed = run("NOTIFICATION_FEED_SQL", since)
             .map((r) => `${String(r.kind)}:${String(r.id)}`)
             .sort();
@@ -2515,6 +2526,8 @@ describe("app-core SQL against the replica schema", () => {
                 "recurrence_id",
                 "booked_count",
                 "note",
+                "reschedule_count",
+                "rescheduled_at",
             ),
         ).toEqual([
             {
@@ -2524,6 +2537,8 @@ describe("app-core SQL against the replica schema", () => {
                 recurrence_id: "sch_1",
                 booked_count: 1,
                 note: "Nervous",
+                reschedule_count: 2,
+                rescheduled_at: "2027-01-03T09:00:00Z",
             },
             {
                 slot_id: "ss_k",
@@ -2532,6 +2547,8 @@ describe("app-core SQL against the replica schema", () => {
                 recurrence_id: null,
                 booked_count: 1,
                 note: null,
+                reschedule_count: null,
+                rescheduled_at: null,
             },
         ]);
         expect(run("WORKING_HOURS_SQL").filter((r) => r.staff_id === "st_cara")).toHaveLength(2);

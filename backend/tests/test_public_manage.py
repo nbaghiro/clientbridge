@@ -21,8 +21,15 @@ from clientbridge.schemas.public import (
     PublicBookingCreate,
 )
 from clientbridge.services.public import PublicBookingService, PublicManageService
-from tests.conftest import BIZ, FakePaymentGateway, FakePushSender, FakeSmsSender
-from tests.helpers import delete_bookings, deposit_payment, enable_payments, key, settle
+from tests.conftest import (
+    BIZ,
+    OWNER_USER,
+    STAFF_USER,
+    FakePaymentGateway,
+    FakePushSender,
+    FakeSmsSender,
+)
+from tests.helpers import delete_bookings, deposit_payment, enable_payments, key, ok, settle
 
 SLUG = "birchbark"
 
@@ -100,11 +107,54 @@ async def test_client_moves_their_visit(
     days = await api.get(f"/manage/{token}/days", params={"from": "2026-12-01", "days": 2})
     assert days.status_code == 200 and len(days.json()["days"]) == 2
     sent = len(sms.sent)
+    before = clock.now()
     res = await api.post(f"/manage/{token}/reschedule", json={"starts_at": target}, headers=key())
     assert res.status_code == 200, res.text
     assert res.json()["reschedules_used"] == 1
     assert (await _slot(db, token)).starts_at == datetime.fromisoformat(target)
+    booking = (await db.execute(select(Booking).where(Booking.manage_token == token))).scalar_one()
+    assert booking.rescheduled_at is not None and before <= booking.rescheduled_at <= clock.now()
     assert len(sms.sent) == sent + 1
+    assert sms.sent[-1].body.endswith(f"/m/{token}")
+
+
+async def test_a_client_move_alerts_the_visit_member_and_the_managers_once(
+    api: httpx.AsyncClient, db: AsyncSession, push: FakePushSender
+) -> None:
+    token = await _book(api)
+    db.add_all(
+        [
+            Device(
+                id="dvt_owner", business_id=BIZ, user_id=OWNER_USER, token="Own", platform="ios"
+            ),
+            Device(
+                id="dvt_diego", business_id=BIZ, user_id=STAFF_USER, token="Die", platform="ios"
+            ),
+        ]
+    )
+    await db.flush()
+    push.sent.clear()
+    slots = ok(await api.get(f"/manage/{token}/slots", params={"date": "2026-12-02"})).json()
+    move = {"starts_at": slots["slots"][0]["starts_at"]}
+    headers = key()
+    ok(await api.post(f"/manage/{token}/reschedule", json=move, headers=headers))
+    ok(await api.post(f"/manage/{token}/reschedule", json=move, headers=headers))
+    booking = (await db.execute(select(Booking).where(Booking.manage_token == token))).scalar_one()
+    assert len(push.sent) == 1  # the replay does not alert staff again
+    assert push.sent[0].tokens == ["Own"]
+    assert push.sent[0].body.startswith("Visit moved by Web Booker: Wednesday, December 2 at ")
+    assert push.sent[0].data == {"type": "booking", "booking_id": booking.id}
+
+
+async def test_asking_for_the_same_time_uses_up_no_move(
+    api: httpx.AsyncClient, sms: FakeSmsSender
+) -> None:
+    token = await _book(api)
+    sent = len(sms.sent)
+    res = await api.post(f"/manage/{token}/reschedule", json={"starts_at": OPENING}, headers=key())
+    assert res.status_code == 200, res.text
+    assert res.json()["reschedules_used"] == 0
+    assert len(sms.sent) == sent
 
 
 async def test_moves_stop_at_the_policy_limit(api: httpx.AsyncClient, db: AsyncSession) -> None:
@@ -121,6 +171,7 @@ async def test_moves_stop_at_the_policy_limit(api: httpx.AsyncClient, db: AsyncS
         f"/manage/{token}/reschedule", json={"starts_at": "2026-12-01T18:50:00Z"}
     )
     assert again.status_code == 409
+    assert again.json()["detail"] == {"reason": "reschedule_limit", "hours": None}
     view = (await api.get(f"/manage/{token}")).json()
     assert view["can_move"] is False and view["can_cancel"] is True
 
@@ -149,8 +200,10 @@ async def test_inside_the_cutoff_nothing_changes_online(
     assert view["blocked"] == "cutoff"
     canceled = await api.post(f"/manage/{token}/cancel")
     assert canceled.status_code == 409 and canceled.json()["error"] == "change_blocked"
+    assert canceled.json()["detail"] == {"reason": "cutoff", "hours": 24}
     moved = await api.post(f"/manage/{token}/reschedule", json={"starts_at": OPENING})
     assert moved.status_code == 409
+    assert moved.json()["detail"] == {"reason": "cutoff", "hours": 24}
 
 
 async def test_blocked_reason_is_a_code_with_the_cutoff(

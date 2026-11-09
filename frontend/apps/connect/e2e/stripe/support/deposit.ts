@@ -290,3 +290,18 @@ export async function refundUi(
     expect(response.status(), await response.text()).toBe(200);
     expect(response.request().postDataJSON()).toMatchObject({ amount_cents: cents, notify: false });
 }
+
+/** Pays the deposit from a manage page whose card form is open, and waits for its thanks. */
+export async function payManageDeposit(page: Page, cents: number): Promise<void> {
+    const m = strings.publicManage;
+    const amount = formatMoney(cents, "CAD");
+    await enterStripeCard(await cardFrame(page), "4242424242424242");
+    const pay = page.getByRole("button", { name: strings.publicBooking.pay(amount), exact: true });
+    await page.getByRole("heading", { name: m.payment, exact: true }).click();
+    await pay.scrollIntoViewIfNeeded();
+    await expect(pay).toBeInViewport({ ratio: 1 });
+    await pay.click();
+    await expect(page.getByText(m.depositThanks(amount), { exact: true })).toBeVisible({
+        timeout: 60_000,
+    });
+}

@@ -97,6 +97,17 @@ async def test_move_to_another_member_and_time(
     assert addon == ST_OWNER
 
 
+async def test_a_staff_move_texts_the_client_their_manage_link(
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
+) -> None:
+    bid = await _book(as_owner, db, ST_PRIYA, "2027-03-01T18:00:00Z", notify=False)
+    res = await as_owner.patch(f"/v1/bookings/{bid}", json={"starts_at": "2027-03-01T20:00:00Z"})
+    assert res.status_code == 200, res.text
+    booking = await db.get(Booking, bid)
+    assert booking is not None and booking.manage_token is not None
+    assert sms.sent[-1].body.endswith(f"/m/{booking.manage_token}")
+
+
 async def test_resize_changes_only_the_end(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     bid = await _book(as_owner, db, ST_PRIYA, "2027-03-01T18:00:00Z")
     res = await as_owner.patch(f"/v1/bookings/{bid}", json={"ends_at": "2027-03-01T19:30:00Z"})

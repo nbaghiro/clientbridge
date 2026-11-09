@@ -7022,7 +7022,7 @@ export interface components {
              * Deposit
              * @enum {string}
              */
-            deposit: "refunded" | "kept" | "none" | "pending" | "failed";
+            deposit: "refunded" | "kept" | "none" | "pending" | "failed" | "paying";
             /** Refund Cents */
             refund_cents: number;
         };
@@ -7110,6 +7110,12 @@ export interface components {
              * @description The visit is booked and its deposit is still unpaid
              */
             deposit_due: boolean;
+            /**
+             * Deposit Paying
+             * @description Stripe took a deposit payment that hasn't settled yet; on a canceled visit it is refunded if it does
+             * @default false
+             */
+            deposit_paying: boolean;
             /**
              * Accepts Card
              * @description The business takes card payments online

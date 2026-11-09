@@ -1,3 +1,4 @@
+import asyncio
 from datetime import UTC, datetime
 from typing import cast
 
@@ -92,6 +93,40 @@ async def test_canceling_an_intent_the_account_doesnt_have_is_a_conflict(
     monkeypatch.setattr(stripe.PaymentIntent, "retrieve_async", _raises(_missing("intent")))
     with pytest.raises(Conflict):
         await gateway.cancel_payment_intent("acct_x", payment_intent_id="pi_gone")
+
+
+async def test_an_intents_status_is_read_from_stripe(
+    gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(stripe.PaymentIntent, "retrieve_async", _intent_with("processing"))
+    assert await gateway.payment_intent_status("acct_x", "pi_x") == "processing"
+
+
+async def test_an_intents_status_is_unknown_when_stripe_cant_be_read(
+    gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(stripe.PaymentIntent, "retrieve_async", _raises(_missing("intent")))
+    assert await gateway.payment_intent_status("acct_x", "pi_gone") is None
+
+
+async def test_an_intents_status_is_unknown_when_stripe_is_slow(
+    gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def slow(*args: object, **kwargs: object) -> object:
+        await asyncio.sleep(1)
+        raise AssertionError
+
+    monkeypatch.setattr(stripe_module, "_STATUS_WAIT_S", 0.01)
+    monkeypatch.setattr(stripe.PaymentIntent, "retrieve_async", slow)
+    assert await gateway.payment_intent_status("acct_x", "pi_slow") is None
+
+
+async def test_an_intents_status_is_unknown_on_a_server_without_stripe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(stripe, "api_key", stripe.api_key)
+    monkeypatch.setattr(stripe.PaymentIntent, "retrieve_async", _raises(AssertionError()))
+    assert await StripeGateway("", "", "CA").payment_intent_status("acct_x", "pi_x") is None
 
 
 def _method_of(customer: str | None) -> object:

@@ -225,6 +225,11 @@ class ManagedBooking(Mirror):
     deposit_cents: int
     deposit_status: DepositStatus
     deposit_due: bool = Field(description="The visit is booked and its deposit is still unpaid")
+    deposit_paying: bool = Field(
+        default=False,
+        description="Stripe took a deposit payment that hasn't settled yet; on a canceled visit "
+        "it is refunded if it does",
+    )
     accepts_card: bool = Field(description="The business takes card payments online")
     addons: list[ManagedAddon]
     to_do: list[ManagedToDo] = Field(
@@ -261,7 +266,7 @@ class ManageReschedule(BaseModel):
 
 
 class ManageCancelResult(BaseModel):
-    deposit: Literal["refunded", "kept", "none", "pending", "failed"]
+    deposit: Literal["refunded", "kept", "none", "pending", "failed", "paying"]
     refund_cents: int
 
 

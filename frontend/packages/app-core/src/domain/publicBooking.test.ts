@@ -727,6 +727,288 @@ describe("a deposit due on the manage link", () => {
     });
 });
 
+describe("changing a visit from the manage link", () => {
+    const m = strings.publicManage;
+    const loaded = async (extra: Record<string, unknown> = {}) => {
+        const client = manageClient(extra);
+        const hook = renderHook(() => useManageBooking(client, "token"));
+        await waitFor(() => {
+            expect(hook.result.current.booking).not.toBeNull();
+        });
+        return { client, result: hook.result };
+    };
+
+    it("counts down the moves left and says when they're used up", async () => {
+        expect((await loaded({ reschedules_used: 1 })).result.current.movesLine).toBe(
+            m.movesLeft(2),
+        );
+        const { result } = await loaded({
+            reschedules_used: 3,
+            can_move: false,
+            blocked: "reschedule_limit",
+        });
+        expect(result.current.movesLine).toBe(m.blocked.reschedule_limit);
+        expect(result.current.blocked).toBeNull();
+    });
+
+    it("still says the moves are used up when the cancel cut-off is the reason shown", async () => {
+        const { result } = await loaded({
+            reschedules_used: 3,
+            can_move: false,
+            can_cancel: false,
+            blocked: "cutoff",
+            blocked_hours: 24,
+        });
+        expect(result.current.movesLine).toBe(m.blocked.reschedule_limit);
+        expect(result.current.blocked).toBe(m.blocked.cutoff(24));
+    });
+
+    it("shows a cancel refused after the page loaded with its reason and the fresh visit", async () => {
+        const { client, result } = await loaded();
+        vi.mocked(client.cancel).mockRejectedValue(
+            Object.assign(new Error("refused"), { status: 409, code: "change_blocked" }),
+        );
+        vi.mocked(client.getBooking).mockResolvedValue(
+            managed({ can_cancel: false, blocked: "cutoff", blocked_hours: 24 }),
+        );
+        act(() => {
+            result.current.confirmCancel();
+        });
+        await waitFor(() => {
+            expect(result.current.error).toBe(m.blocked.cutoff(24));
+        });
+        expect(result.current.canCancel).toBe(false);
+        expect(result.current.mode).not.toBe("canceled");
+    });
+
+    it("shows a move refused for the limit as the limit, not as a taken time", async () => {
+        const { client, result } = await loaded();
+        vi.mocked(client.reschedule).mockRejectedValue(
+            Object.assign(new Error("refused"), { status: 409, code: "change_blocked" }),
+        );
+        vi.mocked(client.getBooking).mockResolvedValue(
+            managed({ reschedules_used: 3, can_move: false, blocked: "reschedule_limit" }),
+        );
+        act(() => {
+            result.current.setPick("2026-10-16T17:00:00Z");
+        });
+        act(() => {
+            result.current.confirmMove();
+        });
+        await waitFor(() => {
+            expect(result.current.error).toBe(m.blocked.reschedule_limit);
+        });
+        expect(result.current.canMove).toBe(false);
+    });
+
+    it("words a refused move from the refusal's reason, not the visit's first block", async () => {
+        const { client, result } = await loaded();
+        vi.mocked(client.reschedule).mockRejectedValue(
+            Object.assign(new Error("refused"), {
+                status: 409,
+                code: "change_blocked",
+                detail: { reason: "reschedule_limit", hours: null },
+            }),
+        );
+        vi.mocked(client.getBooking).mockResolvedValue(
+            managed({ can_move: false, can_cancel: false, blocked: "cutoff", blocked_hours: 48 }),
+        );
+        act(() => {
+            result.current.setPick("2026-10-16T17:00:00Z");
+        });
+        act(() => {
+            result.current.confirmMove();
+        });
+        await waitFor(() => {
+            expect(result.current.error).toBe(m.blocked.reschedule_limit);
+        });
+        act(() => {
+            result.current.confirmMove();
+        });
+        await waitFor(() => {
+            expect(client.reschedule).toHaveBeenCalledTimes(2);
+        });
+        const [first, again] = vi.mocked(client.reschedule).mock.calls;
+        expect(again?.[2]).not.toEqual(first?.[2]);
+    });
+
+    it("moves the picked day into a later week, onto its first open day", async () => {
+        const { client, result } = await loaded();
+        vi.mocked(client.getDays).mockResolvedValue([
+            { date: "2026-10-22", count: 0, closed: true, waitlist: 0, reason: null },
+            { date: "2026-10-23", count: 3, closed: false, waitlist: 0, reason: null },
+        ]);
+        act(() => {
+            result.current.setMode("move");
+        });
+        const before = result.current.date;
+        act(() => {
+            result.current.nextWeek();
+        });
+        await waitFor(() => {
+            expect(result.current.date).toBe("2026-10-23");
+        });
+        expect(before).not.toBe("2026-10-23");
+    });
+
+    it("mentions the deposit moving only when there is one", async () => {
+        expect((await loaded()).result.current.movedBody("then")).toBe(m.movedBodyPlain("then"));
+        const paid = await loaded({ deposit_cents: 2000, deposit_status: "collected" });
+        expect(paid.result.current.movedBody("then")).toBe(m.movedBody("then"));
+    });
+
+    it("says a deposit already on its way is going through and offers no second payment", async () => {
+        const { result } = await loaded({
+            deposit_cents: 2000,
+            deposit_status: "pending",
+            deposit_due: false,
+            deposit_paying: true,
+        });
+        expect(result.current.canPayDeposit).toBe(false);
+        expect(result.current.depositPaidFact).toBe(false);
+        expect(result.current.depositLine).toBe(m.depositPaying(result.current.deposit));
+        expect(result.current.cancelOutcome).toBe(m.cancelRefund(result.current.deposit));
+    });
+
+    it("says the deposit was refunded once the visit is cancelled", async () => {
+        const { client, result } = await loaded({
+            deposit_cents: 2000,
+            deposit_status: "collected",
+        });
+        vi.mocked(client.cancel).mockResolvedValue({ deposit: "refunded", refund_cents: 2000 });
+        act(() => {
+            result.current.confirmCancel();
+        });
+        await waitFor(() => {
+            expect(result.current.mode).toBe("canceled");
+        });
+        expect(result.current.hasDeposit).toBe(false);
+        expect(result.current.depositLine).toBe(m.depositRefunded(result.current.deposit));
+    });
+
+    it("says a refund still processing on a cancelled visit, not that the deposit is paid", async () => {
+        const { result } = await loaded({
+            status: "canceled",
+            deposit_cents: 2000,
+            deposit_status: "collected",
+            refund_status: "pending",
+            can_move: false,
+            can_cancel: false,
+        });
+        expect(result.current.depositLine).toBe(m.canceledBody(result.current.deposit));
+        expect(result.current.refundMessage).toBe(m.refundPending);
+        expect(result.current.depositPaidFact).toBe(false);
+    });
+
+    it("says a refund failed on a cancelled visit, not that the deposit is paid", async () => {
+        const { result } = await loaded({
+            status: "canceled",
+            deposit_cents: 2000,
+            deposit_status: "collected",
+            refund_status: "failed",
+            can_move: false,
+            can_cancel: false,
+        });
+        expect(result.current.depositLine).toBe(m.refundFailed);
+        expect(result.current.depositPaidFact).toBe(false);
+    });
+
+    it("keeps saying a refund is processing right after a cancel answers it", async () => {
+        const { client, result } = await loaded({
+            deposit_cents: 2000,
+            deposit_status: "collected",
+        });
+        vi.mocked(client.cancel).mockResolvedValue({ deposit: "pending", refund_cents: 0 });
+        act(() => {
+            result.current.confirmCancel();
+        });
+        await waitFor(() => {
+            expect(result.current.mode).toBe("canceled");
+        });
+        expect(result.current.refundMessage).toBe(m.refundPending);
+        expect(result.current.depositLine).toBe(m.canceledBody(result.current.deposit));
+    });
+
+    it("promises a refund only if a payment still going through at the cancel lands", async () => {
+        const { client, result } = await loaded({
+            deposit_cents: 2000,
+            deposit_status: "pending",
+            deposit_due: false,
+            deposit_paying: true,
+        });
+        vi.mocked(client.cancel).mockResolvedValue({ deposit: "paying", refund_cents: 0 });
+        act(() => {
+            result.current.confirmCancel();
+        });
+        await waitFor(() => {
+            expect(result.current.mode).toBe("canceled");
+        });
+        const paying = m.canceledPaying(result.current.deposit);
+        expect(result.current.refundMessage).toBe(paying);
+        expect(result.current.depositLine).toBe(paying);
+        expect(result.current.depositPaying).toBe(false);
+        const reloaded = await loaded({
+            status: "canceled",
+            deposit_cents: 2000,
+            deposit_status: "none",
+            deposit_paying: true,
+            can_move: false,
+            can_cancel: false,
+        });
+        expect(reloaded.result.current.depositLine).toBe(paying);
+    });
+
+    it("sends a client to the business for a deposit a cancel didn't refund", async () => {
+        const { client, result } = await loaded({
+            deposit_cents: 2000,
+            deposit_status: "collected",
+        });
+        vi.mocked(client.cancel).mockResolvedValue({ deposit: "kept", refund_cents: 0 });
+        act(() => {
+            result.current.confirmCancel();
+        });
+        await waitFor(() => {
+            expect(result.current.mode).toBe("canceled");
+        });
+        const kept = m.depositKept(result.current.deposit, "Demo");
+        expect(result.current.refundMessage).toBe(kept);
+        expect(result.current.depositLine).toBe(kept);
+        const reloaded = await loaded({
+            status: "canceled",
+            deposit_cents: 2000,
+            deposit_status: "collected",
+            can_move: false,
+            can_cancel: false,
+        });
+        expect(reloaded.result.current.depositLine).toBe(kept);
+    });
+
+    it("doesn't promise to refund a deposit already applied to the bill", async () => {
+        const { result } = await loaded({ deposit_cents: 2000, deposit_status: "applied" });
+        const applied = m.cancelApplied(result.current.deposit, "Demo");
+        expect(result.current.cancelOutcome).toBe(applied);
+        expect(result.current.depositLine).toBe(m.depositPaid(result.current.deposit));
+        const canceled = await loaded({
+            status: "canceled",
+            deposit_cents: 2000,
+            deposit_status: "applied",
+            can_move: false,
+            can_cancel: false,
+        });
+        expect(canceled.result.current.depositLine).toBe(applied);
+        expect(canceled.result.current.refundMessage).toBe(applied);
+    });
+
+    it("labels a request the business hasn't confirmed and a visit that already happened", async () => {
+        const request = await loaded({ status: "pending" });
+        expect(request.result.current.labels.title).toBe(m.requestLabel);
+        expect(request.result.current.requestLine).toBe(m.requestLine("Demo"));
+        const past = await loaded({ status: "completed", can_move: false, can_cancel: false });
+        expect(past.result.current.labels.title).toBe(m.pastLabel);
+        expect(past.result.current.movesLine).toBeNull();
+    });
+});
+
 describe("detailErrors", () => {
     const filled = {
         name: "Robin",

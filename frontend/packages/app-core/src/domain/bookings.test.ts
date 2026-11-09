@@ -95,6 +95,8 @@ function event(id: string, start: Date, end: Date, extra: Partial<ScheduleEvent>
         checkedIn: false,
         bookedAt: null,
         remindedAt: null,
+        rescheduleCount: 0,
+        rescheduledAt: null,
         intent: "accent",
         needsClose: false,
         needsMove: false,

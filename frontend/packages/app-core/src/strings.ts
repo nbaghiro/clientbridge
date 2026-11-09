@@ -1140,6 +1140,7 @@ interface Strings {
         readonly historyOnline: string;
         readonly historyStaff: string;
         readonly historyDeposit: (amount: string) => string;
+        readonly historyMovedOnline: (n: number) => string;
         readonly historyDepositDue: (amount: string) => string;
         readonly historyReminderSent: string;
         readonly historyReminderDue: string;
@@ -4594,6 +4595,17 @@ interface Strings {
         readonly depositOffline: (amount: string, business: string) => string;
         readonly payDeposit: string;
         readonly depositThanks: (amount: string) => string;
+        readonly movesLeft: (n: number) => string;
+        readonly depositPaying: (amount: string) => string;
+        readonly depositProcessing: (amount: string) => string;
+        readonly depositRefunded: (amount: string) => string;
+        readonly canceledPaying: (amount: string) => string;
+        readonly cancelApplied: (amount: string, business: string) => string;
+        readonly depositKept: (amount: string, business: string) => string;
+        readonly movedBodyPlain: (when: string) => string;
+        readonly requestLabel: string;
+        readonly requestLine: (business: string) => string;
+        readonly pastLabel: string;
         readonly reschedule: string;
         readonly cancel: string;
         readonly keep: string;
@@ -4937,6 +4949,7 @@ interface Strings {
             readonly bookingNew: string;
             readonly bookingRequest: string;
             readonly bookingCanceled: string;
+            readonly bookingMoved: string;
             readonly bookingBody: (client: string, item: string, when: string) => string;
             readonly message: (client: string) => string;
             readonly overdue: (n: number) => string;
