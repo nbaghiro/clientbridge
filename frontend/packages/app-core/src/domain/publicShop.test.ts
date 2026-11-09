@@ -96,6 +96,7 @@ describe("a placed order survives a reload", () => {
     const placed = {
         order_id: "ord_1",
         order_token: "tok",
+        number: 21,
         total_cents: 3248,
         currency: "CAD",
         client_secret: "pi_1_secret",
@@ -106,6 +107,7 @@ describe("a placed order survives a reload", () => {
         getShop: vi.fn().mockResolvedValue(shop),
         getPickup: vi.fn().mockResolvedValue({ windows: [], hold_days: 3, timezone: "UTC" }),
         placeOrder,
+        releaseOrder: vi.fn().mockResolvedValue(undefined),
     });
     const asStorage = (map: Map<string, string>) => ({
         getItem: (k: string) => map.get(k) ?? null,
@@ -185,6 +187,208 @@ describe("a placed order survives a reload", () => {
             expect(placeOrder).toHaveBeenCalledTimes(1);
         });
         expect(placeOrder.mock.calls[0]?.[2]).not.toBe(first.mock.calls[0]?.[2]);
+    });
+});
+
+describe("after paying or losing stock", () => {
+    afterEach(() => {
+        cleanup();
+    });
+    const brush = {
+        id: "it_brush",
+        name: "Self-Cleaning Slicker Brush",
+        description: null,
+        price_cents: 2900,
+        currency: "CAD",
+        taxable: true,
+        image_url: null,
+        in_stock: true,
+        category: null,
+        stock_left: 3,
+    };
+    const shop = (stockLeft: number): PublicShop => ({
+        business_name: "Birchbark",
+        brand: { logo_url: null, primary: null, tagline: null },
+        items: [{ ...brush, stock_left: stockLeft, in_stock: stockLeft > 0 }],
+        stripe_account_id: "acct_shop",
+        charges_tax: true,
+    });
+    const placed = {
+        order_id: "ord_1",
+        order_token: "tok",
+        number: 22,
+        total_cents: 3248,
+        currency: "CAD",
+        client_secret: "pi_1_secret",
+        stripe_account_id: "acct_shop",
+    };
+    const asStorage = (map: Map<string, string>) => ({
+        getItem: (k: string) => map.get(k) ?? null,
+        setItem: (k: string, v: string) => map.set(k, v),
+        removeItem: (k: string) => map.delete(k),
+    });
+    const client = (getShop: ShopClient["getShop"], placeOrder: Place): ShopClient => ({
+        getShop,
+        getPickup: vi.fn().mockResolvedValue({ windows: [], hold_days: 3, timezone: "UTC" }),
+        placeOrder,
+        releaseOrder: vi.fn().mockResolvedValue(undefined),
+    });
+
+    async function checkout(c: ShopClient, map: Map<string, string>, quantity: number) {
+        const hook = renderHook(() => useShopFlow(c, "birchbark", asStorage(map)));
+        await waitFor(() => {
+            expect(hook.result.current.status).toBe("ready");
+        });
+        act(() => {
+            hook.result.current.setQuantity("it_brush", quantity);
+            hook.result.current.setName("Robin Bennett");
+            hook.result.current.setPhone("+16045550142");
+        });
+        act(() => {
+            hook.result.current.submit();
+        });
+        return hook;
+    }
+
+    it("names the order by its sale number and keeps the confirmation across a reload", async () => {
+        const map = new Map<string, string>();
+        const c = client(
+            vi.fn().mockResolvedValue(shop(3)),
+            vi.fn<Place>().mockResolvedValue(placed),
+        );
+        const { result, unmount } = await checkout(c, map, 1);
+        await waitFor(() => {
+            expect(result.current.status).toBe("paying");
+        });
+        expect(result.current.orderNumber).toBe("S-22");
+        act(() => {
+            result.current.markPaid();
+        });
+        unmount();
+        const reloaded = renderHook(() => useShopFlow(c, "birchbark", asStorage(map)));
+        await waitFor(() => {
+            expect(reloaded.result.current.status).toBe("paid");
+        });
+        expect(reloaded.result.current.order?.order_token).toBe("tok");
+        act(() => {
+            reloaded.result.current.startOver();
+        });
+        expect(reloaded.result.current.status).toBe("ready");
+        expect(reloaded.result.current.count).toBe(0);
+    });
+
+    it("releases the unpaid order when the shopper steps back, and the next try is a new order", async () => {
+        const placeOrder = vi.fn<Place>().mockResolvedValue(placed);
+        const c = client(vi.fn().mockResolvedValue(shop(3)), placeOrder);
+        const { result } = await checkout(c, new Map(), 1);
+        await waitFor(() => {
+            expect(result.current.status).toBe("paying");
+        });
+        act(() => {
+            result.current.cancelPayment();
+        });
+        await waitFor(() => {
+            expect(result.current.status).toBe("ready");
+        });
+        expect(c.releaseOrder).toHaveBeenCalledWith("tok");
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(placeOrder).toHaveBeenCalledTimes(2);
+        });
+        expect(placeOrder.mock.calls[1]?.[2]).not.toBe(placeOrder.mock.calls[0]?.[2]);
+    });
+
+    it("shows the confirmation when the card went through before the page heard", async () => {
+        const c = client(
+            vi.fn().mockResolvedValue(shop(3)),
+            vi.fn<Place>().mockResolvedValue(placed),
+        );
+        c.releaseOrder = vi
+            .fn()
+            .mockRejectedValue(
+                Object.assign(new Error("paid"), { status: 409, code: "checkout_paid" }),
+            );
+        const { result } = await checkout(c, new Map(), 1);
+        await waitFor(() => {
+            expect(result.current.status).toBe("paying");
+        });
+        act(() => {
+            result.current.cancelPayment();
+        });
+        await waitFor(() => {
+            expect(result.current.status).toBe("paid");
+        });
+        expect(result.current.orderNumber).toBe("S-22");
+        act(() => {
+            result.current.startOver();
+        });
+        expect([result.current.status, result.current.error]).toEqual(["ready", null]);
+    });
+
+    it("lets go of an unpaid order left past its resume window", async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+        try {
+            const map = new Map<string, string>();
+            const c = client(
+                vi.fn().mockResolvedValue(shop(3)),
+                vi.fn<Place>().mockResolvedValue(placed),
+            );
+            const first = await checkout(c, map, 1);
+            await waitFor(() => {
+                expect(first.result.current.status).toBe("paying");
+            });
+            first.unmount();
+            vi.setSystemTime(Date.now() + 26 * 60 * 1000);
+            const later = renderHook(() => useShopFlow(c, "birchbark", asStorage(map)));
+            await waitFor(() => {
+                expect(c.releaseOrder).toHaveBeenCalledWith("tok");
+            });
+            expect(later.result.current.order).toBeNull();
+            expect(map.has("connect-order:birchbark")).toBe(false);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it("tells a confirmation read back after a reload from one paid on the page", async () => {
+        const map = new Map<string, string>();
+        const c = client(
+            vi.fn().mockResolvedValue(shop(3)),
+            vi.fn<Place>().mockResolvedValue(placed),
+        );
+        const { result, unmount } = await checkout(c, map, 1);
+        await waitFor(() => {
+            expect(result.current.status).toBe("paying");
+        });
+        act(() => {
+            result.current.markPaid();
+        });
+        expect(result.current.restored).toBe(false);
+        unmount();
+        const reloaded = renderHook(() => useShopFlow(c, "birchbark", asStorage(map)));
+        await waitFor(() => {
+            expect(reloaded.result.current.status).toBe("paid");
+        });
+        expect(reloaded.result.current.restored).toBe(true);
+    });
+
+    it("reloads the shop when stock ran out, trims the cart and names what changed", async () => {
+        const getShop = vi.fn().mockResolvedValueOnce(shop(3)).mockResolvedValue(shop(1));
+        const refused = Object.assign(new Error("refused"), { status: 409, code: "out_of_stock" });
+        const { result } = await checkout(
+            client(getShop, vi.fn<Place>().mockRejectedValue(refused)),
+            new Map(),
+            3,
+        );
+        await waitFor(() => {
+            expect(result.current.error).toBe(
+                strings.publicShop.stockChanged("Self-Cleaning Slicker Brush"),
+            );
+        });
+        expect(result.current.cart).toEqual({ it_brush: 1 });
+        expect(result.current.shop?.items[0]?.stock_left).toBe(1);
     });
 });
 

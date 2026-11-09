@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 
 import { type Attempt, attemptKey } from "../api";
+import { formatTimeRange, parseTimestamp, weekdayDay } from "../datetime";
+import { formatMoney } from "../format";
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { ProgressStep } from "../ui";
@@ -22,6 +24,7 @@ interface PublicOrder {
     picked_up_at: string | null;
     notify_sms: boolean;
     refund_pending?: boolean;
+    refund_cents: number;
     can_cancel: boolean;
     receipt_token: string | null;
     currency: string;
@@ -97,11 +100,19 @@ export function usePublicOrder(client: ReturnType<typeof createPublicOrderClient
     const s = strings.publicOrder;
     const labels = [s.placed, s.preparing, s.ready, s.collected];
     const dates = [order?.created_at, order?.preparing_at, order?.ready_at, order?.picked_up_at];
+    const collected = order?.pickup_status === "picked_up";
     const steps: ProgressStep[] = labels.map((label, index) => ({
         key: String(index),
         label,
-        state: index < at ? "done" : index === at ? "current" : "todo",
+        state: index < at || collected ? "done" : index === at ? "current" : "todo",
     }));
+    const refund = order ? formatMoney(order.refund_cents, order.currency) : "";
+    // only a full refund before pickup cancels the order; a partial one leaves it going ahead
+    const canceled =
+        !collected &&
+        (order?.status === "refunded" ||
+            order?.status === "void" ||
+            (order?.refund_pending === true && order.refund_cents >= order.total_cents));
     return {
         ...resource,
         order,
@@ -126,13 +137,39 @@ export function usePublicOrder(client: ReturnType<typeof createPublicOrderClient
                 { errorMessage: s.error },
             );
         },
-        title: order?.refund_pending
-            ? s.refundPending
-            : order?.status === "refunded" || order?.status === "void"
-              ? s.canceled
-              : order?.status === "open"
-                ? s.awaitingPayment
-                : (labels[at] ?? s.placed),
+        title: canceled
+            ? order.refund_pending
+                ? s.refundPending
+                : s.canceled
+            : order?.status === "open"
+              ? s.awaitingPayment
+              : (labels[at] ?? s.placed),
+        lead: order?.refund_pending
+            ? s.refundPendingBody(refund)
+            : order && order.refund_cents > 0
+              ? s.refundedBody(refund)
+              : order?.status === "void"
+                ? s.voidBody
+                : order?.status === "open"
+                  ? s.awaitingBody
+                  : collected
+                    ? s.collectedBody
+                    : order?.pickup_status === "ready"
+                      ? s.readyBody(order.business_name)
+                      : s.pending,
+        canceled,
+        showAlerts: !canceled && !collected,
+        pickupLabel:
+            order?.pickup_from && order.pickup_to
+                ? strings.common.dayAndTime(
+                      weekdayDay(parseTimestamp(order.pickup_from), order.timezone),
+                      formatTimeRange(
+                          parseTimestamp(order.pickup_from),
+                          parseTimestamp(order.pickup_to),
+                          order.timezone,
+                      ),
+                  )
+                : strings.publicShop.pickupAsap,
         setAlerts: (value: boolean) => {
             run(
                 async () => {

@@ -866,7 +866,10 @@ class Notifier:
                     self.email.send(business_email(business, business.billing_email, alert))
                 )
         if payment.client_id is not None:
-            await self._to_client(db, payment.client_id, notice)
+            sent = await self._to_client(db, payment.client_id, notice)
+            client = await db.get(Client, payment.client_id)
+            if online and order and client and sent is Outcome.DELIVERED:
+                order.receipt_phone, order.receipt_sent_at = client.phone, clock.now()
         elif order is not None:
             await self._to_contact(db, order.receipt_phone, notice, business=business)
         await self._alert_staff(

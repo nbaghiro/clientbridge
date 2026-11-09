@@ -51,7 +51,7 @@ const d = strings.pos.desk;
 const c = theme.colors;
 
 /** Sales on a phone: the register, the front desk board and, for owners and admins, history. */
-export function POS() {
+export function POS({ view: asked }: { view?: SalesView | undefined }) {
     const viewer = useViewer();
     const role = viewer?.role ?? null;
     const sale = useSale(api, {
@@ -61,7 +61,13 @@ export function POS() {
     });
     const items = useCatalogItems();
     const views = useSalesViews(role);
-    const [view, setView] = useState<SalesView>("register");
+    const [view, setView] = useState<SalesView>(asked ?? "register");
+    // each board link comes from a new online order, so the board reopens on what to pack
+    const [link, setLink] = useState({ asked, boards: asked === "board" ? 1 : 0 });
+    if (asked !== link.asked) {
+        setLink({ asked, boards: link.boards + (asked === "board" ? 1 : 0) });
+        if (asked !== undefined) setView(asked);
+    }
     const [ticketOpen, setTicketOpen] = useState(false);
     const resume = (order: OrderOut): void => {
         sale.resume(order, items);
@@ -76,7 +82,11 @@ export function POS() {
             ) : (
                 <ScrollView contentContainerStyle={styles.body}>
                     {view === "board" ? (
-                        <SalesBoard onResume={resume} />
+                        <SalesBoard
+                            key={link.boards}
+                            start={link.boards > 0 ? "prepare" : "open"}
+                            onResume={resume}
+                        />
                     ) : (
                         <SalesHistory onResume={resume} />
                     )}

@@ -347,6 +347,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/order/{token}/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Release Order */
+        post: operations["release_order_order__token__release_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/form/{token}": {
         parameters: {
             query?: never;
@@ -8719,6 +8736,11 @@ export interface components {
              * @default false
              */
             refund_pending: boolean;
+            /**
+             * Refund Cents
+             * @description Refunded or on its way back to the card
+             */
+            refund_cents: number;
             /** Can Cancel */
             can_cancel: boolean;
             /** Receipt Token */
@@ -9154,6 +9176,8 @@ export interface components {
             order_id: string;
             /** Order Token */
             order_token?: string | null;
+            /** Number */
+            number: number;
             /** Total Cents */
             total_cents: number;
             /** Currency */
@@ -11106,6 +11130,37 @@ export interface operations {
             header: {
                 "Idempotency-Key": string;
             };
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicOrderStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    release_order_order__token__release_post: {
+        parameters: {
+            query?: never;
+            header?: never;
             path: {
                 token: string;
             };

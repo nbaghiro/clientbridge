@@ -810,6 +810,9 @@ entitlement and its liability are created.
   card, has `source = online`, and moves through `pickup_status` (unfulfilled, preparing, ready, picked up) from Sales.
   Staff and contractors work the pickup queue from `staff_limited`, which syncs paid online orders
   (`pickup_status` is set only once one is paid) and their `for_pickup` lines without prices.
+  A unit on another sale whose payment is under way counts as gone (`inventory.held_units`): the shop
+  lists what is left after those, an order for more is refused with `out_of_stock`, and Connect then
+  reloads the stock and trims the cart to it.
 - **Booking add-ons:** products the owner offers at booking (`items.addon`, with `addon_for` naming the
   services each goes with) and the client chose on the booking page are stored in `addons` and become lines
   on the invoice created from the booking (`POST /v1/invoices/from-booking/{id}`), each carrying the booking

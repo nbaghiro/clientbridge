@@ -112,6 +112,7 @@ async def test_order_is_online_for_pickup_and_taxed(
     assert order.subtotal_cents == 5800
     assert order.total_cents == body["total_cents"] > 5800  # BC tax on goods
     assert body["client_secret"]
+    assert body["number"] == order.number is not None
 
 
 async def test_order_replay_returns_the_same_order(
@@ -445,6 +446,38 @@ async def test_pending_checkouts_hold_stock_until_the_intent_is_canceled(
     assert (
         await api.post(f"/book/{SLUG}/shop/orders", json=_order((SHAMPOO, 1)), headers=_key())
     ).status_code == 200
+
+
+async def test_shop_lists_units_held_by_a_pending_checkout_as_gone(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _enable(db)
+    await db.execute(
+        update(Item).where(Item.id == SHAMPOO).values(track_stock=True, stock_on_hand=2)
+    )
+    await db.commit()
+
+    async def listed() -> dict[str, object]:
+        items = (await api.get(f"/book/{SLUG}/shop")).json()["items"]
+        return next(i for i in items if i["id"] == SHAMPOO)
+
+    first = await api.post(f"/book/{SLUG}/shop/orders", json=_order((SHAMPOO, 1)), headers=_key())
+    assert first.status_code == 200
+    assert (await listed())["stock_left"] == 1
+    second = await api.post(f"/book/{SLUG}/shop/orders", json=_order((SHAMPOO, 1)), headers=_key())
+    assert second.status_code == 200
+    assert {k: v for k, v in (await listed()).items() if k in ("in_stock", "stock_left")} == {
+        "in_stock": False,
+        "stock_left": 0,
+    }
+    third = await api.post(f"/book/{SLUG}/shop/orders", json=_order((SHAMPOO, 1)), headers=_key())
+    assert third.status_code == 409 and third.json()["error"] == "out_of_stock"
+    payment = (
+        await db.scalars(select(Payment).where(Payment.order_id == first.json()["order_id"]))
+    ).one()
+    payment.status = "canceled"
+    await db.commit()
+    assert (await listed())["stock_left"] == 1
 
 
 async def test_two_connections_cannot_reserve_the_same_last_unit(db: AsyncSession) -> None:

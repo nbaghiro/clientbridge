@@ -3966,6 +3966,20 @@ async def has_pending_order_refund(db: AsyncSession, order: Order) -> bool:
     ).scalar_one_or_none() is not None
 
 
+async def order_refund_cents(db: AsyncSession, order: Order) -> int:
+    """Money going back to the order's card, refunded or still on its way."""
+    total = await db.scalar(
+        scoped(Payment, order.business_id)
+        .with_only_columns(func.coalesce(func.sum(Payment.amount_cents), 0))
+        .where(
+            Payment.order_id == order.id,
+            Payment.kind == "refund",
+            Payment.status.in_(("pending", "succeeded")),
+        )
+    )
+    return int(total or 0)
+
+
 class PublicPaymentSetupService:
     def __init__(self, db: AsyncSession, gateway: PaymentGateway) -> None:
         self.db = db

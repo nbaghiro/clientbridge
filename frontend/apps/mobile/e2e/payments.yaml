@@ -22,7 +22,7 @@ name: Owner payment surfaces
 - tapOn: "Sales"
 - assertVisible: "New sale"
 - takeScreenshot: register
-- tapOn: "Orders"
+- tapOn: "Orders.*"
 - assertVisible: "To prepare.*"
 - takeScreenshot: orders
 - tapOn: "History"

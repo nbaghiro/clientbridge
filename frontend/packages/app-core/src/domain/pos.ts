@@ -7,6 +7,7 @@ import {
     addDays,
     dateKey,
     daysUntil,
+    formatTimeRange,
     parseTimestamp,
     relativeDay,
     relativeDayTime,
@@ -44,6 +45,7 @@ import {
 } from "./billing";
 import { afterReview, outgoing } from "./previews";
 import { utcBeforeSql, utcFromSql, utcSql } from "../datetime";
+import { TEXTS_STOPPED_SQL } from "./broadcasts";
 import { type ItemRow, ITEMS_SQL, sellableItems, stockState } from "./catalog";
 import { type Checkout, NEW_CARD, useCheckout } from "./checkout";
 import { orderStatusSql } from "./ledger";
@@ -87,6 +89,15 @@ export function useTerminalConnection(api: ApiLike): TerminalConnection {
 type PickupStatus = "unfulfilled" | "preparing" | "ready" | "picked_up";
 
 const PICKUP_FLOW: PickupStatus[] = ["unfulfilled", "preparing", "ready", "picked_up"];
+
+function isPickupStatus(status: string | null): status is PickupStatus {
+    return (
+        status === "unfulfilled" ||
+        status === "preparing" ||
+        status === "ready" ||
+        status === "picked_up"
+    );
+}
 
 const STATUS: Record<PickupStatus, { label: string; intent: Intent; empty: string }> = {
     unfulfilled: {
@@ -210,9 +221,42 @@ interface PickupOrder {
     total: string;
     contact: string;
     phone: string | null;
+    texts: boolean;
     // Placed, ready since or picked up at, whichever is latest.
     when: string;
     waiting: string;
+}
+
+function pickupWhen(
+    status: PickupStatus,
+    at: { created_at: string; ready_at: string | null; picked_up_at: string | null },
+    now: Date,
+    zone: string,
+): string {
+    const p = strings.pos.pickup;
+    return status === "picked_up" && at.picked_up_at !== null
+        ? p.pickedAt(relativeDayTime(parseTimestamp(at.picked_up_at), zone, now))
+        : status === "ready" && at.ready_at !== null
+          ? p.readySince(relativeDayTime(parseTimestamp(at.ready_at), zone, now))
+          : p.placed(relativeDayTime(parseTimestamp(at.created_at), zone, now));
+}
+
+function pickupWindow(
+    from: string | null | undefined,
+    to: string | null | undefined,
+    zone: string,
+    now: Date,
+): string | null {
+    if (!from) return null;
+    const start = parseTimestamp(from);
+    return strings.publicShop.pickupWindowAt(
+        to
+            ? strings.common.dayAndTime(
+                  relativeDay(start, zone, "short", now),
+                  formatTimeRange(start, parseTimestamp(to), zone),
+              )
+            : relativeDayTime(start, zone, now),
+    );
 }
 
 export function pickupOrder(
@@ -220,6 +264,7 @@ export function pickupOrder(
     lines: PickupLineRow[],
     now: Date,
     zone: string,
+    stopped: ReadonlySet<string> = new Set(),
 ): PickupOrder {
     const status = row.pickup_status;
     const p = strings.pos.pickup;
@@ -234,14 +279,8 @@ export function pickupOrder(
         clientName: row.client_name ?? p.guest,
         status,
         note:
-            formatParts([
-                row.pickup_from
-                    ? strings.publicShop.pickupWindowAt(
-                          relativeDayTime(parseTimestamp(row.pickup_from), zone, now),
-                      )
-                    : null,
-                row.note,
-            ]) || null,
+            formatParts([pickupWindow(row.pickup_from, row.pickup_to, zone, now), row.note]) ||
+            null,
         statusLabel: STATUS[status].label,
         intent: STATUS[status].intent,
         lines: mine.map((l) => ({
@@ -256,12 +295,12 @@ export function pickupOrder(
         total: row.total_cents === null ? "" : formatMoney(row.total_cents, BUSINESS_CURRENCY),
         contact: row.phone === null ? "" : formatPhone(row.phone),
         phone: row.phone,
-        when:
-            status === "picked_up" && row.picked_up_at !== null
-                ? p.pickedAt(relativeDayTime(parseTimestamp(row.picked_up_at), zone, now))
-                : status === "ready" && row.ready_at !== null
-                  ? p.readySince(relativeDayTime(parseTimestamp(row.ready_at), zone, now))
-                  : p.placed(relativeDayTime(parseTimestamp(row.created_at), zone, now)),
+        // the server skips the text without a number or after a STOP reply
+        texts:
+            row.notify_sms !== 0 &&
+            row.phone !== null &&
+            !(row.client_id !== null && stopped.has(row.client_id)),
+        when: pickupWhen(status, row, now, zone),
         waiting: p.waiting(Math.max(0, -daysUntil(since, zone, now))),
     };
 }
@@ -284,9 +323,9 @@ interface PickupQueue {
     list: PickupOrder[];
     selected: PickupOrder | null;
     select: (id: string | null) => void;
-    advance: (id: string) => void;
+    advance: (id: string, onDone?: () => void) => void;
     // A step the server allows from here, e.g. straight to picked up from to pack.
-    move: (id: string, status: PickupStatus) => void;
+    move: (id: string, status: PickupStatus, onDone?: () => void) => void;
     busyId: string | null;
     error: string | null;
 }
@@ -297,26 +336,28 @@ function usePickupOrders(api: ApiLike): PickupQueue {
     const zone = useBusinessZone();
     const orders = useQuery<PickupRow>(PICKUP_ORDERS_SQL);
     const lines = useQuery<PickupLineRow>(PICKUP_LINES_SQL);
+    const stops = useQuery<{ client_id: string }>(TEXTS_STOPPED_SQL);
     const [q, setQ] = useState("");
     const [status, setStatus] = useState<PickupStatus>("unfulfilled");
     const [selectedId, select] = useState<string | null>(null);
     const [busyId, setBusyId] = useState<string | null>(null);
     const { error, run } = useAsyncAction();
-    const all = useMemo(
-        () => orders.data.map((o) => pickupOrder(o, lines.data, now, zone)),
-        [orders.data, lines.data, now, zone],
-    );
+    const all = useMemo(() => {
+        const stopped = new Set(stops.data.map((stop) => stop.client_id));
+        return orders.data.map((o) => pickupOrder(o, lines.data, now, zone, stopped));
+    }, [orders.data, lines.data, stops.data, now, zone]);
     const t = q.trim().toLowerCase();
     const match = (o: PickupOrder): boolean =>
         t === "" ||
         [o.clientName, ...o.lines.map((l) => l.name)].some((v) => v.toLowerCase().includes(t));
     const load = useReplicaLoad([orders, lines], all.length === 0);
-    const move = (id: string, to: PickupStatus): void => {
+    const move = (id: string, to: PickupStatus, onDone?: () => void): void => {
         if (to === "unfulfilled") return;
         setBusyId(id);
         run(() => setPickupStatus(api, id, to), {
             onSuccess: () => {
                 setBusyId(null);
+                onDone?.();
             },
             errorMessage: strings.pos.pickup.error,
         });
@@ -343,10 +384,10 @@ function usePickupOrders(api: ApiLike): PickupQueue {
         list: all.filter((o) => o.status === status && match(o)),
         selected: all.find((o) => o.id === selectedId) ?? null,
         select,
-        advance: (id) => {
+        advance: (id, onDone) => {
             const order = all.find((o) => o.id === id);
             const next = order === undefined ? null : nextPickupStatus(order.status);
-            if (next !== null) move(id, next);
+            if (next !== null) move(id, next, onDone);
         },
         move,
         busyId: error === null ? busyId : null,
@@ -1929,22 +1970,27 @@ export function useFrontDeskBoard(
             col("ready", d.readyForPickup, d.readyHint, d.nothingReady),
         ],
         advance: (id) => {
-            const order = held.find((o) => o.id === id);
-            if (order !== undefined) {
+            const ticket = held.find((o) => o.id === id);
+            if (ticket !== undefined) {
                 setDone(null);
-                onResume(order);
+                onResume(ticket);
                 return;
             }
             const card = pickups.find((c) => c.id === id);
-            if (card === undefined) return;
-            queue.advance(id);
-            setDone(
-                queue.all.find((order) => order.id === id)?.status === "unfulfilled"
+            const pickup = queue.all.find((o) => o.id === id);
+            if (card === undefined || pickup === undefined) return;
+            const message =
+                pickup.status === "unfulfilled"
                     ? strings.publicOrder.preparingStarted
                     : card.column === "prepare"
-                      ? d.markedReady(card.clientName)
-                      : d.markedPickedUp(card.clientName),
-            );
+                      ? pickup.texts
+                          ? d.markedReady(card.clientName)
+                          : d.markedReadyNoText(card.clientName)
+                      : d.markedPickedUp(card.clientName);
+            setDone(null);
+            queue.advance(id, () => {
+                setDone(message);
+            });
         },
         busyId: queue.busyId,
         done: queue.error === null ? done : null,
@@ -2190,7 +2236,8 @@ SELECT o.id, o.number, o.client_id, c.name AS client_name, c.phone AS client_pho
        o.source, o.pickup_status, o.created_at, o.subtotal_cents, o.tax_total_cents, o.total_cents,
        o.staff_id, o.note,
        o.discount_kind, o.discount_value, o.discount_reason,
-       o.receipt_phone, o.receipt_sent_at, ${orderStatusSql("o")} AS status
+       o.receipt_phone, o.receipt_sent_at, o.ready_at, o.picked_up_at, o.pickup_from, o.pickup_to,
+       ${orderStatusSql("o")} AS status
 FROM orders o LEFT JOIN clients c ON c.id = o.client_id WHERE o.id = ?`;
 
 interface SaleRecordRow {
@@ -2212,6 +2259,10 @@ interface SaleRecordRow {
     discount_reason: string | null;
     receipt_phone: string | null;
     receipt_sent_at: string | null;
+    ready_at: string | null;
+    picked_up_at: string | null;
+    pickup_from: string | null;
+    pickup_to: string | null;
     status: string;
 }
 
@@ -2275,7 +2326,8 @@ interface SaleDetail {
     note: string | null;
     priced: PricedSale;
     totalLines: DocTotalLine[];
-    rungBy: string;
+    origin: string;
+    pickup: { label: string; intent: Intent; when: string; window: string | null } | null;
     payments: {
         id: string;
         label: string;
@@ -2362,6 +2414,7 @@ export function useSaleDetail(
                       },
                   );
         const manager = isManager(role);
+        const now = new Date();
         const lastPaid = [...pays].reverse().find((p) => p.kind === "payment") ?? null;
         const splits: { staff_id: string; cents: number }[] =
             lastPaid?.tip_split != null
@@ -2412,7 +2465,18 @@ export function useSaleDetail(
                 { ...priced.totals, depositCents: 0, dueCents: priced.totals.totalCents },
                 { saleDiscountReason: saleDiscount?.reason ?? null },
             ),
-            rungBy: rung === undefined ? d.noStaff : staffName(rung),
+            origin:
+                row.source === "online"
+                    ? d.placedOnline
+                    : d.rungBy(rung === undefined ? d.noStaff : staffName(rung)),
+            pickup: isPickupStatus(row.pickup_status)
+                ? {
+                      label: STATUS[row.pickup_status].label,
+                      intent: STATUS[row.pickup_status].intent,
+                      when: pickupWhen(row.pickup_status, row, now, zone),
+                      window: pickupWindow(row.pickup_from, row.pickup_to, zone, now),
+                  }
+                : null,
             payments: pays.map((p) => ({
                 id: p.id,
                 label:

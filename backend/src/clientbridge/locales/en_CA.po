@@ -248,7 +248,7 @@ msgid "login_code.subject"
 msgstr "Your Clientbridge sign-in code"
 
 msgid "online_order.body"
-msgstr "A client paid {amount} for an online order. It is waiting under Payments, Sales."
+msgstr "A client paid {amount} for an online order. It is waiting under Payments, Sales, Orders."
 
 msgid "online_order.heading"
 msgstr "Online order paid"

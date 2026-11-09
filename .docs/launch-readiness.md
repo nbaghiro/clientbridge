@@ -52,7 +52,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 5. Sell at the desk and online | Tap to Pay | [CB-31](https://linear.app/clientbridgeca/issue/CB-31) | Manual |
 | 5. Sell at the desk and online | Tips and discounts | [CB-32](https://linear.app/clientbridgeca/issue/CB-32) | Partly automated |
 | 5. Sell at the desk and online | Saved cards and bank accounts | [CB-12](https://linear.app/clientbridgeca/issue/CB-12) | Partly automated |
-| 5. Sell at the desk and online | Online shop orders and pickup | [CB-41](https://linear.app/clientbridgeca/issue/CB-41) | Partly automated |
+| 5. Sell at the desk and online | Online shop orders and pickup | [CB-41](https://linear.app/clientbridgeca/issue/CB-41) | Automated |
 | 6. Invoice and get paid | Estimates to invoices | [CB-33](https://linear.app/clientbridgeca/issue/CB-33) | Partly automated |
 | 6. Invoice and get paid | Invoices and payment links | [CB-34](https://linear.app/clientbridgeca/issue/CB-34) | Partly automated |
 | 6. Invoice and get paid | Printed and shared documents | [CB-36](https://linear.app/clientbridgeca/issue/CB-36) | Manual |
@@ -1461,17 +1461,19 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 **QA steps**
 
 1. On a phone, order a shampoo and a brush and pay with card 4242.
-   **Expect:** the owner is notified; the order waits for pickup.
-2. Order more than the stock.
-   **Expect:** refused.
-3. Mark ready.
-   **Expect:** the client gets the message; the order page shows ready.
+   **Expect:** the confirmation names the order by its sale number and still shows after a reload; the owner gets the order email and a New online order item in the bell; the order waits under Sales, Orders, To prepare; each item's stock drops once.
+2. Order more than the stock, then take the last unit in one checkout while another phone has it in its cart.
+   **Expect:** the quantity stops at what is left; the unit the first checkout holds shows as sold out; the second checkout is refused with a message naming the item, in view on the phone, and the item leaves its cart.
+3. Open the order from the bell on a phone, start preparing it and mark it ready; do the same for another order on web.
+   **Expect:** the bell opens the pickup board; the client gets one text with the order page link, or, when they turned texts off, none and the board says so; the order page shows ready.
 4. Mark picked up, then try to move it back.
-   **Expect:** refused.
+   **Expect:** refused; the order page shows Collected with every step done; the sale panel shows it was placed online, its pickup and where the receipt went.
 5. Lose the order response and reload.
    **Expect:** the order resumes with one key.
 6. Leave a ready order uncollected.
    **Expect:** one pickup reminder at 09:00 local.
+7. Cancel a paid order from its page before preparation starts.
+   **Expect:** refunded in full and the stock comes back; the page says what was refunded and drops the progress, pickup and texts toggle.
 
 **Done when:** Online orders are paid, prepared and collected without a phone call, and stock drops once.
 
@@ -1479,19 +1481,23 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 
 * `SALE-E2E-03 (connect)`
 * `SALE-E2E-12 (journeys)`
+* `SALE-E2E-17 (stripe)`
+* `STR-E22 (stripe)`
 * `FLOW-03-A (journeys)`
 * `FLOW-03-B (journeys)`
 * `XB-E2E-10 (connect)`
+* `NATIVE-SALE-01 (native-ios, native-android)`
 * `connect: publicShop.e2e.ts › a client finds the shop from the landing page and fills a cart`
 * `connect: publicShop.e2e.ts › the shop says tax is added when the business charges it`
 * `connect: publicShop.e2e.ts › a business that doesn't charge tax never mentions it in the shop`
 * `connect: publicShop.e2e.ts › the shop adds from the grid, changes quantities and checks out in steps`
 * `connect: publicShop.e2e.ts › the shop's order panel folds into a bottom bar on a phone`
-
-**To automate**
-
-* `STR-E22` in `apps/connect/e2e/stripe/shop.stripe.ts`: Shop order paid with a real card, ready and picked up.
-* `SALE-E2E-17` in `apps/web/e2e/journeys/stock.journey.ts`: Final-unit race between two online checkouts.
+* `connect: publicShop.e2e.ts › a paid confirmation comes back on checkout after a reload, while the shop opens on its catalog`
+* `connect: publicOrder.e2e.ts › a canceled order says what was refunded and drops the progress, pickup and texts`
+* `app-core: pos.board.test.ts › doesn't claim a text went to a client who turned texts off`
+* `backend: test_public_orders.py › test_an_uncollected_order_gets_one_reminder_text_at_nine_local`
+* `backend: test_public_orders.py › test_ready_order_reminder_sent_once_and_respects_alert_choice`
+* `backend: test_public_orders.py › test_cancel_order_refunds_once_and_releases_stock`
 
 **Depends on:** Nothing
 
