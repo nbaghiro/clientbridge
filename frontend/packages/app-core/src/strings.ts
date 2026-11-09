@@ -1914,7 +1914,6 @@ interface Strings {
             readonly savingNote: string;
             readonly noteError: string;
             readonly noteChangeError: string;
-            readonly editNote: string;
             readonly deleteNote: string;
             readonly deleteNoteTitle: string;
             readonly deleteNoteBody: string;
@@ -1923,9 +1922,13 @@ interface Strings {
             readonly by: (who: string, when: string) => string;
             readonly empty: string;
             readonly emptyFilter: string;
+            readonly emptySince: (month: string) => string;
             readonly emptyTitle: string;
             readonly headsUp: string;
             readonly loadOlder: string;
+            readonly noteActions: string;
+            readonly olderFailed: string;
+            readonly olderOffline: string;
             readonly overdue: string;
             readonly upcoming: string;
             readonly since: (when: string) => string;

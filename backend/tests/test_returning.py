@@ -9,6 +9,7 @@ from clientbridge.core import clock
 from clientbridge.core.ids import new_id
 from clientbridge.models.business import Business
 from clientbridge.models.clients import Client, Subject
+from clientbridge.models.platform import File
 from clientbridge.models.returning import ReturningChallenge
 from clientbridge.models.scheduling import Booking, Slot
 from tests.conftest import BIZ, Factory, FakeEmailSender, FakeSmsSender
@@ -62,6 +63,31 @@ async def _book(api: httpx.AsyncClient, **extra: object) -> httpx.Response:
         },
         headers={"Idempotency-Key": "returning-booking"},
     )
+
+
+async def test_a_verified_client_sees_only_their_uploaded_photo(
+    api: httpx.AsyncClient, sms: FakeSmsSender, db: AsyncSession
+) -> None:
+    client = await _client(db)
+    challenge, code = await _request(api, sms, PHONE)
+    assert (await _verify(api, challenge, code)).json()["profile"]["photo_url"] is None
+    for uploaded in (True, False):
+        db.add(
+            File(
+                id=new_id("file"),
+                business_id=BIZ,
+                parent_type="client",
+                parent_id=client.id,
+                purpose="photo",
+                s3_key=f"photos/{client.id}/{'kept' if uploaded else 'pending'}.jpg",
+                content_type="image/jpeg",
+                uploaded_at=clock.now() if uploaded else None,
+            )
+        )
+    await db.flush()
+    challenge, code = await _request(api, sms, PHONE)
+    profile = (await _verify(api, challenge, code)).json()["profile"]
+    assert profile["photo_url"] == f"https://files.test/photos/{client.id}/kept.jpg"
 
 
 async def test_phone_proof_reveals_only_verified_profile(

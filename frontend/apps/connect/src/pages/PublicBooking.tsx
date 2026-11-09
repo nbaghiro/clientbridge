@@ -11,6 +11,7 @@ import {
     SUBJECT_ICON,
 } from "@clientbridge/app-core/public";
 import {
+    Avatar,
     Button,
     Choice,
     TextField,
@@ -543,9 +544,14 @@ function ReturningPanel({
     const profile = r.profile;
     return (
         <section className="mb-5 rounded-xl border border-line bg-surface p-4">
-            <h2 className="font-semibold text-ink">
-                {profile ? t.welcome(profile.name) : t.title}
-            </h2>
+            <div className="flex items-center gap-3">
+                {profile ? (
+                    <Avatar name={profile.name} src={profile.photo_url ?? null} size="md" />
+                ) : null}
+                <h2 className="font-semibold text-ink">
+                    {profile ? t.welcome(profile.name) : t.title}
+                </h2>
+            </div>
             {profile ? (
                 <div className="mt-3 space-y-3">
                     {r.canBookUsual ? (

@@ -19,6 +19,7 @@ from clientbridge.core.locale import locale_for
 from clientbridge.core.phones import e164, same_phone
 from clientbridge.core.scoping import scoped
 from clientbridge.core.security import hash_token
+from clientbridge.integrations.s3 import FileStorage
 from clientbridge.integrations.twilio import Sms, SmsSender, sender_number
 from clientbridge.models.business import Business
 from clientbridge.models.clients import Client, Subject
@@ -33,6 +34,7 @@ from clientbridge.schemas.returning import (
     ReturningVerify,
     ReturningVisit,
 )
+from clientbridge.services.files import latest_photo
 from clientbridge.services.notifications import returning_code
 
 _CODE_MINUTES = 10
@@ -106,7 +108,9 @@ class ReturningService:
         await sms.send(Sms(to=number, body=notice, from_number=business.sms_number))
         return ReturningChallengeOut(challenge_id=challenge_id)
 
-    async def verify(self, slug: str, data: ReturningVerify) -> ReturningVerified:
+    async def verify(
+        self, slug: str, data: ReturningVerify, storage: FileStorage
+    ) -> ReturningVerified:
         business = await self._business(slug)
         challenge = (
             await self.db.execute(
@@ -137,7 +141,7 @@ class ReturningService:
         token = secrets.token_urlsafe(32)
         challenge.session_hash = hash_token(token)
         challenge.session_expires_at = now + timedelta(minutes=30)
-        profile = await self._profile(client)
+        profile = await self._profile(client, storage)
         await self.db.commit()
         return ReturningVerified(token=token, profile=profile)
 
@@ -185,7 +189,7 @@ class ReturningService:
             raise Unprocessable("that subject is not available for this booking")
         return subject.id
 
-    async def _profile(self, client: Client) -> ReturningProfile:
+    async def _profile(self, client: Client, storage: FileStorage) -> ReturningProfile:
         subjects = (
             (
                 await self.db.execute(
@@ -229,9 +233,11 @@ class ReturningService:
                 starts_at=slot.starts_at,
             )
         )
+        photo = await latest_photo(self.db, client.business_id, "client", client.id)
         return ReturningProfile(
             name=client.name,
             phone=client.phone,
             subjects=[ReturningSubject(id=x.id, name=x.name) for x in subjects],
             last_visit=last,
+            photo_url=None if photo is None else storage.presign_download(photo.s3_key),
         )

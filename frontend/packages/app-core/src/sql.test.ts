@@ -996,7 +996,23 @@ function scheduleRows(): void {
     ]);
     scoped("notes", [
         { id: "nt_b", parent_type: "booking", parent_id: "bk_c1", body: "Nervous" },
-        { id: "nt_c", parent_type: "client", parent_id: "cl_ann", body: "Likes mornings" },
+        {
+            id: "nt_c",
+            parent_type: "client",
+            parent_id: "cl_ann",
+            body: "Likes mornings",
+            pinned: 1,
+        },
+        { id: "nt_quiet", parent_type: "client", parent_id: "cl_ann", body: "Paid cash once" },
+        {
+            id: "nt_rex",
+            parent_type: "subject",
+            parent_id: "sj_rex",
+            body: "Pulls on the lead",
+            pinned: 1,
+            created_at: "2026-06-27T09:00:00Z",
+        },
+        { id: "nt_rex_quiet", parent_type: "subject", parent_id: "sj_rex", body: "Blue towel" },
     ]);
     scoped("hours", [
         {
@@ -2296,6 +2312,11 @@ describe("app-core SQL against the replica schema", () => {
         expect(run("CLIENT_MESSAGES_SQL", ["cl_ann"]).every((r) => r.direction !== null)).toBe(
             true,
         );
+        expect(run("CLIENT_HISTORY_SOURCES_SQL", ["cl_ann"]).map((r) => r.id)).toEqual([
+            "th_1",
+            "visits",
+        ]);
+        expect(run("CLIENT_HISTORY_SOURCES_SQL", ["cl_ben"]).map((r) => r.id)).toEqual(["visits"]);
         expect(
             pick(
                 run("CLIENT_FOOTPRINT_SQL", ["cl_ann", "cl_ben"]),
@@ -2557,10 +2578,18 @@ describe("app-core SQL against the replica schema", () => {
         expect(run("DETAIL_CLIENT_SQL", ["cl_ann"]).map((r) => r.name)).toEqual(["Ann"]);
         expect(run("DETAIL_SUBJECT_SQL", ["bk_c1"]).map((r) => r.name)).toEqual(["Rex"]);
         expect(
-            run("DETAIL_NOTES_SQL", ["bk_c1", "cl_ann"])
-                .map((r) => r.id)
-                .sort(),
-        ).toEqual(["nt_b", "nt_c"]);
+            pick(run("DETAIL_NOTES_SQL", ["bk_c1", "cl_ann"]), "id", "pinned", "subject_name"),
+        ).toEqual([
+            { id: "nt_rex", pinned: 1, subject_name: "Rex" },
+            { id: "nt_c", pinned: 1, subject_name: null },
+            { id: "nt_b", pinned: null, subject_name: null },
+        ]);
+        db.run("UPDATE subjects SET deleted_at = ? WHERE id = 'sj_rex'", [TS]);
+        expect(run("DETAIL_NOTES_SQL", ["bk_c1", "cl_ann"]).map((r) => r.id)).toEqual([
+            "nt_c",
+            "nt_b",
+        ]);
+        db.run("UPDATE subjects SET deleted_at = NULL WHERE id = 'sj_rex'");
         expect(pick(run("DETAIL_SERIES_SQL", ["ss_c2"]), "id", "position")).toEqual([
             { id: "sch_1", position: 2 },
         ]);

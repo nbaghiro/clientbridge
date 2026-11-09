@@ -11,7 +11,12 @@ import {
 } from "@clientbridge/app-core/public";
 import { expect, test, type Page } from "@playwright/test";
 import { freshPhone } from "../support/auth";
-import { cancelOwnedBooking, bookingApi } from "../support/bookings";
+import {
+    bookFreeVisit,
+    cancelOwnedBooking,
+    bookingApi,
+    createBookingFixture,
+} from "../support/bookings";
 import {
     clientCommand,
     editClient,
@@ -356,7 +361,7 @@ test("FLOW-04-A a verified returning client's pet, note, photo and booking stay 
         await expect(editor).toHaveCount(0);
 
         const visitor = await customer.newPage();
-        await verifyReturning(visitor, fixture, 0);
+        await verifyReturning(visitor, fixture, 0, photo.sha256);
         const submitted = visitor.waitForResponse(
             (r) =>
                 new URL(r.url()).pathname === `/book/${demoSlug("birchbark")}` &&
@@ -712,5 +717,66 @@ test("CRM-E2E-11 online bookings for one place, however its name or address is t
         }
     } finally {
         for (const id of owned) await cancelOwnedBooking(page, id);
+    }
+});
+
+test("CRM-E2E-12 after a visit the timeline shows its message, payment, invoice and visit newest first on every replica", async ({
+    page,
+    browser,
+}) => {
+    test.setTimeout(180_000);
+    await signIn(page);
+    const fixture = await createBookingFixture(page);
+    const client = { id: fixture.clientId, name: fixture.clientName, phone: fixture.clientPhone };
+    const past = Array.from({ length: 14 }, (_, i) => -(i + 1));
+    const visit = await bookFreeVisit(page, fixture, fixture.staffId, past);
+    await apiCall(page, "PATCH", `/v1/bookings/${visit.id}`, { status: "completed" }, 200);
+    const draft = await apiCall<{ id: string }>(
+        page,
+        "POST",
+        `/v1/invoices/from-booking/${visit.id}`,
+        {},
+        201,
+    );
+    const invoice = await apiCall<{ id: string; number: number; total_cents: number }>(
+        page,
+        "POST",
+        `/v1/invoices/${draft.id}/send`,
+        {},
+        200,
+    );
+    await apiCall(
+        page,
+        "POST",
+        `/v1/invoices/${invoice.id}/payments`,
+        { method: "cash", amount_cents: invoice.total_cents, send_receipt: false },
+        201,
+    );
+    const thanks = "Thanks for coming in today!";
+    await apiCall(page, "POST", "/v1/messages", { client_id: client.id, body: thanks }, 200);
+    const order = [
+        thanks,
+        h.paymentReceived,
+        h.invoiceSent(String(invoice.number)),
+        fixture.itemName,
+    ];
+    const expectNewestFirst = async (on: Page): Promise<void> => {
+        await expectTimeline(on, client, order);
+        const tops: number[] = [];
+        for (const entry of order) {
+            const box = await on.getByText(entry, { exact: true }).first().boundingBox();
+            if (box === null) throw new Error(`${entry} is not on the timeline`);
+            tops.push(box.y);
+        }
+        expect(tops).toEqual([...tops].sort((a, b) => a - b));
+    };
+    await expectNewestFirst(page);
+    const observer = await browser.newContext({ baseURL: new URL(page.url()).origin });
+    try {
+        const other = await observer.newPage();
+        await signIn(other);
+        await expectNewestFirst(other);
+    } finally {
+        await observer.close();
     }
 });

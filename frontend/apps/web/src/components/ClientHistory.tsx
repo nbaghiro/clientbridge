@@ -126,7 +126,7 @@ export function NoteDialog({
 export function ClientHistory({ clientId, aside }: { clientId: string; aside?: ReactNode }) {
     const zone = useBusinessZone();
     const viewer = useViewer();
-    const h = useClientHistory(clientId, viewer?.staffId ?? null);
+    const h = useClientHistory(api, clientId, viewer?.staffId ?? null);
     const composer = useNoteComposer(api, { clientId });
     const now = new Date();
 
@@ -177,7 +177,7 @@ export function ClientHistory({ clientId, aside }: { clientId: string; aside?: R
                 ) : null}
                 {h.load.ready && h.groups.length === 0 ? (
                     <div className="rounded-lg border border-line bg-surface">
-                        <Empty message={h.total === 0 ? s.empty : s.emptyFilter} />
+                        <Empty message={h.emptyMessage} />
                     </div>
                 ) : null}
                 {h.groups.map((g) => (
@@ -190,8 +190,9 @@ export function ClientHistory({ clientId, aside }: { clientId: string; aside?: R
                         </div>
                     </section>
                 ))}
+                {h.older.error !== null ? <Notice tone="danger">{h.older.error}</Notice> : null}
                 {h.hasOlder ? (
-                    <Button full variant="outline" onPress={h.showOlder}>
+                    <Button full variant="outline" busy={h.older.busy} onPress={h.showOlder}>
                         {s.loadOlder}
                     </Button>
                 ) : null}

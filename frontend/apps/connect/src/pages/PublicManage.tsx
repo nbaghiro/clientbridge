@@ -13,6 +13,7 @@ import {
     SUBJECT_ICON,
 } from "@clientbridge/app-core/public";
 import {
+    Avatar,
     ActionTile,
     Modal,
     Button,
@@ -79,7 +80,12 @@ export function PublicManage() {
         <PublicPage name={v.business_name} brand={v.brand}>
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-8">
                 <div className="min-w-0 space-y-5">
-                    <p className="text-[15px] text-ink-soft">{s.hello(firstName(v.client_name))}</p>
+                    <div className="flex items-center gap-3">
+                        <Avatar name={v.client_name} src={v.client_photo_url ?? null} size="md" />
+                        <p className="text-[15px] text-ink-soft">
+                            {s.hello(firstName(v.client_name))}
+                        </p>
+                    </div>
                     {mg.mode === "moved" || mg.mode === "canceled" ? (
                         <div className="rounded-3xl border border-line bg-surface p-6 shadow-card">
                             <ManageDone mg={mg} />

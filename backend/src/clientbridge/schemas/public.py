@@ -233,6 +233,7 @@ class ManagedBooking(Mirror):
     photo_urls: list[str] = Field(
         default_factory=list, description="Photos staff took on the visit, oldest first"
     )
+    client_photo_url: str | None = Field(default=None, description="The client's photo on file")
     reschedules_used: int
     policy: PublicPolicy
     now: datetime
