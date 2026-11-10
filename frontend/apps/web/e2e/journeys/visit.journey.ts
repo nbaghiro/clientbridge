@@ -1499,7 +1499,8 @@ test("SCH-E2E-21 a client moves a visit from its manage link until the limit whi
         ).toBeVisible();
         await client.getByRole("button", { name: m.keep, exact: true }).click();
         await expect(client.getByRole("button", { name: m.cancel, exact: true })).toBeDisabled();
-        await expect(client.getByText(m.blocked.cutoff(hours), { exact: true })).toBeVisible();
+        // the refusal's alert stays beside the reason the reloaded visit gives
+        await expect(client.getByText(m.blocked.cutoff(hours), { exact: true })).toHaveCount(2);
         await client.reload();
         await expect(client.getByText(m.blocked.cutoff(hours), { exact: true })).toBeVisible();
         const refused = await client.request.post(
@@ -1624,5 +1625,6 @@ test("SCH-E2E-22 the owner shares a photo of a past visit, the client opens it a
         .filter({ has: page.getByText(visit.name, { exact: true }) })
         .first()
         .click({ timeout: 60_000 });
-    await expect(page.getByText(body, { exact: true })).toBeVisible({ timeout: 60_000 });
+    // the thread list's preview comes first, then the message in the open thread
+    await expect(page.getByText(body, { exact: true }).last()).toBeVisible({ timeout: 60_000 });
 });
