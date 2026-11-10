@@ -1,0 +1,114 @@
+appId: ${APP_ID}
+name: NATIVE-REF-01 A part refund and the rest issue credit notes with exact tax, and a gift card refunded from its own panel is void
+tags:
+    - lane
+---
+- evalScript: ${output.phone = "250" + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000))}
+- evalScript: ${output.name = "Rowan Ashby " + output.phone.slice(-4)}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/clients
+          BODY: "${JSON.stringify({ name: output.name, phone: output.phone })}"
+- evalScript: ${output.clientId = output.response.id}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/invoices
+          KEY: ${"inv-" + output.phone}
+          BODY: "${JSON.stringify({ client_id: output.clientId, send: true, lines: [{ description: 'Nail tidy', quantity: 1, unit_amount_cents: 4762, tax_class: 'federal_only' }] })}"
+- evalScript: ${output.invoiceId = output.response.id}
+- evalScript: ${output.number = String(output.response.number)}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: ${"/v1/invoices/" + output.invoiceId + "/payments"}
+          KEY: ${"pay-" + output.phone}
+          BODY: "${JSON.stringify({ method: 'cash', amount_cents: 5000, tendered_cents: 5000, send_receipt: false })}"
+- evalScript: ${output.paymentId = output.response.payment_id}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/gift-cards
+          KEY: ${"gift-" + output.phone}
+          BODY: "${JSON.stringify({ amount_cents: 5000, purchaser_client_id: output.clientId, cash: true })}"
+- evalScript: ${output.code = output.response.code}
+- runFlow: helpers/owner.yaml
+- scrollUntilVisible:
+      element: "View payments"
+      direction: DOWN
+- tapOn: "View payments"
+- tapOn: "Refunds"
+- extendedWaitUntil:
+      visible: '${output.name + ", Invoice #" + output.number + ".*"}'
+      timeout: 60000
+- tapOn: '${output.name + ", Invoice #" + output.number + ".*"}'
+
+# $10 of the $50 cash payment: its GST share, to the cent, then the rest
+- tapOn: "Part"
+- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Amount", VALUE: "10" } }
+- assertVisible: "\\$9.53"
+- assertVisible: "\\$0.47"
+- tapOn: "Refund \\$10.00"
+- runFlow: { file: helpers/confirm-refund.yaml, env: { LABEL: "Refund \\$10.00" } }
+- extendedWaitUntil:
+      visible: ${".*CN-" + output.number + "-1 is on the client.*"}
+      timeout: 30000
+# the confirmation stays once the replica has the refund
+- extendedWaitUntil:
+      visible: "Partly refunded"
+      timeout: 60000
+- assertVisible: ${".*CN-" + output.number + "-1 is on the client.*"}
+- takeScreenshot: native-refund-part
+- scrollUntilVisible:
+      element: "Refund \\$40.00"
+      direction: DOWN
+- tapOn: "Refund \\$40.00"
+- runFlow: { file: helpers/confirm-refund.yaml, env: { LABEL: "Refund \\$40.00" } }
+- extendedWaitUntil:
+      visible: ${".*CN-" + output.number + "-2 is on the client.*"}
+      timeout: 30000
+- extendedWaitUntil:
+      visible: ${"Refunded · CN-" + output.number + "-2 · .*"}
+      timeout: 60000
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: GET
+          PATH: ${"/v1/payments/" + output.paymentId + "/refund-preview"}
+- assertTrue: ${output.response.blocked === "already_refunded" && output.response.refunded_cents === 5000}
+- takeScreenshot: native-refund-rest
+- runFlow: helpers/close-sheet.yaml
+
+# a gift card goes back from its own panel, in full only, and is void after
+- tapOn: "Gift cards"
+- tapOn: ${output.name}
+- scrollUntilVisible:
+      element: ${output.code}
+      direction: DOWN
+      centerElement: true
+- tapOn:
+      text: "History"
+      below: ${output.code}
+- tapOn: "Refund"
+- extendedWaitUntil:
+      visible: "Gift card and package purchases are refunded in full only."
+      timeout: 30000
+- tapOn: "Refund \\$50.00"
+- runFlow: { file: helpers/confirm-refund.yaml, env: { LABEL: "Refund \\$50.00" } }
+- extendedWaitUntil:
+      visible: ".*Refunded .50\\.00\\. CN-.*"
+      timeout: 30000
+- runFlow: helpers/close-sheet.yaml
+- scrollUntilVisible:
+      element: ${output.code}
+      direction: DOWN
+      centerElement: true
+- extendedWaitUntil:
+      visible: "Void"
+      timeout: 60000
+- takeScreenshot: native-refund-gift

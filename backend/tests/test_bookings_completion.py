@@ -290,7 +290,7 @@ async def test_an_unapproved_visit_stays_pending_when_paid(
     assert row.status == "pending"
 
 
-async def test_a_refund_keeps_the_paid_visit_completed_and_a_replay_changes_nothing(
+async def test_a_refund_keeps_the_paid_visit_completed_and_charged_and_a_replay_changes_nothing(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     await enable_payments(db)
@@ -302,7 +302,12 @@ async def test_a_refund_keeps_the_paid_visit_completed_and_a_replay_changes_noth
     assert len(await _audits(db, booking.id)) == 1
     ok(await as_owner.post(f"/v1/payments/{pay['payment_id']}/refund", json={}, headers=key()))
     row, _ = await _fresh(db, booking)
-    assert row.status == "completed" and row.charged_at is None
+    assert row.status == "completed" and row.charged_at is not None
+    line = {"description": "Visit", "unit_amount_cents": 5000, "booking_id": booking.id}
+    again = await as_owner.post(
+        "/v1/orders", json={"client_id": booking.client_id, "lines": [line]}
+    )
+    assert again.status_code == 409
 
 
 async def _invoice(api: httpx.AsyncClient, booking: Booking) -> str:

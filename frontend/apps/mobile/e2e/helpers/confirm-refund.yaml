@@ -1,0 +1,24 @@
+appId: ${APP_ID}
+---
+# the refund sheet's own button keeps its name behind the alert, so the alert's is the one under its message
+- extendedWaitUntil:
+      visible: "This issues credit note.*"
+      timeout: 15000
+- runFlow:
+      when:
+          platform: iOS
+      commands:
+          - tapOn:
+                text: ${LABEL}
+                below: "This issues credit note.*"
+                above: "Refunds on this payment|REFUNDS ON THIS PAYMENT"
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - tapOn:
+                text: ${LABEL}
+                below: "This issues credit note.*"
+- extendedWaitUntil:
+      notVisible: "This issues credit note.*"
+      timeout: 30000

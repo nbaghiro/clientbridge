@@ -400,6 +400,41 @@ async def test_public_invoice_carries_the_document(
     assert page["balance_cents"] == 2413
 
 
+async def test_a_refunded_invoice_lists_each_credit_note_and_reads_refunded(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await client_id(db)
+    lines = [{"description": "Nails", "unit_amount_cents": 4762, "tax_class": "federal_only"}]
+    sent = (
+        await as_owner.post("/v1/invoices", json={"client_id": cid, "lines": lines, "send": True})
+    ).json()
+    paid = await as_owner.post(
+        f"/v1/invoices/{sent['id']}/payments",
+        json={"method": "cash", "amount_cents": 5000, "send_receipt": False},
+        headers=key(),
+    )
+    assert paid.status_code == 201, paid.text
+    pid = paid.json()["payment_id"]
+    statuses: list[str] = []
+    for cents in (1000, 4000):
+        refund = await as_owner.post(
+            f"/v1/payments/{pid}/refund",
+            json={"amount_cents": cents, "notify": False},
+            headers=key(),
+        )
+        assert refund.status_code == 200, refund.text
+        statuses.append((await as_owner.get(f"/pay/{sent['pay_token']}")).json()["status"])
+    assert statuses == ["paid", "refunded"]
+    page = (await as_owner.get(f"/pay/{sent['pay_token']}")).json()
+    number = sent["number"]
+    assert [(r["credit_note"], r["amount_cents"]) for r in page["refunds"]] == [
+        (f"CN-{number}-1", 1000),
+        (f"CN-{number}-2", 4000),
+    ]
+    assert all(r["paid_at"] for r in page["refunds"])
+    assert page["balance_cents"] == 0
+
+
 async def test_public_invoice_names_who_a_tip_goes_to(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:

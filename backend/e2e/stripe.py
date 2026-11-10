@@ -44,6 +44,7 @@ from e2e.stripe_onboarding import onboarding_main
 from e2e.stripe_pool import lease_file, pair, pairs
 from e2e.stripe_reconcile import plan_main, reconcile_main
 from e2e.stripe_recovery import recover_main
+from e2e.stripe_refunds import refunds_main
 from e2e.stripe_relay import Relay, delivery_main
 from e2e.tier import ROOT
 
@@ -519,6 +520,7 @@ COMMANDS: dict[str, Callable[[list[str]], int | None]] = {
     "recover": lambda argv: asyncio.run(recover_main(argv)),
     "clients": lambda argv: asyncio.run(clients_main(argv)),
     "disputes": lambda argv: asyncio.run(disputes_main(argv)),
+    "refunds": lambda argv: asyncio.run(refunds_main(argv)),
     "onboarding": lambda argv: asyncio.run(onboarding_main(argv)),
     "reconcile": lambda argv: asyncio.run(reconcile_main(argv)),
     "plan": lambda argv: asyncio.run(plan_main(argv)),

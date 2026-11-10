@@ -166,7 +166,15 @@ test("SALE-E2E-10 a part refund keeps a desk sale's stock out and the remainder 
     const path = `/v1/payments/${paid.payment_id}/refund`;
     const refundPath = (response: { url: () => string; request: () => { method: () => string } }) =>
         new URL(response.url()).pathname === path && response.request().method() === "POST";
-    let panel = await openRefund(page, { client, paymentId: paid.payment_id });
+    const sale = await openSale(page, client, order.number);
+    await sale.getByRole("button", { name: d.refund, exact: true }).click();
+    await expect(
+        page.getByRole("dialog", { name: d.saleNumber(saleNumber(order.number)), exact: true }),
+    ).toBeHidden();
+    let panel = page.getByRole("complementary", { name: client.name, exact: true });
+    await expect(panel.getByRole("heading", { name: client.name, exact: true })).toBeVisible({
+        timeout: 60_000,
+    });
     await panel.getByRole("button", { name: r.part, exact: true }).click();
     await panel.getByRole("textbox", { name: r.amount, exact: true }).fill("15.00");
     await panel.getByRole("switch", { name: r.notify, exact: true }).uncheck();
@@ -213,6 +221,7 @@ test("SALE-E2E-10 a part refund keeps a desk sale's stock out and the remainder 
     expect(partReplay.status(), await partReplay.text()).toBe(200);
     expect(await partReplay.json()).toMatchObject({ refund_id: partBody.refund_id });
     expect(await saleEvidence(product.id)).toEqual(partly);
+    await panel.getByRole("button", { name: strings.common.close, exact: true }).first().click();
     const detail = await openSale(page, client, order.number);
     await expect(detail.getByText(d.status.partly_refunded, { exact: true })).toBeVisible();
 

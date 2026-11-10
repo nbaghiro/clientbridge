@@ -78,7 +78,7 @@ export function Refunds() {
             </ScrollView>
             {tab === "payments" && desk.selected !== null ? (
                 <RefundComposer
-                    key={`${desk.selected.payment.id}:${String(desk.selected.payment.refunded_cents)}`}
+                    key={desk.selected.payment.id}
                     summary={desk.selected}
                     refunds={desk.refunds}
                     onClose={() => {

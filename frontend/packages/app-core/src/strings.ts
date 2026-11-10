@@ -474,6 +474,8 @@ interface Strings {
         readonly backToInvoice: string;
         readonly refund: string;
         readonly refundBadge: string;
+        readonly creditNote: (note: string) => string;
+        readonly refundedOn: (note: string, when: string) => string;
     };
     readonly printing: {
         readonly kinds: {
@@ -519,6 +521,7 @@ interface Strings {
         readonly scanToPay: string;
         readonly amountPaid: string;
         readonly paidStamp: string;
+        readonly refundedStamp: string;
         readonly forSubject: (name: string) => string;
         readonly reference: (number: string) => string;
         readonly saleNumber: (n: number) => string;
@@ -780,10 +783,6 @@ interface Strings {
             readonly heldNotice: (n: string) => string;
             readonly holdError: string;
             readonly actionError: string;
-            readonly refundTitle: (n: string) => string;
-            readonly refundBody: (money: string, card: string, cn: string) => string;
-            readonly refundConfirm: (money: string) => string;
-            readonly refundDone: (money: string, cn: string) => string;
             readonly returnGiftSale: string;
             readonly returnGiftTitle: (n: string) => string;
             readonly returnGiftBody: string;
@@ -3311,11 +3310,14 @@ interface Strings {
             readonly package_expired: string;
             readonly package_used: string;
             readonly payment_disputed: string;
+            readonly refund_refused: string;
             readonly whole_only: string;
         } & Labels;
         readonly history: string;
         readonly paymentEvent: string;
         readonly refundEvent: (note: string) => string;
+        readonly failedEvent: string;
+        readonly pendingEvent: string;
         readonly method: {
             readonly card: string;
             readonly cash: string;
@@ -4174,6 +4176,8 @@ interface Strings {
         readonly paidBody: (businessName: string) => string;
         readonly cardStartError: string;
         readonly credit: (method: string, when: string) => string;
+        readonly refundedOn: (note: string, when: string) => string;
+        readonly refundedBody: (businessName: string) => string;
         readonly depositCredit: string;
         readonly method: {
             readonly card: string;
@@ -4954,6 +4958,8 @@ interface Strings {
             readonly depositBody: (client: string, amount: string) => string;
             readonly refund: string;
             readonly refundBody: (client: string, amount: string) => string;
+            readonly refundFailed: string;
+            readonly refundFailedBody: (client: string, amount: string) => string;
             readonly orderNew: string;
             readonly orderNewBody: (client: string, n: number) => string;
             readonly bookingNew: string;

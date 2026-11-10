@@ -107,32 +107,40 @@ function RefundForm({
     form: ReturnType<typeof useRefundComposer>;
     onSubmit: () => void;
 }) {
-    if (form.issued !== null) {
-        return (
+    const issued =
+        form.issued === null ? null : (
             <div className="flex items-start gap-3 rounded-md bg-ok-bg px-4 py-3 text-sm text-ok-fg">
                 <Icon name="checkCircle" size={20} />
                 <p className="font-medium">{form.issued}</p>
             </div>
         );
-    }
     if (form.preview.error !== null)
         return (
-            <LoadFailed
-                message={s.previewError}
-                onRetry={() => {
-                    form.preview.refresh().catch(() => undefined);
-                }}
-            />
+            <div className="space-y-4">
+                {issued}
+                <LoadFailed
+                    message={s.previewError}
+                    onRetry={() => {
+                        form.preview.refresh().catch(() => undefined);
+                    }}
+                />
+            </div>
         );
-    if (form.blocked !== null) {
+    if (!form.open) {
         return (
-            <Notice tone="info" banner>
-                {form.blocked}
-            </Notice>
+            <div className="space-y-4">
+                {issued}
+                {form.blocked !== null ? (
+                    <Notice tone="info" banner>
+                        {form.blocked}
+                    </Notice>
+                ) : null}
+            </div>
         );
     }
     return (
         <div className="space-y-4">
+            {issued}
             {form.wholeOnly ? (
                 <Notice tone="info" banner>
                     {s.wholeOnly}
@@ -183,7 +191,9 @@ function RefundForm({
                     <p className="mt-2 text-xs text-muted">{form.feeNote}</p>
                 ) : null}
             </div>
-            <Toggle label={s.notify} value={form.notify} onChange={form.setNotify} />
+            {form.canNotify ? (
+                <Toggle label={s.notify} value={form.notify} onChange={form.setNotify} />
+            ) : null}
             {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
             <div className="flex justify-end">
                 <Button
@@ -205,7 +215,7 @@ export function Refund({ paymentId, onClose }: { paymentId: string; onClose: () 
     if (desk.selected === null) return null;
     return (
         <RefundPanel
-            key={`${desk.selected.payment.id}:${String(desk.selected.payment.refunded_cents)}`}
+            key={desk.selected.payment.id}
             summary={desk.selected}
             refunds={desk.refunds}
             onClose={onClose}

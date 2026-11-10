@@ -25,6 +25,7 @@ import { apiCall, visitEvidence } from "./support/visit";
 import { runUrl } from "@clientbridge/config/e2e/run";
 
 const w = strings.entitlements;
+const r = strings.refunds;
 
 test("ENT-E2E-01 cash gift card partial redemption rejects overspend and exhausts exactly", async ({
     page,
@@ -84,6 +85,82 @@ test("ENT-E2E-01 cash gift card partial redemption rejects overspend and exhaust
             body: JSON.stringify(exhausted),
             contentType: "application/json",
         });
+    } finally {
+        await observer.close();
+    }
+});
+
+test("ENT-E2E-09 a gift card refunded from its own panel is void everywhere and can't be redeemed", async ({
+    page,
+    browser,
+}) => {
+    test.setTimeout(240_000);
+    await signIn(page);
+    const fixture = await entitlementFixture(page, "gift_card");
+    await sellEntitlement(page, fixture.client, "gift_card", fixture.itemId);
+    const issued = await entitlementEvidence(fixture.client.id);
+    const gift = issued.gifts[0];
+    const paymentId = issued.payments[0]?.id;
+    if (gift === undefined || paymentId === undefined) throw new Error("Issued gift missing");
+    const observer = await browser.newContext({
+        baseURL: new URL(page.url()).origin,
+        viewport: { width: 1440, height: 900 },
+    });
+    try {
+        const other = await observer.newPage();
+        await signIn(other);
+        await openEntitlement(other, fixture.client.name, gift.id);
+        await expect(other.getByRole("dialog")).toContainText(w.statusLabel.active, {
+            timeout: 60_000,
+        });
+
+        await openEntitlement(page, fixture.client.name, gift.id);
+        await page
+            .getByRole("dialog")
+            .getByRole("button", { name: w.action.refund, exact: true })
+            .click();
+        await expect(page.getByRole("dialog", { name: gift.code, exact: true })).toBeHidden();
+        const panel = page.getByRole("complementary", { name: fixture.client.name, exact: true });
+        await expect(panel).toContainText(r.wholeOnly, { timeout: 60_000 });
+        await expect(panel.getByRole("button", { name: r.part, exact: true })).toBeDisabled();
+        const label = r.refundButton(formatMoney(5000, "CAD"));
+        await panel.getByRole("switch", { name: r.notify, exact: true }).uncheck();
+        await panel.getByRole("button", { name: label, exact: true }).click();
+        const refunded = page.waitForResponse(
+            (res) =>
+                new URL(res.url()).pathname === `/v1/payments/${paymentId}/refund` &&
+                res.request().method() === "POST",
+        );
+        await page
+            .getByRole("dialog", { name: r.confirmTitle(formatMoney(5000, "CAD")), exact: true })
+            .getByRole("button", { name: label, exact: true })
+            .click();
+        const response = await refunded;
+        expect(response.status(), await response.text()).toBe(200);
+        const note = ((await response.json()) as { credit_note: string }).credit_note;
+        await expect(panel).toContainText(r.refundedDone(formatMoney(5000, "CAD"), note));
+        await expect(panel).toContainText(r.statusLabel.refunded, { timeout: 60_000 });
+        await expect(panel).toContainText(r.refundedDone(formatMoney(5000, "CAD"), note));
+
+        const after = await entitlementEvidence(fixture.client.id);
+        expect(after.gifts).toEqual([{ ...gift, status: "void" }]);
+        expect(after.payments).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ id: paymentId, status: "succeeded" }),
+            ]),
+        );
+        await expect(other.getByRole("dialog")).toContainText(w.statusLabel.void, {
+            timeout: 60_000,
+        });
+        await panel
+            .getByRole("button", { name: strings.common.close, exact: true })
+            .first()
+            .click();
+        await redeemGift(page, gift.code, "10", 409);
+        await redeemGift(page, gift.code, "50", 409);
+        const unchanged = await entitlementEvidence(fixture.client.id);
+        expect(unchanged).toEqual(after);
+        expect(unchanged.entries.filter((entry) => entry.event === "redemption")).toEqual([]);
     } finally {
         await observer.close();
     }

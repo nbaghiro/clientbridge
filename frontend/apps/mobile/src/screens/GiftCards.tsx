@@ -50,6 +50,7 @@ export function GiftCards() {
     const [pending, setPending] = useState<EntitlementActionKey | null>(null);
     const open = wallet.summaries.find((x) => x.row.id === openId) ?? null;
     const detail = useEntitlementDetail(api, open, (paymentId) => {
+        setOpenId(null);
         openLink("refunds", paymentId);
     });
     useEffect(() => {
