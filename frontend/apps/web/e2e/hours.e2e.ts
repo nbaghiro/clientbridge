@@ -161,6 +161,10 @@ test("SYN-E2E-08 two genuine week editors conflict once and explicitly repair wi
         expect(command.expected_revision).toBe(1);
         expect(command.request.operation_id).not.toBe(rejected.request.operation_id);
         expect(command.days).toEqual(week(true, true));
+        // a reload before the device records the 200 leaves the week sending until its 20s lease ends
+        await expect(loserEditor.getByText(s.saved, { exact: true })).toBeVisible({
+            timeout: 60_000,
+        });
         const final = await hoursEvidence(staff.id);
         expect(final.staff.hours_revision).toBe(2);
         expect(final.hours).toEqual(week(true, true));
