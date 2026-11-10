@@ -19,7 +19,7 @@ name: NATIVE-SALE-02 A walk-in sale takes a line and a sale discount and an unta
 - runFlow: helpers/owner.yaml
 - tapOn: "Create"
 - tapOn: "Sale"
-# the picker opens on its search and keeps it, so both of the run's items stay listed
+# the picker clears its search on each pick, so each item is searched by the run's tag
 - tapOn: "Add a product or service"
 - inputText: ${output.tag}
 - extendedWaitUntil:
@@ -27,6 +27,10 @@ name: NATIVE-SALE-02 A walk-in sale takes a line and a sale discount and an unta
       timeout: 60000
 - tapOn: ${".*" + output.groom + ".*"}
 - tapOn: "Add a product or service"
+- inputText: ${output.tag}
+- extendedWaitUntil:
+      visible: ${".*" + output.balm + ".*"}
+      timeout: 60000
 - tapOn: ${".*" + output.balm + ".*"}
 - tapOn: ${"Discount on " + output.groom}
 - runFlow:

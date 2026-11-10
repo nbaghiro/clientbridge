@@ -160,7 +160,7 @@ test("SALE-E2E-02 retry after committed cash response loss cannot charge or redu
     });
     const submit = payment.getByRole("button", { name: d.charge("$30.00"), exact: true });
     await submit.click();
-    await expect(payment.getByText(d.payError, { exact: true })).toBeVisible();
+    await expect(payment.getByText(d.chargeError, { exact: true })).toBeVisible();
     const committed = await expectSaleCommitted(fixture);
     await submit.click();
     await expect(page.getByRole("heading", { name: d.paidTitle, exact: true })).toBeVisible();
