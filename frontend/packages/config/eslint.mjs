@@ -40,6 +40,7 @@ const MAESTRO_GLOBALS = {
         "PATH",
         "BODY",
         "SLUG",
+        "TOKEN",
         "WORDS",
         "CLIENT",
         "DEFAULT",

@@ -80,7 +80,11 @@ describe("the client's order page", () => {
             refund_cents: 5936,
         });
         expect([refunded.title, refunded.lead]).toEqual([s.canceled, s.refundedBody("$59.36")]);
-        expect([refunded.canceled, refunded.showAlerts]).toEqual([true, false]);
+        expect([refunded.canceled, refunded.showAlerts, refunded.refundNote]).toEqual([
+            true,
+            false,
+            null,
+        ]);
         const pending = await page({ refund_pending: true, refund_cents: 5936 });
         expect([pending.title, pending.lead]).toEqual([
             s.refundPending,
@@ -95,8 +99,9 @@ describe("the client's order page", () => {
             pickup_status: "picked_up",
             refund_cents: 5936,
         });
-        expect([later.title, later.lead, later.canceled]).toEqual([
+        expect([later.title, later.lead, later.refundNote, later.canceled]).toEqual([
             s.collected,
+            s.collectedBody,
             s.refundedBody("$59.36"),
             false,
         ]);
@@ -105,11 +110,20 @@ describe("the client's order page", () => {
 
     it("keeps an order with a partial refund going and names only the part refunded", async () => {
         const partial = await page({ refund_pending: true, refund_cents: 500 });
-        expect([partial.title, partial.lead]).toEqual([s.placed, s.refundPendingBody("$5.00")]);
-        expect([partial.canceled, partial.showAlerts]).toEqual([false, true]);
-        const done = await page({ status: "partly_refunded", refund_cents: 500 });
-        expect([done.title, done.lead, done.canceled]).toEqual([
+        expect([partial.title, partial.lead, partial.refundNote]).toEqual([
             s.placed,
+            s.pending,
+            s.refundPendingBody("$5.00"),
+        ]);
+        expect([partial.canceled, partial.showAlerts]).toEqual([false, true]);
+        const ready = await page({
+            status: "partly_refunded",
+            pickup_status: "ready",
+            refund_cents: 500,
+        });
+        expect([ready.title, ready.lead, ready.refundNote, ready.canceled]).toEqual([
+            s.ready,
+            s.readyBody("Birchbark Pet Studio"),
             s.refundedBody("$5.00"),
             false,
         ]);

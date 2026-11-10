@@ -6,6 +6,7 @@ import {
     type Attempt,
     attemptKey,
     failedCode,
+    failedDetail,
     failedStatus,
     failureMessage,
     refusal,
@@ -1341,6 +1342,7 @@ interface ManagedBooking {
     deposit_cents: number;
     deposit_status: string;
     deposit_due: boolean;
+    deposit_paying?: boolean;
     accepts_card: boolean;
     refund_status?: string | null;
     addons: { name: string; quantity: number; unit_cents: number }[];
@@ -1358,8 +1360,18 @@ interface ManagedBooking {
     program_days?: number | null;
 }
 
-type ManageBlock =
-    "status" | "by_phone" | "cutoff" | "class_session" | "reschedule_limit" | "member_unavailable";
+const MANAGE_BLOCKS = [
+    "status",
+    "by_phone",
+    "cutoff",
+    "class_session",
+    "reschedule_limit",
+    "member_unavailable",
+] as const;
+type ManageBlock = (typeof MANAGE_BLOCKS)[number];
+
+const isManageBlock = (value: unknown): value is ManageBlock =>
+    MANAGE_BLOCKS.some((block) => block === value);
 
 /** Why the client can't change the visit online, worded from its code. */
 function blockedReason(code: ManageBlock | null, hours: number | null): string | null {
@@ -1382,8 +1394,15 @@ function blockedReason(code: ManageBlock | null, hours: number | null): string |
     }
 }
 
+/** A change the server refused, worded from the reason it gave. */
+class ChangeRefused extends Error {
+    constructor(readonly reason: string) {
+        super(reason);
+    }
+}
+
 interface ManageCancelResult {
-    deposit: "refunded" | "kept" | "none" | "pending" | "failed";
+    deposit: "refunded" | "kept" | "none" | "pending" | "failed" | "paying";
     refund_cents: number;
 }
 
@@ -1456,6 +1475,8 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
     const [depositCard, setDepositCard] = useState<DepositIntent | null>(null);
     const [depositThanks, setDepositThanks] = useState(false);
     const key = useRef<Attempt | null>(null);
+    // after a week change, the first open day of the new week is picked once it loads
+    const snapToOpen = useRef(false);
     const { busy, error, run } = useAsyncAction();
     const depositAction = useAsyncAction();
 
@@ -1482,7 +1503,12 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
         client
             .getDays(token, { from: weekFrom, days: 7 })
             .then((d) => {
-                if (on) setDays(d);
+                if (!on) return;
+                setDays(d);
+                if (!snapToOpen.current) return;
+                snapToOpen.current = false;
+                const open = d.find((x) => x.count > 0 && !x.closed);
+                if (open) setDate(open.date);
             })
             .catch(() => {
                 if (on) setDaysError(true);
@@ -1514,9 +1540,44 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
     const currency = data?.service.currency ?? BUSINESS_CURRENCY;
     const deposit = data ? formatMoney(data.deposit_cents, currency) : "";
     const hasDeposit =
-        data !== null && data.deposit_status === "collected" && data.deposit_cents > 0;
+        data !== null &&
+        (data.deposit_status === "collected" || data.deposit_status === "applied") &&
+        data.deposit_cents > 0;
+    const depositPaying = live && data.deposit_paying === true;
+    const canceled = data?.status === "canceled";
+    // a payment still going through when the visit was cancelled is refunded if it lands
+    const lateDeposit = canceled && data.deposit_paying === true;
+    const depositApplied =
+        data !== null && data.deposit_status === "applied" && data.deposit_cents > 0;
+    const depositRefunded =
+        data !== null && data.deposit_status === "refunded" && data.deposit_cents > 0;
+    const refundOpen = data?.refund_status === "pending" || data?.refund_status === "failed";
+    // a cancel left the deposit with the business: on the bill, or held by a dispute
+    const keptLine =
+        canceled && hasDeposit && !refundOpen && !lateDeposit
+            ? depositApplied
+                ? m.cancelApplied(deposit, data.business_name)
+                : m.depositKept(deposit, data.business_name)
+            : null;
     const depositDue = live && data.deposit_due;
     const policy = data?.policy;
+    const movesLeft = data ? Math.max(0, data.policy.max_reschedules - data.reschedules_used) : 0;
+    const showMoves = live && data.policy.self_service && (data.can_move || movesLeft === 0);
+    // a change refused after the page loaded: say why, and reload the visit to show it off
+    const refused = async (e: unknown): Promise<unknown> => {
+        if (failedCode(e) !== "change_blocked") return e;
+        key.current = null;
+        const { reason, hours } = failedDetail(e);
+        const fresh = await client.getBooking(token).catch(() => null);
+        if (fresh !== null) setData(fresh);
+        const given = isManageBlock(reason);
+        return new ChangeRefused(
+            blockedReason(
+                given ? reason : (fresh?.blocked ?? "status"),
+                given ? (typeof hours === "number" ? hours : null) : (fresh?.blocked_hours ?? null),
+            ) ?? m.blocked.status,
+        );
+    };
     return {
         status,
         booking: data,
@@ -1580,7 +1641,12 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
                       canceledTitle: m.leftTitle,
                   }
                 : {
-                      title: m.title,
+                      title:
+                          data?.status === "pending"
+                              ? m.requestLabel
+                              : data?.status === "completed" || data?.status === "no_show"
+                                ? m.pastLabel
+                                : m.title,
                       cancel: programDays === null ? m.cancel : m.cancelProgram,
                       cancelTitle:
                           programDays === null ? m.cancelTitle : m.cancelProgramTitle(programDays),
@@ -1589,7 +1655,17 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
                   },
         canCancel: (live || waiting) && data.can_cancel,
         canMove: live && data.can_move,
-        blocked: live ? blockedReason(data.blocked, data.blocked_hours) : null,
+        // the moves line already says the limit is reached
+        blocked:
+            live && !(showMoves && data.blocked === "reschedule_limit")
+                ? blockedReason(data.blocked, data.blocked_hours)
+                : null,
+        movesLine: showMoves
+            ? movesLeft > 0
+                ? m.movesLeft(movesLeft)
+                : m.blocked.reschedule_limit
+            : null,
+        requestLine: data?.status === "pending" ? m.requestLine(data.business_name) : null,
         dateTile: {
             month: formatShortMonth(start, zone),
             day: formatDayNumber(start, zone),
@@ -1634,18 +1710,39 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
                 ? m.policyLine(policy.cancel_cutoff_hours, policy.reschedule_cutoff_hours)
                 : m.policyOff
             : "",
-        cancelOutcome: hasDeposit ? m.cancelRefund(deposit) : m.cancelNoDeposit,
+        // an applied deposit is on the bill, which a cancel leaves for the business to settle
+        cancelOutcome: depositApplied
+            ? m.cancelApplied(deposit, data.business_name)
+            : hasDeposit || depositPaying
+              ? m.cancelRefund(deposit)
+              : m.cancelNoDeposit,
         deposit,
         hasDeposit,
+        depositPaidFact: hasDeposit && !canceled,
         depositDue,
+        depositPaying,
         canPayDeposit: depositDue && data.accepts_card,
-        depositLine: hasDeposit
-            ? m.depositPaid(deposit)
-            : depositDue
-              ? data.accepts_card
-                  ? m.depositDueBody(deposit)
-                  : m.depositOffline(deposit, data.business_name)
-              : m.cancelNoDeposit,
+        depositLine:
+            canceled && data.refund_status === "pending"
+                ? m.canceledBody(deposit)
+                : canceled && data.refund_status === "failed"
+                  ? m.refundFailed
+                  : depositRefunded
+                    ? m.depositRefunded(deposit)
+                    : lateDeposit
+                      ? m.canceledPaying(deposit)
+                      : (keptLine ??
+                        (hasDeposit
+                            ? m.depositPaid(deposit)
+                            : depositPaying
+                              ? m.depositPaying(deposit)
+                              : depositDue
+                                ? data.accepts_card
+                                    ? m.depositDueBody(deposit)
+                                    : m.depositOffline(deposit, data.business_name)
+                                : m.cancelNoDeposit)),
+        movedBody: (when: string) =>
+            hasDeposit || depositPaying ? m.movedBody(when) : m.movedBodyPlain(when),
         depositThanks: depositThanks ? m.depositThanks(deposit) : null,
         depositCard,
         depositBusy: depositAction.busy,
@@ -1683,11 +1780,18 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
         canPrevWeek: weekFrom > today,
         prevWeek: () => {
             const d = shiftKey(weekFrom, -7, zone);
-            setFrom(d < today ? today : d);
+            const week = d < today ? today : d;
+            snapToOpen.current = true;
+            setFrom(week);
+            setDate(week);
         },
         canNextWeek: canNext,
         nextWeek: () => {
-            if (canNext) setFrom(shiftKey(weekFrom, 7, zone));
+            if (!canNext) return;
+            const week = shiftKey(weekFrom, 7, zone);
+            snapToOpen.current = true;
+            setFrom(week);
+            setDate(week);
         },
         date: day,
         setDate,
@@ -1706,15 +1810,20 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
             if (pick === "") return;
             run(
                 async () => {
-                    setData(
-                        await sendAttempt(key, ["move", pick], (attempt) =>
-                            client.reschedule(token, pick, attempt),
-                        ),
-                    );
+                    try {
+                        setData(
+                            await sendAttempt(key, ["move", pick], (attempt) =>
+                                client.reschedule(token, pick, attempt),
+                            ),
+                        );
+                    } catch (e) {
+                        throw await refused(e);
+                    }
                     setModeRaw("moved");
                 },
                 {
                     errorMessage: (e) => {
+                        if (e instanceof ChangeRefused) return e.reason;
                         if (failedStatus(e) === 409) {
                             key.current = null;
                             setReload((n) => n + 1);
@@ -1728,20 +1837,32 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
             const attempt = attemptKey(key, ["cancel", token]);
             run(
                 async () => {
-                    const r = await client.cancel(token, attempt);
+                    let r: ManageCancelResult;
+                    try {
+                        r = await client.cancel(token, attempt);
+                    } catch (e) {
+                        throw await refused(e);
+                    }
                     setLeft(waiting);
                     setRefund(r.deposit === "refunded" ? r.refund_cents : null);
                     if (data)
                         setData({
                             ...data,
                             status: "canceled",
-                            refund_status: r.deposit,
+                            refund_status: r.deposit === "paying" ? null : r.deposit,
+                            deposit_status:
+                                r.deposit === "refunded" ? "refunded" : data.deposit_status,
+                            deposit_due: false,
+                            deposit_paying: r.deposit === "paying",
                             can_move: false,
                             can_cancel: false,
                         });
                     setModeRaw("canceled");
                 },
-                { errorMessage: m.error },
+                {
+                    errorMessage: (e) =>
+                        e instanceof ChangeRefused ? e.reason : failureMessage(e, m.error),
+                },
             );
         },
         refundLabel: refund !== null ? formatMoney(refund, currency) : null,
@@ -1750,7 +1871,9 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
                 ? m.refundPending
                 : data?.refund_status === "failed"
                   ? m.refundFailed
-                  : null,
+                  : lateDeposit
+                    ? m.canceledPaying(deposit)
+                    : keptLine,
         busy,
         error,
     };

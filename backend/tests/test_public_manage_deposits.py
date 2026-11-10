@@ -267,8 +267,36 @@ async def test_a_disputed_deposit_is_left_to_the_dispute_and_the_visit_still_can
     refunds = len(gateway.refunds)
     res = await api.post(f"/manage/{booking.manage_token}/cancel", headers=key())
     assert res.status_code == 200, res.text
+    assert res.json() == {"deposit": "kept", "refund_cents": 0}
     assert len(gateway.refunds) == refunds
     assert (await _row(db, booking.id)).status == "canceled"
+
+
+async def test_a_deposit_already_on_the_bill_is_left_to_the_business_on_a_cancel(
+    api: httpx.AsyncClient,
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+) -> None:
+    booking = await _seated(as_owner, db)
+    _intent(await _pay(api, booking.manage_token))
+    await settle(api, db, (await _deposits(db, booking.id))[0].id)
+    line = {"description": "Puppy class", "unit_amount_cents": 4000, "booking_id": booking.id}
+    invoice = ok(
+        await as_owner.post("/v1/invoices", json={"client_id": CL_AMELIE, "lines": [line]}), 201
+    ).json()
+    ok(await as_owner.post(f"/v1/invoices/{invoice['id']}/send"))
+    assert (await _row(db, booking.id)).deposit_status == "applied"
+    refunds = len(gateway.refunds)
+    res = ok(await api.post(f"/manage/{booking.manage_token}/cancel", headers=key()))
+    assert res.json() == {"deposit": "kept", "refund_cents": 0}
+    assert len(gateway.refunds) == refunds
+    view = ok(await api.get(f"/manage/{booking.manage_token}")).json()
+    assert (view["status"], view["deposit_status"], view["refund_status"]) == (
+        "canceled",
+        "applied",
+        None,
+    )
 
 
 async def test_another_business_is_paid_into_its_own_account(
@@ -395,6 +423,132 @@ async def test_an_attempt_already_going_through_is_not_paid_twice(
     assert res.status_code == 409 and res.json()["error"] == "deposit_in_progress"
     assert [d.provider_ref for d in await _deposits(db, booking.id)] == [first]
     assert gateway.canceled_intents[-1] != first
+
+
+async def test_a_deposit_paid_before_its_webhook_is_not_offered_again(
+    api: httpx.AsyncClient,
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+) -> None:
+    booking = await _seated(as_owner, db)
+    gateway.confirmed.add(_intent(await _pay(api, booking.manage_token)))
+    view = ok(await api.get(f"/manage/{booking.manage_token}")).json()
+    assert (view["deposit_due"], view["deposit_paying"]) == (False, True)
+    again = await _pay(api, booking.manage_token)
+    assert again.status_code == 409 and again.json()["error"] == "deposit_in_progress"
+    assert len(await _deposits(db, booking.id)) == 1
+    await settle(api, db, (await _deposits(db, booking.id))[0].id)
+    view = ok(await api.get(f"/manage/{booking.manage_token}")).json()
+    assert (view["deposit_status"], view["deposit_paying"]) == ("collected", False)
+
+
+async def test_a_cancel_before_the_paid_deposit_lands_says_it_comes_back_if_it_does(
+    api: httpx.AsyncClient,
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+) -> None:
+    booking = await _seated(as_owner, db)
+    ref = _intent(await _pay(api, booking.manage_token))
+    gateway.confirmed.add(ref)
+    res = ok(await api.post(f"/manage/{booking.manage_token}/cancel", headers=key()))
+    assert res.json() == {"deposit": "paying", "refund_cents": 0}
+    view = ok(await api.get(f"/manage/{booking.manage_token}")).json()
+    assert (view["refund_status"], view["deposit_paying"], view["deposit_due"]) == (
+        None,
+        True,
+        False,
+    )
+    await settle(api, db, (await _deposits(db, booking.id))[0].id)
+    assert gateway.refunds[-1][:2] == (ref, DEPOSIT)
+    assert (await _row(db, booking.id)).deposit_status == "refunded"
+    view = ok(await api.get(f"/manage/{booking.manage_token}")).json()
+    assert (view["deposit_status"], view["deposit_paying"]) == ("refunded", False)
+
+
+async def test_a_cancel_while_a_bank_debit_is_processing_promises_no_refund_yet(
+    api: httpx.AsyncClient,
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+) -> None:
+    booking = await _seated(as_owner, db)
+    ref = _intent(await _pay(api, booking.manage_token))
+    gateway.confirmed.add(ref)
+    gateway.intent_statuses[ref] = "processing"
+    view = ok(await api.get(f"/manage/{booking.manage_token}")).json()
+    assert (view["deposit_due"], view["deposit_paying"]) == (False, True)
+    res = ok(await api.post(f"/manage/{booking.manage_token}/cancel", headers=key()))
+    assert res.json() == {"deposit": "paying", "refund_cents": 0}
+    gateway.intent_statuses[ref] = "requires_payment_method"
+    view = ok(await api.get(f"/manage/{booking.manage_token}")).json()
+    assert (view["refund_status"], view["deposit_paying"]) == (None, False)
+    assert gateway.refunds == []
+
+
+async def test_a_pending_refund_on_a_cancel_reads_as_pending_until_it_lands(
+    api: httpx.AsyncClient,
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+) -> None:
+    gateway.refund_status = "pending"
+    booking = await _seated(as_owner, db)
+    _intent(await _pay(api, booking.manage_token))
+    await settle(api, db, (await _deposits(db, booking.id))[0].id)
+    res = ok(await api.post(f"/manage/{booking.manage_token}/cancel", headers=key()))
+    assert res.json() == {"deposit": "pending", "refund_cents": 0}
+    view = ok(await api.get(f"/manage/{booking.manage_token}")).json()
+    assert (view["status"], view["deposit_status"], view["refund_status"]) == (
+        "canceled",
+        "collected",
+        "pending",
+    )
+
+
+async def test_stripe_is_asked_only_about_a_deposit_still_owed(
+    api: httpx.AsyncClient,
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+) -> None:
+    booking = await _seated(as_owner, db)
+    _intent(await _pay(api, booking.manage_token))
+    ok(await api.get(f"/manage/{booking.manage_token}"))
+    assert len(gateway.status_reads) == 1
+    await db.execute(update(Booking).where(Booking.id == booking.id).values(status="completed"))
+    gateway.status_reads.clear()
+    view = ok(await api.get(f"/manage/{booking.manage_token}")).json()
+    assert (view["deposit_due"], view["deposit_paying"]) == (False, False)
+    assert gateway.status_reads == []
+
+
+async def test_a_move_while_the_deposit_goes_through_still_offers_no_payment(
+    api: httpx.AsyncClient,
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+) -> None:
+    await enable_payments(db)
+    res = await as_owner.post(
+        "/v1/bookings",
+        json={
+            "client_id": CL_AMELIE,
+            "item_id": "it_groom_lg",
+            "staff_id": "st_owner",
+            "starts_at": "2027-03-10T17:00:00Z",
+        },
+    )
+    assert res.status_code == 201, res.text
+    token = (await _row(db, res.json()["id"])).manage_token
+    gateway.confirmed.add(_intent(await _pay(api, token)))
+    slots = ok(await api.get(f"/manage/{token}/slots", params={"date": "2027-03-10"})).json()
+    target = slots["slots"][0]["starts_at"]
+    moved = ok(
+        await api.post(f"/manage/{token}/reschedule", json={"starts_at": target}, headers=key())
+    ).json()
+    assert (moved["deposit_due"], moved["deposit_paying"]) == (False, True)
 
 
 async def test_a_repeated_webhook_collects_the_deposit_once(

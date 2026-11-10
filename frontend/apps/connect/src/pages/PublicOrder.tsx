@@ -48,6 +48,9 @@ export function PublicOrder() {
                     <p className="mt-3 max-w-xl text-base leading-relaxed text-ink-soft">
                         {flow.lead}
                     </p>
+                    {flow.refundNote !== null ? (
+                        <p className="mt-2 max-w-xl text-sm text-muted">{flow.refundNote}</p>
+                    ) : null}
                 </div>
             }
         >

@@ -31,6 +31,9 @@ msgstr "{member} from {business} is on the way to you now."
 msgid "booking_departed.someone"
 msgstr "A member of the team"
 
+msgid "booking_moved.push"
+msgstr "Visit moved by {client}: {when}"
+
 msgid "booking_reassigned.body"
 msgstr "Your appointment with {business} on {when} is now with {member}."
 
@@ -46,8 +49,14 @@ msgstr "Reminder: you have an appointment on {when} with {business}. Change or c
 msgid "booking_requested.body"
 msgstr "{business} received your request for {when} and will let you know once it's confirmed."
 
+msgid "booking_requested.body_link"
+msgstr "Request sent for {when} with {business}. Change or cancel: {link}"
+
 msgid "booking_rescheduled.body"
 msgstr "Your appointment with {business} was moved to {when}, and the earlier time is no longer booked."
+
+msgid "booking_rescheduled.body_link"
+msgstr "Your visit moved to {when} with {business}. Change or cancel: {link}"
 
 msgid "broadcast.sms"
 msgstr "{business}: {body} Reply {keyword} to opt out."

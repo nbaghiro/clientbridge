@@ -885,16 +885,26 @@ skip them. `PublicService.staff_ids` lists the online members who offer it, "any
 and every new booking, move to another member, series change and reassignment on removal checks the list,
 refusing with 422 `service_not_offered` (`not_offered` in a move check). A visit that stays with its member
 can still be moved or resized after that member stops offering the service. Every booking gets a
-`manage_token`, and the confirmation and reminder carry `book.D/m/<token>` on Connect, where the client can move
-or cancel within the cut-offs (`/manage/{token}`). The server enforces the cut-offs and the move limit and
-refunds a paid deposit on an allowed cancel. A booked visit whose deposit is still pending can be paid
+`manage_token`, and the confirmation, the request acknowledgment, the move text and the reminder carry
+`book.D/m/<token>` on Connect, where the client can move or cancel within the cut-offs (`/manage/{token}`).
+The server enforces the cut-offs and the move limit (`bookings.reschedule_count`, which only a move to
+another time counts, with `rescheduled_at` for the last one) and refunds a paid deposit on an allowed
+cancel. The page shows the moves left, and a change the server refuses after the page loaded (409
+`change_blocked`, whose `detail` carries the `reason` and `hours`) reloads the visit and shows why. Each
+move pushes to the visit's member and the managers and shows in the bell, and the visit's history in the
+staff apps says how often the client moved it online and when. A booked visit whose deposit is still pending can be paid
 from the same page (`POST /manage/{token}/deposit`): it opens the deposit PaymentIntent the booking page
 uses, replays a live attempt, cancels a failed or older one first, and refuses with 409 when the business
 can't take cards (`card_payments_unavailable`), the deposit is paid or the visit is still on the waitlist
 (`deposit_not_due`), the visit was canceled, completed or marked a no-show (`booking_closed`) or an earlier
-attempt is already going through (`deposit_in_progress`). The webhook settles it as any deposit. A business
-that can't take cards asks no deposit online: the booking page shows none, and its online bookings,
-enrolments and waitlist spots record none. A confirmation for a
+attempt is already going through (`deposit_in_progress`). The webhook settles it as any deposit. Until it
+does, a pending deposit payment whose intent Stripe already took (`PaymentGateway.payment_intent_status`,
+asked only for a deposit still owed and before the booking's locks) makes the page read `deposit_paying`
+rather than due, so it offers no second payment; a cancel in that window answers `deposit: "paying"`, and
+the payment is refunded if it lands on the canceled visit. An applied deposit is on the bill and a disputed
+one waits on the dispute, so a cancel leaves either to the business, answers `deposit: "kept"`, and the
+page says so rather than promising a refund. A business that can't take cards asks no deposit online: the
+booking page shows none, and its online bookings, enrolments and waitlist spots record none. A confirmation for a
 staff-made booking with a pending deposit carries the link with a line asking for it, when the business
 takes cards. A time outside the lead time or the horizon is refused with 409 `slot_unavailable`, like any
 time that isn't open.

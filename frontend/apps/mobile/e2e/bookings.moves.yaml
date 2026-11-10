@@ -1,0 +1,58 @@
+appId: ${APP_ID}
+name: NATIVE-SCH-02 A new client moves their requested visit twice from the manage link and the owner's phone shows each move, then the client cancels and the request leaves Today
+---
+- evalScript: ${output.serviceName = "Coat check " + String(Date.now()).slice(-5)}
+- evalScript: ${output.phone = "250" + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000))}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/items
+          BODY: "${JSON.stringify({ kind: 'service', name: output.serviceName, duration_min: 30, price_cents: 3000, deposit_type: 'none', online_bookable: true })}"
+- evalScript: ${output.itemId = output.response.id}
+- runScript:
+      file: helpers/book-next-week.js
+      env:
+          SLUG: birchbark-${E2E_NAMESPACE}
+          BODY: "${JSON.stringify({ item_id: output.itemId, staff_id: 'st_owner_' + E2E_NAMESPACE, client: { name: 'Wren Okafor', phone: output.phone }, subject_name: 'Pippin' })}"
+- assertTrue: ${output.booking.status == "pending"}
+- evalScript: ${output.token = output.booking.manage_token}
+- runScript:
+      file: helpers/manage-link.js
+      env:
+          TOKEN: ${output.token}
+          ACTION: move
+- assertTrue: ${output.managed.reschedules_used == 1}
+- runScript:
+      file: helpers/manage-link.js
+      env:
+          TOKEN: ${output.token}
+          ACTION: move
+- assertTrue: ${output.managed.reschedules_used == 2 && output.managed.can_move == false}
+- runFlow: helpers/owner.yaml
+- scrollUntilVisible:
+      element: "Booking request, Wren Okafor asked for.*"
+      direction: DOWN
+      timeout: 60000
+- tapOn: "Booking request, Wren Okafor asked for.*"
+- extendedWaitUntil:
+      visible: "Approve"
+      timeout: 30000
+- assertVisible: ${".*" + output.serviceName + ".*"}
+# the visit's history says the client moved it, below the actions on a small phone
+- scrollUntilVisible:
+      element: "Moved online by the client 2 times"
+      direction: DOWN
+      timeout: 30000
+- takeScreenshot: moved-by-the-client
+- runFlow: helpers/close-sheet.yaml
+- runScript:
+      file: helpers/manage-link.js
+      env:
+          TOKEN: ${output.token}
+          ACTION: cancel
+- assertTrue: ${output.managed.deposit == "none"}
+- extendedWaitUntil:
+      notVisible: "Booking request, Wren Okafor asked for.*"
+      timeout: 60000
+- takeScreenshot: request-gone-after-cancel

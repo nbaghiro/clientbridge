@@ -480,6 +480,33 @@ async def test_shop_lists_units_held_by_a_pending_checkout_as_gone(
     assert (await listed())["stock_left"] == 1
 
 
+async def test_units_sold_before_the_item_tracked_stock_are_not_held(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _enable(db)
+    await db.execute(
+        update(Item).where(Item.id == SHAMPOO).values(track_stock=False, stock_on_hand=None)
+    )
+    await db.commit()
+    sold = await api.post(f"/book/{SLUG}/shop/orders", json=_order((SHAMPOO, 1)), headers=_key())
+    assert sold.status_code == 200
+    await _settle(api, db, sold.json()["order_id"], uuid.uuid4().hex)
+    await db.execute(
+        update(Item).where(Item.id == SHAMPOO).values(track_stock=True, stock_on_hand=1)
+    )
+    await db.commit()
+
+    items = (await api.get(f"/book/{SLUG}/shop")).json()["items"]
+    listed = next(i for i in items if i["id"] == SHAMPOO)
+    assert (listed["stock_left"], listed["in_stock"]) == (1, True)
+    again = await api.post(
+        f"/book/{SLUG}/shop/orders",
+        json=_order((SHAMPOO, 1), phone="+16045550224"),
+        headers=_key(),
+    )
+    assert again.status_code == 200, again.text
+
+
 async def test_two_connections_cannot_reserve_the_same_last_unit(db: AsyncSession) -> None:
     import asyncio
 

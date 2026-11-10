@@ -117,9 +117,11 @@ class Booking(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
     reminded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # reminder sent
     # the client's link to view, move or cancel; the token is the only credential
     manage_token: Mapped[str | None] = mapped_column(String, unique=True)
+    # the moves the client made from that link, and when they made the last one
     reschedule_count: Mapped[int] = mapped_column(
         Integer, default=0, server_default="0", nullable=False
     )
+    rescheduled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Hours(PKMixin, BusinessScoped, TimestampMixin, Base):

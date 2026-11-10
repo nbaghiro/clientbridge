@@ -1725,7 +1725,6 @@ class Foothills(Demo):
         booking = self.book(
             "nina", "nina", HEDGE, MEGAN, start, "confirmed", original - timedelta(days=9)
         )
-        booking.reschedule_count = 1
         moved = self.on(rained, time(7, 40))
         booking.updated_at = moved
         local = self.local(start)

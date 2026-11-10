@@ -113,6 +113,11 @@ export function usePublicOrder(client: ReturnType<typeof createPublicOrderClient
         (order?.status === "refunded" ||
             order?.status === "void" ||
             (order?.refund_pending === true && order.refund_cents >= order.total_cents));
+    const refundNote = order?.refund_pending
+        ? s.refundPendingBody(refund)
+        : order && order.refund_cents > 0
+          ? s.refundedBody(refund)
+          : null;
     return {
         ...resource,
         order,
@@ -144,19 +149,17 @@ export function usePublicOrder(client: ReturnType<typeof createPublicOrderClient
             : order?.status === "open"
               ? s.awaitingPayment
               : (labels[at] ?? s.placed),
-        lead: order?.refund_pending
-            ? s.refundPendingBody(refund)
-            : order && order.refund_cents > 0
-              ? s.refundedBody(refund)
-              : order?.status === "void"
-                ? s.voidBody
-                : order?.status === "open"
-                  ? s.awaitingBody
-                  : collected
-                    ? s.collectedBody
-                    : order?.pickup_status === "ready"
-                      ? s.readyBody(order.business_name)
-                      : s.pending,
+        lead: canceled
+            ? (refundNote ?? s.voidBody)
+            : order?.status === "open"
+              ? s.awaitingBody
+              : collected
+                ? s.collectedBody
+                : order?.pickup_status === "ready"
+                  ? s.readyBody(order.business_name)
+                  : s.pending,
+        // a partial refund, or one after pickup, sits under the lead instead of replacing it
+        refundNote: canceled ? null : refundNote,
         canceled,
         showAlerts: !canceled && !collected,
         pickupLabel:

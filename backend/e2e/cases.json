@@ -202,5 +202,11 @@
     "SYN-E2E-29": {"lanes": ["sync"], "browsers": false, "status": "implemented"},
     "SYN-E2E-30": {"lanes": ["sync"], "browsers": false, "status": "implemented"},
     "STR-E08": {"lanes": ["stripe"], "browsers": false, "status": "needs_decision"},
-    "STR-E11": {"lanes": ["stripe"], "browsers": false, "status": "deferred"}
+    "STR-E11": {"lanes": ["stripe"], "browsers": false, "status": "deferred"},
+    "SCH-E2E-21": {"lanes": ["journeys"], "browsers": false, "status": "verified"},
+    "SCH-E2E-22": {"lanes": ["journeys"], "browsers": false, "status": "verified"},
+    "XB-E2E-23": {"lanes": ["connect"], "browsers": true, "status": "verified"},
+    "STR-E18": {"lanes": ["stripe"], "browsers": false, "status": "verified"},
+    "STR-E31": {"lanes": ["stripe"], "browsers": false, "status": "verified"},
+    "NATIVE-SCH-02": {"lanes": ["native-ios", "native-android"], "browsers": false, "status": "verified"}
 }

@@ -34,6 +34,9 @@ msgstr "[{member} ƒŕöɱ {business} îš öñ ţĥé ŵåý ţö ýöû ñöŵ
 msgid "booking_departed.someone"
 msgstr "[Å ɱéɱƀéŕ öƒ ţĥé ţéåɱ~~~~~~~]"
 
+msgid "booking_moved.push"
+msgstr "[Ṽîšîţ ɱöṽéð ƀý {client}: {when}~~~~~~]"
+
 msgid "booking_reassigned.body"
 msgstr "[Ýöûŕ åþþöîñţɱéñţ ŵîţĥ {business} öñ {when} îš ñöŵ ŵîţĥ {member}.~~~~~~~~~~~~~~]"
 
@@ -49,8 +52,14 @@ msgstr "[Ŕéɱîñðéŕ: ýöû ĥåṽé åñ åþþöîñţɱéñţ öñ {wh
 msgid "booking_requested.body"
 msgstr "[{business} ŕéçéîṽéð ýöûŕ ŕéǫûéšţ ƒöŕ {when} åñð ŵîļļ ļéţ ýöû ķñöŵ öñçé îţ'š çöñƒîŕɱéð.~~~~~~~~~~~~~~~~~~~~~~~~~]"
 
+msgid "booking_requested.body_link"
+msgstr "[Ŕéǫûéšţ šéñţ ƒöŕ {when} ŵîţĥ {business}. Çĥåñĝé öŕ çåñçéļ: {link}~~~~~~~~~~~~~~~~]"
+
 msgid "booking_rescheduled.body"
 msgstr "[Ýöûŕ åþþöîñţɱéñţ ŵîţĥ {business} ŵåš ɱöṽéð ţö {when}, åñð ţĥé éåŕļîéŕ ţîɱé îš ñö ļöñĝéŕ ƀööķéð.~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "booking_rescheduled.body_link"
+msgstr "[Ýöûŕ ṽîšîţ ɱöṽéð ţö {when} ŵîţĥ {business}. Çĥåñĝé öŕ çåñçéļ: {link}~~~~~~~~~~~~~~~~~]"
 
 msgid "broadcast.sms"
 msgstr "[{business}: {body} Ŕéþļý {keyword} ţö öþţ öûţ.~~~~~~~~]"

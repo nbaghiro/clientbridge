@@ -3206,6 +3206,9 @@
     "bookings.historyDeposit": {
         "message": "[Đéþöšîţ öƒ {amount} þåîð one two]"
     },
+    "bookings.historyMovedOnline": {
+        "message": "[{n,plural,one{Ṁöṽéð öñļîñé ƀý ţĥé çļîéñţ} other{Ṁöṽéð öñļîñé ƀý ţĥé çļîéñţ # ţîɱéš}} one two three four]"
+    },
     "bookings.historyDepositDue": {
         "message": "[Đéþöšîţ öƒ {amount} ŕéǫûéšţéð one two]"
     },
@@ -12620,6 +12623,39 @@
     "publicManage.depositThanks": {
         "message": "[Ţĥåñķš, ýöûŕ {amount} ðéþöšîţ îš þåîð. one two three]"
     },
+    "publicManage.movesLeft": {
+        "message": "[{n,plural,one{Ýöû çåñ ɱöṽé ţĥîš ṽîšîţ öñçé ɱöŕé öñļîñé.} other{Ýöû çåñ ɱöṽé ţĥîš ṽîšîţ # ɱöŕé ţîɱéš öñļîñé.}} one two three four five six]"
+    },
+    "publicManage.depositPaying": {
+        "message": "[Ýöûŕ {amount} ðéþöšîţ îš ĝöîñĝ ţĥŕöûĝĥ. Îţ šĥöŵš åš þåîð ĥéŕé öñçé îţ'š çöñƒîŕɱéð. one two three four five]"
+    },
+    "publicManage.depositProcessing": {
+        "message": "[{amount} þŕöçéššîñĝ one two]"
+    },
+    "publicManage.depositRefunded": {
+        "message": "[Ýöûŕ {amount} ðéþöšîţ ŵåš ŕéƒûñðéð. one two three]"
+    },
+    "publicManage.canceledPaying": {
+        "message": "[Ýöûŕ {amount} ðéþöšîţ þåýɱéñţ ĥåðñ'ţ ƒîñîšĥéð ĝöîñĝ ţĥŕöûĝĥ. Îƒ îţ ðöéš, îţ'š ŕéƒûñðéð ţö ýöû åûţöɱåţîçåļļý. one two three four five six seven]"
+    },
+    "publicManage.cancelApplied": {
+        "message": "[Ýöûŕ {amount} ðéþöšîţ îš åļŕéåðý öñ ýöûŕ ƀîļļ, šö îţ îšñ'ţ ŕéƒûñðéð åûţöɱåţîçåļļý. Çöñţåçţ {business} åƀöûţ îţ. one two three four five six]"
+    },
+    "publicManage.depositKept": {
+        "message": "[Ýöûŕ {amount} ðéþöšîţ ŵåšñ'ţ ŕéƒûñðéð öñļîñé. Çöñţåçţ {business} åƀöûţ îţ. one two three four]"
+    },
+    "publicManage.movedBodyPlain": {
+        "message": "[{when} îš ýöûŕ ñéŵ ţîɱé. one two]"
+    },
+    "publicManage.requestLabel": {
+        "message": "[Ɓööķîñĝ ŕéǫûéšţ one two]"
+    },
+    "publicManage.requestLine": {
+        "message": "[{business} ĥåšñ'ţ çöñƒîŕɱéð ţĥîš ţîɱé ýéţ. Ýöû'ļļ ĥéåŕ ƒŕöɱ ţĥéɱ öñçé ţĥéý ðö. one two three four five]"
+    },
+    "publicManage.pastLabel": {
+        "message": "[Þåšţ ṽîšîţ one two]"
+    },
     "publicManage.reschedule": {
         "message": "[Ŕéšçĥéðûļé one two]"
     },
@@ -13561,6 +13597,9 @@
     },
     "notifications.kinds.bookingCanceled": {
         "message": "[Ɓööķîñĝ çåñçéļļéð one two]"
+    },
+    "notifications.kinds.bookingMoved": {
+        "message": "[Ɓööķîñĝ ɱöṽéð ƀý ţĥé çļîéñţ one two three]"
     },
     "notifications.kinds.bookingBody": {
         "message": "{client}, {item}, {when}"

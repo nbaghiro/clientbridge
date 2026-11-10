@@ -475,8 +475,11 @@ export async function raceTimePicker(
         .getByRole("group", { name: b.with, exact: true })
         .getByRole("button", { name: fixture.staffName, exact: true })
         .click();
-    await staffDays;
-    let days: { date: string; count: number; closed: boolean }[] = [];
+    let days = (
+        (await (await staffDays).json()) as {
+            days: { date: string; count: number; closed: boolean }[];
+        }
+    ).days;
     for (let week = 0; week < weeksAhead; week++) {
         const loaded = page.waitForResponse(
             (response) =>
@@ -487,7 +490,9 @@ export async function raceTimePicker(
         await page.getByRole("button", { name: b.nextWeek, exact: true }).first().click();
         days = ((await (await loaded).json()) as { days: typeof days }).days;
     }
-    const index = days.findIndex((day) => day.count > 0 && !day.closed);
+    // in this week, two days out keeps the visit past a 24-hour cut-off
+    const earliest = weeksAhead === 0 ? 2 : 0;
+    const index = days.findIndex((day, i) => i >= earliest && day.count > 0 && !day.closed);
     expect(index).toBeGreaterThanOrEqual(0);
     return index;
 }
@@ -516,4 +521,29 @@ export async function acceptedRaceEvidence(
         })
         .toEqual([{ id: expect.any(String), state: "accepted", recipient }]);
     return raceEvidence(fixture, contacts);
+}
+
+export function manageUrl(token: string): string {
+    return connectUrl(`m/${encodeURIComponent(token)}`);
+}
+
+/** From an open manage page, moves the visit to the first other time its day offers. */
+export async function moveFromManageLink(page: Page, token: string): Promise<string> {
+    const m = strings.publicManage;
+    await page.getByRole("button", { name: m.reschedule, exact: true }).click();
+    await page
+        .getByRole("radiogroup", { name: b.openTimes, exact: true })
+        .getByRole("radio")
+        .first()
+        .click();
+    const moved = page.waitForResponse(
+        (response) =>
+            new URL(response.url()).pathname === `/manage/${token}/reschedule` &&
+            response.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: new RegExp(`^${m.confirmMove("")}`) }).click();
+    const response = await moved;
+    expect(response.status(), await response.text()).toBe(200);
+    await expect(page.getByRole("heading", { name: m.movedTitle, exact: true })).toBeVisible();
+    return ((await response.json()) as { starts_at: string }).starts_at;
 }

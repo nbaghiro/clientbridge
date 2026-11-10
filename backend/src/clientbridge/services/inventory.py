@@ -1,6 +1,6 @@
 from decimal import ROUND_HALF_UP, Decimal
 
-from sqlalchemy import Select, func, or_, select
+from sqlalchemy import Exists, func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,7 +13,10 @@ from clientbridge.models.billing import Invoice, Line, Order
 from clientbridge.models.catalog import Item, StockMovement
 from clientbridge.models.payments import Payment
 from clientbridge.schemas.catalog import ItemOut, RestockIn
+from clientbridge.services.ledger import invoice_status_expr, order_status_expr
 from clientbridge.services.lines import LineParent, parent_fk
+
+_SETTLED = ("paid", "refunded", "void")
 
 
 class StockService:
@@ -172,7 +175,7 @@ async def assert_parent_stock(
     lines = list(
         await db.scalars(
             scoped(Line, business_id).where(
-                parent_fk(parent) == parent_id, Line.item_id.is_not(None), ~Line.id.in_(_sold())
+                parent_fk(parent) == parent_id, Line.item_id.is_not(None), ~_sold(business_id)
             )
         )
     )
@@ -199,9 +202,11 @@ async def assert_parent_stock(
             raise Conflict("not enough stock available for this sale", code="out_of_stock")
 
 
-def _sold() -> Select[tuple[str | None]]:
-    return select(StockMovement.line_id).where(
-        StockMovement.reason == "sale", StockMovement.line_id.is_not(None)
+def _sold(business_id: str) -> Exists:
+    return (
+        scoped(StockMovement, business_id)
+        .where(StockMovement.line_id == Line.id, StockMovement.reason == "sale")
+        .exists()
     )
 
 
@@ -221,15 +226,19 @@ async def held_units(
         )
         .exists()
     )
-    # a void sale's late card is refunded, never taken from stock, so its lines hold nothing
-    voided = or_(
-        select(Order.id).where(Order.id == Line.order_id, Order.status == "void").exists(),
-        select(Invoice.id).where(Invoice.id == Line.invoice_id, Invoice.status == "void").exists(),
+    # a paid, refunded or void sale holds nothing, even one sold before its item tracked stock
+    settled = or_(
+        select(Order.id)
+        .where(Order.id == Line.order_id, order_status_expr().in_(_SETTLED))
+        .exists(),
+        select(Invoice.id)
+        .where(Invoice.id == Line.invoice_id, invoice_status_expr().in_(_SETTLED))
+        .exists(),
     )
     query = (
         scoped(Line, business_id)
         .with_only_columns(Line.item_id, func.sum(func.round(Line.quantity)))
-        .where(Line.item_id.in_(item_ids), ~Line.id.in_(_sold()), active, ~voided)
+        .where(Line.item_id.in_(item_ids), ~_sold(business_id), active, ~settled)
         .group_by(Line.item_id)
     )
     if besides is not None:
