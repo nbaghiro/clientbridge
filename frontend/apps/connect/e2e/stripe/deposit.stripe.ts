@@ -10,7 +10,7 @@ import { textsTo } from "../../../web/e2e/support/auth";
 import { patchBusiness } from "../../../web/e2e/support/business";
 import { select } from "../../../web/e2e/support/db";
 import { customerContext, navigate, signIn } from "../../../web/e2e/support/session";
-import { manageUrl } from "../../../web/e2e/support/visit";
+import { apiCall, manageUrl } from "../../../web/e2e/support/visit";
 import { controlStripeRelay } from "./support/bridge";
 import {
     depositEvidence,
@@ -433,6 +433,72 @@ test("STR-E17 a new client pays an online booking's deposit by card, the owner a
         expect(await booked()).toBe(1);
         await info.attach("online-deposit-approved-and-applied", {
             body: JSON.stringify(applied),
+            contentType: "application/json",
+        });
+    } finally {
+        await customer.close();
+        await ownerContext.close();
+    }
+});
+
+test("STR-E31 a client cancels from the manage link a visit whose paid deposit is already on its bill, and the deposit stays with the business with no refund at Stripe", async ({
+    browser,
+}, info) => {
+    test.setTimeout(300_000);
+    const m = strings.publicManage;
+    const amount = formatMoney(2000, "CAD");
+    const ownerContext = await browser.newContext({ baseURL: webBaseUrl() });
+    const customer = await customerContext(browser);
+    try {
+        const owner = await ownerContext.newPage();
+        await signIn(owner);
+        const setup = await prepareOnlineDeposit(owner, "Maple");
+        const client = await customer.newPage();
+        const f = await requestWithDeposit(client, setup, 5);
+        await payOnlineDeposit(client);
+        const deposit = (await collectedDeposit(f)).payments[0];
+        if (deposit === undefined) throw new Error("the settled deposit is missing");
+        await apiCall(owner, "PATCH", `/v1/bookings/${f.bookingId}`, { status: "confirmed" }, 200);
+        const invoice = await invoiceVisitUi(
+            owner,
+            { booking: setup.visit, visit: { id: f.bookingId } },
+            formatParts([setup.booker.subject, setup.booker.name]),
+        );
+        await linkStripeDepositInvoice(f, invoice.id);
+        await sendBookingInvoiceUi(owner, invoice);
+        const applied = await depositEvidence(f);
+        expect(applied.booking.deposit_status).toBe("applied");
+        const [row] = await select<{ manage_token: string; business: string }>`
+            SELECT b.manage_token, z.name AS business FROM bookings b
+            JOIN businesses z ON z.id = b.business_id WHERE b.id = ${f.bookingId}`;
+        if (row === undefined) throw new Error("the visit has no manage link");
+        const kept = m.cancelApplied(amount, row.business);
+
+        await client.goto(manageUrl(row.manage_token));
+        await expect(
+            client.getByText(m.depositPaid(amount), { exact: true }).first(),
+        ).toBeVisible();
+        await client.getByRole("button", { name: m.cancel, exact: true }).click();
+        await expect(client.getByText(kept, { exact: true })).toBeVisible();
+        await expect(client.getByText(m.cancelRefund(amount), { exact: true })).toHaveCount(0);
+        await client.getByRole("button", { name: m.cancelConfirm, exact: true }).click();
+        await expect(
+            client.getByRole("heading", { name: m.canceledTitle, exact: true }).first(),
+        ).toBeInViewport();
+        await expect(client.getByText(kept, { exact: true }).first()).toBeVisible();
+        await client.reload();
+        await expect(client.getByText(kept, { exact: true }).first()).toBeVisible();
+        await expect(client.getByText(m.depositRefunded(amount), { exact: true })).toHaveCount(0);
+
+        const e = await depositEvidence(f);
+        expect(e.booking.deposit_status).toBe("applied");
+        expect(e.payments.filter((p) => p.parent_payment_id === deposit.id)).toEqual([]);
+        expect(e.provider.refunds).toEqual([]);
+        expect(
+            await select<{ status: string }>`SELECT status FROM bookings WHERE id = ${f.bookingId}`,
+        ).toEqual([{ status: "canceled" }]);
+        await info.attach("manage-link-cancel-keeps-the-applied-deposit", {
+            body: JSON.stringify(e),
             contentType: "application/json",
         });
     } finally {

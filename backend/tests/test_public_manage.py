@@ -66,12 +66,17 @@ async def test_one_class_attendee_cannot_move_the_shared_session(
     assert (await _slot(db, other_token)).starts_at == original_start
 
 
-async def _book(api: httpx.AsyncClient, starts: str = OPENING, item: str = "it_groom_sm") -> str:
+async def _book(
+    api: httpx.AsyncClient,
+    starts: str = OPENING,
+    item: str = "it_groom_sm",
+    staff: str = "st_owner",
+) -> str:
     res = await api.post(
         f"/book/{SLUG}",
         json={
             "item_id": item,
-            "staff_id": "st_owner",
+            "staff_id": staff,
             "starts_at": starts,
             "client": {"name": "Web Booker", "phone": "+16045550270"},
         },
@@ -144,6 +149,24 @@ async def test_a_client_move_alerts_the_visit_member_and_the_managers_once(
     assert push.sent[0].tokens == ["Own"]
     assert push.sent[0].body.startswith("Visit moved by Web Booker: Wednesday, December 2 at ")
     assert push.sent[0].data == {"type": "booking", "booking_id": booking.id}
+
+
+async def test_a_client_move_alerts_a_member_who_isnt_a_manager_on_their_own_visit(
+    api: httpx.AsyncClient, db: AsyncSession, push: FakePushSender
+) -> None:
+    token = await _book(api, staff="st_diego")
+    db.add_all(
+        [
+            Device(id=f"dvt_{name}", business_id=BIZ, user_id=user, token=name, platform="ios")
+            for name, user in (("Own", OWNER_USER), ("Die", STAFF_USER), ("Pri", "us_priya"))
+        ]
+    )
+    await db.flush()
+    push.sent.clear()
+    slots = ok(await api.get(f"/manage/{token}/slots", params={"date": "2026-12-02"})).json()
+    move = {"starts_at": slots["slots"][0]["starts_at"]}
+    ok(await api.post(f"/manage/{token}/reschedule", json=move, headers=key()))
+    assert [sorted(p.tokens) for p in push.sent] == [["Die", "Own"]]
 
 
 async def test_asking_for_the_same_time_uses_up_no_move(

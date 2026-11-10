@@ -1194,6 +1194,7 @@ Clients find the business, book and pay a deposit, and change their plans withou
 * `XB-E2E-14 (connect)`
 * `XB-E2E-23 (connect)`
 * `STR-E18 (stripe)`
+* `STR-E31 (stripe)`
 * `NATIVE-SCH-02 (native-ios, native-android)`
 * `connect: publicManage.e2e.ts › a client opens the manage link and the move picker`
 * `connect: publicManage.e2e.ts › a client's fresh tab offers no second payment while Stripe confirms the deposit, and a cancel then promises its refund only if it lands`

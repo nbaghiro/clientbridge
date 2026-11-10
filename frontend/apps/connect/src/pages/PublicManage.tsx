@@ -28,7 +28,7 @@ import {
     SlotChips,
 } from "@clientbridge/ui";
 import { cssVar } from "@clientbridge/tokens";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { addToCalendar } from "../components/BookingSteps";
@@ -72,10 +72,6 @@ export function PublicManage() {
     const mg = useManageBooking(manage, token);
     const v = mg.booking;
     const done = mg.mode === "moved" || mg.mode === "canceled";
-    // on a phone the dialog closes far down the page, above which the result shows
-    useEffect(() => {
-        if (done) window.scrollTo({ top: 0, behavior: "smooth" });
-    }, [done]);
     if (mg.status === "loading") return <PublicStatus kind="loading" />;
     if (mg.status === "not-found")
         return <PublicStatus kind="notFound" title={s.notFoundTitle} body={s.notFoundBody} />;
@@ -674,10 +670,19 @@ function CancelConfirm({ mg }: { mg: ManageBookingFlow }) {
 function ManageDone({ mg }: { mg: ManageBookingFlow }) {
     const navigate = useNavigate();
     const moved = mg.mode === "moved";
+    const heading = useRef<HTMLHeadingElement>(null);
+    // runs after the closing dialog hands focus back, so the result is what a phone scrolls to
+    useEffect(() => {
+        heading.current?.focus();
+    }, []);
     return (
         <div className="text-center">
             <Icon name={moved ? "check" : "x"} size={32} className="mx-auto block text-ink-soft" />
-            <h1 className="mt-4 font-display text-2xl font-bold text-ink">
+            <h1
+                ref={heading}
+                tabIndex={-1}
+                className="mt-4 font-display text-2xl font-bold text-ink outline-none"
+            >
                 {moved ? s.movedTitle : mg.labels.canceledTitle}
             </h1>
             <p className="mx-auto mt-2 max-w-sm text-sm text-muted">

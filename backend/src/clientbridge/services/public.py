@@ -1,3 +1,4 @@
+import asyncio
 import secrets
 from collections.abc import Sequence
 from datetime import UTC, date, datetime, time, timedelta
@@ -1347,10 +1348,11 @@ class PublicManageService:
                 Payment.provider_ref.is_not(None),
             )
         )
-        for ref in refs.all():
-            if ref and await self.gateway.payment_intent_status(account_id, ref) in _PAID_INTENT:
-                return True
-        return False
+        # asked together, so a slow Stripe holds the page for one read's wait, not one per attempt
+        statuses = await asyncio.gather(
+            *(self.gateway.payment_intent_status(account_id, ref) for ref in refs.all() if ref)
+        )
+        return any(status in _PAID_INTENT for status in statuses)
 
     def _blocked(
         self,

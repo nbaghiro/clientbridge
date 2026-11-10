@@ -1397,6 +1397,23 @@ test("SCH-E2E-21 a client moves a visit from its manage link until the limit whi
     await expect(client).toHaveURL(link);
     await expect(client.getByText(m.requestLabel, { exact: true })).toBeVisible();
     await expect(client.getByText(m.movesLeft(2), { exact: true })).toBeVisible();
+    // phones for the visit's member (the owner, a manager) and a staff member it isn't theirs
+    const phones = { owner: `e2e-owner-${randomUUID()}`, diego: `e2e-diego-${randomUUID()}` };
+    const staff = await browser.newContext({ baseURL: new URL(page.url()).origin });
+    const diego = await staff.newPage();
+    await signIn(diego, { email: runEmail("diego@birchbark.example"), password: "demo1234" });
+    const devices = [
+        { owner: page, token: phones.owner },
+        { owner: diego, token: phones.diego },
+    ];
+    for (const device of devices)
+        await apiCall(
+            device.owner,
+            "POST",
+            "/v1/devices/register",
+            { token: device.token, platform: "ios" },
+            200,
+        );
     const first = await moveFromManageLink(client, booked.manage_token);
     await expect(client.getByText(m.movesLeft(1), { exact: true })).toBeVisible();
     const slotOf = async (): Promise<{ id: string; starts_at: string; status: string }> => {
@@ -1437,6 +1454,22 @@ test("SCH-E2E-21 a client moves a visit from its manage link until the limit whi
             .filter({ hasText: contact.name }),
     ).toHaveCount(1, { timeout: 60_000 });
     await page.keyboard.press("Escape");
+    const pushes = async (): Promise<string[][]> =>
+        (
+            await select<{ tokens: string[]; body: string }>`
+                SELECT payload->'message'->'tokens' AS tokens, payload->'message'->>'body' AS body
+                FROM deliveries WHERE payload->>'channel' = 'push'
+                    AND payload->'message'->'data'->>'booking_id' = ${booked.booking_id}
+                ORDER BY id`
+        )
+            .filter((push) => push.body.startsWith(`Visit moved by ${contact.name}: `))
+            .map((push) =>
+                push.tokens.filter((token) => token === phones.owner || token === phones.diego),
+            );
+    await expect.poll(pushes).toEqual([[phones.owner], [phones.owner]]);
+    for (const device of devices)
+        await apiCall(device.owner, "POST", "/v1/devices/unregister", { token: device.token }, 200);
+    await staff.close();
     await expect
         .poll(async () => (await texts()).filter((t) => t.startsWith("Your visit moved to ")))
         .toEqual([
@@ -1466,6 +1499,9 @@ test("SCH-E2E-21 a client moves a visit from its manage link until the limit whi
         ).toBeVisible();
         await client.getByRole("button", { name: m.keep, exact: true }).click();
         await expect(client.getByRole("button", { name: m.cancel, exact: true })).toBeDisabled();
+        await expect(client.getByText(m.blocked.cutoff(hours), { exact: true })).toBeVisible();
+        await client.reload();
+        await expect(client.getByText(m.blocked.cutoff(hours), { exact: true })).toBeVisible();
         const refused = await client.request.post(
             `${bookingApi()}/manage/${booked.manage_token}/cancel`,
             { data: {}, headers: { "Idempotency-Key": randomUUID() } },

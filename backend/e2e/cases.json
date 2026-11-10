@@ -204,5 +204,6 @@
     "SCH-E2E-22": {"lanes": ["journeys"], "browsers": false, "status": "verified"},
     "XB-E2E-23": {"lanes": ["connect"], "browsers": true, "status": "verified"},
     "STR-E18": {"lanes": ["stripe"], "browsers": false, "status": "verified"},
+    "STR-E31": {"lanes": ["stripe"], "browsers": false, "status": "verified"},
     "NATIVE-SCH-02": {"lanes": ["native-ios", "native-android"], "browsers": false, "status": "verified"}
 }

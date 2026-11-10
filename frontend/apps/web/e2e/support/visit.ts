@@ -524,7 +524,7 @@ export async function acceptedRaceEvidence(
 }
 
 export function manageUrl(token: string): string {
-    return `http://book.localhost:${String(runPort("CONNECT_E2E_PORT"))}/m/${token}`;
+    return connectUrl(`m/${encodeURIComponent(token)}`);
 }
 
 /** From an open manage page, moves the visit to the first other time its day offers. */
