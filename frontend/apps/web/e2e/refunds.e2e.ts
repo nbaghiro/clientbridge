@@ -131,14 +131,20 @@ test("REF-E2E-01 cash partial refund and remainder issue exact tax credit notes"
     await expect(
         record.getByRole("button", { name: strings.billing.refund, exact: true }),
     ).toHaveCount(0);
-    const [doc] = await select<{ pay_token: string }>`
-        SELECT pay_token FROM invoices WHERE id = ${fixture.invoiceId}`;
+    await expect(
+        record.getByRole("region", { name: strings.billing.preview, exact: true }),
+    ).toContainText(strings.printing.refundedStamp);
+    const [doc] = await select<{ pay_token: string; business: string }>`
+        SELECT i.pay_token, b.name AS business FROM invoices i
+        JOIN businesses b ON b.id = i.business_id WHERE i.id = ${fixture.invoiceId}`;
     if (doc === undefined) throw new Error("the invoice has no pay link");
     const client = await browser.newPage();
     try {
         await client.goto(connectUrl("pay", `i/${doc.pay_token}`));
         const main = client.getByRole("main");
         await expect(main).toContainText(strings.publicPay.closedTitle, { timeout: 60_000 });
+        await expect(main).toContainText(strings.publicPay.refundedBody(doc.business));
+        await expect(main).toContainText(strings.printing.refundedStamp);
         for (const n of [1, 2])
             await expect(main).toContainText(`CN-${String(fixture.number)}-${String(n)}`);
     } finally {

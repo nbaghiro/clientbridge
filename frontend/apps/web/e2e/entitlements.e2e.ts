@@ -179,8 +179,9 @@ test("ENT-E2E-09 a gift card refunded from its own panel is void everywhere and 
             .getByRole("button", { name: strings.common.close, exact: true })
             .first()
             .click();
-        await redeemGift(page, gift.code, "10", 409);
-        await redeemGift(page, gift.code, "50", 409);
+        const refused = { status: 409, refused: strings.api.giftCardUnusable("void") };
+        await redeemGift(page, gift.code, 1000, refused);
+        await redeemGift(page, gift.code, 5000, refused);
         const unchanged = await entitlementEvidence(fixture.client.id);
         expect(unchanged).toEqual(after);
         expect(unchanged.entries.filter((entry) => entry.event === "redemption")).toEqual([]);
