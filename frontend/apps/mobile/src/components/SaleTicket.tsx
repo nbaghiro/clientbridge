@@ -351,8 +351,8 @@ function TipBlock({ sale }: { sale: SaleTicket }) {
                             onChange={sale.setTipTo}
                         />
                     ) : null}
-                    {sale.tipShares.length === 0 ? (
-                        <Text style={styles.note}>{d.tipNobody}</Text>
+                    {sale.tipSplitNote !== null ? (
+                        <Text style={styles.note}>{sale.tipSplitNote}</Text>
                     ) : (
                         sale.tipShares.map((sh) => (
                             <ListRow

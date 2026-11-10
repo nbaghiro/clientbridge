@@ -9,6 +9,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice, Line
 from clientbridge.models.business import Staff
 from clientbridge.models.catalog import Item
+from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import Booking, Hours, Slot
 from clientbridge.services.business import staff_names
@@ -553,3 +554,33 @@ async def test_documents_name_every_member_of_the_crew(
     )
     desk = ok(await as_owner.get(f"/v1/bookings/{sold}/receipt")).json()
     assert desk["source"] == "sale" and desk["served_by"] == crew
+
+
+async def test_a_desk_tip_by_service_follows_the_crew(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    booking_id = await _visit(as_owner, db)
+    ok(await _add(as_owner, booking_id), 201)
+    line = {
+        "description": "Groom",
+        "unit_amount_cents": 7500,
+        "booking_id": booking_id,
+        "staff_id": DIEGO,
+    }
+    sale = ok(
+        await as_owner.post("/v1/orders", json={"client_id": await client_id(db), "lines": [line]}),
+        201,
+    ).json()
+    paid = ok(
+        await as_owner.post(
+            f"/v1/orders/{sale['id']}/cash",
+            json={"tip_cents": 1001, "tip_split": None, "tendered_cents": sale["due_cents"] + 1001},
+            headers=key(),
+        )
+    ).json()
+    payment = await db.get(Payment, paid["payment_id"])
+    assert payment is not None
+    assert payment.tip_split == [
+        {"staff_id": DIEGO, "cents": 501},
+        {"staff_id": PRIYA, "cents": 500},
+    ]

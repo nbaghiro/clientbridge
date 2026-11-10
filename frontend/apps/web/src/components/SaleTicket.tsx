@@ -758,8 +758,8 @@ function TipBlock({ sale }: { sale: SaleTicket }) {
                             onChange={sale.setTipTo}
                         />
                     ) : null}
-                    {sale.tipShares.length === 0 ? (
-                        <p className="text-xs text-muted">{d.tipNobody}</p>
+                    {sale.tipSplitNote !== null ? (
+                        <p className="text-xs text-muted">{sale.tipSplitNote}</p>
                     ) : (
                         <ul className="divide-y divide-line-soft rounded-md border border-line bg-surface">
                             {sale.tipShares.map((sh) => (

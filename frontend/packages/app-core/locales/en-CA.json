@@ -1948,6 +1948,10 @@
     "pos.desk.payError": {
         "message": "The card was declined. Try another card or payment method."
     },
+    "pos.desk.chargeError": {
+        "message": "The payment didn't go through. Try again.",
+        "description": "A cash or Tap to Pay charge, or saving the sale before it, failed without a known reason."
+    },
     "pos.desk.addItemFirst": {
         "message": "Add an item before taking payment."
     },
@@ -2036,6 +2040,10 @@
     },
     "pos.desk.tipNobody": {
         "message": "No one is set on the services, so the tip goes to whoever rang up the sale."
+    },
+    "pos.desk.tipSplitAtCharge": {
+        "message": "The tip is shared by who did each service once you charge.",
+        "description": "Shown instead of each person's share when a visit's crew couldn't be read yet."
     },
     "pos.desk.discountTitle": {
         "message": "Discount"
@@ -9598,7 +9606,7 @@
         "message": "Set how often it bills"
     },
     "catalog.perkInvalid": {
-        "message": "Enter a discount between 0 and 100"
+        "message": "Enter a whole percent from 0 to 100"
     },
     "catalog.stockInvalid": {
         "message": "Stock on hand must be a whole number"

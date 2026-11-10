@@ -1,6 +1,9 @@
-import { formatMoney, strings } from "@clientbridge/app-core/public";
+import { randomUUID } from "node:crypto";
+import { dateKey, formatMoney, strings } from "@clientbridge/app-core/public";
 import { type APIRequestContext, type Browser, expect, type Page, test } from "@playwright/test";
-import { cancelOwnedBooking, bookingApi } from "./support/bookings";
+import { cancelOwnedBooking, bookingApi, createBookingFixture } from "./support/bookings";
+import { select } from "./support/db";
+import { choosePaymentMethod, paymentPanel, payCash, saleTicket } from "./support/pos";
 import { joinHoursStaff } from "./support/hours";
 import { navigate, signIn } from "./support/session";
 import {
@@ -18,6 +21,16 @@ import {
 import { runUrl } from "@clientbridge/config/e2e/run";
 
 const s = strings.earnings;
+const d = strings.pos.desk;
+
+async function joinStaff(browser: Browser, page: Page, request: APIRequestContext) {
+    const joining = await browser.newContext({ baseURL: new URL(page.url()).origin });
+    try {
+        return await joinHoursStaff(await joining.newPage(), request);
+    } finally {
+        await joining.close();
+    }
+}
 
 test("PAY-E2E-01 approve owned service earnings and record payment once after response loss", async ({
     page,
@@ -362,5 +375,115 @@ test("PAY-E2E-03 a team member reads their paid bonus and prints a statement hea
         }
     } finally {
         await staff.cleanup();
+    }
+});
+
+test("PAY-E2E-04 a crew visit's desk tip splits by the crew, lands under each member and stays out of sales", async ({
+    page,
+    browser,
+    request,
+}, testInfo) => {
+    test.setTimeout(240_000);
+    await signIn(page);
+    const lead = await joinStaff(browser, page, request);
+    const helper = await joinStaff(browser, page, request);
+    let bookingId: string | null = null;
+    try {
+        const visit = await createBookingFixture(page, {
+            price_cents: 8000,
+            tax_class: "federal_only",
+        });
+        const api = bookingApi();
+        const headers = () => ({
+            Origin: new URL(page.url()).origin,
+            "Idempotency-Key": randomUUID(),
+        });
+        // a helper joins only before the visit starts, so it starts a few minutes from now
+        const step = 5 * 60_000;
+        const starts = new Date(Math.ceil((Date.now() + 2 * 60_000) / step) * step);
+        const booked = await page.request.post(`${api}/v1/bookings`, {
+            headers: headers(),
+            data: {
+                client_id: visit.clientId,
+                item_id: visit.itemId,
+                staff_id: lead.id,
+                starts_at: starts.toISOString(),
+                notify: false,
+            },
+        });
+        expect(booked.status(), await booked.text()).toBe(201);
+        const booking = (await booked.json()) as { id: string };
+        bookingId = booking.id;
+        const crewed = await page.request.post(`${api}/v1/bookings/${booking.id}/crew`, {
+            headers: headers(),
+            data: { staff_id: helper.id },
+        });
+        expect(crewed.status(), await crewed.text()).toBe(201);
+        // the desk lists today's visits, so one booked past midnight waits for its day
+        if (dateKey(starts, visit.zone) !== dateKey(new Date(), visit.zone)) {
+            const wait = starts.getTime() - Date.now() + 5_000;
+            test.setTimeout(test.info().timeout + wait);
+            await page.waitForTimeout(wait);
+        }
+
+        await navigate(page, "/payments/sales");
+        const row = page
+            .getByRole("main")
+            .locator("div")
+            .filter({ has: page.getByText(visit.clientName, { exact: true }) })
+            .filter({ has: page.getByRole("button", { name: d.checkOut, exact: true }) })
+            .last();
+        await row.getByRole("button", { name: d.checkOut, exact: true }).click({ timeout: 60_000 });
+        await saleTicket(page)
+            .getByRole("button", { name: d.charge("$84.00"), exact: true })
+            .click();
+        const payment = paymentPanel(page);
+        await payment
+            .getByRole("group", { name: d.tip, exact: true })
+            .getByRole("button", { name: "20%", exact: true })
+            .click();
+        for (const member of [lead, helper])
+            await expect(
+                payment.getByRole("listitem").filter({ hasText: member.name }),
+            ).toContainText(formatMoney(800, "CAD"));
+        await choosePaymentMethod(payment, d.methodCash);
+        await payment.getByRole("button", { name: d.exactCash, exact: true }).click();
+        const paid = await payCash(page, payment, "$100.00");
+        expect(paid).toMatchObject({ amount_cents: 10000, change_cents: 0 });
+
+        const ledger = await select<{ category: string; owner_id: string; amount_cents: number }>`
+            SELECT a.category, a.owner_id, e.amount_cents
+            FROM entries e JOIN accounts a ON a.id = e.account_id
+            WHERE e.source_id = ${paid.payment_id} AND a.category IN ('revenue', 'tax', 'payable')
+            ORDER BY a.category, a.owner_id`;
+        // the visit's $80 is the only sale; its $16 tip goes half to each of the crew, untaxed
+        expect(ledger).toHaveLength(4);
+        expect(ledger).toEqual(
+            expect.arrayContaining([
+                { category: "payable", owner_id: lead.id, amount_cents: -800 },
+                { category: "payable", owner_id: helper.id, amount_cents: -800 },
+                { category: "revenue", owner_id: expect.any(String), amount_cents: -8000 },
+                { category: "tax", owner_id: expect.any(String), amount_cents: -400 },
+            ]),
+        );
+        for (const member of [lead, helper]) {
+            const panel = await openStaffPay(page, member.name);
+            await expect(
+                panel
+                    .getByRole("listitem")
+                    .filter({ hasText: s.sourceTip })
+                    .filter({ hasText: visit.clientName }),
+            ).toContainText(formatMoney(800, "CAD"));
+            await page.keyboard.press("Escape");
+            await expect(panel).toBeHidden();
+        }
+        await testInfo.attach("crew-tip-ledger", {
+            body: JSON.stringify({ booking: booking.id, ledger }),
+            contentType: "application/json",
+        });
+    } finally {
+        if (bookingId !== null) await cancelOwnedBooking(page, bookingId);
+        await lead.cleanup();
+        await helper.cleanup();
     }
 });

@@ -645,6 +645,7 @@ interface Strings {
             readonly cancelCheckout: string;
             readonly cancelCheckoutError: string;
             readonly payError: string;
+            readonly chargeError: string;
             readonly addItemFirst: string;
             readonly backToTicket: string;
             readonly cancel: string;
@@ -673,6 +674,7 @@ interface Strings {
             readonly tipSplitEven: string;
             readonly tipToOne: string;
             readonly tipNobody: string;
+            readonly tipSplitAtCharge: string;
             readonly discountTitle: string;
             readonly discountLine: (name: string) => string;
             readonly discountScope: string;

@@ -1787,6 +1787,9 @@
     "pos.desk.payError": {
         "message": "[Ţĥé çåŕð ŵåš ðéçļîñéð. Ţŕý åñöţĥéŕ çåŕð öŕ þåýɱéñţ ɱéţĥöð. one two three four]"
     },
+    "pos.desk.chargeError": {
+        "message": "[Ţĥé þåýɱéñţ ðîðñ'ţ ĝö ţĥŕöûĝĥ. Ţŕý åĝåîñ. one two three]"
+    },
     "pos.desk.addItemFirst": {
         "message": "[Åðð åñ îţéɱ ƀéƒöŕé ţåķîñĝ þåýɱéñţ. one two three]"
     },
@@ -1870,6 +1873,9 @@
     },
     "pos.desk.tipNobody": {
         "message": "[Ñö öñé îš šéţ öñ ţĥé šéŕṽîçéš, šö ţĥé ţîþ ĝöéš ţö ŵĥöéṽéŕ ŕåñĝ ûþ ţĥé šåļé. one two three four five]"
+    },
+    "pos.desk.tipSplitAtCharge": {
+        "message": "[Ţĥé ţîþ îš šĥåŕéð ƀý ŵĥö ðîð éåçĥ šéŕṽîçé öñçé ýöû çĥåŕĝé. one two three four]"
     },
     "pos.desk.discountTitle": {
         "message": "[Đîšçöûñţ one]"
@@ -8880,7 +8886,7 @@
         "message": "[Šéţ ĥöŵ öƒţéñ îţ ƀîļļš one two]"
     },
     "catalog.perkInvalid": {
-        "message": "[Éñţéŕ å ðîšçöûñţ ƀéţŵééñ 0 åñð 100 one two three]"
+        "message": "[Éñţéŕ å ŵĥöļé þéŕçéñţ ƒŕöɱ 0 ţö 100 one two three]"
     },
     "catalog.stockInvalid": {
         "message": "[Šţöçķ öñ ĥåñð ɱûšţ ƀé å ŵĥöļé ñûɱƀéŕ one two three]"

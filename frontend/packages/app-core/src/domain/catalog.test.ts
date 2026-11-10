@@ -273,6 +273,10 @@ describe("item editor", () => {
         expect(
             itemFormError({ ...values, kind: "subscription", memberDiscount: "120" }),
         ).not.toBeNull();
+        expect(itemFormError({ ...values, kind: "subscription", memberDiscount: "12.5" })).toBe(
+            strings.catalog.perkInvalid,
+        );
+        expect(itemFormError({ ...values, kind: "subscription", memberDiscount: "12" })).toBeNull();
         expect(
             itemFormError({ ...values, kind: "product", trackStock: true, openingStock: "-1" }),
         ).not.toBeNull();

@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -21,6 +21,7 @@ import {
     type SaleLine,
     saleStatus,
     saleTotalLines,
+    tipBody,
     tipCentsFor,
     tipShares,
     useDiscountEditor,
@@ -166,7 +167,7 @@ describe("priceSale", () => {
             "due",
         ]);
         expect(
-            tipShares(sale.lines, sale.totals.tipCents, "byService", null, []).map((t) => [
+            tipShares(sale.lines, sale.totals.tipCents, "byService", null, [], {}).map((t) => [
                 t.staffId,
                 t.cents,
             ]),
@@ -174,9 +175,49 @@ describe("priceSale", () => {
             ["st_diego", 958],
             ["st_owner", 340],
         ]);
-        expect(tipShares(sale.lines, 1298, "one", "st_priya", []).map((t) => t.cents)).toEqual([
+        expect(tipShares(sale.lines, 1298, "one", "st_priya", [], {}).map((t) => t.cents)).toEqual([
             1298,
         ]);
+    });
+
+    it("shares a visit's part of the tip evenly with its crew, as the server does", () => {
+        const visit = line("visit", 10000, "federal_only", {
+            staffId: "st_diego",
+            bookingId: "bk_crew",
+        });
+        const sale = priceSale([visit, shampoo], null, RATES, true, { kind: "percent", pct: 20 });
+        const crews = { bk_crew: { leadId: "st_diego", helperIds: ["st_priya"] } };
+        expect(
+            tipShares(sale.lines, 2001, "byService", null, [], crews).map((t) => [
+                t.staffId,
+                t.cents,
+            ]),
+        ).toEqual([
+            ["st_diego", 807],
+            ["st_priya", 807],
+            ["st_owner", 387],
+        ]);
+        const unstaffed = { ...sale.lines[0], staffId: null } as (typeof sale.lines)[number];
+        expect(
+            tipShares([unstaffed], 1000, "byService", null, [], crews).map((t) => t.cents),
+        ).toEqual([500, 500]);
+        const reassigned = { bk_crew: { leadId: "st_alex", helperIds: ["st_priya"] } };
+        expect(
+            tipShares(sale.lines, 2000, "byService", null, [], reassigned).map((t) => t.staffId),
+        ).toEqual(["st_diego", "st_owner"]);
+    });
+
+    it("names who gets the tip only when the desk picks one person", () => {
+        expect(tipBody(1500, "byService", "st_diego")).toEqual({
+            tip_cents: 1500,
+            tip_split: null,
+        });
+        expect(tipBody(1500, "one", "st_priya")).toEqual({
+            tip_cents: 1500,
+            tip_split: [{ staff_id: "st_priya", cents: 1500 }],
+        });
+        expect(tipBody(1500, "one", null)).toEqual({ tip_cents: 1500, tip_split: null });
+        expect(tipBody(0, "one", "st_priya")).toEqual({ tip_cents: 0, tip_split: null });
     });
 
     it("collects no tax for a small supplier and caps an amount discount at the line", () => {
@@ -340,6 +381,18 @@ describe("a sale resumed from a held ticket", () => {
         ],
     };
 
+    const crewVisit: OrderOut["lines"][number] = {
+        id: "ln_2",
+        description: "Groom",
+        quantity: 1,
+        unit_amount_cents: 1000,
+        item_id: null,
+        booking_id: "bk_crew",
+        tax_class: "standard",
+        staff_id: "st_diego",
+        discount: null,
+    };
+
     function saleApi(refusal: object | null): ApiLike & { posted: string[] } {
         const posted: string[] = [];
         return {
@@ -419,6 +472,52 @@ describe("a sale resumed from a held ticket", () => {
         expect(result.current.tipNote).toBe(
             strings.pos.desk.tipOnNoTax(formatMoney(1000, BUSINESS_CURRENCY)),
         );
+    });
+
+    it("shows the crew's split once the crew is read, trying again when the tip changes", async () => {
+        const crew = { lead_id: "st_diego", members: [{ staff_id: "st_priya", name: null }] };
+        let reads = 0;
+        const api: ApiLike = {
+            ...saleApi(null),
+            get: <T>() => {
+                reads += 1;
+                return reads === 1
+                    ? Promise.reject(new Error("offline"))
+                    : Promise.resolve(crew as T);
+            },
+        };
+        const { result } = renderHook(() => useSale(api, { platform: "web" }), { wrapper });
+        act(() => {
+            result.current.resume({ ...held, lines: [crewVisit] }, []);
+        });
+        await waitFor(() => {
+            expect(reads).toBe(1);
+        });
+        act(() => {
+            result.current.setTip({ kind: "custom", cents: 1001 });
+        });
+        expect(result.current.tipShares).toEqual([]);
+        await waitFor(() => {
+            expect(result.current.tipShares.map((s) => [s.staffId, s.cents])).toEqual([
+                ["st_diego", 501],
+                ["st_priya", 500],
+            ]);
+        });
+        expect(result.current.tipSplitNote).toBeNull();
+    });
+
+    it("says the split comes at the charge while a visit's crew can't be read", async () => {
+        const api: ApiLike = { ...saleApi(null), get: () => Promise.reject(new Error("offline")) };
+        const { result } = renderHook(() => useSale(api, { platform: "web" }), { wrapper });
+        act(() => {
+            result.current.resume({ ...held, lines: [crewVisit] }, []);
+            result.current.setTip({ kind: "custom", cents: 500 });
+        });
+        await act(async () => {
+            await Promise.resolve();
+        });
+        expect(result.current.tipShares).toEqual([]);
+        expect(result.current.tipSplitNote).toBe(strings.pos.desk.tipSplitAtCharge);
     });
 });
 

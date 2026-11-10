@@ -6684,7 +6684,7 @@ export interface components {
             visits_per_period?: number | null;
             /**
              * Member Discount Bps
-             * @description Memberships only: members' retail discount
+             * @description Memberships only: members' retail discount, a whole percent in basis points
              */
             member_discount_bps?: number | null;
             /**

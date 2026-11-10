@@ -3156,6 +3156,19 @@ interface CrewRead {
 const crewRead = (api: ApiLike, bookingId: string) => (): Promise<CrewRead | null> =>
     bookingId === "" ? Promise.resolve(null) : api.get<CrewRead>(`/v1/bookings/${bookingId}/crew`);
 
+export interface VisitCrew {
+    leadId: string | null;
+    helperIds: string[];
+}
+
+/** Who works a visit, helpers in the order they were added, as the server splits its tip. */
+export async function visitCrew(api: ApiLike, bookingId: string): Promise<VisitCrew | null> {
+    const crew = await crewRead(api, bookingId)();
+    return crew === null
+        ? null
+        : { leadId: crew.lead_id, helperIds: crew.members.map((m) => m.staff_id) };
+}
+
 export interface BookingCrew {
     shown: boolean;
     members: { id: string; name: string }[];

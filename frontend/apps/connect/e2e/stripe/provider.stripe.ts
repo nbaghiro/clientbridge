@@ -1,11 +1,16 @@
-import { strings } from "@clientbridge/app-core/public";
+import { randomUUID } from "node:crypto";
+import { formatMoney, formatMoneyWithCurrency, strings } from "@clientbridge/app-core/public";
+import { demoPerson } from "@clientbridge/config/e2e/demo";
 import { expect, test } from "@playwright/test";
 import {
+    cardFrame,
     checkoutDiagnostics,
     enterStripeCard,
     openStripeInvoice,
     openRegisteredStripeInvoice,
+    registerStripeInvoice,
     settledStripeInvoice,
+    stripeReady,
     stripeChallenge,
     stripeEvidence,
     submitStripeCard,
@@ -19,9 +24,11 @@ import {
     stripeReceipt,
     stripeReceiptEvidence,
 } from "./support/bridge";
-import { documentApi } from "../support/documents";
+import { documentApi, documentProvider } from "../support/documents";
+import { on } from "../support/hosts";
+import { freshPhone } from "../../../web/e2e/support/auth";
 import { receiptMessages } from "../../../web/e2e/support/evidence";
-import { runPort } from "@clientbridge/config/e2e/run";
+import { demoId, runPort } from "@clientbridge/config/e2e/run";
 
 const authenticatedCard = "4000000000003220";
 
@@ -357,4 +364,80 @@ test("STRIPE-BROWSER-06 held genuine settlement leaves durable invoice unpaid un
         await replicaContext.close();
         await ownerContext.close();
     }
+});
+
+test("STR-E20 a pay link tip settles in one charge, stays shown at the card and reaches the receipt and its member", async ({
+    page,
+    request,
+}, info) => {
+    const pp = strings.publicPay;
+    await stripeReady();
+    const provider = await documentProvider(request);
+    const headers = () => ({ ...provider.headers, "Idempotency-Key": randomUUID() });
+    const phone = freshPhone();
+    const client = await request.post(`${documentApi}/v1/clients`, {
+        headers: headers(),
+        data: { name: demoPerson(randomUUID()), phone },
+    });
+    expect(client.status(), await client.text()).toBe(201);
+    const created = await request.post(`${documentApi}/v1/invoices`, {
+        headers: headers(),
+        data: {
+            client_id: ((await client.json()) as { id: string }).id,
+            send: true,
+            lines: [
+                {
+                    description: "Grooming consultation",
+                    quantity: 1,
+                    unit_amount_cents: 2000,
+                    tax_class: "exempt",
+                    staff_id: demoId("st_diego"),
+                },
+            ],
+        },
+    });
+    expect(created.status(), await created.text()).toBe(201);
+    const invoice = await registerStripeInvoice(
+        request,
+        (await created.json()) as { id: string; pay_token: string },
+    );
+    await page.goto(on("pay", `/i/${invoice.pay_token}`));
+    await page.getByRole("button").filter({ hasText: pp.tipCustom }).click();
+    await page.getByRole("textbox", { name: pp.tipAmount, exact: true }).fill("3.50");
+    const starting = page.waitForRequest(
+        (r) => r.method() === "POST" && r.url() === `${documentApi}/pay/${invoice.pay_token}/card`,
+    );
+    await page
+        .getByRole("button", {
+            name: pp.payWithTip(formatMoneyWithCurrency(2350, "CAD")),
+            exact: true,
+        })
+        .click();
+    expect((await starting).postDataJSON()).toMatchObject({ tip_cents: 350 });
+    const payment = await cardFrame(page);
+    // the card step still says what the tip adds to the balance
+    const tip = page.locator("p").filter({ hasText: pp.tipRow });
+    await expect(tip).toContainText(formatMoney(350, "CAD"));
+    await enterStripeCard(payment, "4242424242424242");
+    await submitStripeCard(page, info, 2350);
+    const settled = await settledStripeInvoice(page, request, invoice, info, undefined, {
+        amountCents: 2350,
+        tipCents: 350,
+    });
+    expect(settled.stripe).toHaveLength(1);
+    expect(settled.entries).toContainEqual(
+        expect.objectContaining({
+            category: "payable",
+            owner_type: "staff",
+            owner_id: demoId("st_diego"),
+            amount_cents: -350,
+        }),
+    );
+    await expect(async () => {
+        const [receipt, ...more] = await receiptMessages(page.request, phone);
+        expect(more).toEqual([]);
+        // the text's snippet folds its column spacing to single spaces
+        expect(receipt?.Snippet).toContain(`${pp.tipRow} ${formatMoney(350, "CAD")}`);
+        expect(receipt?.Snippet).toContain(`Total ${formatMoney(2350, "CAD")}`);
+    }).toPass({ timeout: 60_000 });
 });

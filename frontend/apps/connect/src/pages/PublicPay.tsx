@@ -245,15 +245,15 @@ export function PublicPay() {
                                             />
                                         ) : null}
                                         <p className="text-xs text-muted">{form.tip.note}</p>
-                                        {form.tip.cents > 0 ? (
-                                            <p className="flex justify-between text-sm text-ink">
-                                                <span>{pp.tipRow}</span>
-                                                <span className="tabular-nums">
-                                                    {formatMoney(form.tip.cents, invoice.currency)}
-                                                </span>
-                                            </p>
-                                        ) : null}
                                     </section>
+                                ) : null}
+                                {form.tip.cents > 0 ? (
+                                    <p className="flex justify-between text-sm text-ink">
+                                        <span>{pp.tipRow}</span>
+                                        <span className="tabular-nums">
+                                            {formatMoney(form.tip.cents, invoice.currency)}
+                                        </span>
+                                    </p>
                                 ) : null}
                                 {form.card ? (
                                     <CardForm
