@@ -135,6 +135,7 @@ describe("useCheckout", () => {
             });
             await waitFor(() => {
                 expect(result.current.clientSecret).toBe("pi_1_secret");
+                expect(result.current.busy).toBe(false);
             });
         };
         await open();

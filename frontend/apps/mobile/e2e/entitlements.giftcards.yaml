@@ -81,8 +81,9 @@ name: NATIVE-ENT-02 A cash gift card sold on the phone texts its code to the rec
 
 - tapOn: ${output.name}
 - scrollUntilVisible:
-      element: ${output.code}
+      element: "To \\(250\\) .*"
       direction: DOWN
+      centerElement: true
+- assertVisible: ${output.code}
 - assertVisible: "Spent"
-- assertVisible: "To \\(250\\) .*"
 - takeScreenshot: native-gift-card-spent
