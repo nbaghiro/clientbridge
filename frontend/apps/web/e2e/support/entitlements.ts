@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { strings } from "@clientbridge/app-core/public";
+import { formatMoney, strings } from "@clientbridge/app-core/public";
 import { expect, type Locator, type Page } from "@playwright/test";
 import { createClient, type ClientFixture } from "./clients";
 import { select } from "./db";
@@ -98,8 +98,36 @@ export async function sellEntitlement(
     client: ClientFixture,
     kind: "gift_card" | "package",
     itemId: string | null,
-    subjectId?: string,
+    options: SaleOptions = {},
 ): Promise<void> {
+    const dialog = await fillSale(page, client, kind, itemId, options);
+    const responsePromise = page.waitForResponse(
+        (r) =>
+            r.url().endsWith(kind === "gift_card" ? "/v1/gift-cards" : "/v1/packages") &&
+            r.request().method() === "POST",
+    );
+    await dialog
+        .getByRole("button", {
+            name: w.record(
+                formatMoney(kind === "gift_card" ? (options.giftCents ?? 5000) : 6001, "CAD"),
+            ),
+            exact: true,
+        })
+        .click();
+    const response = await responsePromise;
+    expect(response.status(), await response.text()).toBe(201);
+    await expect(dialog.getByText(w.doneTitle, { exact: true })).toBeVisible();
+    await dialog.getByRole("button", { name: strings.common.close, exact: true }).click();
+}
+
+/** The sell sheet filled up to how the client pays; cash is chosen until a test picks another. */
+export async function fillSale(
+    page: Page,
+    client: ClientFixture,
+    kind: "gift_card" | "package",
+    itemId: string | null,
+    { subjectId, giftCents = 5000, recipient }: SaleOptions = {},
+): Promise<Locator> {
     await navigate(page, "/payments/gift-cards");
     await page.getByRole("button", { name: w.sellNew, exact: true }).click();
     const dialog = page.getByRole("dialog");
@@ -107,9 +135,13 @@ export async function sellEntitlement(
         .getByRole("group", { name: w.chooseKind, exact: true })
         .getByRole("button", { name: w.kindNoun[kind], exact: true })
         .click();
-    if (kind === "gift_card")
-        await dialog.getByRole("textbox", { name: w.giftAmount, exact: true }).fill("50");
-    else
+    if (kind === "gift_card") {
+        await dialog
+            .getByRole("textbox", { name: w.giftAmount, exact: true })
+            .fill(String(giftCents / 100));
+        if (recipient !== undefined)
+            await dialog.getByRole("textbox", { name: w.recipient }).fill(recipient);
+    } else
         await dialog
             .getByRole("group", { name: w.chooseItem, exact: true })
             .locator(`button[data-value="${itemId ?? ""}"]`)
@@ -128,21 +160,7 @@ export async function sellEntitlement(
         );
         await subjects.locator(`button[data-value="${subjectId}"]`).click();
     }
-    const responsePromise = page.waitForResponse(
-        (r) =>
-            r.url().endsWith(kind === "gift_card" ? "/v1/gift-cards" : "/v1/packages") &&
-            r.request().method() === "POST",
-    );
-    await dialog
-        .getByRole("button", {
-            name: w.record(kind === "gift_card" ? "$50.00" : "$60.01"),
-            exact: true,
-        })
-        .click();
-    const response = await responsePromise;
-    expect(response.status(), await response.text()).toBe(201);
-    await expect(dialog.getByText(w.doneTitle, { exact: true })).toBeVisible();
-    await dialog.getByRole("button", { name: strings.common.close, exact: true }).click();
+    return dialog;
 }
 export async function openEntitlement(
     page: Page,
@@ -154,28 +172,64 @@ export async function openEntitlement(
     await page.locator(`button[data-row-key="${entitlementId}"]`).click({ timeout: 60_000 });
     await expect(page.getByRole("dialog")).toBeVisible({ timeout: 60_000 });
 }
-export async function redeemGift(
-    page: Page,
-    code: string,
-    amount: string,
-    status = 200,
-): Promise<void> {
+interface SaleOptions {
+    subjectId?: string;
+    giftCents?: number;
+    recipient?: string | undefined;
+}
+
+/** What a redemption should end in: the card's balance after it, or the refusal the desk reads. */
+export type RedeemOutcome = { leftCents: number } | { status: number; refused: string };
+
+/** Fills the desk's redeem dialog without pressing Redeem, for a test that times the press. */
+export async function fillRedeem(page: Page, code: string, cents: number): Promise<Locator> {
     await navigate(page, "/payments/gift-cards");
     await page.getByRole("button", { name: w.redeemGift, exact: true }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByRole("textbox", { name: w.giftCards.code, exact: true }).fill(code);
-    await dialog.getByRole("textbox", { name: w.giftCards.balance, exact: true }).fill(amount);
+    await dialog
+        .getByRole("textbox", { name: w.giftCards.amount, exact: true })
+        .fill(String(cents / 100));
+    return dialog;
+}
+
+export async function expectRedeemed(
+    dialog: Locator,
+    code: string,
+    cents: number,
+    outcome: RedeemOutcome,
+): Promise<void> {
+    if ("leftCents" in outcome) {
+        const done = w.giftCards.redeemed(
+            formatMoney(cents, "CAD"),
+            code,
+            formatMoney(outcome.leftCents, "CAD"),
+        );
+        await expect(dialog.getByText(done, { exact: true })).toBeVisible();
+        await dialog.getByRole("button", { name: strings.common.close, exact: true }).click();
+    } else {
+        await expect(dialog.getByText(outcome.refused, { exact: true })).toBeVisible();
+        await dialog.getByRole("button", { name: strings.common.cancel, exact: true }).click();
+    }
+    await expect(dialog).toBeHidden();
+}
+
+export async function redeemGift(
+    page: Page,
+    code: string,
+    cents: number,
+    outcome: RedeemOutcome,
+): Promise<void> {
+    const dialog = await fillRedeem(page, code, cents);
     const pending = page.waitForResponse(
         (r) => r.url().endsWith("/v1/gift-cards/redeem") && r.request().method() === "POST",
     );
     await dialog.getByRole("button", { name: w.giftCards.redeem, exact: true }).click();
     const response = await pending;
-    expect(response.status(), await response.text()).toBe(status);
-    if (status !== 200) {
-        await expect(dialog.getByText(w.giftCards.redeemError, { exact: true })).toBeVisible();
-        await dialog.getByRole("button", { name: strings.common.cancel, exact: true }).click();
-    }
-    await expect(dialog).toBeHidden();
+    expect(response.status(), await response.text()).toBe(
+        "leftCents" in outcome ? 200 : outcome.status,
+    );
+    await expectRedeemed(dialog, code, cents, outcome);
 }
 export function expectEntitlementLedger(
     evidence: EntitlementEvidence,

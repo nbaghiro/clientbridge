@@ -294,6 +294,21 @@
     "api.planNotManaged": {
         "message": "This business has no plan to change."
     },
+    "api.giftCardNotFound": {
+        "message": "No gift card has that code. Check it and try again."
+    },
+    "api.giftCardUnusable": {
+        "message": "{status, select, redeemed {This gift card has been spent.} pending {This gift card can be used once its payment goes through.} expired {This gift card has expired.} void {This gift card was canceled and can't be used.} other {This gift card can't be used.}}",
+        "description": "Why a gift card was refused at the desk; status is the card's state",
+        "args": ["status"]
+    },
+    "api.giftCardShort": {
+        "message": "This gift card has only {balance} left.",
+        "args": ["balance"]
+    },
+    "api.invalidPhone": {
+        "message": "That phone number doesn't look right."
+    },
     "api.skuTaken": {
         "message": "Another item already uses that SKU. Choose a different one."
     },
@@ -2909,8 +2924,9 @@
         "description": "kind is what the business books besides the client"
     },
     "entitlements.forRecipient": {
-        "message": "For {name}",
-        "args": ["name"]
+        "message": "To {phone}",
+        "description": "Who a gift card is for: the mobile number its code is texted to",
+        "args": ["phone"]
     },
     "entitlements.statusLabel.active": {
         "message": "Active"
@@ -3003,6 +3019,10 @@
     "entitlements.event.dispute": {
         "message": "Disputed"
     },
+    "entitlements.event.reversal": {
+        "message": "Returned",
+        "description": "A sale's spend put back on the gift card or package, after the sale was voided or refunded"
+    },
     "entitlements.review.useTitle": {
         "message": "Use one session from this package?"
     },
@@ -3051,10 +3071,10 @@
         "message": "Amount"
     },
     "entitlements.recipient": {
-        "message": "Recipient's name"
+        "message": "Recipient's mobile number"
     },
     "entitlements.recipientHint": {
-        "message": "Printed on the gift card message"
+        "message": "We text them the code once the card is paid."
     },
     "entitlements.client": {
         "message": "Client"
@@ -3104,6 +3124,9 @@
     "entitlements.errClient": {
         "message": "Choose a client."
     },
+    "entitlements.errRecipient": {
+        "message": "Enter the recipient's mobile number, or leave it blank."
+    },
     "entitlements.errAmount": {
         "message": "Enter a gift card amount from {min} to {max}.",
         "args": ["min", "max"]
@@ -3129,8 +3152,8 @@
     "entitlements.giftCards.codePlaceholder": {
         "message": "ABCD2345EFGH"
     },
-    "entitlements.giftCards.balance": {
-        "message": "Balance"
+    "entitlements.giftCards.amount": {
+        "message": "Amount to spend"
     },
     "entitlements.giftCards.redeemAmountPlaceholder": {
         "message": "25.00"
@@ -3143,6 +3166,10 @@
     },
     "entitlements.giftCards.redeemError": {
         "message": "Couldn't redeem this gift card. Please try again."
+    },
+    "entitlements.giftCards.redeemed": {
+        "message": "Spent {amount} from {code}. {balance} left.",
+        "args": ["amount", "code", "balance"]
     },
     "bookings.title": {
         "message": "Schedule"

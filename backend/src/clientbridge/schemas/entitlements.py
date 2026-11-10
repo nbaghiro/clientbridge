@@ -18,7 +18,10 @@ class GiftCardPurchase(Mirror):
 
     item_id: str | None = None
     amount_cents: GiftAmount | None = None
-    recipient: str | None = None
+    recipient: str | None = Field(
+        default=None,
+        description="The recipient's mobile number; the code is texted there once paid",
+    )
     purchaser_client_id: str | None = None
     payment_method_id: str | None = None
     cash: bool = Field(default=False, description="Paid in cash at the desk; recorded, not charged")

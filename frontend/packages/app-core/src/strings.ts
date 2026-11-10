@@ -105,6 +105,10 @@ interface Strings {
         readonly seatLimit: string;
         readonly planActive: string;
         readonly planNotManaged: string;
+        readonly giftCardNotFound: string;
+        readonly giftCardUnusable: (status: string) => string;
+        readonly giftCardShort: (balance: string) => string;
+        readonly invalidPhone: string;
         readonly skuTaken: string;
         readonly invoiceHasPayments: string;
         readonly businessUnavailable: string;
@@ -956,7 +960,7 @@ interface Strings {
         readonly forSubject: (subject: string, balance: string) => string;
         readonly subjectShared: (kind: string) => string;
         readonly subjectHint: (kind: string) => string;
-        readonly forRecipient: (name: string) => string;
+        readonly forRecipient: (phone: string) => string;
         readonly statusLabel: {
             readonly active: string;
             readonly pending: string;
@@ -990,6 +994,7 @@ interface Strings {
             readonly breakage: string;
             readonly refund: string;
             readonly dispute: string;
+            readonly reversal: string;
         } & Labels;
         readonly review: { readonly useTitle: string } & Labels;
         readonly action: {
@@ -1025,6 +1030,7 @@ interface Strings {
         readonly doneBody: (what: string, who: string) => string;
         readonly errItem: string;
         readonly errClient: string;
+        readonly errRecipient: string;
         readonly errAmount: (min: string, max: string) => string;
         readonly sellError: string;
         readonly loadError: string;
@@ -1034,12 +1040,13 @@ interface Strings {
             readonly redeeming: string;
             readonly code: string;
             readonly codePlaceholder: string;
-            readonly balance: string;
+            readonly amount: string;
             readonly redeemAmountPlaceholder: string;
             readonly enterCode: string;
             readonly enterRedeemAmount: string;
             readonly redeemError: string;
-        } & Labels;
+            readonly redeemed: (amount: string, code: string, balance: string) => string;
+        };
     };
     readonly bookings: {
         readonly title: string;

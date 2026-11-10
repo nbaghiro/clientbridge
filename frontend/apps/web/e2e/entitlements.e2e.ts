@@ -4,16 +4,20 @@ import {
     dateKey,
     formatMoney,
     formatParts,
+    formatPhone,
     formatTime,
     strings,
 } from "@clientbridge/app-core/public";
 import { expect, type Locator, test } from "@playwright/test";
 import { addPet } from "./support/clients";
 import { select } from "./support/db";
+import { freshPhone, textsTo } from "./support/auth";
 import {
     entitlementEvidence,
     entitlementFixture,
     expectEntitlementLedger,
+    expectRedeemed,
+    fillRedeem,
     openEntitlement,
     openPlanEditor,
     redeemGift,
@@ -22,35 +26,50 @@ import {
 import { joinHoursStaff } from "./support/hours";
 import { navigate, signIn } from "./support/session";
 import { apiCall, visitEvidence } from "./support/visit";
-import { runUrl } from "@clientbridge/config/e2e/run";
+import { runEmail, runUrl } from "@clientbridge/config/e2e/run";
 
 const w = strings.entitlements;
 
-test("ENT-E2E-01 cash gift card partial redemption rejects overspend and exhausts exactly", async ({
+test("ENT-E2E-01 a cash gift card sold to a recipient is texted, spent in part, refuses an overspend in words and is spent exactly", async ({
     page,
     browser,
 }, testInfo) => {
     await signIn(page);
     const fixture = await entitlementFixture(page, "gift_card");
-    await sellEntitlement(page, fixture.client, "gift_card", fixture.itemId);
+    const recipient = freshPhone();
+    await sellEntitlement(page, fixture.client, "gift_card", fixture.itemId, {
+        giftCents: 10000,
+        recipient: formatPhone(recipient),
+    });
     const issued = await entitlementEvidence(fixture.client.id);
     expect(issued.packages).toEqual([]);
     expect(issued.gifts).toEqual([
         {
             id: expect.any(String),
             code: expect.any(String),
-            initial_cents: 5000,
+            initial_cents: 10000,
             status: "active",
             payment_id: issued.payments[0]?.id,
         },
     ]);
-    expectEntitlementLedger(issued, 5000, "gift_card", []);
+    expectEntitlementLedger(issued, 10000, "gift_card", []);
     const gift = issued.gifts[0];
     if (gift === undefined) throw new Error("Issued gift missing");
-    await redeemGift(page, gift.code, "20");
+    expect(await select`SELECT recipient FROM gift_cards WHERE id = ${gift.id}`).toEqual([
+        { recipient },
+    ]);
+    await expect
+        .poll(async () => (await textsTo(page.request, recipient)).map((t) => t.Snippet), {
+            timeout: 60_000,
+        })
+        .toEqual([expect.stringContaining(gift.code)]);
+    await redeemGift(page, gift.code, 4000, { leftCents: 6000 });
     const partial = await entitlementEvidence(fixture.client.id);
-    expectEntitlementLedger(partial, 5000, "gift_card", [2000]);
-    await redeemGift(page, gift.code, "30.01", 409);
+    expectEntitlementLedger(partial, 10000, "gift_card", [4000]);
+    await redeemGift(page, gift.code, 7000, {
+        status: 409,
+        refused: strings.api.giftCardShort(formatMoney(6000, "CAD")),
+    });
     expect(await entitlementEvidence(fixture.client.id)).toEqual(partial);
     const observer = await browser.newContext({
         baseURL: new URL(page.url()).origin,
@@ -60,20 +79,24 @@ test("ENT-E2E-01 cash gift card partial redemption rejects overspend and exhaust
         const other = await observer.newPage();
         await signIn(other);
         await openEntitlement(other, fixture.client.name, gift.id);
-        await expect(other.getByRole("dialog")).toContainText("$30.00", { timeout: 60_000 });
+        await expect(other.getByRole("dialog")).toContainText("$60.00", { timeout: 60_000 });
         await expect(other.getByRole("dialog")).toContainText(gift.code);
+        await expect(other.getByRole("dialog")).toContainText(formatPhone(recipient));
         await other.reload();
         await openEntitlement(other, fixture.client.name, gift.id);
-        await expect(other.getByRole("dialog")).toContainText("$30.00", { timeout: 60_000 });
-        await redeemGift(page, gift.code, "30");
+        await expect(other.getByRole("dialog")).toContainText("$60.00", { timeout: 60_000 });
+        await redeemGift(page, gift.code, 6000, { leftCents: 0 });
         await expect(other.getByRole("dialog")).toContainText(w.statusLabel.redeemed, {
             timeout: 60_000,
         });
         const exhausted = await entitlementEvidence(fixture.client.id);
         // Stored status remains active; zero liability projects as redeemed.
         expect(exhausted.gifts).toEqual(issued.gifts);
-        expectEntitlementLedger(exhausted, 5000, "gift_card", [2000, 3000]);
-        await redeemGift(page, gift.code, "0.01", 409);
+        expectEntitlementLedger(exhausted, 10000, "gift_card", [4000, 6000]);
+        await redeemGift(page, gift.code, 1, {
+            status: 409,
+            refused: strings.api.giftCardUnusable("redeemed"),
+        });
         expect(await entitlementEvidence(fixture.client.id)).toEqual(exhausted);
         await page.reload();
         await openEntitlement(page, fixture.client.name, gift.id);
@@ -210,7 +233,9 @@ test("ENT-E2E-03 a package for one pet covers that pet's visit at the desk and i
         const fixture = await entitlementFixture(page, "package");
         const biscuit = await addPet(page, fixture.client, "Biscuit");
         const juniper = await addPet(page, fixture.client, "Juniper");
-        await sellEntitlement(page, fixture.client, "package", fixture.itemId, biscuit);
+        await sellEntitlement(page, fixture.client, "package", fixture.itemId, {
+            subjectId: biscuit,
+        });
         const sold = await visitEvidence([fixture.client.id]);
         expect(sold.packages).toEqual([
             {
@@ -535,5 +560,61 @@ test("ENT-E2E-04 a package, a membership and a gift card are set up in the item 
     } finally {
         for (const id of archive)
             await apiCall(page, "PATCH", `/v1/items/${id}`, { active: false }, 200);
+    }
+});
+
+test("ENT-E2E-06 two desks spending a gift card's last balance at once settle it once", async ({
+    page,
+    browser,
+}, testInfo) => {
+    await signIn(page);
+    const fixture = await entitlementFixture(page, "gift_card");
+    await sellEntitlement(page, fixture.client, "gift_card", fixture.itemId);
+    const gift = (await entitlementEvidence(fixture.client.id)).gifts[0];
+    if (gift === undefined) throw new Error("Issued gift missing");
+    await redeemGift(page, gift.code, 2000, { leftCents: 3000 });
+    const second = await browser.newContext({
+        baseURL: new URL(page.url()).origin,
+        viewport: { width: 1440, height: 900 },
+    });
+    try {
+        const desk = await second.newPage();
+        await signIn(desk, { email: runEmail("admin@birchbark.example"), password: "demo1234" });
+        const dialogs = [
+            await fillRedeem(page, gift.code, 3000),
+            await fillRedeem(desk, gift.code, 3000),
+        ];
+        const answers = [page, desk].map((p) =>
+            p.waitForResponse(
+                (r) => r.url().endsWith("/v1/gift-cards/redeem") && r.request().method() === "POST",
+            ),
+        );
+        await Promise.all(
+            dialogs.map((d) =>
+                d.getByRole("button", { name: w.giftCards.redeem, exact: true }).click(),
+            ),
+        );
+        const statuses = await Promise.all(answers.map(async (a) => (await a).status()));
+        expect([...statuses].sort()).toEqual([200, 409]);
+        await Promise.all(
+            dialogs.map((d, i) =>
+                expectRedeemed(
+                    d,
+                    gift.code,
+                    3000,
+                    statuses[i] === 200
+                        ? { leftCents: 0 }
+                        : { status: 409, refused: strings.api.giftCardUnusable("redeemed") },
+                ),
+            ),
+        );
+        const settled = await entitlementEvidence(fixture.client.id);
+        expectEntitlementLedger(settled, 5000, "gift_card", [2000, 3000]);
+        await testInfo.attach("last-balance-race", {
+            body: JSON.stringify({ statuses, settled }),
+            contentType: "application/json",
+        });
+    } finally {
+        await second.close();
     }
 });
