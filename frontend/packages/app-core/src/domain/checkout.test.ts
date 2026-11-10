@@ -122,6 +122,36 @@ describe("useCheckout", () => {
         expect(keys[1]).not.toBe(keys[0]);
         expect(keys[2]).toBe(keys[1]);
     });
+
+    it("hands back a card charge the desk walks away from, once, but not one that was paid", async () => {
+        const abandoned: string[] = [];
+        const opened = { payment_id: "pay_1", client_secret: "pi_1_secret" };
+        const { result, unmount } = renderHook(() =>
+            useCheckout(() => undefined, { onAbandon: (charge) => abandoned.push(charge) }),
+        );
+        const open = async (): Promise<void> => {
+            act(() => {
+                result.current.pay(() => Promise.resolve(opened), "retry", { amount: 500 });
+            });
+            await waitFor(() => {
+                expect(result.current.clientSecret).toBe("pi_1_secret");
+            });
+        };
+        await open();
+        act(() => {
+            result.current.cancel();
+        });
+        expect(abandoned).toEqual(["pay_1"]);
+        expect(result.current.clientSecret).toBeNull();
+        await open();
+        act(() => {
+            result.current.complete();
+        });
+        await open();
+        unmount();
+        // the paid one is never handed back; closing mid-card is walking away
+        expect(abandoned).toEqual(["pay_1", "pay_1"]);
+    });
 });
 
 describe("useAddPaymentMethod bank links", () => {

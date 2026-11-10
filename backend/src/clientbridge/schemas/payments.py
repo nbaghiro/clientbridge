@@ -125,6 +125,13 @@ class RefundOut(Mirror):
     credit_note: str | None = None
 
 
+class PaymentCancelOut(Mirror):
+    mirrors = Payment
+
+    id: str
+    status: PaymentStatus
+
+
 class RefundPart(BaseModel):
     category: str = Field(description="revenue, tax, deposit, deferred or gift_card")
     code: str = Field(description="The tax code for a tax part, else empty")

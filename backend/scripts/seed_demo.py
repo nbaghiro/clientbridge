@@ -1052,7 +1052,7 @@ def seed_catalog_instances() -> None:
             item_id="it_gift",
             initial_cents=10000,
             purchaser_client_id="cl_liam",
-            recipient="For Mum — happy birthday!",
+            recipient="+12505550171",
             expires_at=at(700, 12),
             status="active",
         )
@@ -1079,7 +1079,7 @@ def seed_lapsed_entitlements() -> None:
             item_id="it_gift",
             initial_cents=7500,
             purchaser_client_id="cl_ethan",
-            recipient="Happy birthday, Ethan",
+            recipient="+12505550172",
             expires_at=at(-35, 12),
             status="expired",
         )

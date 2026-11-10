@@ -1593,7 +1593,7 @@ class Brightwater(Demo):
         sunday = _mothers_day(self.local(self.now).date())
         bought = datetime.combine(sunday - timedelta(days=4), time(20, 15), self.ctx.zone)
         card = self.gift_card(
-            "mom", "jasmine", GIFT, 20000, bought.astimezone(UTC), recipient="Teresita Cruz"
+            "mom", "jasmine", GIFT, 20000, bought.astimezone(UTC), recipient="+14035550171"
         )
         self.visit("jasmine_spring", "jasmine", STANDARD, JOY, self.days_to(bought) - 30)
         day = self.days_to(bought) + 9
@@ -1617,7 +1617,7 @@ class Brightwater(Demo):
             GIFT,
             15000,
             self.at(-26, 18),
-            recipient="Ama Mensah",
+            recipient="+14035550172",
         )
 
     def days_to(self, when: datetime) -> int:

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core import clock
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Order
+from clientbridge.models.catalog import GiftCard
 from clientbridge.models.payments import Payment
 from clientbridge.services import payments
 from clientbridge.services.payments import run_cancel_stale_intents
@@ -55,7 +56,7 @@ async def test_staff_opened_intents_a_day_old_are_canceled(
     card = ok(
         await as_owner.post(
             "/v1/gift-cards",
-            json={"purchaser_client_id": cid, "amount_cents": 5000, "recipient": "Dana"},
+            json={"purchaser_client_id": cid, "amount_cents": 5000, "recipient": "+15145550234"},
             headers=key(),
         ),
         201,
@@ -71,6 +72,55 @@ async def test_staff_opened_intents_a_day_old_are_canceled(
     assert await _status(db, fresh) == "pending"
     refs = await db.execute(select(Payment.provider_ref).where(Payment.id.in_((desk, card))))
     assert set(refs.scalars().all()) <= set(gateway.canceled_intents)
+    assert await _gift_card_status(db, card) == "void"
+
+
+async def _gift_card_status(db: AsyncSession, payment_id: str) -> str:
+    row = await db.execute(
+        select(GiftCard.status)
+        .where(GiftCard.payment_id == payment_id)
+        .execution_options(populate_existing=True)
+    )
+    return str(row.scalar_one())
+
+
+async def test_a_declined_desk_card_left_behind_is_canceled_and_its_gift_card_voided(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    cid = await client_id(db)
+    card = ok(
+        await as_owner.post(
+            "/v1/gift-cards", json={"purchaser_client_id": cid, "amount_cents": 5000}, headers=key()
+        ),
+        201,
+    ).json()["payment_id"]
+    await db.execute(update(Payment).where(Payment.id == card).values(status="failed"))
+    await _age(db, card, DAY + timedelta(minutes=1))
+
+    assert await run_cancel_stale_intents(db, gateway, clock.now()) >= 1
+
+    assert await _status(db, card) == "canceled"
+    assert await _gift_card_status(db, card) == "void"
+
+
+async def test_a_declined_desk_card_older_than_a_week_is_left_alone(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    cid = await client_id(db)
+    card = ok(
+        await as_owner.post(
+            "/v1/gift-cards", json={"purchaser_client_id": cid, "amount_cents": 5000}, headers=key()
+        ),
+        201,
+    ).json()["payment_id"]
+    await db.execute(update(Payment).where(Payment.id == card).values(status="failed"))
+    await _age(db, card, DAY * 8)
+
+    await run_cancel_stale_intents(db, gateway, clock.now())
+
+    assert await _status(db, card) == "failed"
 
 
 async def _pay_link_intent(db: AsyncSession, cid: str, *, method: str = "card") -> str:

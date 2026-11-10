@@ -316,7 +316,7 @@ function DetailActions({ detail }: { detail: EntitlementDetail }) {
 }
 
 function RedeemGiftCard({ onClose }: { onClose: () => void }) {
-    const form = useGiftCardRedeemForm(api, onClose);
+    const form = useGiftCardRedeemForm(api);
     return (
         <div className="space-y-4">
             <h2 className="font-display text-lg font-bold text-ink">{g.redeemTitle}</h2>
@@ -327,7 +327,7 @@ function RedeemGiftCard({ onClose }: { onClose: () => void }) {
                 placeholder={g.codePlaceholder}
             />
             <TextField
-                label={g.balance}
+                label={g.amount}
                 type="number"
                 {...currencyAffix(BUSINESS_CURRENCY)}
                 value={form.amount}
@@ -335,9 +335,10 @@ function RedeemGiftCard({ onClose }: { onClose: () => void }) {
                 placeholder={g.redeemAmountPlaceholder}
             />
             {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
+            {form.done !== null ? <Notice tone="success">{form.done}</Notice> : null}
             <div className="flex justify-end gap-2">
                 <Button variant="quiet" onPress={onClose}>
-                    {strings.common.cancel}
+                    {form.done !== null ? strings.common.close : strings.common.cancel}
                 </Button>
                 <Button busy={form.busy} onPress={form.submit}>
                     {form.busy ? g.redeeming : g.redeem}

@@ -1076,9 +1076,9 @@ class Notifier:
             await self._to_client(db, payment.client_id, notice)
 
     async def on_payment_failed(self, db: AsyncSession, payment_id: str) -> None:
-        """Tell the client a one-off charge failed."""
+        """Tell the client a one-off charge failed, unless they are at the desk to try again."""
         payment = await db.get(Payment, payment_id)
-        if payment is None:
+        if payment is None or await _taken_at_desk(db, payment):
             return
         business = await db.get(Business, payment.business_id)
         if business is None:
@@ -1622,6 +1622,16 @@ async def run_prune_devices(db: AsyncSession, now: datetime) -> int:
         await db.delete(device)
     await db.commit()
     return len(devices)
+
+
+async def _taken_at_desk(db: AsyncSession, payment: Payment) -> bool:
+    """A desk sale, or a gift card or package sold at the desk: the desk saw the decline itself."""
+    if payment.order_id is not None:
+        order = await db.get(Order, payment.order_id)
+        return order is not None and order.source == "pos"
+    from clientbridge.services import entitlements  # deferred: entitlements imports this module
+
+    return await entitlements.buys_entitlement(db, payment)
 
 
 def queued_notifier(db: AsyncSession, business_id: str | None, key: str) -> Notifier:

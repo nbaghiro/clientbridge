@@ -224,7 +224,7 @@ test("STR-E03 a lost dispute on a part-used gift card gives back only what it st
         ]);
         expectLedgerMatchesStripe(sold.entries, opened);
 
-        await redeemGift(owner, card.code, "8.00");
+        await redeemGift(owner, card.code, 800, { leftCents: 1200 });
         await expect.poll(async () => (await giftCard(client.id)).balance_cents).toBe(1200);
 
         const lost = await stripeDispute("lose", intentId);
