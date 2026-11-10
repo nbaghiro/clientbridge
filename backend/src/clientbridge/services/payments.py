@@ -83,6 +83,7 @@ from clientbridge.schemas.payments import (
     DetachResult,
     InvoicePaymentIn,
     InvoicePaymentOut,
+    PaymentCancelOut,
     PaymentMethodOut,
     PaymentSetupLinkOut,
     PaymentSetupLinkStatus,
@@ -805,6 +806,51 @@ class PaymentService:
             request={"payment_id": payment_id, "amount_cents": amount_cents, "reason": reason},
         )
 
+    async def cancel_purchase(self, payment_id: str, idempotency_key: str) -> PaymentCancelOut:
+        """Stop a desk card charge for a gift card or package before it is paid, voiding it."""
+        self._assert_admin()
+        business = await self._business()
+        payment = await self._payment(payment_id)
+
+        async def run(cmd: Command) -> PaymentCancelOut:
+            await self.db.execute(
+                scoped(Payment, self.biz)
+                .where(Payment.id == payment.id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+            if not await _buys_entitlement(self.db, payment):
+                raise Conflict("only a gift card or package sale is canceled here")
+            account_id = business.stripe_account_id
+            if (
+                payment.status not in ("pending", "failed")
+                or payment.provider_ref is None
+                or account_id is None
+            ):
+                raise Conflict("this payment can no longer be canceled", code="payment_settled")
+            try:
+                await self.gateway.cancel_payment_intent(
+                    account_id, payment_intent_id=payment.provider_ref
+                )
+            except Conflict as exc:
+                raise Conflict(
+                    "the card charge went through before it was canceled", code="payment_settled"
+                ) from exc
+            payment.status = "canceled"
+            await _release_entitlement(self.db, payment)
+            cmd.record("payment.cancel", entity_type="payment", entity_id=payment.id)
+            return PaymentCancelOut(id=payment.id, status=payment.status)
+
+        return await run_command(
+            self.db,
+            self.principal,
+            action="payment.cancel",
+            run=run,
+            response_model=PaymentCancelOut,
+            idempotency_key=idempotency_key,
+            request={"payment_id": payment_id},
+        )
+
     async def refund_preview(self, payment_id: str, amount_cents: int | None) -> RefundPreview:
         """What a refund would reverse, before it is issued, from the same ledger maths."""
         self._assert_admin()
@@ -1330,6 +1376,7 @@ async def _claim_order_room(
 
 _STALE_INTENT_AGE = timedelta(hours=24)
 _ABANDONED_INTENT_AGE = timedelta(hours=1)
+_DECLINED_INTENT_WINDOW = timedelta(days=7)
 _STALE_INTENT_BATCH = 200
 
 
@@ -1343,6 +1390,15 @@ async def run_cancel_stale_intents(db: AsyncSession, gateway: PaymentGateway, no
         desk_sale.exists() | gift_card.exists() | package.exists(),
         Payment.created_at <= now - _STALE_INTENT_AGE,
     )
+    # a declined desk card left behind is `failed` here while its intent still waits for a card
+    unfinished = or_(
+        Payment.status == "pending",
+        and_(
+            Payment.status == "failed",
+            staff_opened,
+            Payment.created_at > now - _DECLINED_INTENT_WINDOW,
+        ),
+    )
     # an abandoned pay link or deposit form would otherwise hold the invoice or visit forever
     client_opened = and_(
         Payment.method == "card",
@@ -1354,7 +1410,7 @@ async def run_cancel_stale_intents(db: AsyncSession, gateway: PaymentGateway, no
         .join(Business, Business.id == Payment.business_id)
         .where(
             Payment.provider == "stripe",
-            Payment.status == "pending",
+            unfinished,
             Payment.provider_ref.is_not(None),
             Business.stripe_account_id.is_not(None),
             or_(staff_opened, client_opened),
@@ -1377,6 +1433,7 @@ async def run_cancel_stale_intents(db: AsyncSession, gateway: PaymentGateway, no
             _log.exception("canceling stale intent %s failed", payment.provider_ref)
             continue
         payment.status = "canceled"
+        await _release_entitlement(db, payment)
         canceled += 1
     await db.commit()
     return canceled
@@ -2642,7 +2699,12 @@ async def _dispatch(
         failed = await _fail_payment(db, str(event.data.get("id")), account=event.account)
         return WebhookOutcome("payment_failed", failed) if failed is not None else None
     elif event.type == "payment_intent.canceled":
-        await _fail_payment(db, str(event.data.get("id")), status="canceled", account=event.account)
+        canceled = await _fail_payment(
+            db, str(event.data.get("id")), status="canceled", account=event.account
+        )
+        payment = await db.get(Payment, canceled) if canceled is not None else None
+        if payment is not None:
+            await _release_entitlement(db, payment)
     elif event.type in ("payout.created", "payout.paid"):
         await _record_payout(db, event.account, event.data, paid=event.type == "payout.paid")
     elif event.type in ("payout.failed", "payout.canceled"):
@@ -2994,6 +3056,20 @@ async def _reverse_entitlement(db: AsyncSession, payment: Payment) -> None:
     await entitlements.void_purchased_gift_card(db, payment.business_id, payment.id)
 
 
+async def _release_entitlement(db: AsyncSession, payment: Payment) -> None:
+    """Void the pending package/gift card a canceled purchase charge was opened for."""
+    # deferred: entitlements imports this module's builders, so a top-level import would cycle.
+    from clientbridge.services import entitlements
+
+    await entitlements.release_unpaid_purchase(db, payment.business_id, payment.id)
+
+
+async def _buys_entitlement(db: AsyncSession, payment: Payment) -> bool:
+    from clientbridge.services import entitlements  # deferred, as in _release_entitlement
+
+    return await entitlements.buys_entitlement(db, payment)
+
+
 async def _claw_back_package(db: AsyncSession, payment: Payment) -> None:
     if payment.invoice_id or payment.order_id or payment.booking_id:
         return
@@ -3253,8 +3329,11 @@ async def _fail_payment(
             )
         )
     ).scalar_one_or_none()
-    if payment is not None and payment.status == "pending":
-        payment.status = status  # a canceled intent frees the invoice's pending room to retry
+    # a canceled intent is final even after a decline, and frees the invoice's room to retry
+    if payment is not None and (
+        payment.status == "pending" or (status == "canceled" and payment.status == "failed")
+    ):
+        payment.status = status
         await db.flush()
         return payment.id
     return None

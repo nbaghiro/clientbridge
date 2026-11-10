@@ -33,6 +33,7 @@ name: NATIVE-SCH-02 A new client moves their requested visit twice from the mana
 - scrollUntilVisible:
       element: "Booking request, Wren Okafor asked for.*"
       direction: DOWN
+      centerElement: true
       timeout: 60000
 - tapOn: "Booking request, Wren Okafor asked for.*"
 - extendedWaitUntil:

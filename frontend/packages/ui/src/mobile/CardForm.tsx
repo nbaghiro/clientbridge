@@ -76,7 +76,8 @@ function ConfirmForm({
 }: NativeProps<CardFormProps>) {
     const { confirmPayment } = useConfirmPayment();
     const { confirmSetupIntent } = useConfirmSetupIntent();
-    const { busy, error, run } = useAsyncAction();
+    const { busy, error, setError, run } = useAsyncAction();
+    const failed = mode === "payment" ? strings.checkout.paymentFailed : strings.checkout.saveError;
     const [ready, setReady] = useState(false);
 
     const submit = (): void => {
@@ -98,16 +99,14 @@ function ConfirmForm({
                               paymentMethodType: "Card",
                               paymentMethodData,
                           });
-                if (result.error && !(mode === "payment" && (await alreadyPaid(clientSecret))))
-                    throw new Error(result.error.message);
+                // Stripe's own words for a decline, as the web card form shows them
+                if (result.error && !(mode === "payment" && (await alreadyPaid(clientSecret)))) {
+                    setError(result.error.localizedMessage ?? failed);
+                    return;
+                }
+                onDone();
             },
-            {
-                onSuccess: onDone,
-                errorMessage:
-                    mode === "payment"
-                        ? strings.checkout.paymentFailed
-                        : strings.checkout.saveError,
-            },
+            { errorMessage: failed },
         );
     };
 

@@ -58,7 +58,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 6. Invoice and get paid | Printed and shared documents | [CB-36](https://linear.app/clientbridgeca/issue/CB-36) | Manual |
 | 6. Invoice and get paid | Deposits applied to the bill | [CB-37](https://linear.app/clientbridgeca/issue/CB-37) | Partly automated |
 | 7. Gift cards, packages and memberships | Package, membership and gift card items | [CB-15](https://linear.app/clientbridgeca/issue/CB-15) | Automated |
-| 7. Gift cards, packages and memberships | Gift cards: sell and redeem | [CB-38](https://linear.app/clientbridgeca/issue/CB-38) | Partly automated |
+| 7. Gift cards, packages and memberships | Gift cards: sell and redeem | [CB-38](https://linear.app/clientbridgeca/issue/CB-38) | Automated |
 | 7. Gift cards, packages and memberships | Packages: sell, use and expire | [CB-39](https://linear.app/clientbridgeca/issue/CB-39) | Partly automated |
 | 7. Gift cards, packages and memberships | Memberships: renewals and failed payments | [CB-40](https://linear.app/clientbridgeca/issue/CB-40) | Partly automated |
 | 8. Refunds and the books | Refunds and credit notes | [CB-42](https://linear.app/clientbridgeca/issue/CB-42) | Automated |
@@ -1735,25 +1735,23 @@ The business sells gift cards, packages and memberships, and each is used, renew
 
 **QA steps**
 
-1. Sell a $100 gift card for cash to a recipient.
-   **Expect:** active with a code.
-2. Sell one by card.
-   **Expect:** active only after the payment settles.
+1. Sell a $100 gift card for cash to a recipient's mobile number.
+   **Expect:** active with a code, and the recipient gets the code by text.
+2. Sell one by card; first try a declined card, then a good one.
+   **Expect:** the decline is shown at the desk and the client gets no text; the card is active only after the payment settles. Canceling at the card step voids the card.
 3. Redeem $40, then try to spend $70.
-   **Expect:** $60 remains; overspend refused.
+   **Expect:** $60 remains; the overspend is refused in words that say only $60 is left.
 4. Spend the rest exactly.
-   **Expect:** balance $0 and exhausted.
+   **Expect:** balance $0 and spent; another spend is refused as spent.
 
 **Done when:** Every gift card balance matches what was sold and spent.
 
 **Automated by**
 
 * `ENT-E2E-01 (web)`
-
-**To automate**
-
-* `ENT-E2E-05` in `apps/connect/e2e/stripe/entitlements.stripe.ts`: Card gift card purchase pending to active, decline retry.
-* `ENT-E2E-06` in `apps/web/e2e/entitlements.e2e.ts`: Last balance race between two desks.
+* `ENT-E2E-05 (stripe)`
+* `ENT-E2E-06 (web)`
+* `NATIVE-ENT-02 (native-ios, native-android)`
 
 **Depends on:** Nothing
 

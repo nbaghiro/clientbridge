@@ -1,0 +1,89 @@
+appId: ${APP_ID}
+name: NATIVE-ENT-02 A cash gift card sold on the phone texts its code to the recipient, refuses an overspend in words and is spent exactly
+---
+- evalScript: ${output.tag = String(100000 + Math.floor(Math.random() * 900000))}
+- evalScript: ${output.name = "Aaron Giftgiver " + output.tag}
+- evalScript: ${output.recipient = "250" + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000))}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/clients
+          BODY: "${JSON.stringify({ name: output.name })}"
+- runFlow: helpers/owner.yaml
+- scrollUntilVisible:
+      element: "View payments"
+      direction: DOWN
+- tapOn: "View payments"
+- tapOn: "Gift cards"
+- tapOn: "Sell package, plan or gift card"
+- extendedWaitUntil:
+      visible: "What are you selling\\?"
+      timeout: 20000
+- tapOn:
+      text: "Gift card"
+      index: 0
+- tapOn: "\\$100"
+- runFlow:
+      file: helpers/type-field.yaml
+      env: { FIELD: "Recipient's mobile number.*", VALUE: "${output.recipient}" }
+- runFlow:
+      file: helpers/pick-client.yaml
+      env:
+          # a row without a photo reads its initials first
+          NAME: ".*${output.name}"
+- scrollUntilVisible:
+      element: "Record \\$100.00 cash"
+      direction: DOWN
+- takeScreenshot: native-gift-card-cash-sale
+- tapOn: "Record \\$100.00 cash"
+- extendedWaitUntil:
+      visible: "Sold\\..*\\$100.00 gift card is on ${output.name}'s account\\."
+      timeout: 30000
+- runFlow: helpers/close-sheet.yaml
+# the recipient's text carries the code the desk redeems below
+- runScript:
+      file: helpers/gift-code.js
+      env:
+          PHONE: ${output.recipient}
+
+- tapOn: "Redeem"
+- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Code", VALUE: "${output.code}" } }
+- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Amount to spend", VALUE: "40" } }
+- tapOn: "Redeem"
+- extendedWaitUntil:
+      visible: "Spent \\$40.00 from ${output.code}\\. \\$60.00 left\\."
+      timeout: 30000
+- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Code", VALUE: "${output.code}" } }
+- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Amount to spend", VALUE: "70" } }
+- tapOn: "Redeem"
+- extendedWaitUntil:
+      visible: "This gift card has only \\$60.00 left\\."
+      timeout: 30000
+- takeScreenshot: native-gift-card-overspend
+# a refusal keeps what was typed, so the amount is cleared before the exact spend
+- tapOn:
+      text: "Amount to spend"
+      index: 1
+- eraseText: 10
+- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Amount to spend", VALUE: "60" } }
+- tapOn: "Redeem"
+- extendedWaitUntil:
+      visible: "Spent \\$60.00 from ${output.code}\\. \\$0.00 left\\."
+      timeout: 30000
+- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Code", VALUE: "${output.code}" } }
+- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Amount to spend", VALUE: "0.01" } }
+- tapOn: "Redeem"
+- extendedWaitUntil:
+      visible: "This gift card has been spent\\."
+      timeout: 30000
+- tapOn: "Cancel"
+
+- tapOn: ${output.name}
+- scrollUntilVisible:
+      element: "To \\(250\\) .*"
+      direction: DOWN
+      centerElement: true
+- assertVisible: ${output.code}
+- assertVisible: "Spent"
+- takeScreenshot: native-gift-card-spent

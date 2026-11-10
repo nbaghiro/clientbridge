@@ -17,6 +17,7 @@ from clientbridge.schemas.payments import (
     ConnectSessionOut,
     ConnectStatus,
     DetachResult,
+    PaymentCancelOut,
     PaymentMethodOut,
     PaymentSetupLinkIn,
     PaymentSetupLinkOut,
@@ -169,6 +170,17 @@ async def refund_payment(
     )
     await send_queued(db, email, sms, push, jobs)
     return out
+
+
+@payments_router.post("/{payment_id}/cancel", response_model=PaymentCancelOut)
+async def cancel_payment(
+    payment_id: str,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=8)],
+) -> PaymentCancelOut:
+    return await PaymentService(db, principal, gateway).cancel_purchase(payment_id, idempotency_key)
 
 
 @payments_router.get("/{payment_id}/refund-preview", response_model=RefundPreview)

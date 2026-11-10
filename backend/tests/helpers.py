@@ -22,6 +22,7 @@ from clientbridge.core.db import engine
 from clientbridge.core.ids import new_id
 from clientbridge.core.phones import e164
 from clientbridge.integrations.resend import resend_signature
+from clientbridge.integrations.stripe import MandateState
 from clientbridge.integrations.twilio import twilio_signature
 from clientbridge.models.billing import Invoice, Order
 from clientbridge.models.business import Business
@@ -29,7 +30,7 @@ from clientbridge.models.catalog import GiftCard, Package
 from clientbridge.models.clients import Client
 from clientbridge.models.ledger import Entry
 from clientbridge.models.messaging import Delivery, Message, Thread
-from clientbridge.models.payments import Payment
+from clientbridge.models.payments import Payment, PaymentMethod, PaymentSetupLink
 from clientbridge.models.platform import Audit, Webhook
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.schemas.billing import InvoiceOut
@@ -45,7 +46,7 @@ from clientbridge.services.earnings import load_earning
 from clientbridge.services.lines import fetch_lines
 from clientbridge.services.messaging import open_thread, unread_count
 from clientbridge.services.orders import order_out as _order_out
-from tests.conftest import BIZ, RESEND_SECRET, book_invoice
+from tests.conftest import BIZ, RESEND_SECRET, FakePaymentGateway, book_invoice
 
 SLUG = "birchbark"
 STRIPE = {"Stripe-Signature": "good"}
@@ -164,6 +165,37 @@ async def enable_payments(db: AsyncSession, account: str | None = "acct_test") -
         .values(stripe_account_id=account, stripe_charges_enabled=account is not None)
     )
     await db.flush()
+
+
+async def saved_method(
+    db: AsyncSession, gateway: FakePaymentGateway, cid: str, ref: str, method: str
+) -> str:
+    """A client's chargeable saved card or bank account; a bank one gets its active PAD mandate."""
+    if method == "bank_eft":
+        db.add(
+            PaymentSetupLink(
+                id=new_id("payment_setup_link"),
+                business_id=BIZ,
+                client_id=cid,
+                account_id="acct_test",
+                customer_id="cus_pad",
+                token_hash=new_id("payment_setup_link"),
+                expires_at=clock.now(),
+                mandate_ref=f"mandate_{ref}",
+            )
+        )
+        gateway.mandates[f"mandate_{ref}"] = MandateState(f"mandate_{ref}", "active", ref)
+    pm = PaymentMethod(
+        id=new_id("payment_method"),
+        business_id=BIZ,
+        client_id=cid,
+        method=method,
+        provider_ref=ref,
+        mandate_status="active" if method == "bank_eft" else "none",
+    )
+    db.add(pm)
+    await db.flush()
+    return pm.id
 
 
 async def client_id(

@@ -269,6 +269,18 @@
     "api.planNotManaged": {
         "message": "[Ţĥîš ƀûšîñéšš ĥåš ñö þļåñ ţö çĥåñĝé. one two three]"
     },
+    "api.giftCardNotFound": {
+        "message": "[Ñö ĝîƒţ çåŕð ĥåš ţĥåţ çöðé. Çĥéçķ îţ åñð ţŕý åĝåîñ. one two three four]"
+    },
+    "api.giftCardUnusable": {
+        "message": "[{status,select,expired{Ţĥîš ĝîƒţ çåŕð ĥåš éẋþîŕéð.} other{Ţĥîš ĝîƒţ çåŕð çåñ'ţ ƀé ûšéð.} pending{Ţĥîš ĝîƒţ çåŕð çåñ ƀé ûšéð öñçé îţš þåýɱéñţ ĝöéš ţĥŕöûĝĥ.} redeemed{Ţĥîš ĝîƒţ çåŕð ĥåš ƀééñ šþéñţ.} void{Ţĥîš ĝîƒţ çåŕð ŵåš çåñçéļéð åñð çåñ'ţ ƀé ûšéð.}} one two three four five six seven eight nine ten one two]"
+    },
+    "api.giftCardShort": {
+        "message": "[Ţĥîš ĝîƒţ çåŕð ĥåš öñļý {balance} ļéƒţ. one two three]"
+    },
+    "api.invalidPhone": {
+        "message": "[Ţĥåţ þĥöñé ñûɱƀéŕ ðöéšñ'ţ ļööķ ŕîĝĥţ. one two three]"
+    },
     "api.skuTaken": {
         "message": "[Åñöţĥéŕ îţéɱ åļŕéåðý ûšéš ţĥåţ ŠĶÛ. Çĥööšé å ðîƒƒéŕéñţ öñé. one two three four]"
     },
@@ -2664,7 +2676,7 @@
         "message": "[{kind,select,other{Å šĥåŕéð þåçķåĝé çöṽéŕš åñý ṽîšîţ.} pet{Å þåçķåĝé ƒöŕ öñé þéţ çöṽéŕš öñļý ţĥåţ þéţ'š ṽîšîţš. Å šĥåŕéð öñé çöṽéŕš åñý öƒ ţĥéɱ.} property{Å þåçķåĝé ƒöŕ öñé þŕöþéŕţý çöṽéŕš öñļý ṽîšîţš ţĥéŕé. Å šĥåŕéð öñé çöṽéŕš åñý öƒ ţĥéɱ.} site{Å þåçķåĝé ƒöŕ öñé šîţé çöṽéŕš öñļý ṽîšîţš ţĥéŕé. Å šĥåŕéð öñé çöṽéŕš åñý öƒ ţĥéɱ.} student{Å þåçķåĝé ƒöŕ öñé šţûðéñţ çöṽéŕš öñļý ţĥåţ šţûðéñţ'š ļéššöñš. Å šĥåŕéð öñé çöṽéŕš åñý öƒ ţĥéɱ.} vehicle{Å þåçķåĝé ƒöŕ öñé ṽéĥîçļé çöṽéŕš öñļý ţĥåţ ṽéĥîçļé'š ṽîšîţš. Å šĥåŕéð öñé çöṽéŕš åñý öƒ ţĥéɱ.}} one two three four five six seven eight nine ten one two three four five six seven eight nine ten one two three four five six seven eight]"
     },
     "entitlements.forRecipient": {
-        "message": "[Ƒöŕ {name} one]"
+        "message": "[Ţö {phone} one]"
     },
     "entitlements.statusLabel.active": {
         "message": "[Åçţîṽé one]"
@@ -2756,6 +2768,9 @@
     "entitlements.event.dispute": {
         "message": "[Đîšþûţéð one]"
     },
+    "entitlements.event.reversal": {
+        "message": "[Ŕéţûŕñéð one]"
+    },
     "entitlements.review.useTitle": {
         "message": "[Ûšé öñé šéššîöñ ƒŕöɱ ţĥîš þåçķåĝé? one two three]"
     },
@@ -2802,10 +2817,10 @@
         "message": "[Åɱöûñţ one]"
     },
     "entitlements.recipient": {
-        "message": "[Ŕéçîþîéñţ'š ñåɱé one two]"
+        "message": "[Ŕéçîþîéñţ'š ɱöƀîļé ñûɱƀéŕ one two three]"
     },
     "entitlements.recipientHint": {
-        "message": "[Þŕîñţéð öñ ţĥé ĝîƒţ çåŕð ɱéššåĝé one two three]"
+        "message": "[Ŵé ţéẋţ ţĥéɱ ţĥé çöðé öñçé ţĥé çåŕð îš þåîð. one two three]"
     },
     "entitlements.client": {
         "message": "[Çļîéñţ one]"
@@ -2852,6 +2867,9 @@
     "entitlements.errClient": {
         "message": "[Çĥööšé å çļîéñţ. one two]"
     },
+    "entitlements.errRecipient": {
+        "message": "[Éñţéŕ ţĥé ŕéçîþîéñţ'š ɱöƀîļé ñûɱƀéŕ, öŕ ļéåṽé îţ ƀļåñķ. one two three four]"
+    },
     "entitlements.errAmount": {
         "message": "[Éñţéŕ å ĝîƒţ çåŕð åɱöûñţ ƒŕöɱ {min} ţö {max}. one two three]"
     },
@@ -2876,8 +2894,8 @@
     "entitlements.giftCards.codePlaceholder": {
         "message": "[ÅƁÇĐ2345ÉƑĜĤ one]"
     },
-    "entitlements.giftCards.balance": {
-        "message": "[Ɓåļåñçé one]"
+    "entitlements.giftCards.amount": {
+        "message": "[Åɱöûñţ ţö šþéñð one two]"
     },
     "entitlements.giftCards.redeemAmountPlaceholder": {
         "message": "25.00"
@@ -2890,6 +2908,9 @@
     },
     "entitlements.giftCards.redeemError": {
         "message": "[Çöûļðñ'ţ ŕéðééɱ ţĥîš ĝîƒţ çåŕð. Þļéåšé ţŕý åĝåîñ. one two three four]"
+    },
+    "entitlements.giftCards.redeemed": {
+        "message": "[Šþéñţ {amount} ƒŕöɱ {code}. {balance} ļéƒţ. one two]"
     },
     "bookings.title": {
         "message": "[Šçĥéðûļé one]"

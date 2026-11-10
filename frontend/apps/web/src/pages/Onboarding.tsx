@@ -13,7 +13,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button, Lockup, Logo, Notice, Select, TextField } from "@clientbridge/ui";
 import { config } from "../config";
 import { api, identity } from "../lib/api";
-import { heldInvite } from "../lib/auth";
+import { heldInvite, heldVerification, releaseVerification } from "../lib/auth";
 
 const a = strings.auth;
 
@@ -56,13 +56,14 @@ export function ConfirmEmail({
 }) {
     const [params] = useSearchParams();
     const navigate = useNavigate();
-    const flowId = params.get("flow");
+    const flowId = params.get("flow") ?? heldVerification();
     const v = useVerificationForm(identity, {
         ...(flowId ? { flowId } : {}),
         ...(config.dev ? { devApi: api.forBusiness(null) } : {}),
     });
     useEffect(() => {
         if (!v.verified) return;
+        releaseVerification();
         const navigated = navigate(heldInvite() !== null ? "/accept-invite" : "/", {
             replace: true,
         });

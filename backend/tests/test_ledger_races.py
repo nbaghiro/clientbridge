@@ -209,7 +209,8 @@ async def test_two_redemptions_of_one_card_cannot_overspend_it(
 
     first, second = await race.run(lambda: redeem(True), lambda: redeem(False))
     assert first is None
-    assert second is not None and second.message == "invalid redemption amount"
+    assert second is not None and second.code == "gift_card_short"
+    assert second.detail == {"balance_cents": 300}
     async with SessionLocal() as check:
         settled = await check.get(GiftCard, card_id)
         assert settled is not None and await ledger.gift_card_balance(check, settled) == 300

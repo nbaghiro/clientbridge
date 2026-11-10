@@ -1967,8 +1967,10 @@ SELECT o.id, o.number, o.client_id, c.name AS client_name, o.source, o.pickup_st
                  WHERE p.order_id = o.id AND p.kind = 'refund' AND p.status = 'succeeded'), 0) AS refunded_cents,
        COALESCE((SELECT SUM(l.discount_cents + l.sale_discount_cents) FROM lines l
                  WHERE l.order_id = o.id), 0) AS discount_cents,
-       (SELECT p.method FROM payments p WHERE p.order_id = o.id AND p.kind = 'payment'
-          AND p.status = 'succeeded' ORDER BY p.paid_at DESC LIMIT 1) AS method,
+       COALESCE((SELECT p.method FROM payments p WHERE p.order_id = o.id AND p.kind = 'payment'
+                   AND p.status = 'succeeded' ORDER BY p.paid_at DESC LIMIT 1),
+                (SELECT 'gift_card' FROM entries e WHERE e.event = 'redemption'
+                   AND e.source_type = 'order' AND e.source_id = o.id LIMIT 1)) AS method,
        (SELECT GROUP_CONCAT(CASE WHEN l.quantity > 1 THEN CAST(l.quantity AS INTEGER) || ' × ' || l.description
                                  ELSE l.description END, ', ')
           FROM lines l WHERE l.order_id = o.id) AS summary,
@@ -2054,9 +2056,13 @@ function saleSummary(row: SaleRow): SaleSummary {
         intent: saleStatusIntent(status),
         source: row.source === "online" ? "online" : "desk",
         methodLabel:
-            row.method === null
+            // a gift card that paid part of a sale still open hasn't settled it
+            row.method === null || (row.method === "gift_card" && status === "open")
                 ? d.notPaid
-                : (strings.publicReceipt.method[row.method] ?? strings.publicReceipt.method.other),
+                : row.method === "gift_card"
+                  ? d.giftCardPaid
+                  : (strings.publicReceipt.method[row.method] ??
+                    strings.publicReceipt.method.other),
     };
 }
 

@@ -5,14 +5,14 @@ import { afterReview } from "./previews";
 import { useMemo, useRef, useState } from "react";
 
 import { type Load, useAsyncAction } from "../hooks";
-import { type ApiLike, type Attempt, attemptKey } from "../api";
+import { type ApiLike, type Attempt, attemptKey, failureMessage, newIdempotencyKey } from "../api";
 import { formatDate, formatMonthDay, parseTimestamp, readDate, useBusinessZone } from "../datetime";
 import {
-    blankToNull,
     formatMoney,
     formatMoneyShort,
     formatParts,
     formatPhone,
+    normalizePhone,
     parseCents,
     BUSINESS_CURRENCY,
 } from "../format";
@@ -168,6 +168,15 @@ export function cancelSubscription(
     return api.post<{ id: string; status: string }>(`/v1/subscriptions/${id}/cancel`, {});
 }
 
+// best effort: an intent left open is canceled by the hourly sweep a day later anyway
+function cancelPurchase(api: ApiLike, paymentId: string): Promise<unknown> {
+    return api.post(
+        `/v1/payments/${paymentId}/cancel`,
+        {},
+        { idempotencyKey: newIdempotencyKey() },
+    );
+}
+
 interface GiftCardRedeemResult {
     id: string;
     code: string;
@@ -191,25 +200,31 @@ interface GiftCardRedeemForm {
     setAmount: (v: string) => void;
     busy: boolean;
     error: string | null;
+    // What the last redemption took and left, until the desk types the next one.
+    done: string | null;
     submit: () => void;
 }
 
-export function useGiftCardRedeemForm(api: ApiLike, onDone: () => void): GiftCardRedeemForm {
+export function useGiftCardRedeemForm(api: ApiLike): GiftCardRedeemForm {
     const [code, setCodeState] = useState("");
     const [amount, setAmountState] = useState("");
+    const [done, setDone] = useState<string | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
     // One key per redeem attempt, kept through retries so a timed-out redeem isn't drawn twice.
     const keyRef = useRef<Attempt | null>(null);
     const setCode = (v: string): void => {
         keyRef.current = null;
+        setDone(null);
         setCodeState(v);
     };
     const setAmount = (v: string): void => {
         keyRef.current = null;
+        setDone(null);
         setAmountState(v);
     };
 
     const submit = (): void => {
+        setDone(null);
         if (code.trim() === "") {
             setError(strings.entitlements.giftCards.enterCode);
             return;
@@ -221,18 +236,27 @@ export function useGiftCardRedeemForm(api: ApiLike, onDone: () => void): GiftCar
         }
         const input = { code: code.trim().toUpperCase(), amount_cents: cents };
         const key = attemptKey(keyRef, input);
-        run(() => redeemGiftCard(api, input, key), {
-            onSuccess: () => {
+        run(
+            async () => {
+                const card = await redeemGiftCard(api, input, key);
                 keyRef.current = null;
-                setCode("");
-                setAmount("");
-                onDone();
+                setCodeState("");
+                setAmountState("");
+                setDone(
+                    strings.entitlements.giftCards.redeemed(
+                        formatMoney(cents, BUSINESS_CURRENCY),
+                        card.code,
+                        formatMoney(card.balance_cents, BUSINESS_CURRENCY),
+                    ),
+                );
             },
-            errorMessage: strings.entitlements.giftCards.redeemError,
-        });
+            {
+                errorMessage: (e) => failureMessage(e, strings.entitlements.giftCards.redeemError),
+            },
+        );
     };
 
-    return { code, setCode, amount, setAmount, busy, error, submit };
+    return { code, setCode, amount, setAmount, busy, error, done, submit };
 }
 
 const w = strings.entitlements;
@@ -431,7 +455,7 @@ function summarizeEntitlement(r: WalletRow, zone: string): EntitlementSummary {
             status === "expired" && r.expires_at !== null
                 ? w.expired(day(r.expires_at, zone))
                 : r.recipient !== null
-                  ? w.forRecipient(r.recipient)
+                  ? w.forRecipient(formatPhone(r.recipient))
                   : null,
     };
 }
@@ -589,7 +613,8 @@ export function useEntitlementDetail(
         if (summary.status !== "canceled") actions.push("cancel");
     } else {
         facts.push({ label: w.factCode, value: r.code ?? "" });
-        if (r.recipient !== null) facts.push({ label: w.factRecipient, value: r.recipient });
+        if (r.recipient !== null)
+            facts.push({ label: w.factRecipient, value: formatPhone(r.recipient) });
         facts.push({
             label: w.factBalance,
             value: `${formatMoney(r.balance_cents, BUSINESS_CURRENCY)} ${w.ofAmount(formatMoney(r.price_cents, BUSINESS_CURRENCY))}`,
@@ -762,7 +787,13 @@ export function useEntitlementSaleForm(
             setSold(w.doneBody(what, client?.name ?? ""));
             opts.onDone?.();
         },
-        { allowNewCard: kind !== "membership", defaultMethod: methods[0]?.id ?? NEW_CARD },
+        {
+            allowNewCard: kind !== "membership",
+            defaultMethod: methods[0]?.id ?? NEW_CARD,
+            onAbandon: (paymentId) => {
+                cancelPurchase(api, paymentId).catch(() => undefined);
+            },
+        },
     );
 
     const subtotal = kind === "gift_card" ? giftCents : (item?.price_cents ?? 0);
@@ -815,6 +846,10 @@ export function useEntitlementSaleForm(
             );
             return;
         }
+        if (kind === "gift_card" && recipient.trim() !== "" && normalizePhone(recipient) === null) {
+            checkout.setError(w.errRecipient);
+            return;
+        }
         if (kind !== "gift_card" && item === null) {
             checkout.setError(w.errItem);
             return;
@@ -835,7 +870,7 @@ export function useEntitlementSaleForm(
                             purchaser_client_id: clientId,
                             item_id: item?.id ?? null,
                             amount_cents: giftCents,
-                            recipient: blankToNull(recipient),
+                            recipient: normalizePhone(recipient),
                             payment_method_id: card,
                             cash,
                         },
