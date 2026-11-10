@@ -53,7 +53,9 @@ name: NATIVE-SALE-01 The owner opens a paid online order from the bell, packs it
 - extendedWaitUntil:
       visible: "Sale S-5"
       timeout: 30000
-- assertVisible: "Placed online"
+- scrollUntilVisible:
+      element: "Placed online"
+      direction: DOWN
 - assertVisible: "Pickup"
 - assertVisible: "Ready since.*"
 - takeScreenshot: sale-panel
