@@ -1,6 +1,5 @@
 import {
     type InvoiceRecord,
-    type PaymentRow,
     canManagePayments,
     formatMoney,
     printedEstimate,
@@ -9,7 +8,6 @@ import {
     useEstimateActions,
     useEstimateRecord,
     useInvoiceActions,
-    useInvoicePayments,
     useInvoiceRecord,
     useLetterhead,
     formatParts,
@@ -231,11 +229,7 @@ export function InvoicePanel({ id, onClose }: { id: string; onClose: () => void 
                                     />
                                 </DetailSection>
                             ) : null}
-                            <PaymentsSection
-                                invoiceId={rec.row.id}
-                                rec={rec}
-                                canRefund={canManagePayments(role)}
-                            />
+                            <PaymentsSection rec={rec} canRefund={canManagePayments(role)} />
                             {rec.row.notes !== null ? (
                                 <DetailSection title={s.notes}>
                                     <p className="whitespace-pre-line text-sm text-ink-soft">
@@ -271,22 +265,13 @@ export function InvoicePanel({ id, onClose }: { id: string; onClose: () => void 
     );
 }
 
-function PaymentsSection({
-    invoiceId,
-    rec,
-    canRefund,
-}: {
-    invoiceId: string;
-    rec: InvoiceRecord;
-    canRefund: boolean;
-}) {
-    const all = useInvoicePayments(invoiceId);
+function PaymentsSection({ rec, canRefund }: { rec: InvoiceRecord; canRefund: boolean }) {
     if (rec.payments.length === 0) return null;
     return (
         <DetailSection title={s.payments}>
             <div className="divide-y divide-line-soft rounded-lg border border-line">
                 {rec.payments.map((p) => (
-                    <PaymentLine key={p.id} view={p} all={all} canRefund={canRefund} />
+                    <PaymentLine key={p.id} view={p} canRefund={canRefund} />
                 ))}
             </div>
         </DetailSection>
@@ -295,16 +280,13 @@ function PaymentsSection({
 
 function PaymentLine({
     view,
-    all,
     canRefund,
 }: {
     view: InvoiceRecord["payments"][number];
-    all: PaymentRow[];
     canRefund: boolean;
 }) {
     const openLink = useOpenLink();
-    const row = all.find((p) => p.id === view.payment.id);
-    const refundable = canRefund && !view.refund && row?.status === "succeeded";
+    const refundable = canRefund && view.refundable;
     return (
         <div className="px-4 py-3 text-sm">
             <div className="flex items-center gap-3">

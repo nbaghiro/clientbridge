@@ -50,6 +50,7 @@ export function GiftCards() {
     const [mode, setMode] = useState<"sell" | "redeem" | null>(null);
     const open = desk.rows.find((x) => x.row.id === openId) ?? null;
     const detail = useEntitlementDetail(api, open, (paymentId) => {
+        setOpenId(null);
         openLink("refunds", paymentId);
     });
     const nothingYet = desk.load.state === "empty";

@@ -56,7 +56,7 @@ export function RefundComposer({
             })
             .catch(() => undefined);
     };
-    const canAct = form.issued === null && form.blocked === null && form.preview.error === null;
+    const canAct = form.open && form.preview.error === null;
     return (
         <DetailView
             open
@@ -98,17 +98,20 @@ export function RefundComposer({
                 <Notice tone="success" banner>
                     {form.issued}
                 </Notice>
-            ) : form.preview.error !== null ? (
+            ) : null}
+            {form.preview.error !== null ? (
                 <LoadFailed
                     message={s.previewError}
                     onRetry={() => {
                         form.preview.refresh().catch(() => undefined);
                     }}
                 />
-            ) : form.blocked !== null ? (
-                <Notice tone="info" banner>
-                    {form.blocked}
-                </Notice>
+            ) : !form.open ? (
+                form.blocked === null ? null : (
+                    <Notice tone="info" banner>
+                        {form.blocked}
+                    </Notice>
+                )
             ) : (
                 <DetailSection title={s.creditNote}>
                     {form.wholeOnly ? <Notice tone="info">{s.wholeOnly}</Notice> : null}
@@ -150,7 +153,9 @@ export function RefundComposer({
                         />
                     )}
                     {form.feeNote !== null ? <Text style={ui.note}>{form.feeNote}</Text> : null}
-                    <Toggle label={s.notify} value={form.notify} onChange={form.setNotify} />
+                    {form.canNotify ? (
+                        <Toggle label={s.notify} value={form.notify} onChange={form.setNotify} />
+                    ) : null}
                     {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
                 </DetailSection>
             )}
@@ -167,7 +172,7 @@ export function Refund({ paymentId, onClose }: { paymentId: string; onClose: () 
     if (desk.selected === null) return null;
     return (
         <RefundComposer
-            key={`${desk.selected.payment.id}:${String(desk.selected.payment.refunded_cents)}`}
+            key={desk.selected.payment.id}
             summary={desk.selected}
             refunds={desk.refunds}
             onClose={onClose}
@@ -177,6 +182,7 @@ export function Refund({ paymentId, onClose }: { paymentId: string; onClose: () 
 
 const styles = StyleSheet.create({
     caption: {
+        marginTop: 8,
         fontFamily: theme.fonts.ui,
         fontSize: 12,
         fontWeight: "600",

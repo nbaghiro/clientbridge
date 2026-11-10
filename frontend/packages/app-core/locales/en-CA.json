@@ -1431,6 +1431,15 @@
     "billing.refundBadge": {
         "message": "Refund"
     },
+    "billing.creditNote": {
+        "message": "Credit note {note}",
+        "args": ["note"]
+    },
+    "billing.refundedOn": {
+        "message": "Refunded with credit note {note}, {when}",
+        "description": "A refund listed under an invoice's balance, with its credit note and date",
+        "args": ["note", "when"]
+    },
     "printing.kinds.invoice": {
         "message": "Invoice"
     },
@@ -1567,6 +1576,9 @@
     },
     "printing.paidStamp": {
         "message": "Paid"
+    },
+    "printing.refundedStamp": {
+        "message": "Refunded"
     },
     "printing.forSubject": {
         "message": "for {name}",
@@ -2402,22 +2414,6 @@
     },
     "pos.desk.actionError": {
         "message": "That didn't go through. Please try again."
-    },
-    "pos.desk.refundTitle": {
-        "message": "Refund sale {n}?",
-        "args": ["n"]
-    },
-    "pos.desk.refundBody": {
-        "message": "{money} goes back to {card}. We issue credit note {cn} and text it with the refund.",
-        "args": ["money", "card", "cn"]
-    },
-    "pos.desk.refundConfirm": {
-        "message": "Refund {money}",
-        "args": ["money"]
-    },
-    "pos.desk.refundDone": {
-        "message": "Refunded {money}. Credit note {cn} is on its way to the client.",
-        "args": ["money", "cn"]
     },
     "pos.desk.returnGiftSale": {
         "message": "Return to gift card"
@@ -9815,6 +9811,9 @@
     "refunds.blocked.payment_disputed": {
         "message": "This payment is disputed, so it can't be refunded unless the dispute is won."
     },
+    "refunds.blocked.refund_refused": {
+        "message": "The client's bank turned down an earlier refund of this payment, so it can't be refunded again here. Pay the client back another way, such as cash or e-Transfer."
+    },
     "refunds.blocked.whole_only": {
         "message": "Part of this payment has already been refunded, and the rest can't be refunded separately."
     },
@@ -9827,6 +9826,12 @@
     "refunds.refundEvent": {
         "message": "Refunded · {note}",
         "args": ["note"]
+    },
+    "refunds.failedEvent": {
+        "message": "Refund didn't go through"
+    },
+    "refunds.pendingEvent": {
+        "message": "Refund processing"
     },
     "refunds.method.card": {
         "message": "Card"
@@ -12276,6 +12281,15 @@
         "message": "{method}, {when}",
         "args": ["method", "when"]
     },
+    "publicPay.refundedOn": {
+        "message": "Refunded with credit note {note}, {when}",
+        "description": "A refund listed under the invoice's balance, with its credit note and date",
+        "args": ["note", "when"]
+    },
+    "publicPay.refundedBody": {
+        "message": "{businessName} refunded this invoice, so there's nothing to pay. Contact them if you have a question about it.",
+        "args": ["businessName"]
+    },
     "publicPay.depositCredit": {
         "message": "Deposit you paid when booking"
     },
@@ -14593,6 +14607,13 @@
     },
     "notifications.kinds.refundBody": {
         "message": "{amount} back to {client}",
+        "args": ["client", "amount"]
+    },
+    "notifications.kinds.refundFailed": {
+        "message": "Refund didn't go through"
+    },
+    "notifications.kinds.refundFailedBody": {
+        "message": "{amount} didn't reach {client}. The money is back in your account.",
         "args": ["client", "amount"]
     },
     "notifications.kinds.orderNew": {

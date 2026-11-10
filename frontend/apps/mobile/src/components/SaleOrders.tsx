@@ -41,6 +41,7 @@ import {
 
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
+import { useOpenLink } from "../lib/links";
 
 const d = strings.pos.desk;
 const c = theme.colors;
@@ -276,7 +277,11 @@ function SalePanel({
     const zone = useBusinessZone();
     const role = useRole();
     const { detail } = useSaleDetail(id, role);
-    const actions = useSaleActions(api, confirm, onResume);
+    const openLink = useOpenLink();
+    const actions = useSaleActions(api, confirm, onResume, (paymentId) => {
+        onClose();
+        openLink("refunds", paymentId);
+    });
     if (id === null) return null;
     return (
         <DetailView
@@ -355,7 +360,7 @@ function SalePanel({
                                 <ListRow
                                     key={p.id}
                                     density="compact"
-                                    icon={p.refund ? "refresh" : "card"}
+                                    icon={p.icon}
                                     title={p.label}
                                     detail={p.detail}
                                     meta={formatMoney(p.cents, BUSINESS_CURRENCY)}

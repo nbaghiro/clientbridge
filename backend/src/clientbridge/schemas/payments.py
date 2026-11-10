@@ -147,6 +147,7 @@ RefundBlock = Literal[
     "package_used",
     "whole_only",
     "payment_disputed",
+    "refund_refused",
 ]
 
 
@@ -273,6 +274,14 @@ class PublicCredit(Mirror):
     at: datetime | None
 
 
+class PublicRefund(Mirror):
+    mirrors = Payment
+
+    credit_note: str
+    amount_cents: int
+    paid_at: datetime | None
+
+
 class PublicInvoice(BaseModel):
     tip_base_cents: int = Field(
         default=0, description="Service subtotal before tax; excludes retail and entitlements"
@@ -307,6 +316,10 @@ class PublicInvoice(BaseModel):
     discount_reason: str | None = None
     taxes: list[PublicDocTax] = Field(default_factory=list)
     credits: list[PublicCredit] = Field(default_factory=list)
+    refunds: list[PublicRefund] = Field(
+        default_factory=list,
+        description="Each credit note issued against the invoice, oldest first",
+    )
     tip_for: list[str] = Field(
         default_factory=list, description="First names of the staff a tip on this invoice goes to"
     )

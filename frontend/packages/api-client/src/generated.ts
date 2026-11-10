@@ -8701,6 +8701,11 @@ export interface components {
             /** Credits */
             credits?: components["schemas"]["PublicCredit"][];
             /**
+             * Refunds
+             * @description Each credit note issued against the invoice, oldest first
+             */
+            refunds?: components["schemas"]["PublicRefund"][];
+            /**
              * Tip For
              * @description First names of the staff a tip on this invoice goes to
              */
@@ -9051,6 +9056,15 @@ export interface components {
             tip_cents: number;
             /** At */
             at: string | null;
+        };
+        /** PublicRefund */
+        PublicRefund: {
+            /** Credit Note */
+            credit_note: string;
+            /** Amount Cents */
+            amount_cents: number;
+            /** Paid At */
+            paid_at: string | null;
         };
         /** PublicService */
         PublicService: {
@@ -9522,7 +9536,7 @@ export interface components {
              * Blocked
              * @description Why nothing can be refunded, as a code the client renders
              */
-            blocked?: ("not_succeeded" | "already_refunded" | "gift_card_expired" | "gift_card_redeemed" | "package_expired" | "package_used" | "whole_only" | "payment_disputed") | null;
+            blocked?: ("not_succeeded" | "already_refunded" | "gift_card_expired" | "gift_card_redeemed" | "package_expired" | "package_used" | "whole_only" | "payment_disputed" | "refund_refused") | null;
             /**
              * By Hand
              * @description Money goes back outside Stripe (cash, cheque, e-Transfer)

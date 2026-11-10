@@ -114,11 +114,14 @@ async def cleanup_intent(
                 return {"intent": intent.id, "status": "planned_dispute_loss"}
         refunds = await stripe.Refund.list_async(charge=charge.id, stripe_account=account)
         refunded = 0
+        bank_failed = False
         async for listed in refunds.auto_paging_iter():
             refund = await settled(account, listed, bank=bank)
             if refund.status == "succeeded":
                 refunded += refund.amount
-            elif refund.status not in ("failed", "canceled"):
+            elif refund.status == "failed":
+                bank_failed = True
+            elif refund.status != "canceled":
                 raise ValueError("owned charge has an unsettled refund; retry after settlement")
         remaining = charge.amount - charge.amount_refunded - lost
         if lost and remaining <= 0:
@@ -137,14 +140,20 @@ async def cleanup_intent(
                 "status": "planned_refund",
                 "amount_cents": remaining,
             }
-        refund = await stripe.Refund.create_async(
-            payment_intent=intent.id,
-            amount=remaining,
-            refund_application_fee=True,
-            metadata=metadata,
-            stripe_account=account,
-            idempotency_key=f"browser:{metadata['clientbridge_qa_run']}:{intent.id}:cleanup:{remaining}",
-        )
+        try:
+            refund = await stripe.Refund.create_async(
+                payment_intent=intent.id,
+                amount=remaining,
+                refund_application_fee=True,
+                metadata=metadata,
+                stripe_account=account,
+                idempotency_key=f"browser:{metadata['clientbridge_qa_run']}:{intent.id}:cleanup:{remaining}",
+            )
+        except stripe.InvalidRequestError:
+            # a card whose bank already failed a refund takes no more; the sandbox keeps the rest
+            if bank_failed:
+                return {"intent": intent.id, "status": "refund_refused", "amount_cents": remaining}
+            raise
         refund = await settled(account, refund, bank=bank)
         if refund.status != "succeeded":
             raise ValueError("owned refund is not settled; cleanup needs retry")

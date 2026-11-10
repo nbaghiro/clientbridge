@@ -1313,6 +1313,12 @@
     "billing.refundBadge": {
         "message": "[Ŕéƒûñð one]"
     },
+    "billing.creditNote": {
+        "message": "[Çŕéðîţ ñöţé {note} one two]"
+    },
+    "billing.refundedOn": {
+        "message": "[Ŕéƒûñðéð ŵîţĥ çŕéðîţ ñöţé {note}, {when} one two three]"
+    },
     "printing.kinds.invoice": {
         "message": "[Îñṽöîçé one]"
     },
@@ -1435,6 +1441,9 @@
     },
     "printing.paidStamp": {
         "message": "[Þåîð one]"
+    },
+    "printing.refundedStamp": {
+        "message": "[Ŕéƒûñðéð one]"
     },
     "printing.forSubject": {
         "message": "[ƒöŕ {name} one]"
@@ -2212,18 +2221,6 @@
     },
     "pos.desk.actionError": {
         "message": "[Ţĥåţ ðîðñ'ţ ĝö ţĥŕöûĝĥ. Þļéåšé ţŕý åĝåîñ. one two three]"
-    },
-    "pos.desk.refundTitle": {
-        "message": "[Ŕéƒûñð šåļé {n}? one two]"
-    },
-    "pos.desk.refundBody": {
-        "message": "[{money} ĝöéš ƀåçķ ţö {card}. Ŵé îššûé çŕéðîţ ñöţé {cn} åñð ţéẋţ îţ ŵîţĥ ţĥé ŕéƒûñð. one two three four]"
-    },
-    "pos.desk.refundConfirm": {
-        "message": "[Ŕéƒûñð {money} one]"
-    },
-    "pos.desk.refundDone": {
-        "message": "[Ŕéƒûñðéð {money}. Çŕéðîţ ñöţé {cn} îš öñ îţš ŵåý ţö ţĥé çļîéñţ. one two three four]"
     },
     "pos.desk.returnGiftSale": {
         "message": "[Ŕéţûŕñ ţö ĝîƒţ çåŕð one two]"
@@ -9080,6 +9077,9 @@
     "refunds.blocked.payment_disputed": {
         "message": "[Ţĥîš þåýɱéñţ îš ðîšþûţéð, šö îţ çåñ'ţ ƀé ŕéƒûñðéð ûñļéšš ţĥé ðîšþûţé îš ŵöñ. one two three four five]"
     },
+    "refunds.blocked.refund_refused": {
+        "message": "[Ţĥé çļîéñţ'š ƀåñķ ţûŕñéð ðöŵñ åñ éåŕļîéŕ ŕéƒûñð öƒ ţĥîš þåýɱéñţ, šö îţ çåñ'ţ ƀé ŕéƒûñðéð åĝåîñ ĥéŕé. Þåý ţĥé çļîéñţ ƀåçķ åñöţĥéŕ ŵåý, šûçĥ åš çåšĥ öŕ é-Ţŕåñšƒéŕ. one two three four five six seven eight nine ten]"
+    },
     "refunds.blocked.whole_only": {
         "message": "[Þåŕţ öƒ ţĥîš þåýɱéñţ ĥåš åļŕéåðý ƀééñ ŕéƒûñðéð, åñð ţĥé ŕéšţ çåñ'ţ ƀé ŕéƒûñðéð šéþåŕåţéļý. one two three four five six]"
     },
@@ -9091,6 +9091,12 @@
     },
     "refunds.refundEvent": {
         "message": "[Ŕéƒûñðéð · {note} one]"
+    },
+    "refunds.failedEvent": {
+        "message": "[Ŕéƒûñð ðîðñ'ţ ĝö ţĥŕöûĝĥ one two]"
+    },
+    "refunds.pendingEvent": {
+        "message": "[Ŕéƒûñð þŕöçéššîñĝ one two]"
     },
     "refunds.method.card": {
         "message": "[Çåŕð one]"
@@ -11411,6 +11417,12 @@
     "publicPay.credit": {
         "message": "{method}, {when}"
     },
+    "publicPay.refundedOn": {
+        "message": "[Ŕéƒûñðéð ŵîţĥ çŕéðîţ ñöţé {note}, {when} one two three]"
+    },
+    "publicPay.refundedBody": {
+        "message": "[{businessName} ŕéƒûñðéð ţĥîš îñṽöîçé, šö ţĥéŕé'š ñöţĥîñĝ ţö þåý. Çöñţåçţ ţĥéɱ îƒ ýöû ĥåṽé å ǫûéšţîöñ åƀöûţ îţ. one two three four five six]"
+    },
     "publicPay.depositCredit": {
         "message": "[Đéþöšîţ ýöû þåîð ŵĥéñ ƀööķîñĝ one two three]"
     },
@@ -13573,6 +13585,12 @@
     },
     "notifications.kinds.refundBody": {
         "message": "[{amount} ƀåçķ ţö {client} one]"
+    },
+    "notifications.kinds.refundFailed": {
+        "message": "[Ŕéƒûñð ðîðñ'ţ ĝö ţĥŕöûĝĥ one two]"
+    },
+    "notifications.kinds.refundFailedBody": {
+        "message": "[{amount} ðîðñ'ţ ŕéåçĥ {client}. Ţĥé ɱöñéý îš ƀåçķ îñ ýöûŕ åççöûñţ. one two three]"
     },
     "notifications.kinds.orderNew": {
         "message": "[Ñéŵ öñļîñé öŕðéŕ one two]"

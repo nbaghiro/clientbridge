@@ -93,6 +93,7 @@ from clientbridge.schemas.payments import (
     PayoutTransactionOut,
     PublicCredit,
     PublicPaymentSetup,
+    PublicRefund,
     RefundBlock,
     RefundOut,
     RefundPart,
@@ -768,6 +769,8 @@ class PaymentService:
             ).scalar_one_or_none()
             if pending is not None:
                 raise Conflict("a refund is still processing for this payment")
+            if await _bank_refused(self.db, payment):
+                raise RefundBlocked(BANK_REFUSED, "refund_refused")
             whole_only = await self._whole_refund_only(payment)
             refunded = await _refunded_cents(self.db, payment)
             left = payment.amount_cents - refunded
@@ -862,6 +865,8 @@ class PaymentService:
             blocked = "not_succeeded"
         elif _disputed(payment):
             blocked = "payment_disputed"
+        elif await _bank_refused(self.db, payment):
+            blocked = "refund_refused"
         elif left <= 0:
             blocked = "already_refunded"
         else:
@@ -1028,6 +1033,23 @@ async def invoice_credits(db: AsyncSession, invoice: Invoice) -> list[PublicCred
             at=entry.occurred_at,
         )
         for entry, method in rows.tuples().all()
+    ]
+
+
+async def invoice_refunds(db: AsyncSession, invoice: Invoice) -> list[PublicRefund]:
+    rows = await db.execute(
+        scoped(Payment, invoice.business_id)
+        .where(
+            Payment.invoice_id == invoice.id,
+            Payment.kind == "refund",
+            Payment.status == "succeeded",
+        )
+        .order_by(Payment.paid_at, Payment.id)
+    )
+    return [
+        PublicRefund(credit_note=p.credit_note, amount_cents=p.amount_cents, paid_at=p.paid_at)
+        for p in rows.scalars().all()
+        if p.credit_note is not None
     ]
 
 
@@ -2525,6 +2547,7 @@ async def _update_dispute(
 
 
 DISPUTED = "a disputed payment can't be refunded unless the dispute is won"
+BANK_REFUSED = "the bank turned down a refund of this payment, so it takes no other"
 DISPUTES = ("du_", "dp_")  # Stripe's dispute ids; older disputes carry dp_
 
 
@@ -3003,6 +3026,21 @@ async def _refunded_cents(db: AsyncSession, payment: Payment) -> int:
     return int(total.scalar_one())
 
 
+# a refund the bank turned down after it went through keeps its credit note; Stripe takes no other
+async def _bank_refused(db: AsyncSession, payment: Payment) -> bool:
+    refused = await db.scalar(
+        scoped(Payment, payment.business_id)
+        .where(
+            Payment.parent_payment_id == payment.id,
+            Payment.kind == "refund",
+            Payment.status == "failed",
+            Payment.credit_note.is_not(None),
+        )
+        .limit(1)
+    )
+    return refused is not None
+
+
 async def _fully_refunded(db: AsyncSession, payment: Payment) -> bool:
     return await _refunded_cents(db, payment) >= payment.amount_cents
 
@@ -3124,9 +3162,11 @@ async def _sync_visits(
     """Visits on a paid sale read as charged, and a confirmed one that has started is done."""
     rows = await db.execute(scoped(Booking, order.business_id).where(Booking.order_id == order.id))
     for booking in rows.scalars().all():
-        booking.charged_at = (paid_at or clock.now()) if status == "paid" else None
         if status == "paid":
+            booking.charged_at = paid_at or clock.now()
             await close_settled_visit(db, booking, "booking.complete_on_payment", order_id=order.id)
+        elif status != "refunded":  # a refunded visit was settled; it isn't owed again
+            booking.charged_at = None
         if (
             status == "paid"
             and booking.deposit_status == "collected"
