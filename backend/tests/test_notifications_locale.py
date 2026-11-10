@@ -160,7 +160,10 @@ def _builders() -> dict[str, Render]:
             n.booking_confirmed_message(c, NAME, when(c), None),
             n.booking_confirmed_message(c, NAME, when(c), LINK, amount(c)),
         ),
-        "booking_rescheduled_message": lambda c: n.booking_rescheduled_message(c, NAME, when(c)),
+        "booking_rescheduled_message": lambda c: (
+            n.booking_rescheduled_message(c, NAME, when(c), LINK),
+            n.booking_rescheduled_message(c, NAME, when(c)),
+        ),
         "booking_canceled_message": lambda c: n.booking_canceled_message(c, NAME, when(c)),
         "booking_reassigned_message": lambda c: (
             n.booking_reassigned_message(c, NAME, [when(c)], NAME),
@@ -170,7 +173,10 @@ def _builders() -> dict[str, Render]:
             n.booking_departed_message(c, NAME, NAME, format_time(c, MOMENT, "America/Vancouver")),
             n.booking_departed_message(c, NAME, NAME, None),
         ),
-        "booking_requested_message": lambda c: n.booking_requested_message(c, NAME, when(c)),
+        "booking_requested_message": lambda c: (
+            n.booking_requested_message(c, NAME, when(c), LINK),
+            n.booking_requested_message(c, NAME, when(c)),
+        ),
         "booking_declined_message": lambda c: (
             n.booking_declined_message(c, NAME, when(c), amount(c)),
             n.booking_declined_message(c, NAME, when(c), None),
@@ -193,6 +199,7 @@ def _builders() -> dict[str, Render]:
         "review_requested_message": lambda c: n.review_requested_message(c, NAME, LINK),
         "pad_link_message": lambda c: n.pad_link_message(c, NAME, LINK),
         "inbound_message_alert_text": lambda c: n.inbound_message_alert_text(c, NAME, "Sale"),
+        "booking_moved_alert_text": lambda c: n.booking_moved_alert_text(c, NAME, when(c)),
         "visit_note_body": lambda c: n.visit_note_body(c, "Sale", LINK),
         "broadcast_text": lambda c: n.broadcast_text(c, NAME, "Sale"),
     }

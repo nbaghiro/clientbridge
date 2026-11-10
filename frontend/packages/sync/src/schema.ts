@@ -923,6 +923,7 @@ const bookings = new Table(
         canceled_at: column.text,
         reminded_at: column.text,
         reschedule_count: column.integer,
+        rescheduled_at: column.text,
         business_id: column.text,
         created_at: column.text,
         updated_at: column.text,

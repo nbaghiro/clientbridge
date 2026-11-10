@@ -1,3 +1,4 @@
+import asyncio
 import secrets
 from collections.abc import Sequence
 from datetime import UTC, date, datetime, time, timedelta
@@ -1136,21 +1137,25 @@ class PublicManageService:
             moved = slot.starts_at != data.starts_at
             await keep_resource(self.db, item, slot, data.starts_at, ends_at)
             await move_slot(self.db, business.id, slot, data.starts_at, ends_at)
-            booking.reschedule_count += 1
+            if moved:
+                booking.reschedule_count += 1
+                booking.rescheduled_at = clock.now()
             try:
                 await self.db.flush()
             except IntegrityError as exc:
                 raise lost_race(exc, Conflict(OVERLAP)) from exc
             await carry_crew(self.db, business.id, booking, slot)
             if moved:
-                await queued_notifier(
+                notifier = queued_notifier(
                     self.db, business.id, delivery_key("booking", booking.id, each=True)
-                ).on_booking_rescheduled(self.db, booking.id)
-            out = await self._view(booking, slot, business)
+                )
+                await notifier.on_booking_rescheduled(self.db, booking.id)
+                await notifier.on_booking_moved(self.db, booking.id)
+            out = await self._view(booking, slot, business, paying=False)
             cmd.record(_MOVE_SCOPE, entity_type="booking", entity_id=booking.id)
             return out
 
-        return await run_command(
+        out = await run_command(
             self.db,
             PublicPrincipal(business.id),
             action=_MOVE_SCOPE,
@@ -1158,6 +1163,12 @@ class PublicManageService:
             response_model=ManagedBooking,
             idempotency_key=idempotency_key,
             request=request,
+        )
+        # a replay still holds the locks, so Stripe is asked only once they're released
+        await self.db.commit()
+        paying = await self._deposit_paying(booking, business)
+        return out.model_copy(
+            update={"deposit_paying": paying, "deposit_due": _deposit_due(booking) and not paying}
         )
 
     async def message(self, token: str, data: ManageMessage, key: str) -> ManageMessageResult:
@@ -1219,7 +1230,9 @@ class PublicManageService:
             blocked = self._blocked(booking, slot, business, staff, "cancel", first)
             if blocked is not None:
                 raise Conflict(
-                    f"this visit can't be canceled online ({blocked[0]})", code="change_blocked"
+                    f"this visit can't be canceled online ({blocked[0]})",
+                    code="change_blocked",
+                    detail={"reason": blocked[0], "hours": blocked[1]},
                 )
             if days:
                 live = [
@@ -1234,10 +1247,12 @@ class PublicManageService:
                     deposit="refunded" if refunded > 0 else "none", refund_cents=refunded
                 )
             refunded = 0
+            paying = False
             if booking.deposit_status == "collected":
                 refunded = await refund_deposit(self.db, self.gateway, booking)
             elif booking.deposit_status == "pending":
-                await cancel_open_deposits(self.db, self.gateway, booking)
+                # a payment already going through is refunded if it lands on the canceled visit
+                paying = not await cancel_open_deposits(self.db, self.gateway, booking)
                 booking.deposit_status = "none"
             booking.status = "canceled"
             booking.canceled_at = clock.now()
@@ -1245,9 +1260,19 @@ class PublicManageService:
             await carry_crew(self.db, business.id, booking, slot)
             if was in ("pending", "confirmed"):
                 await fill_freed_seats(self.db, slot)
+            # an applied or disputed deposit stays with the business, which settles it
+            kept = booking.deposit_status in ("collected", "applied")
             result = ManageCancelResult(
                 deposit=(await booking_refund_status(self.db, booking))
-                or ("refunded" if refunded > 0 else "none"),
+                or (
+                    "refunded"
+                    if refunded > 0
+                    else "paying"
+                    if paying
+                    else "kept"
+                    if kept
+                    else "none"
+                ),
                 refund_cents=refunded,
             )
             await notify([booking.id] if was != "canceled" else [])
@@ -1266,6 +1291,8 @@ class PublicManageService:
 
     async def pay_deposit(self, token: str) -> PublicCardIntent:
         """Open the card payment for a visit's unpaid deposit, superseding any earlier attempt."""
+        if await self._paying_before_locks(token):
+            raise Conflict("this deposit is already being paid", code="deposit_in_progress")
         booking, _, business = await self._locked(token)
         if booking.status in ("canceled", "completed", "no_show"):
             raise Conflict("this visit is no longer booked", code="booking_closed")
@@ -1295,6 +1322,37 @@ class PublicManageService:
             stripe_account_id=account_id,
             amount_cents=booking.deposit_amount_cents,
         )
+
+    async def _paying_before_locks(self, token: str) -> bool:
+        """Asked before the locks, so a slow Stripe answer holds up no one else's booking."""
+        booking, _, business = await self._resolve(token)
+        return await self._deposit_paying(booking, business)
+
+    async def _deposit_paying(self, booking: Booking, business: Business) -> bool:
+        """A deposit payment Stripe took that hasn't settled with us yet."""
+        account_id = _account(business)
+        # only a visit still owing its deposit, or one canceled while it went through, has one
+        owing = _deposit_due(booking) or (
+            booking.status == "canceled" and booking.deposit_status == "none"
+        )
+        if account_id is None or booking.deposit_amount_cents <= 0 or not owing:
+            return False
+        refs = await self.db.scalars(
+            scoped(Payment, business.id)
+            .with_only_columns(Payment.provider_ref)
+            .where(
+                Payment.booking_id == booking.id,
+                Payment.kind == "deposit",
+                Payment.status == "pending",
+                Payment.provider == "stripe",
+                Payment.provider_ref.is_not(None),
+            )
+        )
+        # asked together, so a slow Stripe holds the page for one read's wait, not one per attempt
+        statuses = await asyncio.gather(
+            *(self.gateway.payment_intent_status(account_id, ref) for ref in refs.all() if ref)
+        )
+        return any(status in _PAID_INTENT for status in statuses)
 
     def _blocked(
         self,
@@ -1404,7 +1462,9 @@ class PublicManageService:
         blocked = self._blocked(booking, slot, business, staff, "move")
         if blocked is not None:
             raise Conflict(
-                f"this visit can't be moved online ({blocked[0]})", code="change_blocked"
+                f"this visit can't be moved online ({blocked[0]})",
+                code="change_blocked",
+                detail={"reason": blocked[0], "hours": blocked[1]},
             )
         return item, staff
 
@@ -1423,7 +1483,9 @@ class PublicManageService:
         )
         return list(rows.all())
 
-    async def _view(self, booking: Booking, slot: Slot, business: Business) -> ManagedBooking:
+    async def _view(
+        self, booking: Booking, slot: Slot, business: Business, paying: bool | None = None
+    ) -> ManagedBooking:
         item, staff = await self._visit(booking, slot, business)
         client = await self.db.get(Client, booking.client_id)
         subject = await self.db.get(Subject, booking.subject_id) if booking.subject_id else None
@@ -1450,6 +1512,8 @@ class PublicManageService:
         )
         blocked, blocked_hours = cancel or move or (None, None)
         document = await visit_document(self.db, booking)
+        if paying is None:
+            paying = await self._deposit_paying(booking, business)
         return ManagedBooking(
             refund_status=await booking_refund_status(self.db, booking),
             address=visit_address(business, subject),
@@ -1474,7 +1538,8 @@ class PublicManageService:
             status=booking.status,
             deposit_cents=booking.deposit_amount_cents,
             deposit_status=booking.deposit_status,
-            deposit_due=_deposit_due(booking),
+            deposit_due=_deposit_due(booking) and not paying,
+            deposit_paying=paying,
             accepts_card=_account(business) is not None,
             addons=[
                 ManagedAddon(
@@ -1517,6 +1582,10 @@ class PublicManageService:
 def _length(slot: Slot) -> int:
     """The visit's stored length in minutes, which a move keeps."""
     return int((slot.ends_at - slot.starts_at).total_seconds() // 60)
+
+
+# a charge on its way (a bank debit) counts too: paying again would charge the client twice
+_PAID_INTENT = ("succeeded", "processing", "requires_capture")
 
 
 def _deposit_due(booking: Booking) -> bool:

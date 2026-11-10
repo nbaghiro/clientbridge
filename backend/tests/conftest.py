@@ -472,6 +472,8 @@ class FakePaymentGateway:
         self.mandates: dict[str, MandateState] = {}
         self._seq = 0
         self._intents: dict[str, PaymentIntentResult] = {}  # honor Stripe idempotency keys
+        self.intent_statuses: dict[str, str] = {}  # overrides the status a confirm implies
+        self.status_reads: list[str] = []
         self._subs: dict[str, SubscriptionResult] = {}  # honor subscription idempotency keys
         self.charged_methods: list[str] = []  # off-session payment_methods passed to a charge
         self.created_locations: list[str] = []  # Terminal locations minted
@@ -864,6 +866,12 @@ class FakePaymentGateway:
         self._intents[idempotency_key] = result
         self.charges[pid] = (amount_cents, application_fee_cents)
         return result
+
+    async def payment_intent_status(self, account_id: str, payment_intent_id: str) -> str | None:
+        self.status_reads.append(payment_intent_id)
+        if payment_intent_id in self.intent_statuses:
+            return self.intent_statuses[payment_intent_id]
+        return "succeeded" if payment_intent_id in self.confirmed else "requires_payment_method"
 
     async def cancel_payment_intent(self, account_id: str, *, payment_intent_id: str) -> None:
         if payment_intent_id in self.confirmed:

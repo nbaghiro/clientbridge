@@ -34,6 +34,9 @@ msgstr ""
 msgid "booking_departed.someone"
 msgstr ""
 
+msgid "booking_moved.push"
+msgstr ""
+
 msgid "booking_reassigned.body"
 msgstr ""
 
@@ -49,7 +52,13 @@ msgstr ""
 msgid "booking_requested.body"
 msgstr ""
 
+msgid "booking_requested.body_link"
+msgstr ""
+
 msgid "booking_rescheduled.body"
+msgstr ""
+
+msgid "booking_rescheduled.body_link"
 msgstr ""
 
 msgid "broadcast.sms"

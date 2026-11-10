@@ -1,5 +1,6 @@
 """Stripe Connect adapter: Accounts v2 merchants, direct charges with an application fee."""
 
+import asyncio
 import hashlib
 import json
 import re
@@ -492,6 +493,8 @@ CUSTOMER_CONFIGURATION: dict[str, object] = {
 }
 # a subscription in these states bills or is about to, so a second one would bill twice
 _PAYING = ("active", "trialing", "past_due", "incomplete")
+# a client's manage page waits on this read, so a slow Stripe reads as unknown rather than hang it
+_STATUS_WAIT_S = 3.0
 # a key moves to a new price only through stripe_setup, and the API restarts after it
 _PLAN_PRICES: dict[str, PlanPriceRef] = {}
 
@@ -740,6 +743,10 @@ class PaymentGateway(Protocol):
 
     async def cancel_payment_intent(self, account_id: str, *, payment_intent_id: str) -> None:
         """Cancel an unconfirmed intent; Conflict when it already went through."""
+        ...
+
+    async def payment_intent_status(self, account_id: str, payment_intent_id: str) -> str | None:
+        """The intent's status at Stripe, or None when Stripe can't be read right now."""
         ...
 
     async def refund(
@@ -1594,6 +1601,18 @@ class StripeGateway:
                 code="payment_provider_error",
                 status_code=502,
             ) from exc
+
+    async def payment_intent_status(self, account_id: str, payment_intent_id: str) -> str | None:
+        if not self.configured:
+            return None
+        try:
+            async with asyncio.timeout(_STATUS_WAIT_S):
+                intent = await stripe.PaymentIntent.retrieve_async(
+                    payment_intent_id, stripe_account=account_id
+                )
+        except (stripe.StripeError, TimeoutError):
+            return None
+        return intent.status
 
     async def _cancel_intent(self, account_id: str, payment_intent_id: str) -> None:
         try:

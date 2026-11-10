@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import {
     formatParts,
@@ -47,16 +48,19 @@ import {
     connectStaff,
     connectUrl,
     watchOpenings,
+    manageUrl,
+    moveFromManageLink,
 } from "../support/visit";
 import { textInbox, textsTo } from "../support/auth";
 import { customerContext, navigate, signIn } from "../support/session";
-import { demoSlug, runUrl, runEmail } from "@clientbridge/config/e2e/run";
+import { demoId, demoSlug, runUrl, runEmail } from "@clientbridge/config/e2e/run";
 import { createClient } from "../support/clients";
 import { select } from "../support/db";
 import { joinHoursStaff } from "../support/hours";
+import { messageEvidence } from "../support/messaging";
 
-// how the text acknowledging a booking request begins (booking_requested.body)
-const ACKNOWLEDGMENT = "Birchbark Pet Studio received your request for";
+// how the text acknowledging a booking request begins (booking_requested.body_link)
+const ACKNOWLEDGMENT = "Request sent for ";
 
 test("SCH-E2E-03 two real clients race for one time without loser side effects", async ({
     page,
@@ -1343,4 +1347,284 @@ test("SCH-E2E-19 the lead time, horizon and start step set in Setup bound the ti
             200,
         );
     }
+});
+
+test("SCH-E2E-21 a client moves a visit from its manage link until the limit while the owner sees each new time, a cancel inside the cut-off is refused with its reason, and one outside it frees the time", async ({
+    page,
+    browser,
+}) => {
+    const b = strings.publicBooking;
+    const m = strings.publicManage;
+    const s = strings.bookings;
+    await signIn(page);
+    const fixture = await raceFixture(page);
+    const contact = raceContact("Juniper");
+    const context = await customerContext(browser);
+    const client = await context.newPage();
+    const day = await raceTimePicker(client, fixture, 0);
+    await client
+        .getByRole("radiogroup", { name: b.date, exact: true })
+        .getByRole("radio")
+        .nth(day)
+        .click();
+    await client
+        .getByRole("radiogroup", { name: b.openTimes, exact: true })
+        .getByRole("radio")
+        .first()
+        .click();
+    await raceDetails(client, contact);
+    const posted = client.waitForResponse(
+        (response) =>
+            response.request().method() === "POST" &&
+            new URL(response.url()).pathname.endsWith(`/book/${demoSlug("birchbark")}`),
+    );
+    await client.getByRole("button", { name: b.confirm, exact: true }).click();
+    const booked = (await (await posted).json()) as { booking_id: string; manage_token: string };
+    await expect(client.getByRole("heading", { name: b.pendingTitle, exact: true })).toBeVisible();
+    const texts = async (): Promise<string[]> =>
+        (
+            await select<{ body: string }>`
+                SELECT payload->'message'->>'body' AS body FROM deliveries
+                WHERE payload->>'channel' = 'sms' AND payload->'message'->>'to' = ${contact.phone}
+                ORDER BY id`
+        ).map((row) => row.body);
+    const link = manageUrl(booked.manage_token);
+    await expect
+        .poll(async () => (await texts()).filter((t) => t.startsWith(ACKNOWLEDGMENT)))
+        .toEqual([expect.stringContaining(`/m/${booked.manage_token}`)]);
+
+    await client.getByRole("button", { name: b.manage, exact: true }).click();
+    await expect(client).toHaveURL(link);
+    await expect(client.getByText(m.requestLabel, { exact: true })).toBeVisible();
+    await expect(client.getByText(m.movesLeft(2), { exact: true })).toBeVisible();
+    // phones for the visit's member (the owner, a manager) and a staff member it isn't theirs
+    const phones = { owner: `e2e-owner-${randomUUID()}`, diego: `e2e-diego-${randomUUID()}` };
+    const staff = await browser.newContext({ baseURL: new URL(page.url()).origin });
+    const diego = await staff.newPage();
+    await signIn(diego, { email: runEmail("diego@birchbark.example"), password: "demo1234" });
+    const devices = [
+        { owner: page, token: phones.owner },
+        { owner: diego, token: phones.diego },
+    ];
+    for (const device of devices)
+        await apiCall(
+            device.owner,
+            "POST",
+            "/v1/devices/register",
+            { token: device.token, platform: "ios" },
+            200,
+        );
+    const first = await moveFromManageLink(client, booked.manage_token);
+    await expect(client.getByText(m.movesLeft(1), { exact: true })).toBeVisible();
+    const slotOf = async (): Promise<{ id: string; starts_at: string; status: string }> => {
+        const [row] = await select<{ id: string; starts_at: string; status: string }>`
+            SELECT s.id, s.starts_at::text, s.status FROM slots s
+            JOIN bookings b ON b.slot_id = s.id WHERE b.id = ${booked.booking_id}`;
+        if (row === undefined) throw new Error("the booked visit has no slot");
+        return row;
+    };
+    expect(at((await slotOf()).starts_at)).toBe(at(first));
+    await navigate(page, `/schedule?open=${booked.booking_id}`);
+    await expect(page.getByText(s.historyMovedOnline(1), { exact: true })).toBeVisible({
+        timeout: 60_000,
+    });
+
+    const second = await moveFromManageLink(client, booked.manage_token);
+    expect(at((await slotOf()).starts_at)).toBe(at(second));
+    await expect(client.getByText(m.blocked.reschedule_limit, { exact: true })).toBeVisible();
+    await expect(client.getByRole("button", { name: m.reschedule, exact: true })).toBeDisabled();
+    const third = await client.request.post(
+        `${bookingApi()}/manage/${booked.manage_token}/reschedule`,
+        { data: { starts_at: first }, headers: { "Idempotency-Key": randomUUID() } },
+    );
+    expect(third.status()).toBe(409);
+    expect(await third.json()).toMatchObject({ error: "change_blocked" });
+    await navigate(page, `/schedule?open=${booked.booking_id}`);
+    await expect(page.getByText(s.historyMovedOnline(2), { exact: true })).toBeVisible({
+        timeout: 60_000,
+    });
+    // the bell's feed is read once per page load
+    await page.reload();
+    await page.locator("aside").getByRole("button", { name: strings.notifications.title }).click();
+    const bell = page.getByRole("dialog", { name: strings.notifications.title });
+    await expect(
+        bell
+            .getByRole("button")
+            .filter({ hasText: strings.notifications.kinds.bookingMoved })
+            .filter({ hasText: contact.name }),
+    ).toHaveCount(1, { timeout: 60_000 });
+    await page.keyboard.press("Escape");
+    const pushes = async (): Promise<string[][]> =>
+        (
+            await select<{ tokens: string[]; body: string }>`
+                SELECT payload->'message'->'tokens' AS tokens, payload->'message'->>'body' AS body
+                FROM deliveries WHERE payload->>'channel' = 'push'
+                    AND payload->'message'->'data'->>'booking_id' = ${booked.booking_id}
+                ORDER BY id`
+        )
+            .filter((push) => push.body.startsWith(`Visit moved by ${contact.name}: `))
+            .map((push) =>
+                push.tokens.filter((token) => token === phones.owner || token === phones.diego),
+            );
+    await expect.poll(pushes).toEqual([[phones.owner], [phones.owner]]);
+    for (const device of devices)
+        await apiCall(device.owner, "POST", "/v1/devices/unregister", { token: device.token }, 200);
+    await staff.close();
+    await expect
+        .poll(async () => (await texts()).filter((t) => t.startsWith("Your visit moved to ")))
+        .toEqual([
+            expect.stringContaining(`/m/${booked.manage_token}`),
+            expect.stringContaining(`/m/${booked.manage_token}`),
+        ]);
+
+    // widened with the dialog open; other journeys' link cancels are classes 14+ days out
+    const hours = Math.ceil((at(second) - Date.now()) / 3_600_000) + 1;
+    expect(hours).toBeLessThanOrEqual(168);
+    const policy = await page.request.get(`${bookingApi()}/v1/online-booking`);
+    expect(policy.status()).toBe(200);
+    const before = ((await policy.json()) as { policy: Record<string, unknown> }).policy;
+    const restore = { policy: { ...before, step_min: before.step_min ?? 0 } };
+    try {
+        await client.getByRole("button", { name: m.cancel, exact: true }).click();
+        await apiCall(
+            page,
+            "PATCH",
+            "/v1/online-booking",
+            { policy: { ...restore.policy, cancel_cutoff_hours: hours } },
+            200,
+        );
+        await client.getByRole("button", { name: m.cancelConfirm, exact: true }).click();
+        await expect(
+            client.getByRole("dialog").getByText(m.blocked.cutoff(hours), { exact: true }),
+        ).toBeVisible();
+        await client.getByRole("button", { name: m.keep, exact: true }).click();
+        await expect(client.getByRole("button", { name: m.cancel, exact: true })).toBeDisabled();
+        // the refusal's alert stays beside the reason the reloaded visit gives
+        await expect(client.getByText(m.blocked.cutoff(hours), { exact: true })).toHaveCount(2);
+        await client.reload();
+        await expect(client.getByText(m.blocked.cutoff(hours), { exact: true })).toBeVisible();
+        const refused = await client.request.post(
+            `${bookingApi()}/manage/${booked.manage_token}/cancel`,
+            { data: {}, headers: { "Idempotency-Key": randomUUID() } },
+        );
+        expect(refused.status()).toBe(409);
+        expect(await refused.json()).toMatchObject({ error: "change_blocked" });
+        expect(
+            await select<{ status: string }>`
+                SELECT status FROM bookings WHERE id = ${booked.booking_id}`,
+        ).toEqual([{ status: "pending" }]);
+    } finally {
+        await apiCall(page, "PATCH", "/v1/online-booking", restore, 200);
+    }
+
+    await client.reload();
+    await client.getByRole("button", { name: m.cancel, exact: true }).click();
+    await client.getByRole("button", { name: m.cancelConfirm, exact: true }).click();
+    await expect(
+        client.getByRole("heading", { name: m.canceledTitle, exact: true }).first(),
+    ).toBeVisible();
+    await expect(client.getByText(m.canceledNoDeposit, { exact: true })).toBeVisible();
+    const freed = await slotOf();
+    expect(freed.status).toBe("canceled");
+    const reopened = await client.request.get(
+        `${bookingApi()}/book/${demoSlug("birchbark")}/slots`,
+        {
+            params: {
+                date: dateKey(new Date(second), "America/Vancouver"),
+                item_id: fixture.itemId,
+                staff_id: fixture.staffId,
+            },
+        },
+    );
+    expect(reopened.status()).toBe(200);
+    const open = ((await reopened.json()) as { slots: { starts_at: string }[] }).slots;
+    expect(open.map((slot) => at(slot.starts_at))).toContain(at(second));
+    await context.close();
+});
+
+test("SCH-E2E-22 the owner shares a photo of a past visit, the client opens it and the visit's receipt from the manage link, and the client's message lands in their Inbox thread", async ({
+    page,
+    browser,
+}) => {
+    const m = strings.publicManage;
+    const s = strings.bookings;
+    await signIn(page);
+    const candidates = await select<{ id: string; token: string; client_id: string; name: string }>`
+        SELECT b.id, b.manage_token AS token, c.id AS client_id, c.name FROM bookings b
+        JOIN clients c ON c.id = b.client_id
+        WHERE b.business_id = ${demoId("bz_birchbark")} AND b.status = 'completed'
+            AND b.manage_token IS NOT NULL AND b.invoice_id IS NOT NULL AND b.deleted_at IS NULL
+        ORDER BY b.id LIMIT 20`;
+    let visit: (typeof candidates)[number] | undefined;
+    for (const candidate of candidates) {
+        const view = await page.request.get(`${bookingApi()}/manage/${candidate.token}`);
+        if (((await view.json()) as { has_receipt?: boolean }).has_receipt === true) {
+            visit = candidate;
+            break;
+        }
+    }
+    if (visit === undefined) throw new Error("no past visit with a receipt and a manage link");
+
+    await navigate(page, `/schedule?open=${visit.id}`);
+    const photo = await readFile(
+        new URL("../../../../../backend/scripts/demo_assets/it_groom_lg.jpg", import.meta.url),
+    );
+    const completed = page.waitForResponse(
+        (response) =>
+            /^\/v1\/files\/[^/]+\/complete$/.test(new URL(response.url()).pathname) &&
+            response.request().method() === "POST",
+    );
+    const chooser = page.waitForEvent("filechooser");
+    await page.getByRole("button", { name: s.photoAdd, exact: true }).click({ timeout: 60_000 });
+    await (await chooser).setFiles({ name: "After.jpg", mimeType: "image/jpeg", buffer: photo });
+    const uploaded = await completed;
+    expect(uploaded.status(), await uploaded.text()).toBe(200);
+    const fileId = ((await uploaded.json()) as { id: string }).id;
+    await page.getByRole("button", { name: s.photoShare, exact: true }).last().click();
+    await expect
+        .poll(
+            async () =>
+                await select<{ shared: boolean }>`
+                    SELECT shared_at IS NOT NULL AS shared FROM files WHERE id = ${fileId}`,
+        )
+        .toEqual([{ shared: true }]);
+
+    const context = await customerContext(browser);
+    const client = await context.newPage();
+    await client.goto(manageUrl(visit.token));
+    await expect(client.getByText(m.pastLabel, { exact: true })).toBeVisible();
+    const shared = client.locator(`a[href*="/photos/${fileId}"] img`);
+    await expect(shared).toBeVisible();
+    await expect
+        .poll(() =>
+            shared.evaluate(
+                (element: HTMLImageElement) => element.complete && element.naturalWidth > 0,
+            ),
+        )
+        .toBe(true);
+    await client.getByRole("button", { name: m.receipt, exact: true }).click();
+    await expect(client.getByRole("dialog").getByText(visit.name).first()).toBeVisible();
+    await client.keyboard.press("Escape");
+
+    const body = `Thanks for the photo ${randomUUID().slice(0, 8)}`;
+    await client.getByRole("textbox", { name: m.messageLabel, exact: true }).fill(body);
+    await client.getByRole("button", { name: m.messageSend, exact: true }).click();
+    await expect(client.getByText(m.messageSent, { exact: true })).toBeVisible();
+    await context.close();
+    await expect
+        .poll(async () =>
+            (await messageEvidence(visit.client_id)).messages
+                .filter((message) => message.body === body)
+                .map((message) => message.direction),
+        )
+        .toEqual(["in"]);
+    await navigate(page, "/inbox");
+    await page.getByRole("searchbox").fill(visit.name);
+    await page
+        .getByRole("button")
+        .filter({ has: page.getByText(visit.name, { exact: true }) })
+        .first()
+        .click({ timeout: 60_000 });
+    // the thread list's preview comes first, then the message in the open thread
+    await expect(page.getByText(body, { exact: true }).last()).toBeVisible({ timeout: 60_000 });
 });

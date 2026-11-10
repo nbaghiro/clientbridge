@@ -3476,6 +3476,10 @@
         "message": "Deposit of {amount} paid",
         "args": ["amount"]
     },
+    "bookings.historyMovedOnline": {
+        "message": "{n, plural, one {Moved online by the client} other {Moved online by the client # times}}",
+        "args": ["n"]
+    },
     "bookings.historyDepositDue": {
         "message": "Deposit of {amount} requested",
         "args": ["amount"]
@@ -13534,6 +13538,51 @@
         "message": "Thanks, your {amount} deposit is paid.",
         "args": ["amount"]
     },
+    "publicManage.movesLeft": {
+        "message": "{n, plural, one {You can move this visit once more online.} other {You can move this visit # more times online.}}",
+        "args": ["n"]
+    },
+    "publicManage.depositPaying": {
+        "message": "Your {amount} deposit is going through. It shows as paid here once it's confirmed.",
+        "args": ["amount"]
+    },
+    "publicManage.depositProcessing": {
+        "message": "{amount} processing",
+        "args": ["amount"],
+        "description": "A deposit payment that hasn't been confirmed yet, in the visit's details"
+    },
+    "publicManage.depositRefunded": {
+        "message": "Your {amount} deposit was refunded.",
+        "args": ["amount"]
+    },
+    "publicManage.canceledPaying": {
+        "message": "Your {amount} deposit payment hadn't finished going through. If it does, it's refunded to you automatically.",
+        "args": ["amount"]
+    },
+    "publicManage.cancelApplied": {
+        "message": "Your {amount} deposit is already on your bill, so it isn't refunded automatically. Contact {business} about it.",
+        "args": ["amount", "business"]
+    },
+    "publicManage.depositKept": {
+        "message": "Your {amount} deposit wasn't refunded online. Contact {business} about it.",
+        "args": ["amount", "business"]
+    },
+    "publicManage.movedBodyPlain": {
+        "message": "{when} is your new time.",
+        "args": ["when"]
+    },
+    "publicManage.requestLabel": {
+        "message": "Booking request",
+        "description": "Label above a booking the business hasn't confirmed yet"
+    },
+    "publicManage.requestLine": {
+        "message": "{business} hasn't confirmed this time yet. You'll hear from them once they do.",
+        "args": ["business"]
+    },
+    "publicManage.pastLabel": {
+        "message": "Past visit",
+        "description": "Label above a visit that already happened"
+    },
     "publicManage.reschedule": {
         "message": "Reschedule"
     },
@@ -14534,6 +14583,10 @@
     },
     "notifications.kinds.bookingCanceled": {
         "message": "Booking cancelled"
+    },
+    "notifications.kinds.bookingMoved": {
+        "message": "Booking moved by the client",
+        "description": "A client moved a visit to another time from their manage link"
     },
     "notifications.kinds.bookingBody": {
         "message": "{client}, {item}, {when}",

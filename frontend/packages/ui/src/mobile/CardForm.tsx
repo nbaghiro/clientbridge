@@ -3,6 +3,8 @@ import { theme } from "@clientbridge/tokens/native";
 import {
     CardField,
     type CardFieldInput,
+    PaymentIntent,
+    retrievePaymentIntent,
     useConfirmPayment,
     useConfirmSetupIntent,
 } from "@stripe/stripe-react-native";
@@ -54,6 +56,15 @@ export function CardForm(props: NativeProps<CardFormProps>) {
     return <ConfirmForm {...props} />;
 }
 
+// paid from another tab or device: the payment went through, so it's done
+async function alreadyPaid(clientSecret: string): Promise<boolean> {
+    const { paymentIntent } = await retrievePaymentIntent(clientSecret);
+    return (
+        paymentIntent?.status === PaymentIntent.Status.Succeeded ||
+        paymentIntent?.status === PaymentIntent.Status.Processing
+    );
+}
+
 function ConfirmForm({
     clientSecret,
     mode = "payment",
@@ -87,7 +98,8 @@ function ConfirmForm({
                               paymentMethodType: "Card",
                               paymentMethodData,
                           });
-                if (result.error) throw new Error(result.error.message);
+                if (result.error && !(mode === "payment" && (await alreadyPaid(clientSecret))))
+                    throw new Error(result.error.message);
             },
             {
                 onSuccess: onDone,

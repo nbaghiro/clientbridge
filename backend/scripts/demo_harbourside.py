@@ -1206,7 +1206,8 @@ class Harbourside(Demo):
                 tip=(staff, tip) if tip else None,
             )
         self.visit("hiroshi_moved", "hiroshi", DEEP, JUN, 3)
-        self.ctx.get(Booking, "bk_hs_hiroshi_moved").reschedule_count = 1
+        moved = self.ctx.get(Booking, "bk_hs_hiroshi_moved")
+        moved.reschedule_count, moved.rescheduled_at = 1, self.now - timedelta(days=2)
         daniel = self.visit("daniel_switch", "daniel", M90, JUN, -45)
         assert daniel is not None and daniel.invoice_id is not None
         paid = next(p for p in self.ctx.all(Payment) if p.invoice_id == daniel.invoice_id)

@@ -401,6 +401,10 @@ def inbound_message_alert_text(locale: str, client_name: str, body: str) -> str:
     return message(locale, "inbound_message.push", client=client_name, body=body)
 
 
+def booking_moved_alert_text(locale: str, client_name: str, when: str) -> str:
+    return message(locale, "booking_moved.push", client=client_name, when=when)
+
+
 def dispute_alert_text(locale: str, amount: str) -> str:
     """Staff push body when a charge is disputed: the owner must respond in Stripe."""
     return message(locale, "dispute.push", amount=amount)
@@ -649,7 +653,13 @@ def booking_confirmed_message(
     return message(locale, "booking_confirmed.body", business=business_name, when=when)
 
 
-def booking_rescheduled_message(locale: str, business_name: str, when: str) -> str:
+def booking_rescheduled_message(
+    locale: str, business_name: str, when: str, link: str | None = None
+) -> str:
+    if link:
+        return message(
+            locale, "booking_rescheduled.body_link", business=business_name, when=when, link=link
+        )
     return message(locale, "booking_rescheduled.body", business=business_name, when=when)
 
 
@@ -683,7 +693,13 @@ def booking_departed_message(
     return message(locale, "booking_departed.body_now", member=member, business=business_name)
 
 
-def booking_requested_message(locale: str, business_name: str, when: str) -> str:
+def booking_requested_message(
+    locale: str, business_name: str, when: str, link: str | None = None
+) -> str:
+    if link:
+        return message(
+            locale, "booking_requested.body_link", business=business_name, when=when, link=link
+        )
     return message(locale, "booking_requested.body", business=business_name, when=when)
 
 
@@ -1203,13 +1219,30 @@ class Notifier:
         await self._to_client(db, booking.client_id, notice)
 
     async def on_booking_rescheduled(self, db: AsyncSession, booking_id: str) -> None:
-        await self._visit_notice(db, booking_id, _by_name(booking_rescheduled_message))
+        await self._linked_notice(db, booking_id, booking_rescheduled_message)
+
+    async def on_booking_moved(self, db: AsyncSession, booking_id: str) -> None:
+        """Alert the visit's member and the managers that the client moved it from their link."""
+        booking = await db.get(Booking, booking_id)
+        if booking is None:
+            return
+        slot = await db.get(Slot, booking.slot_id)
+        business = await db.get(Business, booking.business_id)
+        if slot is None or business is None:
+            return
+        client = await db.get(Client, booking.client_id)
+        locale = locale_for(business=business)
+        body = booking_moved_alert_text(
+            locale, client.name if client is not None else "", _when(locale, business, slot)
+        )
+        data = {"type": "booking", "booking_id": booking.id}
+        await self._alert_staff(db, business, body, data, member=slot.staff_id)
 
     async def on_booking_canceled(self, db: AsyncSession, booking_id: str) -> None:
         await self._visit_notice(db, booking_id, _by_name(booking_canceled_message))
 
     async def on_booking_requested(self, db: AsyncSession, booking_id: str) -> None:
-        await self._visit_notice(db, booking_id, _by_name(booking_requested_message))
+        await self._linked_notice(db, booking_id, booking_requested_message)
 
     async def on_booking_declined(
         self, db: AsyncSession, booking_id: str, refunded_cents: int
@@ -1275,6 +1308,24 @@ class Notifier:
         locale = locale_for(business=business)
         notice = build(locale, business, _when(locale, business, slot))
         await self._to_client(db, booking.client_id, notice)
+
+    async def _linked_notice(
+        self,
+        db: AsyncSession,
+        booking_id: str,
+        build: Callable[[str, str, str, str | None], str],
+    ) -> None:
+        """A visit notice that ends with the client's manage link, when they may use one."""
+        booking = await db.get(Booking, booking_id)
+        if booking is None:
+            return
+        await self._visit_notice(
+            db,
+            booking_id,
+            lambda locale, business, when: build(
+                locale, business.name, when, _manage_link(business, booking)
+            ),
+        )
 
     async def on_series_booked(
         self, db: AsyncSession, booking_ids: list[str], kind: SeriesNotice
@@ -1468,16 +1519,23 @@ class Notifier:
         body: str,
         data: dict[str, str],
         mail: Notice | None = None,
+        *,
+        member: str | None = None,
     ) -> None:
         """Push to staff phones; a money alert, with mail, goes to managers and the owner."""
         members = (
             await db.execute(
                 scoped(Staff, business.id)
-                .with_only_columns(Staff.user_id, Staff.role)
+                .with_only_columns(Staff.id, Staff.user_id, Staff.role)
                 .where(Staff.status == "active")
             )
         ).all()
-        users = [user_id for user_id, role in members if mail is None or is_manager(role)]
+        # a visit's alert reaches its member and the managers, who can all see the visit
+        users = [
+            user_id
+            for staff_id, user_id, role in members
+            if is_manager(role) or (mail is None and member in (None, staff_id))
+        ]
         rows = (
             (await db.execute(scoped(Device, business.id).where(Device.user_id.in_(users))))
             .scalars()

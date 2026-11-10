@@ -231,6 +231,9 @@ export interface ScheduleEvent extends CalendarEvent {
     checkedIn: boolean;
     bookedAt: Date | null;
     remindedAt: Date | null;
+    // moves the client made from their manage link, and when they made the last one
+    rescheduleCount: number;
+    rescheduledAt: Date | null;
     intent: Intent;
     // Ended but still open: staff owe it a Completed or a No-show.
     needsClose: boolean;
@@ -275,6 +278,8 @@ interface EventRow {
     checked_in_at: string | null;
     booked_at: string | null;
     reminded_at: string | null;
+    reschedule_count: number | null;
+    rescheduled_at: string | null;
     addon_count: number;
     note: string | null;
 }
@@ -328,7 +333,7 @@ SELECT s.id AS slot_id, s.starts_at, s.ends_at, s.staff_id, s.capacity, s.status
        sj.name AS subject_name, b.source, b.deposit_amount_cents, b.deposit_status,
        ${awaitingDepositCentsSql} AS awaiting_deposit_cents,
        b.price_cents AS booking_price, b.departed_at, b.checked_in_at, b.created_at AS booked_at,
-       b.reminded_at,
+       b.reminded_at, b.reschedule_count, b.rescheduled_at,
        (SELECT COUNT(*) FROM addons a WHERE a.booking_id = b.id) AS addon_count,
        (SELECT n.body FROM notes n WHERE n.parent_type = 'booking' AND n.parent_id = b.id
           ORDER BY n.created_at LIMIT 1) AS note
@@ -396,6 +401,8 @@ function enrich(r: EventRow, staff: Map<string, StaffRow>, now: Date, zone: stri
         checkedIn: r.checked_in_at !== null,
         bookedAt: r.booked_at !== null ? parseTimestamp(r.booked_at) : null,
         remindedAt: r.reminded_at !== null ? parseTimestamp(r.reminded_at) : null,
+        rescheduleCount: r.reschedule_count ?? 0,
+        rescheduledAt: r.rescheduled_at !== null ? parseTimestamp(r.rescheduled_at) : null,
         intent: statusIntent(status),
         needsClose: open && !isClass && end <= now,
         needsMove: false,
@@ -1766,6 +1773,13 @@ function useBookingDetail(event: ScheduleEvent | null, now: Date): BookingDetail
                 intent: "warning",
             });
     }
+    if (event.rescheduleCount > 0)
+        history.push({
+            key: "moved",
+            label: s.historyMovedOnline(event.rescheduleCount),
+            at: event.rescheduledAt !== null ? stamp(event.rescheduledAt) : "",
+            intent: "neutral",
+        });
     if (event.depositStatus === "collected" || event.depositStatus === "applied")
         history.push({
             key: "deposit",

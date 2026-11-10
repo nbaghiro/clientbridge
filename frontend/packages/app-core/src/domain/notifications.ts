@@ -54,6 +54,7 @@ type NotificationKind =
     | "booking_new"
     | "booking_request"
     | "booking_canceled"
+    | "booking_moved"
     | "message"
     | "invoice_overdue";
 
@@ -73,7 +74,7 @@ interface FeedRow {
 
 const since = (column: string): string => `${utcSql(column)} >= datetime(?)`;
 
-// Derived from synced rows, so each member only sees what their sync bucket holds. Six `since` params.
+// Derived from synced rows, so each member only sees what their sync bucket holds. Seven `since` params.
 export const NOTIFICATION_FEED_SQL = `
 SELECT 'pay-' || p.id AS id,
        CASE p.kind WHEN 'refund' THEN 'refund' WHEN 'deposit' THEN 'deposit' ELSE 'payment' END AS kind,
@@ -104,6 +105,12 @@ SELECT 'bkc-' || b.id, 'booking_canceled', b.canceled_at, b.client_id, c.name, N
 FROM bookings b JOIN slots s ON s.id = b.slot_id JOIN items i ON i.id = s.item_id
 LEFT JOIN clients c ON c.id = b.client_id
 WHERE b.status = 'canceled' AND b.canceled_at IS NOT NULL AND ${since("b.canceled_at")}
+UNION ALL
+SELECT 'bkm-' || b.id || '-' || b.rescheduled_at, 'booking_moved', b.rescheduled_at, b.client_id,
+       c.name, NULL, i.name, NULL, NULL, b.id, s.starts_at
+FROM bookings b JOIN slots s ON s.id = b.slot_id JOIN items i ON i.id = s.item_id
+LEFT JOIN clients c ON c.id = b.client_id
+WHERE b.rescheduled_at IS NOT NULL AND b.deleted_at IS NULL AND ${since("b.rescheduled_at")}
 UNION ALL
 SELECT 'msg-' || m.id, 'message', m.created_at, t.client_id, c.name, NULL, NULL, NULL, m.body,
        m.thread_id, NULL
@@ -155,6 +162,13 @@ const META: Record<
         icon: "calendar",
         intent: "neutral",
         link: "schedule",
+    },
+    booking_moved: {
+        category: "bookings",
+        icon: "calendar",
+        intent: "accent",
+        link: "booking",
+        withId: true,
     },
     message: { category: "messages", icon: "inbox", intent: "accent", link: "inbox" },
     invoice_overdue: {
@@ -214,6 +228,11 @@ function describeRow(row: FeedRow, zone: string): { title: string; body: string 
                 title: n.bookingCanceled,
                 body: n.bookingBody(client, row.item_name ?? "", when),
             };
+        case "booking_moved":
+            return {
+                title: n.bookingMoved,
+                body: n.bookingBody(client, row.item_name ?? "", when),
+            };
         case "message":
             return { title: n.message(client), body: row.body ?? "" };
         default:
@@ -265,7 +284,7 @@ export function useNotifications(viewer: Viewer | null): NotificationsView {
     const [now] = useState(() => new Date());
     const zone = useBusinessZone();
     const from = addDays(now, -FEED_DAYS, zone).toISOString();
-    const feed = useQuery<FeedRow>(NOTIFICATION_FEED_SQL, Array<string>(6).fill(from));
+    const feed = useQuery<FeedRow>(NOTIFICATION_FEED_SQL, Array<string>(7).fill(from));
     const manager = canManagePayments(viewer?.role ?? null);
     const mine = useQuery<{ client_id: string }>(MY_CLIENTS_SQL, [viewer?.staffId ?? ""]).data;
     const [readIds, setReadIds] = useDeviceList("notifications.read", 200);

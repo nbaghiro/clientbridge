@@ -117,6 +117,12 @@ function ConfirmForm({
                               redirect: "if_required",
                           });
                 if (result.error) {
+                    // paid from another tab or device: the payment went through, so it's done
+                    const taken = result.error.payment_intent?.status;
+                    if (taken === "succeeded" || taken === "processing") {
+                        onDone();
+                        return;
+                    }
                     setError(result.error.message ?? failed);
                     return;
                 }

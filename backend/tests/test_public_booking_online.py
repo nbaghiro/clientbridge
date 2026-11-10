@@ -214,13 +214,8 @@ async def test_booking_replays_on_the_same_key(
     )
     assert len(deliveries) == len(sms.sent) == 1
     assert deliveries[0].state == "accepted"
-    if pending:
-        assert "will let you know once it's confirmed." in sms.sent[0].body
-    else:
-        assert f"/m/{first.json()['manage_token']}" in sms.sent[0].body
-    assert sms.sent[0].body.startswith(
-        "Birchbark Pet Studio received your request for" if pending else "You're booked for"
-    )
+    assert f"/m/{first.json()['manage_token']}" in sms.sent[0].body
+    assert sms.sent[0].body.startswith("Request sent for" if pending else "You're booked for")
 
 
 async def test_booking_refuses_a_key_reused_for_a_different_choice(
@@ -315,8 +310,9 @@ async def test_a_pending_request_is_acknowledged_then_confirmed_on_approval(
     res = await api.post(f"/book/{SLUG}", json=_body(), headers=headers)
     assert res.json()["status"] == "pending"
     assert len(sms.sent) == 1
-    assert sms.sent[-1].body.startswith("Birchbark Pet Studio received your request for")
-    assert "will let you know once it's confirmed." in sms.sent[-1].body
+    assert sms.sent[-1].body.startswith("Request sent for")
+    assert "with Birchbark Pet Studio. Change or cancel: " in sms.sent[-1].body
+    assert f"/m/{res.json()['manage_token']}" in sms.sent[-1].body
     notifier = Notifier(email, sms, FakePushSender())
     day_before = datetime.fromisoformat(OPENING) - timedelta(hours=20)
     await run_reminders(db, notifier, day_before)

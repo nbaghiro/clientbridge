@@ -10,6 +10,7 @@ import { textsTo } from "../../../web/e2e/support/auth";
 import { patchBusiness } from "../../../web/e2e/support/business";
 import { select } from "../../../web/e2e/support/db";
 import { customerContext, navigate, signIn } from "../../../web/e2e/support/session";
+import { apiCall, manageUrl } from "../../../web/e2e/support/visit";
 import { controlStripeRelay } from "./support/bridge";
 import {
     depositEvidence,
@@ -22,6 +23,7 @@ import {
     prepareDepositBooking,
     collectDepositUi,
     invoiceVisitUi,
+    payManageDeposit,
     payOnlineDeposit,
     prepareOnlineDeposit,
     requestWithDeposit,
@@ -439,6 +441,72 @@ test("STR-E17 a new client pays an online booking's deposit by card, the owner a
     }
 });
 
+test("STR-E31 a client cancels from the manage link a visit whose paid deposit is already on its bill, and the deposit stays with the business with no refund at Stripe", async ({
+    browser,
+}, info) => {
+    test.setTimeout(300_000);
+    const m = strings.publicManage;
+    const amount = formatMoney(2000, "CAD");
+    const ownerContext = await browser.newContext({ baseURL: webBaseUrl() });
+    const customer = await customerContext(browser);
+    try {
+        const owner = await ownerContext.newPage();
+        await signIn(owner);
+        const setup = await prepareOnlineDeposit(owner, "Maple");
+        const client = await customer.newPage();
+        const f = await requestWithDeposit(client, setup, 5);
+        await payOnlineDeposit(client);
+        const deposit = (await collectedDeposit(f)).payments[0];
+        if (deposit === undefined) throw new Error("the settled deposit is missing");
+        await apiCall(owner, "PATCH", `/v1/bookings/${f.bookingId}`, { status: "confirmed" }, 200);
+        const invoice = await invoiceVisitUi(
+            owner,
+            { booking: setup.visit, visit: { id: f.bookingId } },
+            formatParts([setup.booker.subject, setup.booker.name]),
+        );
+        await linkStripeDepositInvoice(f, invoice.id);
+        await sendBookingInvoiceUi(owner, invoice);
+        const applied = await depositEvidence(f);
+        expect(applied.booking.deposit_status).toBe("applied");
+        const [row] = await select<{ manage_token: string; business: string }>`
+            SELECT b.manage_token, z.name AS business FROM bookings b
+            JOIN businesses z ON z.id = b.business_id WHERE b.id = ${f.bookingId}`;
+        if (row === undefined) throw new Error("the visit has no manage link");
+        const kept = m.cancelApplied(amount, row.business);
+
+        await client.goto(manageUrl(row.manage_token));
+        await expect(
+            client.getByText(m.depositPaid(amount), { exact: true }).first(),
+        ).toBeVisible();
+        await client.getByRole("button", { name: m.cancel, exact: true }).click();
+        await expect(client.getByText(kept, { exact: true })).toBeVisible();
+        await expect(client.getByText(m.cancelRefund(amount), { exact: true })).toHaveCount(0);
+        await client.getByRole("button", { name: m.cancelConfirm, exact: true }).click();
+        await expect(
+            client.getByRole("heading", { name: m.canceledTitle, exact: true }).first(),
+        ).toBeInViewport();
+        await expect(client.getByText(kept, { exact: true }).first()).toBeVisible();
+        await client.reload();
+        await expect(client.getByText(kept, { exact: true }).first()).toBeVisible();
+        await expect(client.getByText(m.depositRefunded(amount), { exact: true })).toHaveCount(0);
+
+        const e = await depositEvidence(f);
+        expect(e.booking.deposit_status).toBe("applied");
+        expect(e.payments.filter((p) => p.parent_payment_id === deposit.id)).toEqual([]);
+        expect(e.provider.refunds).toEqual([]);
+        expect(
+            await select<{ status: string }>`SELECT status FROM bookings WHERE id = ${f.bookingId}`,
+        ).toEqual([{ status: "canceled" }]);
+        await info.attach("manage-link-cancel-keeps-the-applied-deposit", {
+            body: JSON.stringify(e),
+            contentType: "application/json",
+        });
+    } finally {
+        await customer.close();
+        await ownerContext.close();
+    }
+});
+
 test("STR-E28 a new client pays an online booking's deposit by card, the owner declines the request, and Stripe refunds the deposit once", async ({
     browser,
 }, info) => {
@@ -503,6 +571,88 @@ test("STR-E28 a new client pays an online booking's deposit by card, the owner d
             ).length;
         await expect.poll(told).toBe(1);
         await info.attach("online-deposit-declined-and-refunded", {
+            body: JSON.stringify(e),
+            contentType: "application/json",
+        });
+    } finally {
+        await customer.close();
+        await ownerContext.close();
+    }
+});
+
+test("STR-E18 a deposit left unpaid is paid by card from the manage link with two tabs open, collected once, and refunded by Stripe when the client cancels outside the cut-off", async ({
+    browser,
+}, info) => {
+    test.setTimeout(300_000);
+    const m = strings.publicManage;
+    const amount = formatMoney(2000, "CAD");
+    const ownerContext = await browser.newContext({ baseURL: webBaseUrl() });
+    const customer = await customerContext(browser);
+    try {
+        const owner = await ownerContext.newPage();
+        await signIn(owner);
+        const setup = await prepareOnlineDeposit(owner, "Hazel");
+        // left at the card step, the request keeps its deposit due
+        const f = await requestWithDeposit(await customer.newPage(), setup, 6);
+        const [row] = await select<{ manage_token: string }>`
+            SELECT manage_token FROM bookings WHERE id = ${f.bookingId}`;
+        if (row === undefined) throw new Error("the requested visit has no manage link");
+        const tabs = [await customer.newPage(), await customer.newPage()];
+        for (const tab of tabs) {
+            await tab.goto(manageUrl(row.manage_token));
+            await expect(tab.getByText(m.depositDueBody(amount), { exact: true })).toBeVisible();
+            await tab.getByRole("button", { name: m.payDeposit, exact: true }).click();
+        }
+        const [first, second] = tabs;
+        if (first === undefined || second === undefined) throw new Error("two tabs are open");
+        await payManageDeposit(first, 2000);
+        // the second tab holds the same payment, which Stripe already took
+        await payManageDeposit(second, 2000);
+        const collected = await collectedDeposit(f);
+        expect(collected.provider.intents).toHaveLength(1);
+        const deposit = collected.payments[0];
+        if (deposit?.provider_ref == null) throw new Error("the settled deposit is missing");
+        await second.reload();
+        await expect(
+            second.getByText(m.depositPaid(amount), { exact: true }).first(),
+        ).toBeVisible();
+        await expect(second.getByRole("button", { name: m.payDeposit, exact: true })).toHaveCount(
+            0,
+        );
+
+        await second.getByRole("button", { name: m.cancel, exact: true }).click();
+        await expect(second.getByText(m.cancelRefund(amount), { exact: true })).toBeVisible();
+        await second.getByRole("button", { name: m.cancelConfirm, exact: true }).click();
+        await expect(
+            second.getByRole("heading", { name: m.canceledTitle, exact: true }).first(),
+        ).toBeInViewport();
+        await expect(second.getByText(m.depositRefunded(amount), { exact: true })).toBeVisible();
+        await expect
+            .poll(async () => (await depositEvidence(f)).booking.deposit_status, {
+                timeout: 90_000,
+            })
+            .toBe("refunded");
+        await second.reload();
+        await expect(second.getByText(m.depositRefunded(amount), { exact: true })).toBeVisible();
+        await expect(second.getByText(m.depositPaid(amount), { exact: true })).toHaveCount(0);
+        const e = await depositEvidence(f);
+        const refunds = e.payments.filter((p) => p.parent_payment_id === deposit.id);
+        expect(refunds).toEqual([
+            expect.objectContaining({ kind: "refund", status: "succeeded", amount_cents: 2000 }),
+        ]);
+        expect(e.provider.refunds).toEqual([
+            {
+                id: refunds[0]?.provider_ref,
+                payment_intent: deposit.provider_ref,
+                status: "succeeded",
+                amount: 2000,
+                currency: "cad",
+            },
+        ]);
+        expect(
+            await select<{ status: string }>`SELECT status FROM bookings WHERE id = ${f.bookingId}`,
+        ).toEqual([{ status: "canceled" }]);
+        await info.attach("manage-link-deposit-paid-once-and-refunded", {
             body: JSON.stringify(e),
             contentType: "application/json",
         });
@@ -581,7 +731,7 @@ test("SCH-E2E-17 the reaper releases an abandoned deposit but keeps one Stripe t
         expect(await depositEvidence(f)).toEqual(settled);
         expect(await visit(f.bookingId)).toEqual([{ status: "pending", slot: "scheduled" }]);
         expect(await said(paid.booker.phone, releasedText)).toBe(0);
-        expect(await said(paid.booker.phone, "received your request")).toBe(1);
+        expect(await said(paid.booker.phone, "Request sent for ")).toBe(1);
         await info.attach("reaper-versus-held-deposit", {
             body: JSON.stringify({
                 released,
