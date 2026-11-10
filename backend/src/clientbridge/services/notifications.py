@@ -1625,7 +1625,9 @@ async def run_prune_devices(db: AsyncSession, now: datetime) -> int:
 
 
 async def _taken_at_desk(db: AsyncSession, payment: Payment) -> bool:
-    """A desk sale, or a gift card or package sold at the desk: the desk saw the decline itself."""
+    """A card declined at the desk, which saw it; a bank debit taken there fails days later."""
+    if payment.method != "card":
+        return False
     if payment.order_id is not None:
         order = await db.get(Order, payment.order_id)
         return order is not None and order.source == "pos"
