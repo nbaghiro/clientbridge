@@ -46,6 +46,7 @@ import {
 } from "./billing";
 import { afterReview, outgoing } from "./previews";
 import { utcBeforeSql, utcFromSql, utcSql } from "../datetime";
+import { type VisitCrew, visitCrew } from "./bookings";
 import { TEXTS_STOPPED_SQL } from "./broadcasts";
 import type { IconName } from "../icons";
 import { type ItemRow, ITEMS_SQL, sellableItems, stockState } from "./catalog";
@@ -752,6 +753,53 @@ export const SALE_STAFF_SQL = `
 SELECT id, ${staffNameSql("staff")} AS name, title, role, color FROM staff WHERE status = 'active'
 ORDER BY name COLLATE NOCASE`;
 
+/** Who worked a line and their part of it: its member, or the visit's crew in even shares. */
+function workerShares(line: SalePricedLine, crew: VisitCrew | undefined): [string, number][] {
+    const lead = line.staffId ?? crew?.leadId ?? null;
+    if (lead === null) return [];
+    if (crew?.leadId !== lead) return [[lead, line.netCents]];
+    const ids = [lead, ...crew.helperIds.filter((id) => id !== lead)];
+    const parts = allocate(
+        line.netCents,
+        ids.map(() => 1),
+    );
+    return ids.map((id, i) => [id, parts[i] ?? 0]);
+}
+
+/** The crew of each visit on a ticket, leaving out one that can't be read. */
+async function crewsOf(
+    api: ApiLike,
+    bookingIds: readonly string[],
+): Promise<Record<string, VisitCrew>> {
+    const read = await Promise.all(
+        bookingIds.map((id) => visitCrew(api, id).catch((): VisitCrew | null => null)),
+    );
+    return Object.fromEntries(
+        bookingIds.flatMap((id, i) => {
+            const crew = read[i];
+            return crew === null || crew === undefined ? [] : [[id, crew]];
+        }),
+    );
+}
+
+/** Each visit's crew, read again when a tip is added or cleared, so a retry or a new helper shows. */
+function useVisitCrews(
+    api: ApiLike,
+    bookingIds: readonly string[],
+    tipped: boolean,
+): { crews: Record<string, VisitCrew>; unread: boolean } {
+    const [crews, setCrews] = useState<Record<string, VisitCrew>>({});
+    const remote = useRemote(
+        () => crewsOf(api, bookingIds),
+        `${bookingIds.join(",")}|${tipped ? "tip" : "none"}`,
+    );
+    useEffect(() => {
+        const read = remote.data;
+        if (read !== null && Object.keys(read).length > 0) setCrews((c) => ({ ...c, ...read }));
+    }, [remote.data]);
+    return { crews, unread: bookingIds.some((id) => !(id in crews)) };
+}
+
 /** Who did each line gets the tip by line value, unless the desk gives it all to one person. */
 export function tipShares(
     lines: readonly SalePricedLine[],
@@ -759,6 +807,7 @@ export function tipShares(
     mode: TipSplitMode,
     tipTo: string | null,
     staff: readonly SaleStaffRow[],
+    crews: Readonly<Record<string, VisitCrew>>,
 ): TipShare[] {
     const who = (id: string): SaleStaffRow | undefined => staff.find((s) => s.id === id);
     const share = (id: string, cents: number): TipShare => {
@@ -771,14 +820,16 @@ export function tipShares(
         };
     };
     if (tipCents <= 0) return [];
-    const served = lines.filter((l) => l.staffId !== null && l.netCents > 0);
-    const ids = [...new Set(served.flatMap((l) => (l.staffId === null ? [] : [l.staffId])))];
     if (mode === "one" && tipTo !== null) return [share(tipTo, tipCents)];
-    if (ids.length === 0) return [];
-    const parts = allocate(
-        tipCents,
-        ids.map((id) => served.filter((l) => l.staffId === id).reduce((n, l) => n + l.netCents, 0)),
-    );
+    const weights = new Map<string, number>();
+    for (const line of lines) {
+        const crew = line.bookingId === null ? undefined : crews[line.bookingId];
+        for (const [id, cents] of workerShares(line, crew)) {
+            if (cents > 0) weights.set(id, (weights.get(id) ?? 0) + cents);
+        }
+    }
+    const ids = [...weights.keys()];
+    const parts = allocate(tipCents, [...weights.values()]);
     return ids.map((id, i) => share(id, parts[i] ?? 0));
 }
 
@@ -851,13 +902,16 @@ function saveSale(
         : api.patch<OrderOut>(`/v1/orders/${orderId}`, body);
 }
 
-function tipBody(cents: number, shares: readonly TipShare[]): Record<string, unknown> {
+// Unless one person is picked, the server splits the tip itself, since it sees every visit's crew.
+export function tipBody(
+    cents: number,
+    mode: TipSplitMode,
+    tipTo: string | null,
+): Record<string, unknown> {
     return {
         tip_cents: cents,
         tip_split:
-            cents > 0 && shares.length > 0
-                ? shares.map((s) => ({ staff_id: s.staffId, cents: s.cents }))
-                : null,
+            cents > 0 && mode === "one" && tipTo !== null ? [{ staff_id: tipTo, cents }] : null,
     };
 }
 
@@ -909,6 +963,8 @@ export interface SaleTicket {
     tipNote: string;
     tipOptions: { key: string; label: string; hint: string }[];
     tipShares: TipShare[];
+    // why no split is listed: no one set on the services, or a crew not read yet
+    tipSplitNote: string | null;
     tipMode: TipSplitMode;
     setTipMode: (m: TipSplitMode) => void;
     tipTo: string | null;
@@ -1104,7 +1160,15 @@ export function useSale(
         ...new Set(priced.lines.flatMap((l) => (l.staffId === null ? [] : [l.staffId]))),
     ];
     const tipTo = tipToChoice ?? servedIds[0] ?? opts.viewerStaffId ?? null;
-    const shares = tipShares(priced.lines, t.tipCents, tipMode, tipTo, staffRows);
+    const visitIds = [
+        ...new Set(lines.flatMap((l) => (l.bookingId === null ? [] : [l.bookingId]))),
+    ];
+    const visits = useVisitCrews(api, visitIds, t.tipCents > 0);
+    // until every visit's crew is read the desk can't show its split; the server still makes it
+    const splitUnknown = (tipMode === "byService" || tipTo === null) && visits.unread;
+    const shares = splitUnknown
+        ? []
+        : tipShares(priced.lines, t.tipCents, tipMode, tipTo, staffRows, visits.crews);
 
     const markPaid = (): void => {
         keyRef.current = null;
@@ -1175,7 +1239,7 @@ export function useSale(
             setError(d.cashShort(formatMoney(t.dueCents, BUSINESS_CURRENCY)));
             return;
         }
-        const tipPart = tipBody(t.tipCents, shares);
+        const tipPart = tipBody(t.tipCents, tipMode, tipTo);
         run(
             async () => {
                 const saved_ = await save();
@@ -1227,7 +1291,7 @@ export function useSale(
                     { orderId: saved_.id, tipPart },
                 );
             },
-            { errorMessage: (e) => failureMessage(e, d.payError) },
+            { errorMessage: (e) => failureMessage(e, d.chargeError) },
         );
     };
 
@@ -1376,6 +1440,7 @@ export function useSale(
             { key: "none", label: d.tipNone, hint: formatMoney(0, BUSINESS_CURRENCY) },
         ],
         tipShares: shares,
+        tipSplitNote: shares.length > 0 ? null : splitUnknown ? d.tipSplitAtCharge : d.tipNobody,
         tipMode,
         setTipMode,
         tipTo,

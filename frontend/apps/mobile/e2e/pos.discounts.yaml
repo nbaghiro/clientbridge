@@ -1,0 +1,90 @@
+appId: ${APP_ID}
+name: NATIVE-SALE-02 A walk-in sale takes a line and a sale discount and an untaxed percent tip to the cent
+---
+- evalScript: ${output.tag = String(1000 + Math.floor(Math.random() * 9000))}
+- evalScript: ${output.groom = "Tidy groom " + output.tag}
+- evalScript: ${output.balm = "Nose balm " + output.tag}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/items
+          BODY: "${JSON.stringify({ kind: 'service', name: output.groom, duration_min: 30, price_cents: 10000, tax_class: 'federal_only', deposit_type: 'none', online_bookable: false })}"
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/items
+          BODY: "${JSON.stringify({ kind: 'product', name: output.balm, price_cents: 2400, tax_class: 'standard', active: true })}"
+- runFlow: helpers/owner.yaml
+- tapOn: "Create"
+- tapOn: "Sale"
+# the picker clears its search on each pick, so each item is searched by the run's tag
+- tapOn: "Add a product or service"
+- inputText: ${output.tag}
+- extendedWaitUntil:
+      visible: ${".*" + output.groom + ".*"}
+      timeout: 60000
+- tapOn: ${".*" + output.groom + ".*"}
+- tapOn: "Add a product or service"
+- inputText: ${output.tag}
+- extendedWaitUntil:
+      visible: ${".*" + output.balm + ".*"}
+      timeout: 60000
+- tapOn: ${".*" + output.balm + ".*"}
+- tapOn: ${"Discount on " + output.groom}
+- runFlow:
+      file: helpers/type-field.yaml
+      env: { FIELD: "Percent off", VALUE: "10" }
+- tapOn: "Loyalty"
+- tapOn: "Apply"
+- tapOn: "Discount"
+- tapOn: "Amount"
+- runFlow:
+      file: helpers/type-field.yaml
+      env: { FIELD: "Amount off", VALUE: "5" }
+- tapOn: "Loyalty"
+# the sale discount sheet opens at its top, so a short phone scrolls to its Apply
+- scrollUntilVisible:
+      element: "Apply"
+      direction: DOWN
+      centerElement: true
+- tapOn: "Apply"
+# $90 and $24 less $5 shared by value; GST on both lines, PST on the balm
+- scrollUntilVisible:
+      element: "Charge \\$116.06"
+      direction: DOWN
+      centerElement: true
+- assertVisible: "Charge \\$116.06"
+- takeScreenshot: discounted-ticket
+- tapOn: "Charge \\$116.06"
+- scrollUntilVisible:
+      element: "15%"
+      direction: DOWN
+      centerElement: true
+- tapOn: "15%"
+- scrollUntilVisible:
+      element: "Tip is worked out on \\$109.00, before tax."
+      direction: DOWN
+      centerElement: true
+- assertVisible: "Tip is worked out on \\$109.00, before tax."
+- scrollUntilVisible:
+      element: "Cash, Count change"
+      direction: DOWN
+      centerElement: true
+- tapOn: "Cash, Count change"
+- scrollUntilVisible:
+      element: "Exact"
+      direction: DOWN
+      centerElement: true
+- tapOn: "Exact"
+- scrollUntilVisible:
+      element: "Charge \\$132.41"
+      direction: DOWN
+- takeScreenshot: tipped-payment
+- tapOn: "Charge \\$132.41"
+- extendedWaitUntil:
+      visible: "Payment received"
+      timeout: 60000
+- assertVisible: "\\$132.41 by Cash"
+- takeScreenshot: paid

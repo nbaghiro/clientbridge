@@ -82,6 +82,13 @@ class ItemCreate(ItemBase):
     online_bookable: bool | None = Field(
         default=None, description="Defaults by kind: services and classes only"
     )
+    member_discount_bps: int | None = Field(
+        default=None,
+        ge=0,
+        le=10000,
+        multiple_of=100,
+        description="Memberships only: members' retail discount, a whole percent in basis points",
+    )
 
 
 class ItemUpdate(Mirror):
@@ -116,7 +123,7 @@ class ItemUpdate(Mirror):
     frequency: Frequency | None = None
     covers_item_id: str | None = None
     visits_per_period: int | None = Field(default=None, ge=1)
-    member_discount_bps: int | None = Field(default=None, ge=0, le=10000)
+    member_discount_bps: int | None = Field(default=None, ge=0, le=10000, multiple_of=100)
     gift_amounts: list[GiftAmount] | None = Field(default=None, max_length=12)
     staff_ids: list[str] | None = Field(default=None, max_length=100)
     resource_ids: list[str] | None = Field(default=None, max_length=100)

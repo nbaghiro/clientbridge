@@ -340,6 +340,8 @@ test("owner: schedule, booking panel, classes and repeat visits", async ({ page 
                 .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
             await expect(card).toHaveAccessibleName(new RegExp(`${lead}(?!${tail.trim()})\\S`));
             const before = await card.innerText();
+            // late in the day the draft can sit partly below what the schedule's pane shows, where a press misses it
+            await draft.scrollIntoViewIfNeeded();
             const box = await draft.boundingBox();
             const lanes = await draft.locator("..").boundingBox();
             const pane = await main
@@ -349,13 +351,12 @@ test("owner: schedule, booking panel, classes and repeat visits", async ({ page 
             expect(lanes).not.toBeNull();
             expect(pane).not.toBeNull();
             if (box !== null && lanes !== null && pane !== null) {
-                // late in the day the draft sits at the bottom of what the grid shows, so drag toward the room
-                const top = Math.max(lanes.y, pane.y);
-                const bottom = Math.min(lanes.y + lanes.height, pane.y + pane.height);
-                const above = box.y - top;
-                const below = bottom - (box.y + box.height);
+                // drag toward whichever side of the shown grid has room
+                const above = box.y - Math.max(lanes.y, pane.y);
+                const below =
+                    Math.min(lanes.y + lanes.height, pane.y + pane.height) - (box.y + box.height);
                 const x = box.x + box.width / 2;
-                const y = (Math.max(box.y, top) + Math.min(box.y + box.height, bottom)) / 2;
+                const y = box.y + box.height / 2;
                 await page.mouse.move(x, y);
                 await page.mouse.down();
                 await page.mouse.move(x, y + (above > below ? -2 : 2) * box.height, { steps: 8 });

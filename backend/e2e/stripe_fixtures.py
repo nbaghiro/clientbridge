@@ -167,12 +167,14 @@ async def setup_action(action: str, invoice_id: str | None) -> dict[str, object]
             )
             async for intent in intents.auto_paging_iter():
                 intent_tags = intent.to_dict().get("metadata", {})
+                # the fixture invoice is $20; a client's tip rides on the same intent
+                tip = str(intent_tags.get("tip_cents", "0"))
                 if (
                     intent.livemode
                     or intent.customer != customer.id
                     or intent_tags.get("invoice_id") != invoice.id
                     or intent_tags.get("business_id") != BUSINESS
-                    or intent.amount != 2000
+                    or intent.amount != 2000 + (int(tip) if tip.isdigit() else 0)
                     or intent.currency != "cad"
                 ):
                     raise ValueError("customer has an intent outside this exact invoice fixture")

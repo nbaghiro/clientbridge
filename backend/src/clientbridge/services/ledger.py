@@ -819,7 +819,12 @@ def tip_shares(payment: Payment) -> list[tuple[str, int]]:
 
 async def document_tips(db: AsyncSession, business_id: str, subject: tuple[str, str]) -> int:
     """Tips paid on an invoice or order, less what refunds and lost disputes returned."""
-    rows = await _rows(db, business_id, _subject_legs(*subject) & (Entry.event != "tip"))
+    # tips move with the money; staff pay earned on the document is staff cost too, but no tip
+    rows = await _rows(
+        db,
+        business_id,
+        _subject_legs(*subject) & (Entry.source_type == "payment") & (Entry.event != "tip"),
+    )
     return -sum(entry.amount_cents for entry, account in rows if account.category == "staff_cost")
 
 

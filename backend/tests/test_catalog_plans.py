@@ -63,9 +63,17 @@ async def test_plan_fields_belong_to_their_kind_422(as_owner: httpx.AsyncClient)
         {"kind": "gift", "name": "G", "gift_amounts": [499]},
         {"kind": "gift", "name": "G", "gift_amounts": [100_001]},
         {"kind": "subscription", "name": "S", "interval": 1, "member_discount_bps": 10001},
+        {"kind": "subscription", "name": "S", "interval": 1, "member_discount_bps": 1250},
     ):
         res = await as_owner.post("/v1/items", json=body)
         assert res.status_code == 422, body
+
+
+async def test_member_discount_is_a_whole_percent_on_patch(as_owner: httpx.AsyncClient) -> None:
+    fractional = await as_owner.patch("/v1/items/it_daycare", json={"member_discount_bps": 1250})
+    assert fractional.status_code == 422
+    whole = await as_owner.patch("/v1/items/it_daycare", json={"member_discount_bps": 1200})
+    assert whole.json()["member_discount_bps"] == 1200
 
 
 async def test_gift_amounts_take_the_limits_and_refuse_outside_them_on_patch(

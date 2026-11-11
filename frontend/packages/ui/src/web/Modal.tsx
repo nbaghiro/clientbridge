@@ -28,6 +28,7 @@ export function Modal({
     onClose,
     size = "md",
     framed = true,
+    page,
     children,
     className,
 }: WebProps<ModalProps>) {
@@ -38,6 +39,10 @@ export function Modal({
     useEffect(() => {
         onCloseRef.current = onClose;
     });
+
+    useEffect(() => {
+        if (dialogRef.current !== null) dialogRef.current.scrollTop = 0;
+    }, [page]);
 
     useEffect(() => {
         const dialog = dialogRef.current;

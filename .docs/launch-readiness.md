@@ -1366,12 +1366,12 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 ### Tips and discounts (CB-32)
 
 **Covers:** Sales, invoice and estimate editors, pay link tip, Tap to Pay tip, member perk
-**Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a client with a membership that has a product perk
+**Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234. The demo has no $100 groom, no product perk and no crew, so first add a $100 GST-only service under Services & products, give Monthly Daycare a whole-percent member discount (David Okafor is its active member) and add a helper to a visit that hasn't started.
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web`. Open web at [http://localhost:8700](<http://localhost:8700>). Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first.
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at [http://localhost:8700](<http://localhost:8700>), mobile in the iOS simulator and Connect at `pay.localhost:8709`. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), Connect at `pay.staging.clientbridge.ca` and the staging app, with the same logins. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first.
 
 **QA steps**
 
@@ -1382,11 +1382,11 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 3. As staff, discount a sale 50%.
    **Expect:** applied without approval.
 4. Pay an invoice on the pay link with a custom tip.
-   **Expect:** the tip shows on the receipt and under the member in Staff pay.
-5. Sell a product to the member.
-   **Expect:** the perk discount applies.
+   **Expect:** the tip stays shown at the card step, and it shows on the receipt and under the member in Staff pay.
+5. Sell a product to the member, and try a member discount that isn't a whole percent.
+   **Expect:** the perk discount applies; the editor asks for a whole percent.
 6. Tip a crew visit.
-   **Expect:** the tip follows the crew's shares.
+   **Expect:** the tip follows the crew's shares, on the desk before paying and in Staff pay after.
 
 **Done when:** Every discounted total and tax matches a hand calculation, and every tip reaches the right person untaxed.
 
@@ -1399,12 +1399,12 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 * `BILL-DOC-01 (web), discounts`
 * `DOC-E2E-06 (connect), discounted estimate`
 * `FLOW-02-A (journeys), discount carried through conversion`
-
-**To automate**
-
-* `SALE-E2E-16` in `apps/web/e2e/pos.e2e.ts`: Line and sale discounts with a percent tip, exact cents and tax.
-* `PAY-E2E-04` in `apps/web/e2e/earnings.e2e.ts`: Tips from desk and pay link land on the right member and outside sales.
-* `STR-E20` in `apps/connect/e2e/stripe/provider.stripe.ts`: Pay link with a tip settles one charge.
+* `SALE-E2E-16 (web)`
+* `SALE-E2E-18 (web)`
+* `SALE-E2E-19 (web)`
+* `PAY-E2E-04 (web)`
+* `STR-E20 (stripe)`
+* `NATIVE-SALE-02 (native-ios, native-android)`
 
 **Depends on:** Nothing
 
