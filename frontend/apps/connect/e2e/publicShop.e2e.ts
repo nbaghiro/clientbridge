@@ -285,6 +285,25 @@ test(
     },
 );
 
+test("an item's quantity stops at what is left of it", async ({ page }) => {
+    const name = "Oatmeal Soothe Shampoo (500ml)";
+    await page.route(`${api}/book/${slug}/shop`, (route) =>
+        rewrite(route, (body) => ({
+            ...body,
+            items: (body.items as Json[]).map((item) =>
+                item.id === demoId("it_shampoo") ? { ...item, stock_left: 2 } : item,
+            ),
+        })),
+    );
+    await page.goto(shopPage);
+    const card = page.getByRole("group", { name, exact: true });
+    await card.getByRole("button", { name: strings.publicShop.addNamed(name) }).click();
+    const more = card.getByRole("button", { name: strings.common.increase(name) });
+    await more.click();
+    await expect(card.getByText("2", { exact: true }).last()).toBeVisible();
+    await expect(more).toBeDisabled();
+});
+
 test("a paid confirmation comes back on checkout after a reload, while the shop opens on its catalog", async ({
     page,
 }) => {

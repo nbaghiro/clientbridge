@@ -1494,9 +1494,11 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 * `connect: publicShop.e2e.ts › a business that doesn't charge tax never mentions it in the shop`
 * `connect: publicShop.e2e.ts › the shop adds from the grid, changes quantities and checks out in steps`
 * `connect: publicShop.e2e.ts › the shop's order panel folds into a bottom bar on a phone`
+* `connect: publicShop.e2e.ts › an item's quantity stops at what is left of it`
 * `connect: publicShop.e2e.ts › a paid confirmation comes back on checkout after a reload, while the shop opens on its catalog`
 * `connect: publicOrder.e2e.ts › a canceled order says what was refunded and drops the progress, pickup and texts`
 * `app-core: pos.board.test.ts › doesn't claim a text went to a client who turned texts off`
+* `app-core: pos.board.test.ts › doesn't claim a text went to a client who has a number no text can reach`
 * `backend: test_public_orders.py › test_an_uncollected_order_gets_one_reminder_text_at_nine_local`
 * `backend: test_public_orders.py › test_ready_order_reminder_sent_once_and_respects_alert_choice`
 * `backend: test_public_orders.py › test_cancel_order_refunds_once_and_releases_stock`

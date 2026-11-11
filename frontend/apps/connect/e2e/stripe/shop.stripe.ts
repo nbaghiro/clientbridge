@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { formatMoney, saleNumber, strings } from "@clientbridge/app-core/public";
+import { formatMoney, formatPhone, saleNumber, strings } from "@clientbridge/app-core/public";
 import { devices, expect, test, type Browser, type Page, type TestInfo } from "@playwright/test";
 import { demoSlug } from "@clientbridge/config/e2e/run";
 import { textsTo } from "../../../web/e2e/support/auth";
@@ -300,6 +300,32 @@ test("STR-E22 a shop order paid on a phone with a real card is packed, made read
             );
             expect(refused.status(), back).toBe(409);
         }
+        await expect
+            .poll(
+                async () =>
+                    (
+                        await select<{ receipt_phone: string | null }>`
+                            SELECT receipt_phone FROM orders WHERE id = ${order.order_id}`
+                    )[0]?.receipt_phone,
+                { timeout: 60_000 },
+            )
+            .toBe(buyer.phone);
+        await navigate(owner, "/payments/sales?view=history");
+        await owner.getByRole("searchbox", { name: d.historySearch, exact: true }).fill(buyer.name);
+        await owner
+            .getByRole("button", {
+                name: strings.common.labelValue(saleNumber(order.number), buyer.name),
+                exact: true,
+            })
+            .click({ timeout: 60_000 });
+        const sale = owner.getByRole("dialog");
+        await expect(sale.getByText(d.placedOnline, { exact: true })).toBeVisible();
+        await expect(
+            sale.getByText(strings.pos.pickup.pickedUp, { exact: true }).first(),
+        ).toBeVisible();
+        await expect(
+            sale.getByText(d.sentBy(formatPhone(buyer.phone)), { exact: true }),
+        ).toBeVisible();
         const after = await pickupEvidence(order.order_id);
         expect(after.order[0]).toMatchObject({ pickup_status: "picked_up", picked_up: true });
         expect(after.payments).toEqual(paid.payments);
