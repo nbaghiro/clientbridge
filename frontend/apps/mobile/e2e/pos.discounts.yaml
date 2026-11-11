@@ -44,14 +44,39 @@ name: NATIVE-SALE-02 A walk-in sale takes a line and a sale discount and an unta
       file: helpers/type-field.yaml
       env: { FIELD: "Amount off", VALUE: "5" }
 - tapOn: "Loyalty"
+# the sale discount sheet opens at its top, so a short phone scrolls to its Apply
+- scrollUntilVisible:
+      element: "Apply"
+      direction: DOWN
+      centerElement: true
 - tapOn: "Apply"
 # $90 and $24 less $5 shared by value; GST on both lines, PST on the balm
+- scrollUntilVisible:
+      element: "Charge \\$116.06"
+      direction: DOWN
+      centerElement: true
 - assertVisible: "Charge \\$116.06"
 - takeScreenshot: discounted-ticket
 - tapOn: "Charge \\$116.06"
+- scrollUntilVisible:
+      element: "15%"
+      direction: DOWN
+      centerElement: true
 - tapOn: "15%"
+- scrollUntilVisible:
+      element: "Tip is worked out on \\$109.00, before tax."
+      direction: DOWN
+      centerElement: true
 - assertVisible: "Tip is worked out on \\$109.00, before tax."
+- scrollUntilVisible:
+      element: "Cash, Count change"
+      direction: DOWN
+      centerElement: true
 - tapOn: "Cash, Count change"
+- scrollUntilVisible:
+      element: "Exact"
+      direction: DOWN
+      centerElement: true
 - tapOn: "Exact"
 - scrollUntilVisible:
       element: "Charge \\$132.41"
