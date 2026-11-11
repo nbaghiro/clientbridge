@@ -739,16 +739,16 @@ async function crewsOf(
     );
 }
 
-/** Each visit's crew, read again whenever the tip changes so a retry or a new helper shows. */
+/** Each visit's crew, read again when a tip is added or cleared, so a retry or a new helper shows. */
 function useVisitCrews(
     api: ApiLike,
     bookingIds: readonly string[],
-    tipCents: number,
+    tipped: boolean,
 ): { crews: Record<string, VisitCrew>; unread: boolean } {
     const [crews, setCrews] = useState<Record<string, VisitCrew>>({});
     const remote = useRemote(
         () => crewsOf(api, bookingIds),
-        `${bookingIds.join(",")}|${String(tipCents)}`,
+        `${bookingIds.join(",")}|${tipped ? "tip" : "none"}`,
     );
     useEffect(() => {
         const read = remote.data;
@@ -1120,7 +1120,7 @@ export function useSale(
     const visitIds = [
         ...new Set(lines.flatMap((l) => (l.bookingId === null ? [] : [l.bookingId]))),
     ];
-    const visits = useVisitCrews(api, visitIds, t.tipCents);
+    const visits = useVisitCrews(api, visitIds, t.tipCents > 0);
     // until every visit's crew is read the desk can't show its split; the server still makes it
     const splitUnknown = (tipMode === "byService" || tipTo === null) && visits.unread;
     const shares = splitUnknown

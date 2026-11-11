@@ -2042,7 +2042,7 @@
         "message": "No one is set on the services, so the tip goes to whoever rang up the sale."
     },
     "pos.desk.tipSplitAtCharge": {
-        "message": "The tip is shared by who did each service once you charge.",
+        "message": "The tip is split between whoever did each service when you charge.",
         "description": "Shown instead of each person's share when a visit's crew couldn't be read yet."
     },
     "pos.desk.discountTitle": {

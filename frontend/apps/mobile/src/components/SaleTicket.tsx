@@ -887,7 +887,7 @@ export function TicketSheet({
             </View>
         );
     return (
-        <Modal open={open} onClose={close} size="xl">
+        <Modal open={open} onClose={close} size="xl" page={sale.phase === "paid" ? "paid" : step}>
             {sale.terminal !== null ? (
                 <TerminalProvider tokenProvider={tokenProvider}>
                     <View>{body}</View>

@@ -125,6 +125,8 @@ export interface ModalProps {
     size?: "sm" | "md" | "lg" | "xl" | undefined;
     // false when the children draw their own surface (an editor or a debug panel).
     framed?: boolean | undefined;
+    // The step a multi-step sheet shows; a new step starts at the top, not where the last one was scrolled.
+    page?: string | undefined;
     children: ReactNode;
 }
 

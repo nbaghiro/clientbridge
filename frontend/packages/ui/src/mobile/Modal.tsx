@@ -30,6 +30,7 @@ export function Modal({
     onClose,
     size = "md",
     framed = true,
+    page,
     children,
     style,
 }: NativeProps<ModalProps>) {
@@ -46,8 +47,13 @@ export function Modal({
         slide.setValue(0);
         Animated.timing(slide, { toValue: 1, duration: 220, useNativeDriver: true }).start();
     }, [open, panel, slide]);
+    const scroller = useRef<ScrollView>(null);
+    useEffect(() => {
+        scroller.current?.scrollTo({ y: 0, animated: false });
+    }, [page]);
     const content = framed ? (
         <ScrollView
+            ref={scroller}
             style={styles.scroll}
             contentContainerStyle={styles.framed}
             keyboardShouldPersistTaps="handled"

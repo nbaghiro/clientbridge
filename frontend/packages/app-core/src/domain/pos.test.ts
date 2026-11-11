@@ -506,6 +506,37 @@ describe("a sale resumed from a held ticket", () => {
         expect(result.current.tipSplitNote).toBeNull();
     });
 
+    it("reads the crew once for a tip however many keys it takes to type", async () => {
+        const crew = { lead_id: "st_diego", members: [{ staff_id: "st_priya", name: null }] };
+        let reads = 0;
+        const api: ApiLike = {
+            ...saleApi(null),
+            get: <T>() => {
+                reads += 1;
+                return Promise.resolve(crew as T);
+            },
+        };
+        const { result } = renderHook(() => useSale(api, { platform: "web" }), { wrapper });
+        act(() => {
+            result.current.resume({ ...held, lines: [crewVisit] }, []);
+        });
+        await waitFor(() => {
+            expect(reads).toBe(1);
+        });
+        for (const cents of [100, 1200, 1250]) {
+            act(() => {
+                result.current.setTip({ kind: "custom", cents });
+            });
+        }
+        await waitFor(() => {
+            expect(result.current.tipShares.map((s) => [s.staffId, s.cents])).toEqual([
+                ["st_diego", 625],
+                ["st_priya", 625],
+            ]);
+        });
+        expect(reads).toBe(2);
+    });
+
     it("says the split comes at the charge while a visit's crew can't be read", async () => {
         const api: ApiLike = { ...saleApi(null), get: () => Promise.reject(new Error("offline")) };
         const { result } = renderHook(() => useSale(api, { platform: "web" }), { wrapper });
