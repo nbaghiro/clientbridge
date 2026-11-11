@@ -1647,10 +1647,10 @@ class Lakeside(Demo):
             "Lesson ended 30 minutes early when Julien was unwell; half refunded.",
         )
         card = self.gift_card(
-            "bianchi", "bianchi", GIFT, 16000, self.at(-76, 12), recipient="Rosa Ferraro"
+            "bianchi", "bianchi", GIFT, 16000, self.at(-76, 12), recipient="+16135550171"
         )
         self.redeem(card, 8000, self.at(-41, 16))
-        self.gift_card("roy", "roy", GIFT, 10000, self.at(-12, 18), recipient="Camille Roy")
+        self.gift_card("roy", "roy", GIFT, 10000, self.at(-12, 18), recipient="+16135550172")
 
     def supplies(self) -> None:
         """Books and strings sold with lessons, added to that lesson's invoice."""

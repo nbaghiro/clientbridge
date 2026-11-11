@@ -303,8 +303,8 @@ export async function checkoutDiagnostics(page: Page, info: TestInfo, stop = tru
     }
 }
 
-export async function submitStripeCard(page: Page, info: TestInfo): Promise<void> {
-    const label = strings.checkout.pay(formatMoneyWithCurrency(2000, "CAD"));
+export async function submitStripeCard(page: Page, info: TestInfo, cents = 2000): Promise<void> {
+    const label = strings.checkout.pay(formatMoneyWithCurrency(cents, "CAD"));
     const submit = page.getByRole("button", { name: label, exact: true });
     await checkoutDiagnostics(page, info);
     // listen on the document, since the page may re-render the button between setup and the click
@@ -431,6 +431,7 @@ export async function settledStripeInvoice(
     invoice: Awaited<ReturnType<typeof registerStripeInvoice>>,
     info: TestInfo,
     events: string[] = ["payment_intent.succeeded"],
+    charge: { amountCents: number; tipCents: number } = { amountCents: 2000, tipCents: 0 },
 ): Promise<StripeBrowserEvidence> {
     try {
         await expect(
@@ -459,9 +460,9 @@ export async function settledStripeInvoice(
         expect(saved.provider_intent_ids).toEqual([intent.id]);
         expect(paid).toMatchObject({
             status: "succeeded",
-            amount_cents: 2000,
+            amount_cents: charge.amountCents,
             currency: "CAD",
-            tip_cents: 0,
+            tip_cents: charge.tipCents,
             provider: "stripe",
             kind: "payment",
             provider_ref: intent.id,
@@ -470,7 +471,7 @@ export async function settledStripeInvoice(
             account: invoice.account,
             livemode: false,
             status: "succeeded",
-            amount: 2000,
+            amount: charge.amountCents,
             currency: "cad",
             amount_refunded: 0,
         });

@@ -1398,6 +1398,29 @@ async def test_recovery_never_certifies_a_pending_refund_as_clean(
     assert boundary.operations == []
 
 
+async def test_recovery_keeps_a_charge_whose_bank_failed_its_refund(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    boundary = _Stripe(monkeypatch, "succeeded")
+
+    async def refused(**_options: object) -> stripe.Refund:
+        boundary.operations.append("refund")
+        raise stripe.InvalidRequestError("a previous attempt to refund this charge failed", None)
+
+    monkeypatch.setattr(stripe.Refund, "create_async", refused)
+    with pytest.raises(stripe.InvalidRequestError):
+        await recover(_manifest(), ENV, "local", apply=True)
+    boundary.refunds.append(
+        stripe.Refund.construct_from(
+            {"id": "re_a", "object": "refund", "amount": 500, "status": "failed"},
+            "sk_test_fixture",
+        )
+    )
+    applied = await recover(_manifest(), ENV, "local", apply=True)
+    assert applied[0]["status"] == "refund_refused"
+    assert boundary.operations == ["refund", "refund"]
+
+
 def test_recovery_refuses_incomplete_manifest_lineage() -> None:
     with pytest.raises(ValidationError, match="incomplete registered customer lineage"):
         Manifest(

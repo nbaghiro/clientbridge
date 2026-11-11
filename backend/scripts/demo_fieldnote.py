@@ -1434,7 +1434,7 @@ class Fieldnote(Demo):
         self.visit("joseph_headshot", "joseph", HEADSHOT, JULIAN, -30, tip=(JULIAN, 3000))
         self.joined("ahmed", self.at(-97, 12))
         card = self.gift_card(
-            "lina", "ahmed", GIFT, 45000, self.at(-96, 18), recipient="Lina Saleh"
+            "lina", "ahmed", GIFT, 45000, self.at(-96, 18), recipient="+19055550171"
         )
         lina = self.visit(
             "lina_gift",
@@ -1448,10 +1448,8 @@ class Fieldnote(Demo):
         )
         assert lina is not None and lina.completed_at is not None
         self.redeem(card, 44635, lina.completed_at + timedelta(minutes=20))
-        self.gift_card(
-            "romano", "giulia", GIFT, 25000, self.at(-21, 12), recipient="Rosa and Enzo Romano"
-        )
-        self.gift_card("silva", "gabriela", GIFT, 40000, self.at(-8, 19), recipient="Mariana Silva")
+        self.gift_card("romano", "giulia", GIFT, 25000, self.at(-21, 12), recipient="+19055550172")
+        self.gift_card("silva", "gabriela", GIFT, 40000, self.at(-8, 19), recipient="+19055550173")
         for key, staff, day in (("aaliyah", JULIAN, -40), ("gabriela", JULIAN, -27)):
             self.visit(f"{key}_family", key, FAMILY, staff, day, settle="etransfer")
         self.visit("brandon_moved", "brandon", FAMILY, JULIAN, 6)

@@ -636,7 +636,7 @@ export function itemFormError(v: ItemFormValues): string | null {
     if (shown("interval") && (toInt(v.interval) ?? 0) <= 0) return s.intervalRequired;
     if (shown("memberDiscount") && v.memberDiscount.trim() !== "") {
         const pct = percentOf(v.memberDiscount);
-        if (!Number.isFinite(pct) || pct < 0 || pct > 100) return s.perkInvalid;
+        if (!Number.isInteger(pct) || pct < 0 || pct > 100) return s.perkInvalid;
     }
     if (shown("trackStock") && v.trackStock && v.openingStock.trim() !== "") {
         const opening = toInt(v.openingStock);

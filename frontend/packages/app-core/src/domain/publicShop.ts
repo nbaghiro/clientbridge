@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
-import { type Attempt, attemptKey, failureMessage, refusal } from "../api";
+import { type Attempt, attemptKey, failedCode, failureMessage, refusal } from "../api";
 import {
     dateKey,
     deviceZone,
@@ -11,8 +11,9 @@ import {
     parseTimestamp,
     weekdayDay,
 } from "../datetime";
-import { formatMoney, normalizePhone, BUSINESS_CURRENCY } from "../format";
+import { formatList, formatMoney, normalizePhone, BUSINESS_CURRENCY } from "../format";
 import type { DocTotalLine } from "../ui";
+import { saleNumber } from "./printing";
 import { zoneNote } from "./publicBooking";
 import {
     type PublicBrand,
@@ -50,6 +51,7 @@ interface PublicShopOrderResult {
     tax_total_cents?: number | null;
     order_id: string;
     order_token?: string | null;
+    number: number;
     total_cents: number;
     currency: string;
     client_secret: string;
@@ -81,6 +83,7 @@ interface PublicShopClient {
         },
         idempotencyKey: string,
     ): Promise<PublicShopOrderResult>;
+    releaseOrder: (token: string) => Promise<unknown>;
 }
 
 export function createPublicShopClient(baseUrl: string): PublicShopClient {
@@ -105,6 +108,8 @@ export function createPublicShopClient(baseUrl: string): PublicShopClient {
                     lines: lines.map((l) => ({ item_id: l.itemId, quantity: l.quantity })),
                 }),
             }),
+        releaseOrder: (token) =>
+            request(`/order/${encodeURIComponent(token)}/release`, { method: "POST" }),
     };
 }
 
@@ -178,6 +183,9 @@ interface PublicShopForm {
     submit: () => void;
     order: PublicShopOrderResult | null;
     markPaid: () => void;
+    // a paid confirmation read back from the session, not one paid on this page
+    restored: boolean;
+    startOver: () => void;
     cancelPayment: () => void;
     busy: boolean;
     error: string | null;
@@ -215,6 +223,8 @@ interface PendingOrder {
     attempt: Attempt;
     placedAt: number;
     order: PublicShopOrderResult | null;
+    // a paid order stays here so a reload of the confirmation still shows it
+    paid?: boolean;
 }
 
 function isOrder(value: unknown): value is PublicShopOrderResult {
@@ -222,6 +232,7 @@ function isOrder(value: unknown): value is PublicShopOrderResult {
     const o = value as Record<string, unknown>;
     return (
         typeof o.order_id === "string" &&
+        typeof o.number === "number" &&
         typeof o.client_secret === "string" &&
         typeof o.stripe_account_id === "string" &&
         typeof o.total_cents === "number" &&
@@ -233,7 +244,7 @@ function storedPending(storage: ShopStorage | undefined, key: string): PendingOr
     try {
         const raw: unknown = JSON.parse(storage?.getItem(key) ?? "null");
         if (raw === null || typeof raw !== "object") return null;
-        const { attempt, placedAt, order } = raw as Record<string, unknown>;
+        const { attempt, placedAt, order, paid } = raw as Record<string, unknown>;
         if (typeof placedAt !== "number" || Date.now() - placedAt > RESUME_MS) return null;
         if (attempt === null || typeof attempt !== "object") return null;
         const { key: attemptId, request } = attempt as Record<string, unknown>;
@@ -242,7 +253,23 @@ function storedPending(storage: ShopStorage | undefined, key: string): PendingOr
             attempt: { key: attemptId, request },
             placedAt,
             order: isOrder(order) ? order : null,
+            paid: paid === true && isOrder(order),
         };
+    } catch {
+        return null;
+    }
+}
+
+/** The token of an unpaid order left past its resume window, so it can be let go of. */
+function expiredOrderToken(storage: ShopStorage | undefined, key: string): string | null {
+    try {
+        const raw: unknown = JSON.parse(storage?.getItem(key) ?? "null");
+        if (raw === null || typeof raw !== "object") return null;
+        const { placedAt, order, paid } = raw as Record<string, unknown>;
+        if (typeof placedAt !== "number" || Date.now() - placedAt <= RESUME_MS || paid === true)
+            return null;
+        const token = isOrder(order) ? order.order_token : null;
+        return typeof token === "string" ? token : null;
     } catch {
         return null;
     }
@@ -266,7 +293,7 @@ function usePublicShop(
     slug: string,
     storage?: ShopStorage,
 ): PublicShopForm {
-    const { status: load, data: shop } = usePublicResource(client.getShop, slug);
+    const { status: load, data: shop, setData: setShop } = usePublicResource(client.getShop, slug);
     const [cart, setCart] = useState<Record<string, number>>(() => storedCart(storage, slug));
     const draftKey = `connect-checkout:${slug}`;
     const [draft] = useState(() => readPublicDraft(storage, draftKey));
@@ -279,10 +306,19 @@ function usePublicShop(
     const pendingKey = `connect-order:${slug}`;
     const [pending] = useState(() => storedPending(storage, pendingKey));
     const [order, setOrder] = useState<PublicShopOrderResult | null>(pending?.order ?? null);
-    const [paid, setPaid] = useState(false);
+    const [paid, setPaid] = useState(pending?.paid === true);
+    const [restored, setRestored] = useState(pending?.paid === true);
+    const [expired] = useState(() => expiredOrderToken(storage, pendingKey));
     const key = useRef<Attempt | null>(pending?.attempt ?? null);
     const placedAt = useRef(pending?.placedAt ?? 0);
     const { busy, error, setError, run } = useAsyncAction();
+
+    // the server would hold an abandoned order's units until its reaper, so let go of it now
+    useEffect(() => {
+        if (expired === null) return;
+        savePending(storage, pendingKey, null);
+        client.releaseOrder(expired).catch(() => undefined);
+    }, [client, expired, pendingKey, storage]);
 
     useEffect(() => {
         try {
@@ -369,8 +405,53 @@ function usePublicShop(
                 remember(placed);
                 setOrder(placed);
             },
-            { errorMessage: (e) => failureMessage(e, strings.publicShop.orderError) },
+            {
+                errorMessage: (e) => {
+                    if (failedCode(e) === "out_of_stock") refreshStock();
+                    return failureMessage(e, strings.publicShop.orderError);
+                },
+            },
         );
+    };
+
+    // Another checkout took units since the shop loaded: show what's left and trim the cart to it.
+    const refreshStock = (): void => {
+        client
+            .getShop(slug)
+            .then((fresh) => {
+                setShop(fresh);
+                const short = fresh.items.filter(
+                    (item) => item.stock_left !== null && (cart[item.id] ?? 0) > item.stock_left,
+                );
+                if (short.length === 0) return;
+                key.current = null;
+                const left = new Map(short.map((item) => [item.id, item.stock_left ?? 0]));
+                setCart((prev) =>
+                    Object.fromEntries(
+                        Object.entries(prev)
+                            .map(([id, n]): [string, number] => [
+                                id,
+                                Math.min(n, left.get(id) ?? n),
+                            ])
+                            .filter(([, n]) => n > 0),
+                    ),
+                );
+                setError(strings.publicShop.stockChanged(formatList(short.map((i) => i.name))));
+            })
+            .catch(() => undefined);
+    };
+
+    const markPaid = (): void => {
+        savePending(
+            storage,
+            pendingKey,
+            key.current === null || order === null
+                ? null
+                : { attempt: key.current, placedAt: placedAt.current, order, paid: true },
+        );
+        key.current = null;
+        setPaid(true);
+        setCart({});
     };
 
     const status: PublicShopStatus =
@@ -396,21 +477,44 @@ function usePublicShop(
         canOrder,
         submit,
         order,
-        markPaid: () => {
-            key.current = null;
+        markPaid,
+        restored,
+        startOver: () => {
             savePending(storage, pendingKey, null);
-            setPaid(true);
-            setCart({});
-        },
-        cancelPayment: () => {
-            if (key.current !== null) {
-                savePending(storage, pendingKey, {
-                    attempt: key.current,
-                    placedAt: placedAt.current,
-                    order: null,
-                });
-            }
             setOrder(null);
+            setPaid(false);
+            setRestored(false);
+            setError(null);
+        },
+        // stepping back releases the unpaid order, so a changed cart isn't refused for its own units
+        cancelPayment: () => {
+            const token = order?.order_token;
+            if (!token) {
+                if (key.current !== null)
+                    savePending(storage, pendingKey, {
+                        attempt: key.current,
+                        placedAt: placedAt.current,
+                        order: null,
+                    });
+                setOrder(null);
+                return;
+            }
+            run(
+                async () => {
+                    try {
+                        await client.releaseOrder(token);
+                    } catch (e) {
+                        // the card went through before the page heard, so this order is the paid one
+                        if (failedCode(e) !== "checkout_paid") throw e;
+                        markPaid();
+                        return;
+                    }
+                    key.current = null;
+                    savePending(storage, pendingKey, null);
+                    setOrder(null);
+                },
+                { errorMessage: (e) => failureMessage(e, strings.publicShop.orderError) },
+            );
         },
         busy,
         error,
@@ -556,7 +660,7 @@ export function useShopFlow(client: PublicShopClient, slug: string, storage?: Sh
         setLine: (item: PublicShopItem, quantity: number) => {
             base.setQuantity(item.id, Math.min(cap(item), quantity));
         },
-        orderNumber: base.order ? base.order.order_id.slice(-6).toUpperCase() : null,
+        orderNumber: saleNumber(base.order?.number ?? null),
     };
 }
 

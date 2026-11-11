@@ -159,6 +159,8 @@ async def test_redeem_before_activation_409(as_owner: httpx.AsyncClient, db: Asy
         "/v1/gift-cards/redeem", json={"code": body["code"], "amount_cents": 1000}, headers=key()
     )
     assert res.status_code == 409
+    assert res.json()["error"] == "gift_card_unusable"
+    assert res.json()["detail"] == {"status": "pending"}
 
 
 async def test_purchase_interactive_returns_client_secret(
@@ -324,6 +326,18 @@ async def test_redeem_unknown_code_404(as_owner: httpx.AsyncClient) -> None:
         "/v1/gift-cards/redeem", json={"code": "NOPENOPENOPE", "amount_cents": 100}, headers=key()
     )
     assert res.status_code == 404
+    assert res.json()["error"] == "gift_card_not_found"
+
+
+async def test_redeem_takes_the_code_as_typed(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    card = await _active_card(db, code="TYPEDCODE001", balance=5000)
+    res = await as_owner.post(
+        "/v1/gift-cards/redeem", json={"code": " typedcode001 ", "amount_cents": 500}, headers=key()
+    )
+    assert res.status_code == 200, res.text
+    assert await ledger.gift_card_balance(db, card) == 4500
 
 
 async def test_redeem_over_balance_409(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
@@ -332,6 +346,10 @@ async def test_redeem_over_balance_409(as_owner: httpx.AsyncClient, db: AsyncSes
         "/v1/gift-cards/redeem", json={"code": card.code, "amount_cents": 6000}, headers=key()
     )
     assert res.status_code == 409
+    assert res.json()["error"] == "gift_card_short"
+    assert res.json()["detail"] == {"balance_cents": 5000}
+    await db.refresh(card)
+    assert await ledger.gift_card_balance(db, card) == 5000
 
 
 async def test_redeem_zero_amount_409(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
@@ -354,6 +372,8 @@ async def test_redeem_to_zero_marks_redeemed(as_owner: httpx.AsyncClient, db: As
         "/v1/gift-cards/redeem", json={"code": card.code, "amount_cents": 1}, headers=key()
     )
     assert again.status_code == 409
+    assert again.json()["error"] == "gift_card_unusable"
+    assert again.json()["detail"] == {"status": "redeemed"}
 
 
 async def test_staff_cannot_purchase_403(as_staff: httpx.AsyncClient) -> None:
@@ -540,6 +560,7 @@ async def test_an_expired_card_is_refused_before_the_sweep_runs(
     body = {"code": card.code, "amount_cents": 1000}
     res = await as_owner.post("/v1/gift-cards/redeem", json=body, headers=key())
     assert res.status_code == 409
+    assert res.json()["detail"] == {"status": "expired"}
     await db.refresh(card)
     assert await ledger.gift_card_balance(db, card) == 5000
 
@@ -809,10 +830,17 @@ async def test_a_gift_card_is_refused_when_it_cannot_pay(
     as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
 ) -> None:
     sale = await _sale(as_owner)
-    assert (await _apply(as_owner, sale["id"], "NOSUCHCARD")).status_code == 404
+    unknown = await _apply(as_owner, sale["id"], "NOSUCHCARD")
+    assert unknown.status_code == 404 and unknown.json()["error"] == "gift_card_not_found"
     spent = await _active_card(db, code="GIFTSPENT", balance=1000)
     await ledger.post_redemption(db, spent, 1000)
-    assert (await _apply(as_owner, sale["id"], "GIFTSPENT")).status_code == 409
+    refused = await _apply(as_owner, sale["id"], "giftspent")
+    assert refused.status_code == 409
+    assert refused.json() | {"message": ""} == {
+        "error": "gift_card_unusable",
+        "message": "",
+        "detail": {"status": "redeemed"},
+    }
     other = await _active_card(db, code="GIFTOTHER")
     other.business_id = (await factory.business(name="Elsewhere")).id
     await db.flush()

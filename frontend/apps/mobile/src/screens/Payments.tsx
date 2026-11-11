@@ -1,5 +1,6 @@
-import { type PaymentsTabKey, visiblePaymentsTabs } from "@clientbridge/app-core";
-import { type RouteProp, useRoute } from "@react-navigation/native";
+import { type PaymentsTabKey, type SalesView, visiblePaymentsTabs } from "@clientbridge/app-core";
+import { type RouteProp, useNavigation, useRoute } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { type ReactElement, useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -20,9 +21,14 @@ export function PaymentsScreen() {
     const params = useRoute<RouteProp<RootStackParamList, "Payments">>().params;
     const tabs = visiblePaymentsTabs(useRole());
     const [tab, setTab] = useState<PaymentsTabKey>(params?.tab ?? "invoices");
+    const nav = useNavigation<NativeStackNavigationProp<RootStackParamList, "Payments">>();
     useEffect(() => {
         if (params?.tab !== undefined) setTab(params.tab);
     }, [params?.tab]);
+    // Sales has taken the view by now, so the next link to the same view switches again
+    useEffect(() => {
+        if (params?.view !== undefined) nav.setParams({ view: undefined });
+    }, [nav, params?.view]);
     const current = tabs.find((t) => t.key === tab) ?? tabs[0];
 
     return (
@@ -30,19 +36,19 @@ export function PaymentsScreen() {
             {current === undefined ? null : (
                 <>
                     <Tabs items={tabs} active={current.key} onSelect={setTab} />
-                    <View style={styles.body}>{tabBody(current.key)}</View>
+                    <View style={styles.body}>{tabBody(current.key, params?.view)}</View>
                 </>
             )}
         </SafeAreaView>
     );
 }
 
-function tabBody(key: PaymentsTabKey): ReactElement {
+function tabBody(key: PaymentsTabKey, view: SalesView | undefined): ReactElement {
     switch (key) {
         case "invoices":
             return <Invoices />;
         case "sales":
-            return <POS />;
+            return <POS view={view} />;
         case "giftCards":
             return <GiftCards />;
         case "refunds":

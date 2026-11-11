@@ -1809,7 +1809,7 @@ class Clearcoat(Demo):
         sunday = _fathers_day(self.local(self.now).date())
         bought = datetime.combine(sunday - timedelta(days=5), time(19, 40), self.ctx.zone)
         card = self.gift_card(
-            "dad", "sophie", GIFT, 35000, bought.astimezone(UTC), recipient="Gilles Bergeron"
+            "dad", "sophie", GIFT, 35000, bought.astimezone(UTC), recipient="+15145550171"
         )
         day = self.days_to(bought) + 12
         visit = self.visit(

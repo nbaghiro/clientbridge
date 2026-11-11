@@ -205,7 +205,7 @@ export function InvoicePanel({ id, onClose }: { id: string; onClose: () => void 
                                     cents={p.refund ? -p.amountCents : p.amountCents}
                                     tone={p.refund ? "danger" : "ink"}
                                 />
-                                {canRefund && !p.refund && !p.pending ? (
+                                {canRefund && p.refundable ? (
                                     <Button
                                         size="sm"
                                         variant="outline"

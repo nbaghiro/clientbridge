@@ -207,24 +207,24 @@ test.describe(() => {
                 lines: [{ item_id: product.id, quantity: 1 }],
             });
             await expect(
-                shopper.getByRole("alert").getByText(strings.api.outOfStock, { exact: true }),
-            ).toBeVisible();
+                shopper
+                    .getByRole("alert")
+                    .getByText(shop.stockChanged(product.name), { exact: true }),
+            ).toBeInViewport();
+            await expect(shopper.getByRole("heading", { name: shop.cartEmpty })).toBeVisible();
             await expect(shopper.getByText(shop.payBody(money(2800)), { exact: true })).toHaveCount(
                 0,
             );
             expect(await saleEvidence(product.id)).toEqual(sold);
             expect((await visitEvidence([online.phone])).clients).toEqual([]);
 
-            // the session keeps the cart, so the refused line stays in it while the unit is gone
+            // the refusal took the sold-out line out of the cart, so the shop offers nothing to add
             await shopper.goto(shopUrl(demoSlug("birchbark")));
-            const kept = card(shopper, product);
-            await expect(kept.getByText(shop.soldOut, { exact: true })).toBeVisible();
+            const gone = card(shopper, product);
+            await expect(gone.getByText(shop.soldOut, { exact: true })).toBeVisible();
             await expect(
-                kept.getByRole("button", { name: strings.common.increase(product.name) }),
+                gone.getByRole("button", { name: shop.addNamed(product.name) }),
             ).toBeDisabled();
-            await expect(
-                kept.getByRole("button", { name: shop.addNamed(product.name) }),
-            ).toHaveCount(0);
 
             await refundAtDesk(page, walkIn, paymentId, 2800, false);
             const restored = await saleEvidence(product.id);
@@ -249,9 +249,7 @@ test.describe(() => {
             const back = card(shopper, product);
             await expect(back.getByText(shop.lowStock(1), { exact: true })).toBeVisible();
             await expect(back.getByText(shop.soldOut, { exact: true })).toHaveCount(0);
-            await expect(
-                back.getByRole("button", { name: strings.common.decrease(product.name) }),
-            ).toBeEnabled();
+            await back.getByRole("button", { name: shop.addNamed(product.name) }).click();
             await expect(summary.getByText(money(2500)).first()).toBeVisible();
             await testInfo.attach("last-unit", {
                 body: JSON.stringify(restored),
@@ -389,6 +387,8 @@ test.describe(() => {
             await expect(
                 detail.getByRole("button", { name: d.markReady, exact: true }),
             ).toHaveCount(0);
+            await expect(detail.getByText(d.placedOnline, { exact: true })).toBeVisible();
+            await expect(detail.getByText(strings.pos.pickup.ready, { exact: true })).toBeVisible();
             const marking = page.waitForResponse(
                 (r) =>
                     new URL(r.url()).pathname === `/v1/orders/${ORDER}/pickup` &&
@@ -411,7 +411,9 @@ test.describe(() => {
             expect(after.movements).toEqual(before.movements);
             expect(after.audits).toEqual([...before.audits, "order.pickup"]);
 
-            await expect(current).toContainText(p.collected, { timeout: 20_000 });
+            const collected = status.getByRole("heading", { name: p.collected, level: 1 });
+            await expect(collected).toBeVisible({ timeout: 20_000 });
+            await expect(current).toHaveCount(0);
             for (const back of ["preparing", "ready", "picked_up"]) {
                 const refused = await page.request.post(
                     `${bookingApi()}/v1/orders/${ORDER}/pickup`,
@@ -424,7 +426,8 @@ test.describe(() => {
             }
             expect(await pickupEvidence(ORDER)).toEqual(after);
             await status.reload();
-            await expect(current).toContainText(p.collected);
+            await expect(collected).toBeVisible();
+            await expect(status.getByText(p.collectedBody, { exact: true })).toBeVisible();
             await page.reload();
             await page
                 .getByRole("searchbox", { name: d.historySearch, exact: true })

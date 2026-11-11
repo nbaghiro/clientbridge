@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import { formatMoney, strings } from "@clientbridge/app-core/public";
 import { expect, test } from "@playwright/test";
 import { openInvoice } from "./support/billing";
+import { connectUrl } from "./support/business";
+import { select } from "./support/db";
 import { bookingApi } from "./support/bookings";
 import {
     createCashRefundFixture,
@@ -61,6 +63,11 @@ test("REF-E2E-01 cash partial refund and remainder issue exact tax credit notes"
     });
     const partial = await refundEvidence(fixture.invoiceId);
     expectCashRefunds(partial, fixture, 1);
+    // the confirmation outlasts the replica catching up with the refund
+    await expect(panel).toContainText(s.statusLabel.partly_refunded, { timeout: 60_000 });
+    await expect(panel).toContainText(
+        s.refundedDone(formatMoney(5600, "CAD"), `CN-${String(fixture.number)}-1`),
+    );
     await openInvoice(page, {
         id: fixture.invoiceId,
         name: fixture.client.name,
@@ -108,12 +115,41 @@ test("REF-E2E-01 cash partial refund and remainder issue exact tax credit notes"
         name: fixture.client.name,
         phone: fixture.client.phone,
     });
+    const record = page.getByRole("dialog");
     await expect(
-        page
-            .getByRole("dialog")
-            .getByText(strings.billing.statusLabel.refunded, { exact: true })
-            .first(),
+        record.getByText(strings.billing.statusLabel.refunded, { exact: true }).first(),
     ).toBeVisible();
+    for (const n of [1, 2])
+        await expect(
+            record.getByText(
+                strings.billing.creditNote(`CN-${String(fixture.number)}-${String(n)}`),
+                {
+                    exact: true,
+                },
+            ),
+        ).toBeVisible();
+    await expect(
+        record.getByRole("button", { name: strings.billing.refund, exact: true }),
+    ).toHaveCount(0);
+    await expect(
+        record.getByRole("region", { name: strings.billing.preview, exact: true }),
+    ).toContainText(strings.printing.refundedStamp);
+    const [doc] = await select<{ pay_token: string; business: string }>`
+        SELECT i.pay_token, b.name AS business FROM invoices i
+        JOIN businesses b ON b.id = i.business_id WHERE i.id = ${fixture.invoiceId}`;
+    if (doc === undefined) throw new Error("the invoice has no pay link");
+    const client = await browser.newPage();
+    try {
+        await client.goto(connectUrl("pay", `i/${doc.pay_token}`));
+        const main = client.getByRole("main");
+        await expect(main).toContainText(strings.publicPay.closedTitle, { timeout: 60_000 });
+        await expect(main).toContainText(strings.publicPay.refundedBody(doc.business));
+        await expect(main).toContainText(strings.printing.refundedStamp);
+        for (const n of [1, 2])
+            await expect(main).toContainText(`CN-${String(fixture.number)}-${String(n)}`);
+    } finally {
+        await client.close();
+    }
     await page.reload();
     panel = await openRefund(page, fixture);
     await expect(panel).toContainText(s.statusLabel.refunded);

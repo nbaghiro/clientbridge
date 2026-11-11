@@ -194,9 +194,7 @@ export function PublicPay() {
                             <h2 className="font-display text-xl font-bold text-ink">
                                 {pp.closedTitle}
                             </h2>
-                            <p className="mt-1 max-w-xs text-sm text-ink-soft">
-                                {pp.closedBody(invoice.business_name)}
-                            </p>
+                            <p className="mt-1 max-w-xs text-sm text-ink-soft">{form.closedBody}</p>
                         </div>
                     ) : !form.online ? (
                         <div className="space-y-4">
@@ -255,15 +253,15 @@ export function PublicPay() {
                                             />
                                         ) : null}
                                         <p className="text-xs text-muted">{form.tip.note}</p>
-                                        {form.tip.cents > 0 ? (
-                                            <p className="flex justify-between text-sm text-ink">
-                                                <span>{pp.tipRow}</span>
-                                                <span className="tabular-nums">
-                                                    {formatMoney(form.tip.cents, invoice.currency)}
-                                                </span>
-                                            </p>
-                                        ) : null}
                                     </section>
+                                ) : null}
+                                {form.tip.cents > 0 ? (
+                                    <p className="flex justify-between text-sm text-ink">
+                                        <span>{pp.tipRow}</span>
+                                        <span className="tabular-nums">
+                                            {formatMoney(form.tip.cents, invoice.currency)}
+                                        </span>
+                                    </p>
                                 ) : null}
                                 {form.card ? (
                                     <CardForm

@@ -1,5 +1,5 @@
 import type { PublicBrand } from "./publicResource";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { usePublicResource } from "./publicResource";
 import { useAsyncAction, useBusinessQuery, useRemote } from "../hooks";
@@ -62,14 +62,32 @@ export function refusedConfirm(status: string | null | undefined): "paid" | "can
 /** One idempotency key per attempt, kept across retries so a double-submit can't double-charge. */
 export function useCheckout(
     onDone: () => void,
-    opts: { allowNewCard?: boolean; defaultMethod?: string } = {},
+    opts: {
+        allowNewCard?: boolean;
+        defaultMethod?: string;
+        // The payment of a card charge the desk walked away from before it was paid.
+        onAbandon?: (paymentId: string) => void;
+    } = {},
 ): Checkout {
     const allowNewCard = opts.allowNewCard ?? true;
     const [chosen, setChosen] = useState<string | null>(null);
     const [clientSecret, setClientSecret] = useState<string | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
     const keyRef = useRef<Attempt | null>(null);
+    const opened = useRef<string | null>(null);
+    const abandon = useRef(opts.onAbandon);
+    useEffect(() => {
+        abandon.current = opts.onAbandon;
+    });
     const method = chosen ?? opts.defaultMethod ?? NEW_CARD;
+
+    const release = useCallback((): void => {
+        const paymentId = opened.current;
+        opened.current = null;
+        if (paymentId !== null) abandon.current?.(paymentId);
+    }, []);
+    // closing the sheet mid-card is walking away too
+    useEffect(() => release, [release]);
 
     const reset = (): void => {
         keyRef.current = null;
@@ -78,6 +96,7 @@ export function useCheckout(
     };
 
     const finish = (): void => {
+        opened.current = null;
         reset();
         setChosen(null);
         onDone();
@@ -105,6 +124,8 @@ export function useCheckout(
             }
             const secret = "client_secret" in result ? result.client_secret : null;
             if (typeof secret === "string" && method === NEW_CARD) {
+                const paymentId = "payment_id" in result ? result.payment_id : null;
+                opened.current = typeof paymentId === "string" ? paymentId : null;
                 setClientSecret(secret);
             } else {
                 finish();
@@ -125,7 +146,10 @@ export function useCheckout(
         clientSecret,
         pay,
         complete: finish,
-        cancel: reset,
+        cancel: () => {
+            release();
+            reset();
+        },
     };
 }
 

@@ -7,6 +7,7 @@ import {
     addDays,
     dateKey,
     daysUntil,
+    formatTimeRange,
     parseTimestamp,
     relativeDay,
     relativeDayTime,
@@ -20,6 +21,7 @@ import {
     formatParts,
     formatPercent,
     formatPhone,
+    normalizePhone,
     parseCents,
     parseNumber,
     phoneDigits,
@@ -44,10 +46,13 @@ import {
 } from "./billing";
 import { afterReview, outgoing } from "./previews";
 import { utcBeforeSql, utcFromSql, utcSql } from "../datetime";
+import { type VisitCrew, visitCrew } from "./bookings";
+import { TEXTS_STOPPED_SQL } from "./broadcasts";
+import type { IconName } from "../icons";
 import { type ItemRow, ITEMS_SQL, sellableItems, stockState } from "./catalog";
 import { type Checkout, NEW_CARD, useCheckout } from "./checkout";
 import { orderStatusSql } from "./ledger";
-import { canManagePayments, creditNoteNumber, type SavedCardRow, savedCardLabel } from "./payments";
+import { canManagePayments, type SavedCardRow, savedCardLabel } from "./payments";
 import { discountReason, saleNumber } from "./printing";
 import { staffName, staffNameSql } from "./staff";
 import { useReplicaLoad } from "./sync";
@@ -87,6 +92,15 @@ export function useTerminalConnection(api: ApiLike): TerminalConnection {
 type PickupStatus = "unfulfilled" | "preparing" | "ready" | "picked_up";
 
 const PICKUP_FLOW: PickupStatus[] = ["unfulfilled", "preparing", "ready", "picked_up"];
+
+function isPickupStatus(status: string | null): status is PickupStatus {
+    return (
+        status === "unfulfilled" ||
+        status === "preparing" ||
+        status === "ready" ||
+        status === "picked_up"
+    );
+}
 
 const STATUS: Record<PickupStatus, { label: string; intent: Intent; empty: string }> = {
     unfulfilled: {
@@ -210,9 +224,42 @@ interface PickupOrder {
     total: string;
     contact: string;
     phone: string | null;
+    texts: boolean;
     // Placed, ready since or picked up at, whichever is latest.
     when: string;
     waiting: string;
+}
+
+function pickupWhen(
+    status: PickupStatus,
+    at: { created_at: string; ready_at: string | null; picked_up_at: string | null },
+    now: Date,
+    zone: string,
+): string {
+    const p = strings.pos.pickup;
+    return status === "picked_up" && at.picked_up_at !== null
+        ? p.pickedAt(relativeDayTime(parseTimestamp(at.picked_up_at), zone, now))
+        : status === "ready" && at.ready_at !== null
+          ? p.readySince(relativeDayTime(parseTimestamp(at.ready_at), zone, now))
+          : p.placed(relativeDayTime(parseTimestamp(at.created_at), zone, now));
+}
+
+function pickupWindow(
+    from: string | null | undefined,
+    to: string | null | undefined,
+    zone: string,
+    now: Date,
+): string | null {
+    if (!from) return null;
+    const start = parseTimestamp(from);
+    return strings.publicShop.pickupWindowAt(
+        to
+            ? strings.common.dayAndTime(
+                  relativeDay(start, zone, "short", now),
+                  formatTimeRange(start, parseTimestamp(to), zone),
+              )
+            : relativeDayTime(start, zone, now),
+    );
 }
 
 export function pickupOrder(
@@ -220,6 +267,7 @@ export function pickupOrder(
     lines: PickupLineRow[],
     now: Date,
     zone: string,
+    stopped: ReadonlySet<string> = new Set(),
 ): PickupOrder {
     const status = row.pickup_status;
     const p = strings.pos.pickup;
@@ -234,14 +282,8 @@ export function pickupOrder(
         clientName: row.client_name ?? p.guest,
         status,
         note:
-            formatParts([
-                row.pickup_from
-                    ? strings.publicShop.pickupWindowAt(
-                          relativeDayTime(parseTimestamp(row.pickup_from), zone, now),
-                      )
-                    : null,
-                row.note,
-            ]) || null,
+            formatParts([pickupWindow(row.pickup_from, row.pickup_to, zone, now), row.note]) ||
+            null,
         statusLabel: STATUS[status].label,
         intent: STATUS[status].intent,
         lines: mine.map((l) => ({
@@ -256,12 +298,12 @@ export function pickupOrder(
         total: row.total_cents === null ? "" : formatMoney(row.total_cents, BUSINESS_CURRENCY),
         contact: row.phone === null ? "" : formatPhone(row.phone),
         phone: row.phone,
-        when:
-            status === "picked_up" && row.picked_up_at !== null
-                ? p.pickedAt(relativeDayTime(parseTimestamp(row.picked_up_at), zone, now))
-                : status === "ready" && row.ready_at !== null
-                  ? p.readySince(relativeDayTime(parseTimestamp(row.ready_at), zone, now))
-                  : p.placed(relativeDayTime(parseTimestamp(row.created_at), zone, now)),
+        // the server skips the text without a mobile number it can send to, or after a STOP reply
+        texts:
+            row.notify_sms !== 0 &&
+            normalizePhone(row.phone) !== null &&
+            !(row.client_id !== null && stopped.has(row.client_id)),
+        when: pickupWhen(status, row, now, zone),
         waiting: p.waiting(Math.max(0, -daysUntil(since, zone, now))),
     };
 }
@@ -284,9 +326,9 @@ interface PickupQueue {
     list: PickupOrder[];
     selected: PickupOrder | null;
     select: (id: string | null) => void;
-    advance: (id: string) => void;
+    advance: (id: string, onDone?: () => void) => void;
     // A step the server allows from here, e.g. straight to picked up from to pack.
-    move: (id: string, status: PickupStatus) => void;
+    move: (id: string, status: PickupStatus, onDone?: () => void) => void;
     busyId: string | null;
     error: string | null;
 }
@@ -297,26 +339,28 @@ function usePickupOrders(api: ApiLike): PickupQueue {
     const zone = useBusinessZone();
     const orders = useQuery<PickupRow>(PICKUP_ORDERS_SQL);
     const lines = useQuery<PickupLineRow>(PICKUP_LINES_SQL);
+    const stops = useQuery<{ client_id: string }>(TEXTS_STOPPED_SQL);
     const [q, setQ] = useState("");
     const [status, setStatus] = useState<PickupStatus>("unfulfilled");
     const [selectedId, select] = useState<string | null>(null);
     const [busyId, setBusyId] = useState<string | null>(null);
     const { error, run } = useAsyncAction();
-    const all = useMemo(
-        () => orders.data.map((o) => pickupOrder(o, lines.data, now, zone)),
-        [orders.data, lines.data, now, zone],
-    );
+    const all = useMemo(() => {
+        const stopped = new Set(stops.data.map((stop) => stop.client_id));
+        return orders.data.map((o) => pickupOrder(o, lines.data, now, zone, stopped));
+    }, [orders.data, lines.data, stops.data, now, zone]);
     const t = q.trim().toLowerCase();
     const match = (o: PickupOrder): boolean =>
         t === "" ||
         [o.clientName, ...o.lines.map((l) => l.name)].some((v) => v.toLowerCase().includes(t));
     const load = useReplicaLoad([orders, lines], all.length === 0);
-    const move = (id: string, to: PickupStatus): void => {
+    const move = (id: string, to: PickupStatus, onDone?: () => void): void => {
         if (to === "unfulfilled") return;
         setBusyId(id);
         run(() => setPickupStatus(api, id, to), {
             onSuccess: () => {
                 setBusyId(null);
+                onDone?.();
             },
             errorMessage: strings.pos.pickup.error,
         });
@@ -343,10 +387,10 @@ function usePickupOrders(api: ApiLike): PickupQueue {
         list: all.filter((o) => o.status === status && match(o)),
         selected: all.find((o) => o.id === selectedId) ?? null,
         select,
-        advance: (id) => {
+        advance: (id, onDone) => {
             const order = all.find((o) => o.id === id);
             const next = order === undefined ? null : nextPickupStatus(order.status);
-            if (next !== null) move(id, next);
+            if (next !== null) move(id, next, onDone);
         },
         move,
         busyId: error === null ? busyId : null,
@@ -709,6 +753,53 @@ export const SALE_STAFF_SQL = `
 SELECT id, ${staffNameSql("staff")} AS name, title, role, color FROM staff WHERE status = 'active'
 ORDER BY name COLLATE NOCASE`;
 
+/** Who worked a line and their part of it: its member, or the visit's crew in even shares. */
+function workerShares(line: SalePricedLine, crew: VisitCrew | undefined): [string, number][] {
+    const lead = line.staffId ?? crew?.leadId ?? null;
+    if (lead === null) return [];
+    if (crew?.leadId !== lead) return [[lead, line.netCents]];
+    const ids = [lead, ...crew.helperIds.filter((id) => id !== lead)];
+    const parts = allocate(
+        line.netCents,
+        ids.map(() => 1),
+    );
+    return ids.map((id, i) => [id, parts[i] ?? 0]);
+}
+
+/** The crew of each visit on a ticket, leaving out one that can't be read. */
+async function crewsOf(
+    api: ApiLike,
+    bookingIds: readonly string[],
+): Promise<Record<string, VisitCrew>> {
+    const read = await Promise.all(
+        bookingIds.map((id) => visitCrew(api, id).catch((): VisitCrew | null => null)),
+    );
+    return Object.fromEntries(
+        bookingIds.flatMap((id, i) => {
+            const crew = read[i];
+            return crew === null || crew === undefined ? [] : [[id, crew]];
+        }),
+    );
+}
+
+/** Each visit's crew, read again when a tip is added or cleared, so a retry or a new helper shows. */
+function useVisitCrews(
+    api: ApiLike,
+    bookingIds: readonly string[],
+    tipped: boolean,
+): { crews: Record<string, VisitCrew>; unread: boolean } {
+    const [crews, setCrews] = useState<Record<string, VisitCrew>>({});
+    const remote = useRemote(
+        () => crewsOf(api, bookingIds),
+        `${bookingIds.join(",")}|${tipped ? "tip" : "none"}`,
+    );
+    useEffect(() => {
+        const read = remote.data;
+        if (read !== null && Object.keys(read).length > 0) setCrews((c) => ({ ...c, ...read }));
+    }, [remote.data]);
+    return { crews, unread: bookingIds.some((id) => !(id in crews)) };
+}
+
 /** Who did each line gets the tip by line value, unless the desk gives it all to one person. */
 export function tipShares(
     lines: readonly SalePricedLine[],
@@ -716,6 +807,7 @@ export function tipShares(
     mode: TipSplitMode,
     tipTo: string | null,
     staff: readonly SaleStaffRow[],
+    crews: Readonly<Record<string, VisitCrew>>,
 ): TipShare[] {
     const who = (id: string): SaleStaffRow | undefined => staff.find((s) => s.id === id);
     const share = (id: string, cents: number): TipShare => {
@@ -728,14 +820,16 @@ export function tipShares(
         };
     };
     if (tipCents <= 0) return [];
-    const served = lines.filter((l) => l.staffId !== null && l.netCents > 0);
-    const ids = [...new Set(served.flatMap((l) => (l.staffId === null ? [] : [l.staffId])))];
     if (mode === "one" && tipTo !== null) return [share(tipTo, tipCents)];
-    if (ids.length === 0) return [];
-    const parts = allocate(
-        tipCents,
-        ids.map((id) => served.filter((l) => l.staffId === id).reduce((n, l) => n + l.netCents, 0)),
-    );
+    const weights = new Map<string, number>();
+    for (const line of lines) {
+        const crew = line.bookingId === null ? undefined : crews[line.bookingId];
+        for (const [id, cents] of workerShares(line, crew)) {
+            if (cents > 0) weights.set(id, (weights.get(id) ?? 0) + cents);
+        }
+    }
+    const ids = [...weights.keys()];
+    const parts = allocate(tipCents, [...weights.values()]);
     return ids.map((id, i) => share(id, parts[i] ?? 0));
 }
 
@@ -808,13 +902,16 @@ function saveSale(
         : api.patch<OrderOut>(`/v1/orders/${orderId}`, body);
 }
 
-function tipBody(cents: number, shares: readonly TipShare[]): Record<string, unknown> {
+// Unless one person is picked, the server splits the tip itself, since it sees every visit's crew.
+export function tipBody(
+    cents: number,
+    mode: TipSplitMode,
+    tipTo: string | null,
+): Record<string, unknown> {
     return {
         tip_cents: cents,
         tip_split:
-            cents > 0 && shares.length > 0
-                ? shares.map((s) => ({ staff_id: s.staffId, cents: s.cents }))
-                : null,
+            cents > 0 && mode === "one" && tipTo !== null ? [{ staff_id: tipTo, cents }] : null,
     };
 }
 
@@ -866,6 +963,8 @@ export interface SaleTicket {
     tipNote: string;
     tipOptions: { key: string; label: string; hint: string }[];
     tipShares: TipShare[];
+    // why no split is listed: no one set on the services, or a crew not read yet
+    tipSplitNote: string | null;
     tipMode: TipSplitMode;
     setTipMode: (m: TipSplitMode) => void;
     tipTo: string | null;
@@ -1061,7 +1160,15 @@ export function useSale(
         ...new Set(priced.lines.flatMap((l) => (l.staffId === null ? [] : [l.staffId]))),
     ];
     const tipTo = tipToChoice ?? servedIds[0] ?? opts.viewerStaffId ?? null;
-    const shares = tipShares(priced.lines, t.tipCents, tipMode, tipTo, staffRows);
+    const visitIds = [
+        ...new Set(lines.flatMap((l) => (l.bookingId === null ? [] : [l.bookingId]))),
+    ];
+    const visits = useVisitCrews(api, visitIds, t.tipCents > 0);
+    // until every visit's crew is read the desk can't show its split; the server still makes it
+    const splitUnknown = (tipMode === "byService" || tipTo === null) && visits.unread;
+    const shares = splitUnknown
+        ? []
+        : tipShares(priced.lines, t.tipCents, tipMode, tipTo, staffRows, visits.crews);
 
     const markPaid = (): void => {
         keyRef.current = null;
@@ -1132,7 +1239,7 @@ export function useSale(
             setError(d.cashShort(formatMoney(t.dueCents, BUSINESS_CURRENCY)));
             return;
         }
-        const tipPart = tipBody(t.tipCents, shares);
+        const tipPart = tipBody(t.tipCents, tipMode, tipTo);
         run(
             async () => {
                 const saved_ = await save();
@@ -1184,7 +1291,7 @@ export function useSale(
                     { orderId: saved_.id, tipPart },
                 );
             },
-            { errorMessage: (e) => failureMessage(e, d.payError) },
+            { errorMessage: (e) => failureMessage(e, d.chargeError) },
         );
     };
 
@@ -1333,6 +1440,7 @@ export function useSale(
             { key: "none", label: d.tipNone, hint: formatMoney(0, BUSINESS_CURRENCY) },
         ],
         tipShares: shares,
+        tipSplitNote: shares.length > 0 ? null : splitUnknown ? d.tipSplitAtCharge : d.tipNobody,
         tipMode,
         setTipMode,
         tipTo,
@@ -1929,22 +2037,27 @@ export function useFrontDeskBoard(
             col("ready", d.readyForPickup, d.readyHint, d.nothingReady),
         ],
         advance: (id) => {
-            const order = held.find((o) => o.id === id);
-            if (order !== undefined) {
+            const ticket = held.find((o) => o.id === id);
+            if (ticket !== undefined) {
                 setDone(null);
-                onResume(order);
+                onResume(ticket);
                 return;
             }
             const card = pickups.find((c) => c.id === id);
-            if (card === undefined) return;
-            queue.advance(id);
-            setDone(
-                queue.all.find((order) => order.id === id)?.status === "unfulfilled"
+            const pickup = queue.all.find((o) => o.id === id);
+            if (card === undefined || pickup === undefined) return;
+            const message =
+                pickup.status === "unfulfilled"
                     ? strings.publicOrder.preparingStarted
                     : card.column === "prepare"
-                      ? d.markedReady(card.clientName)
-                      : d.markedPickedUp(card.clientName),
-            );
+                      ? pickup.texts
+                          ? d.markedReady(card.clientName)
+                          : d.markedReadyNoText(card.clientName)
+                      : d.markedPickedUp(card.clientName);
+            setDone(null);
+            queue.advance(id, () => {
+                setDone(message);
+            });
         },
         busyId: queue.busyId,
         done: queue.error === null ? done : null,
@@ -1966,8 +2079,10 @@ SELECT o.id, o.number, o.client_id, c.name AS client_name, o.source, o.pickup_st
                  WHERE p.order_id = o.id AND p.kind = 'refund' AND p.status = 'succeeded'), 0) AS refunded_cents,
        COALESCE((SELECT SUM(l.discount_cents + l.sale_discount_cents) FROM lines l
                  WHERE l.order_id = o.id), 0) AS discount_cents,
-       (SELECT p.method FROM payments p WHERE p.order_id = o.id AND p.kind = 'payment'
-          AND p.status = 'succeeded' ORDER BY p.paid_at DESC LIMIT 1) AS method,
+       COALESCE((SELECT p.method FROM payments p WHERE p.order_id = o.id AND p.kind = 'payment'
+                   AND p.status = 'succeeded' ORDER BY p.paid_at DESC LIMIT 1),
+                (SELECT 'gift_card' FROM entries e WHERE e.event = 'redemption'
+                   AND e.source_type = 'order' AND e.source_id = o.id LIMIT 1)) AS method,
        (SELECT GROUP_CONCAT(CASE WHEN l.quantity > 1 THEN CAST(l.quantity AS INTEGER) || ' × ' || l.description
                                  ELSE l.description END, ', ')
           FROM lines l WHERE l.order_id = o.id) AS summary,
@@ -2053,9 +2168,13 @@ function saleSummary(row: SaleRow): SaleSummary {
         intent: saleStatusIntent(status),
         source: row.source === "online" ? "online" : "desk",
         methodLabel:
-            row.method === null
+            // a gift card that paid part of a sale still open hasn't settled it
+            row.method === null || (row.method === "gift_card" && status === "open")
                 ? d.notPaid
-                : (strings.publicReceipt.method[row.method] ?? strings.publicReceipt.method.other),
+                : row.method === "gift_card"
+                  ? d.giftCardPaid
+                  : (strings.publicReceipt.method[row.method] ??
+                    strings.publicReceipt.method.other),
     };
 }
 
@@ -2088,7 +2207,17 @@ interface SalesHistory {
     };
 }
 
-/** Every sale, newest first, grouped by day with the day's takings. */
+// A refund gives back its share of the tip too, so what stays as sales shrinks in proportion.
+function keptBeforeTip(r: SaleSummary): number {
+    if (r.totalCents <= 0) return 0;
+    const kept = Math.max(0, r.totalCents - r.refundedCents);
+    return Math.round(((r.totalCents - r.tipCents) * kept) / r.totalCents);
+}
+
+const countsAsSale = (r: SaleSummary): boolean =>
+    r.status !== "void" && r.status !== "open" && r.status !== "refunded";
+
+/** Every sale, newest first, grouped by day with the day's takings after refunds. */
 export function useSalesHistory(): SalesHistory {
     const [now] = useState(() => new Date());
     const zone = useBusinessZone();
@@ -2119,21 +2248,16 @@ export function useSalesHistory(): SalesHistory {
                 rows: [],
             };
             day.rows.push(r);
-            if (r.status !== "void" && r.status !== "open") {
-                day.totalCents += r.totalCents;
+            if (countsAsSale(r)) {
+                day.totalCents += Math.max(0, r.totalCents - r.refundedCents);
                 day.count += 1;
             }
             map.set(k, day);
         }
         return [...map.values()];
     }, [all, filter, q, now]);
-    const todays = all.filter(
-        (r) =>
-            dateKey(r.at, zone) === dateKey(now, zone) &&
-            r.status !== "void" &&
-            r.status !== "open",
-    );
-    const salesCents = todays.reduce((n, r) => n + r.totalCents - r.tipCents, 0);
+    const todays = all.filter((r) => dateKey(r.at, zone) === dateKey(now, zone) && countsAsSale(r));
+    const salesCents = todays.reduce((n, r) => n + keptBeforeTip(r), 0);
     return {
         load: useReplicaLoad([rows], all.length === 0),
         filter,
@@ -2153,7 +2277,10 @@ export function useSalesHistory(): SalesHistory {
         today: {
             salesCents,
             count: todays.length,
-            tipsCents: todays.reduce((n, r) => n + r.tipCents, 0),
+            tipsCents: todays.reduce(
+                (n, r) => n + Math.max(0, r.totalCents - r.refundedCents) - keptBeforeTip(r),
+                0,
+            ),
             discountsCents: todays.reduce((n, r) => n + r.discountCents, 0),
             averageCents: todays.length === 0 ? 0 : Math.round(salesCents / todays.length),
         },
@@ -2190,7 +2317,8 @@ SELECT o.id, o.number, o.client_id, c.name AS client_name, c.phone AS client_pho
        o.source, o.pickup_status, o.created_at, o.subtotal_cents, o.tax_total_cents, o.total_cents,
        o.staff_id, o.note,
        o.discount_kind, o.discount_value, o.discount_reason,
-       o.receipt_phone, o.receipt_sent_at, ${orderStatusSql("o")} AS status
+       o.receipt_phone, o.receipt_sent_at, o.ready_at, o.picked_up_at, o.pickup_from, o.pickup_to,
+       ${orderStatusSql("o")} AS status
 FROM orders o LEFT JOIN clients c ON c.id = o.client_id WHERE o.id = ?`;
 
 interface SaleRecordRow {
@@ -2212,6 +2340,10 @@ interface SaleRecordRow {
     discount_reason: string | null;
     receipt_phone: string | null;
     receipt_sent_at: string | null;
+    ready_at: string | null;
+    picked_up_at: string | null;
+    pickup_from: string | null;
+    pickup_to: string | null;
     status: string;
 }
 
@@ -2258,6 +2390,12 @@ export function discountFrom(
     return { kind, value, reason };
 }
 
+function paymentIcon(kind: string, method: string): IconName {
+    if (kind === "refund") return "refresh";
+    if (method === "card") return "card";
+    return method === "bank_eft" ? "bank" : "dollar";
+}
+
 type SaleActionKey =
     "preparing" | "receipt" | "refund" | "void" | "returnGift" | "resume" | "ready" | "pickedUp";
 
@@ -2275,19 +2413,18 @@ interface SaleDetail {
     note: string | null;
     priced: PricedSale;
     totalLines: DocTotalLine[];
-    rungBy: string;
+    origin: string;
+    pickup: { label: string; intent: Intent; when: string; window: string | null } | null;
     payments: {
         id: string;
         label: string;
         detail: string;
         cents: number;
         refund: boolean;
+        icon: IconName;
     }[];
     tipShares: TipShare[];
     refundablePaymentId: string | null;
-    paidWith: string;
-    refundableCents: number;
-    creditNotes: string[];
     receipt: string | null;
     actions: { key: SaleActionKey; label: string; tone: "primary" | "outline" | "danger" }[];
 }
@@ -2333,9 +2470,6 @@ export function useSaleDetail(
         const refunded = pays
             .filter((p) => p.kind === "refund")
             .reduce((n, p) => n + p.amount_cents, 0);
-        const paidIn = pays
-            .filter((p) => p.kind === "payment")
-            .reduce((n, p) => n + p.amount_cents, 0);
         const saleDiscount = discountFrom(
             row.discount_kind,
             row.discount_value,
@@ -2362,7 +2496,16 @@ export function useSaleDetail(
                       },
                   );
         const manager = isManager(role);
+        const now = new Date();
         const lastPaid = [...pays].reverse().find((p) => p.kind === "payment") ?? null;
+        const givenBack = (paymentId: string): number =>
+            payRows.data
+                .filter((p) => p.kind === "refund" && p.parent_payment_id === paymentId)
+                .reduce((n, p) => n + p.amount_cents, 0);
+        const refundable =
+            [...pays]
+                .reverse()
+                .find((p) => p.kind === "payment" && givenBack(p.id) < p.amount_cents) ?? null;
         const splits: { staff_id: string; cents: number }[] =
             lastPaid?.tip_split != null
                 ? ((JSON.parse(lastPaid.tip_split) as
@@ -2385,7 +2528,12 @@ export function useSaleDetail(
             actions.push({ key: "receipt", label: d.resendReceipt, tone: "outline" });
         // gift cards paid this sale in full: there is no payment to refund, so it goes back to them
         const giftPaid = status === "paid" && lastPaid === null && row.source !== "online";
-        if (manager && (status === "paid" || status === "partly_refunded") && !giftPaid)
+        if (
+            manager &&
+            (status === "paid" || status === "partly_refunded") &&
+            !giftPaid &&
+            refundable !== null
+        )
             actions.push({ key: "refund", label: d.refund, tone: "outline" });
         if (manager && giftPaid)
             actions.push({ key: "returnGift", label: d.returnGiftSale, tone: "danger" });
@@ -2412,7 +2560,18 @@ export function useSaleDetail(
                 { ...priced.totals, depositCents: 0, dueCents: priced.totals.totalCents },
                 { saleDiscountReason: saleDiscount?.reason ?? null },
             ),
-            rungBy: rung === undefined ? d.noStaff : staffName(rung),
+            origin:
+                row.source === "online"
+                    ? d.placedOnline
+                    : d.rungBy(rung === undefined ? d.noStaff : staffName(rung)),
+            pickup: isPickupStatus(row.pickup_status)
+                ? {
+                      label: STATUS[row.pickup_status].label,
+                      intent: STATUS[row.pickup_status].intent,
+                      when: pickupWhen(row.pickup_status, row, now, zone),
+                      window: pickupWindow(row.pickup_from, row.pickup_to, zone, now),
+                  }
+                : null,
             payments: pays.map((p) => ({
                 id: p.id,
                 label:
@@ -2424,6 +2583,7 @@ export function useSaleDetail(
                 detail: p.paid_at === null ? "" : relativeDayTime(parseTimestamp(p.paid_at), zone),
                 cents: p.kind === "refund" ? -p.amount_cents : p.amount_cents,
                 refund: p.kind === "refund",
+                icon: paymentIcon(p.kind, p.method),
             })),
             tipShares: splits.map((s) => {
                 const who = staffOf(s.staff_id);
@@ -2434,10 +2594,7 @@ export function useSaleDetail(
                     cents: s.cents,
                 };
             }),
-            refundablePaymentId: lastPaid?.id ?? null,
-            paidWith: lastPaid === null ? d.methodCard : (method[lastPaid.method] ?? method.other),
-            refundableCents: Math.max(0, paidIn - refunded),
-            creditNotes: pays.flatMap((p) => (p.credit_note === null ? [] : [p.credit_note])),
+            refundablePaymentId: refundable?.id ?? null,
             receipt: row.receipt_phone === null ? null : d.sentBy(formatPhone(row.receipt_phone)),
             actions,
         };
@@ -2464,16 +2621,16 @@ interface SaleActions {
     dismiss: () => void;
 }
 
-/** Resend, refund and void from a sale's panel; refund and void ask first and are manager-only. */
+/** Resend, refund and void from a sale's panel; a refund opens the refund desk, void asks first. */
 export function useSaleActions(
     api: ApiLike,
     confirmFn: (o: ConfirmOptions) => Promise<boolean>,
     onResume: (orderId: string) => void,
+    onRefund: (paymentId: string) => void,
 ): SaleActions {
     const { busy, error, setError, run } = useAsyncAction();
     const [busyKey, setBusyKey] = useState<SaleActionKey | null>(null);
     const [done, setDone] = useState<string | null>(null);
-    const refundAttempt = useRef<Attempt | null>(null);
     const ask = (options: ConfirmOptions, then: () => void): void => {
         confirmFn(options)
             .then((ok) => {
@@ -2486,7 +2643,6 @@ export function useSaleActions(
         setDone(null);
         run(fn, {
             onSuccess: () => {
-                if (key === "refund") refundAttempt.current = null;
                 setBusyKey(null);
                 setDone(message);
             },
@@ -2552,38 +2708,7 @@ export function useSaleActions(
                 return;
             }
             if (key === "refund" && detail.refundablePaymentId !== null) {
-                const cents = detail.refundableCents;
-                const paymentId = detail.refundablePaymentId;
-                const note = creditNoteNumber(detail.number, detail.creditNotes.length + 1);
-                ask(
-                    {
-                        title: d.refundTitle(detail.number),
-                        message: d.refundBody(
-                            formatMoney(cents, BUSINESS_CURRENCY),
-                            detail.paidWith,
-                            note,
-                        ),
-                        confirmLabel: d.refundConfirm(formatMoney(cents, BUSINESS_CURRENCY)),
-                        destructive: true,
-                    },
-                    () => {
-                        go(
-                            key,
-                            () =>
-                                api.post(
-                                    `/v1/payments/${paymentId}/refund`,
-                                    { amount_cents: cents, notify: true },
-                                    {
-                                        idempotencyKey: attemptKey(refundAttempt, [
-                                            paymentId,
-                                            cents,
-                                        ]),
-                                    },
-                                ),
-                            d.refundDone(formatMoney(cents, BUSINESS_CURRENCY), note),
-                        );
-                    },
-                );
+                onRefund(detail.refundablePaymentId);
                 return;
             }
             if (key === "returnGift") {

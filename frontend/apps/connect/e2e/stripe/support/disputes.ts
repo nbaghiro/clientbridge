@@ -12,6 +12,7 @@ import {
 } from "../../../../web/e2e/support/bookings";
 import type { ClientFixture } from "../../../../web/e2e/support/clients";
 import { select } from "../../../../web/e2e/support/db";
+import { fillSale } from "../../../../web/e2e/support/entitlements";
 import { openRefund } from "../../../../web/e2e/support/refunds";
 import { navigate } from "../../../../web/e2e/support/session";
 import { registerStripeDeposit } from "./depositContract";
@@ -212,27 +213,8 @@ export async function sellGiftCardByCard(
     card: string,
 ): Promise<void> {
     const w = strings.entitlements;
-    await navigate(page, "/payments/gift-cards");
-    await page.getByRole("button", { name: w.sellNew, exact: true }).click();
-    const dialog = page.getByRole("dialog");
-    await dialog
-        .getByRole("group", { name: w.chooseKind, exact: true })
-        .getByRole("button", { name: w.kindNoun.gift_card, exact: true })
-        .click();
-    await dialog
-        .getByRole("textbox", { name: w.giftAmount, exact: true })
-        .fill(String(cents / 100));
-    await dialog.getByRole("combobox", { name: w.client, exact: true }).fill(client.name);
-    await page.locator(`[role="option"][data-value="${client.id}"]`).click({ timeout: 60_000 });
-    await dialog.getByRole("combobox", { name: strings.checkout.payment, exact: true }).click();
-    await page.getByRole("option", { name: strings.checkout.newCard, exact: true }).click();
+    const dialog = await openGiftCardCharge(page, client, cents);
     const amount = formatMoney(cents, "CAD");
-    const opened = page.waitForResponse(
-        (r) => r.url().endsWith("/v1/gift-cards") && r.request().method() === "POST",
-    );
-    await dialog.getByRole("button", { name: w.charge(amount), exact: true }).click();
-    const response = await opened;
-    expect(response.status(), await response.text()).toBe(201);
     await enterStripeCard(await cardFrame(page), card);
     const submit = dialog.getByRole("button", {
         name: strings.checkout.charge(amount),
@@ -241,6 +223,30 @@ export async function sellGiftCardByCard(
     await press(submit);
     await expect(dialog.getByText(w.doneTitle, { exact: true })).toBeVisible({ timeout: 90_000 });
     await dialog.getByRole("button", { name: strings.common.close, exact: true }).click();
+}
+
+/** A gift card sale by new card, opened at the server and waiting on Stripe's card form. */
+export async function openGiftCardCharge(
+    page: Page,
+    client: ClientFixture,
+    cents: number,
+    recipient?: string,
+): Promise<Locator> {
+    const dialog = await fillSale(page, client, "gift_card", null, { giftCents: cents, recipient });
+    await dialog.getByRole("combobox", { name: strings.checkout.payment, exact: true }).click();
+    await page.getByRole("option", { name: strings.checkout.newCard, exact: true }).click();
+    const opened = page.waitForResponse(
+        (r) => r.url().endsWith("/v1/gift-cards") && r.request().method() === "POST",
+    );
+    await dialog
+        .getByRole("button", {
+            name: strings.entitlements.charge(formatMoney(cents, "CAD")),
+            exact: true,
+        })
+        .click();
+    const response = await opened;
+    expect(response.status(), await response.text()).toBe(201);
+    return dialog;
 }
 
 /** Stripe's test-mode tools frame can sit over a control, so activate it from the keyboard. */

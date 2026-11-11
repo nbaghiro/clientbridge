@@ -351,8 +351,8 @@ function TipBlock({ sale }: { sale: SaleTicket }) {
                             onChange={sale.setTipTo}
                         />
                     ) : null}
-                    {sale.tipShares.length === 0 ? (
-                        <Text style={styles.note}>{d.tipNobody}</Text>
+                    {sale.tipSplitNote !== null ? (
+                        <Text style={styles.note}>{sale.tipSplitNote}</Text>
                     ) : (
                         sale.tipShares.map((sh) => (
                             <ListRow
@@ -887,7 +887,7 @@ export function TicketSheet({
             </View>
         );
     return (
-        <Modal open={open} onClose={close} size="xl">
+        <Modal open={open} onClose={close} size="xl" page={sale.phase === "paid" ? "paid" : step}>
             {sale.terminal !== null ? (
                 <TerminalProvider tokenProvider={tokenProvider}>
                     <View>{body}</View>

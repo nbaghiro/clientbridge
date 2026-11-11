@@ -1,15 +1,16 @@
 import httpx
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice, Line, Order
+from clientbridge.models.business import Staff
 from clientbridge.models.clients import Client
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
-from clientbridge.services.earnings import cancel_returned_tips, load_earning
+from clientbridge.services.earnings import cancel_returned_tips, ensure_earnings, load_earning
 from clientbridge.services.ledger import Leg
 from tests.conftest import FakeEmailSender, FakePaymentGateway, FakeSmsSender
 from tests.helpers import (
@@ -335,6 +336,46 @@ async def test_a_second_tipped_instalment_receipt_counts_every_tip_on_the_invoic
     (receipt,) = [m for m in sms.sent if "Your payment of $60.00" in m.body]
     assert "Tip  $15.00" in receipt.body
     assert "Total  $115.00" in receipt.body
+
+
+async def test_a_tipped_receipt_leaves_out_the_commission_earned_on_the_invoice(
+    api: httpx.AsyncClient, unauth: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
+) -> None:
+    await enable_payments(db)
+    await db.execute(
+        update(Staff)
+        .where(Staff.id == "st_diego")
+        .values(payee=True, rate_type="percent", rate_bps=4500, rate_cents=None)
+    )
+    inv = await sent_invoice(db, total=2000, pay_token="tok_earned")
+    db.add(
+        Line(
+            id=new_id("line"),
+            business_id=BIZ,
+            invoice_id=inv,
+            description="Grooming consultation",
+            unit_amount_cents=2000,
+            amount_cents=2000,
+            staff_id="st_diego",
+        )
+    )
+    invoice = await db.get(Invoice, inv)
+    assert invoice is not None
+    client = await db.get(Client, invoice.client_id)
+    assert client is not None
+    client.phone = "+15145550225"
+    await db.flush()
+    await ensure_earnings(db, invoice)
+    ok(await pay_link_card(unauth, db, "tok_earned", tip_cents=350))
+    pay = (
+        await db.execute(
+            select(Payment).where(Payment.invoice_id == inv, Payment.status == "pending")
+        )
+    ).scalar_one()
+    await settle(api, db, pay.id)
+    (receipt,) = [m for m in sms.sent if "Your payment of $23.50" in m.body]
+    assert "Tip  $3.50" in receipt.body
+    assert "Total  $23.50" in receipt.body
 
 
 async def test_pay_link_refuses_a_tip_larger_than_the_bill(

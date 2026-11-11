@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.models.catalog import GiftCard, Package
 from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
-from tests.conftest import Factory
+from tests.conftest import Factory, FakeSmsSender
 from tests.helpers import business_balance, client_id, enable_payments, key, ok, owner_balance
 from tests.helpers import key as retry_key
 
@@ -38,17 +38,35 @@ async def test_cash_package_is_active_with_its_value_deferred(
     assert await owner_balance(db, "package", pkg.id, "deferred") == -20000
 
 
-async def test_cash_gift_card_is_active_with_its_balance(
-    as_owner: httpx.AsyncClient, db: AsyncSession
+async def test_cash_gift_card_is_active_with_its_balance_and_texts_its_code(
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
     cid = await client_id(db)
-    body = {"purchaser_client_id": cid, "amount_cents": 7500, "recipient": "Dana", "cash": True}
+    body = {
+        "purchaser_client_id": cid,
+        "amount_cents": 7500,
+        "recipient": "(514) 555-0235",
+        "cash": True,
+    }
     out = ok(await as_owner.post("/v1/gift-cards", json=body, headers=key()), 201).json()
     card = (
         await db.execute(select(GiftCard).where(GiftCard.id == out["gift_card_id"]))
     ).scalar_one()
     assert card.status == "active"
+    assert card.recipient == "+15145550235"
     assert await ledger.gift_card_balance(db, card) == 7500
+    sent = [m for m in sms.sent if m.to == "+15145550235"]
+    assert len(sent) == 1 and out["code"] in sent[0].body
+
+
+async def test_a_recipient_that_is_not_a_phone_number_is_refused(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await client_id(db)
+    body = {"purchaser_client_id": cid, "amount_cents": 7500, "recipient": "Dana", "cash": True}
+    res = await as_owner.post("/v1/gift-cards", json=body, headers=key())
+    assert res.status_code == 422 and res.json()["error"] == "invalid_phone"
+    assert await db.scalar(select(GiftCard.id).where(GiftCard.recipient == "Dana")) is None
 
 
 async def test_cash_and_card_together_are_refused(

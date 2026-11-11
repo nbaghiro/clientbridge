@@ -138,6 +138,7 @@ from clientbridge.services.files import (
     team_photos,
 )
 from clientbridge.services.forms import validate_answers
+from clientbridge.services.inventory import held_units
 from clientbridge.services.lines import (
     apply_totals,
     crew_ids,
@@ -157,6 +158,7 @@ from clientbridge.services.payments import (
     booking_refund_status,
     cancel_open_deposits,
     invoice_credits,
+    invoice_refunds,
     open_booking_deposit,
     open_card_payment,
     open_order_card_payment,
@@ -1942,6 +1944,7 @@ class PublicPayService:
             discount_reason=invoice.discount_reason,
             taxes=taxes,
             credits=await invoice_credits(self.db, invoice),
+            refunds=await invoice_refunds(self.db, invoice),
             tip_for=await _tip_names(self.db, invoice.business_id, lines),
         )
 
@@ -2390,8 +2393,8 @@ async def visit_receipt(db: AsyncSession, booking: Booking, business: Business) 
 _SCOPE = "shop.order"
 
 
-def _stock_left(item: Item) -> int | None:
-    return max(item.stock_on_hand or 0, 0) if item.track_stock else None
+def _stock_left(item: Item, held: int = 0) -> int | None:
+    return max((item.stock_on_hand or 0) - held, 0) if item.track_stock else None
 
 
 async def addon_items(db: AsyncSession, business_id: str) -> list[PublicAddon]:
@@ -2472,6 +2475,7 @@ async def shop_items(db: AsyncSession, business_id: str) -> list[PublicShopItem]
         .all()
     )
     images = await item_images(db, business_id, [i.id for i in items])
+    held = await held_units(db, business_id, [i.id for i in items if i.track_stock])
     return [
         PublicShopItem(
             variant_parent_id=i.variant_parent_id,
@@ -2483,9 +2487,9 @@ async def shop_items(db: AsyncSession, business_id: str) -> list[PublicShopItem]
             currency=i.currency,
             taxable=i.tax_class != "exempt",
             image_url=images.get(i.id),
-            in_stock=not i.track_stock or (i.stock_on_hand or 0) > 0,
+            in_stock=_stock_left(i, held.get(i.id, 0)) != 0,
             category=i.category,
-            stock_left=_stock_left(i),
+            stock_left=_stock_left(i, held.get(i.id, 0)),
         )
         for i in items
         if i.variant_parent_id is None or i.variant_parent_id in {parent.id for parent in items}
@@ -2598,12 +2602,11 @@ class PublicShopService:
                         "that pickup window is no longer available", code="pickup_window_taken"
                     )
             wanted = await online_items(self.db, business.id, data.lines)
+            held = await held_units(self.db, business.id, [item.id for item, _ in wanted])
             for item, qty in wanted:
-                if item.track_stock and (item.stock_on_hand or 0) < qty:
-                    raise Conflict(
-                        f"only {max(item.stock_on_hand or 0, 0)} left of {item.name}",
-                        code="out_of_stock",
-                    )
+                left = _stock_left(item, held.get(item.id, 0))
+                if left is not None and left < qty:
+                    raise Conflict(f"only {left} left of {item.name}", code="out_of_stock")
             if len({item.currency for item, _ in wanted}) > 1:
                 raise Unprocessable("one order can't mix currencies", code="mixed_currencies")
             client = await find_or_create_by_contact(
@@ -2614,12 +2617,13 @@ class PublicShopService:
                 source="online_shop",
             )
             await welcome_back(self.db, cmd, client)
+            number = await next_order_number(self.db, business.id)
             order = Order(
                 id=new_id("order"),
                 business_id=business.id,
                 client_id=client.id,
                 staff_id=await self._owner_staff(business.id),
-                number=await next_order_number(self.db, business.id),
+                number=number,
                 status="open",
                 currency=wanted[0][0].currency,
                 source="online",
@@ -2666,6 +2670,7 @@ class PublicShopService:
                 tax_total_cents=order.tax_total_cents,
                 order_id=order.id,
                 order_token=order.status_token,
+                number=number,
                 total_cents=order.total_cents,
                 currency=order.currency,
                 client_secret=client_secret,

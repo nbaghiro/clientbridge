@@ -1695,6 +1695,10 @@ describe("app-core SQL against the replica schema", () => {
             { id: "pay_web", refunded_cents: 0, invoice_number: null },
             { id: "pay_3", refunded_cents: 0, invoice_number: 6 },
         ]);
+        expect(pick(run("REFUNDABLE_PAYMENT_SQL", ["pay_3"]), "id", "invoice_number")).toEqual([
+            { id: "pay_3", invoice_number: 6 },
+        ]);
+        expect(run("REFUNDABLE_PAYMENT_SQL", ["pay_r1"])).toEqual([]);
         expect(pick(run("CREDIT_NOTES_SQL"), "credit_note", "client_name", "reason")).toEqual([
             { credit_note: "CN-7-1", client_name: "Ann", reason: "duplicate" },
         ]);
@@ -2035,7 +2039,7 @@ describe("app-core SQL against the replica schema", () => {
         ]);
         const bell = run(
             "NOTIFICATION_FEED_SQL",
-            Array<string>(7).fill("2026-06-24T00:00:00.000Z"),
+            Array<string>(8).fill("2026-06-24T00:00:00.000Z"),
         );
         expect(bell.find((r) => r.id === "bk-bk_req")?.kind).toBe("booking_request");
         expect(bell.find((r) => r.id === "bk-bk_1")?.kind).toBe("booking_new");
@@ -2062,7 +2066,7 @@ describe("app-core SQL against the replica schema", () => {
             },
         ]);
         expect(
-            run("NOTIFICATION_FEED_SQL", Array<string>(6).fill("2026-06-24T00:00:00.000Z")).find(
+            run("NOTIFICATION_FEED_SQL", Array<string>(8).fill("2026-06-24T00:00:00.000Z")).find(
                 (r) => r.id === "bk-bk_paying",
             )?.at,
         ).toBe("2026-06-25T09:00:00Z");
@@ -2108,14 +2112,14 @@ describe("app-core SQL against the replica schema", () => {
         );
         const declined = run(
             "NOTIFICATION_FEED_SQL",
-            Array<string>(7).fill("2026-06-24T00:00:00.000Z"),
+            Array<string>(8).fill("2026-06-24T00:00:00.000Z"),
         );
         expect(declined.find((r) => r.id === "bk-bk_req")?.kind).toBe("booking_request");
         // each move the client makes from their link is its own bell item
         db.run("UPDATE bookings SET rescheduled_at = '2026-06-26T08:00:00Z' WHERE id = 'bk_1'");
         const moved = run(
             "NOTIFICATION_FEED_SQL",
-            Array<string>(7).fill("2026-06-24T00:00:00.000Z"),
+            Array<string>(8).fill("2026-06-24T00:00:00.000Z"),
         ).filter((r) => r.kind === "booking_moved");
         expect(pick(moved, "id", "at", "ref_id")).toEqual([
             { id: "bkm-bk_1-2026-06-26T08:00:00Z", at: "2026-06-26T08:00:00Z", ref_id: "bk_1" },
@@ -2175,7 +2179,24 @@ describe("app-core SQL against the replica schema", () => {
     });
 
     it("derives the bell from synced rows since a date", () => {
-        const since = Array<string>(7).fill("2026-06-24T00:00:00.000Z");
+        const since = Array<string>(8).fill("2026-06-24T00:00:00.000Z");
+        scoped("payments", [
+            {
+                id: "pay_r2",
+                client_id: "cl_ann",
+                kind: "refund",
+                credit_note: "CN-7-2",
+                parent_payment_id: "pay_1",
+                invoice_id: "inv_1",
+                amount_cents: 500,
+                currency: "CAD",
+                method: "card",
+                provider: "stripe",
+                status: "failed",
+                paid_at: "2026-06-26T15:00:00Z",
+                updated_at: "2026-06-26T16:00:00Z",
+            },
+        ]);
         const feed = run("NOTIFICATION_FEED_SQL", since)
             .map((r) => `${String(r.kind)}:${String(r.id)}`)
             .sort();
@@ -2187,7 +2208,17 @@ describe("app-core SQL against the replica schema", () => {
             "order_new:ord-ord_web",
             "payment:pay-pay_1",
             "refund:pay-pay_r1",
+            "refund_failed:rff-pay_r2",
         ]);
+        // a refund that failed is news when Stripe failed it, and opens the payment it was against
+        expect(
+            pick(
+                run("NOTIFICATION_FEED_SQL", since).filter((r) => r.kind === "refund_failed"),
+                "at",
+                "ref_id",
+                "amount_cents",
+            ),
+        ).toEqual([{ at: "2026-06-26T16:00:00Z", ref_id: "pay_1", amount_cents: 500 }]);
         expect(run("NOTIFICATION_FEED_SQL", since).find((r) => r.id === "ord-ord_web")?.at).toBe(
             "2026-06-24T09:00:00Z",
         );

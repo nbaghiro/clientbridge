@@ -52,16 +52,16 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 5. Sell at the desk and online | Tap to Pay | [CB-31](https://linear.app/clientbridgeca/issue/CB-31) | Manual |
 | 5. Sell at the desk and online | Tips and discounts | [CB-32](https://linear.app/clientbridgeca/issue/CB-32) | Partly automated |
 | 5. Sell at the desk and online | Saved cards and bank accounts | [CB-12](https://linear.app/clientbridgeca/issue/CB-12) | Partly automated |
-| 5. Sell at the desk and online | Online shop orders and pickup | [CB-41](https://linear.app/clientbridgeca/issue/CB-41) | Partly automated |
+| 5. Sell at the desk and online | Online shop orders and pickup | [CB-41](https://linear.app/clientbridgeca/issue/CB-41) | Automated |
 | 6. Invoice and get paid | Estimates to invoices | [CB-33](https://linear.app/clientbridgeca/issue/CB-33) | Partly automated |
 | 6. Invoice and get paid | Invoices and payment links | [CB-34](https://linear.app/clientbridgeca/issue/CB-34) | Automated |
 | 6. Invoice and get paid | Printed and shared documents | [CB-36](https://linear.app/clientbridgeca/issue/CB-36) | Manual |
 | 6. Invoice and get paid | Deposits applied to the bill | [CB-37](https://linear.app/clientbridgeca/issue/CB-37) | Partly automated |
 | 7. Gift cards, packages and memberships | Package, membership and gift card items | [CB-15](https://linear.app/clientbridgeca/issue/CB-15) | Automated |
-| 7. Gift cards, packages and memberships | Gift cards: sell and redeem | [CB-38](https://linear.app/clientbridgeca/issue/CB-38) | Partly automated |
+| 7. Gift cards, packages and memberships | Gift cards: sell and redeem | [CB-38](https://linear.app/clientbridgeca/issue/CB-38) | Automated |
 | 7. Gift cards, packages and memberships | Packages: sell, use and expire | [CB-39](https://linear.app/clientbridgeca/issue/CB-39) | Partly automated |
 | 7. Gift cards, packages and memberships | Memberships: renewals and failed payments | [CB-40](https://linear.app/clientbridgeca/issue/CB-40) | Partly automated |
-| 8. Refunds and the books | Refunds and credit notes | [CB-42](https://linear.app/clientbridgeca/issue/CB-42) | Partly automated |
+| 8. Refunds and the books | Refunds and credit notes | [CB-42](https://linear.app/clientbridgeca/issue/CB-42) | Automated |
 | 8. Refunds and the books | Disputes and chargebacks | [CB-43](https://linear.app/clientbridgeca/issue/CB-43) | Partly automated |
 | 8. Refunds and the books | Bookkeeper reports and exports | [CB-45](https://linear.app/clientbridgeca/issue/CB-45) | Partly automated |
 | 8. Refunds and the books | GST/HST returns | [CB-46](https://linear.app/clientbridgeca/issue/CB-46) | Partly automated |
@@ -1366,12 +1366,12 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 ### Tips and discounts (CB-32)
 
 **Covers:** Sales, invoice and estimate editors, pay link tip, Tap to Pay tip, member perk
-**Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a client with a membership that has a product perk
+**Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234. The demo has no $100 groom, no product perk and no crew, so first add a $100 GST-only service under Services & products, give Monthly Daycare a whole-percent member discount (David Okafor is its active member) and add a helper to a visit that hasn't started.
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web`. Open web at [http://localhost:8700](<http://localhost:8700>). Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first.
+* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at [http://localhost:8700](<http://localhost:8700>), mobile in the iOS simulator and Connect at `pay.localhost:8709`. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), Connect at `pay.staging.clientbridge.ca` and the staging app, with the same logins. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first.
 
 **QA steps**
 
@@ -1382,11 +1382,11 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 3. As staff, discount a sale 50%.
    **Expect:** applied without approval.
 4. Pay an invoice on the pay link with a custom tip.
-   **Expect:** the tip shows on the receipt and under the member in Staff pay.
-5. Sell a product to the member.
-   **Expect:** the perk discount applies.
+   **Expect:** the tip stays shown at the card step, and it shows on the receipt and under the member in Staff pay.
+5. Sell a product to the member, and try a member discount that isn't a whole percent.
+   **Expect:** the perk discount applies; the editor asks for a whole percent.
 6. Tip a crew visit.
-   **Expect:** the tip follows the crew's shares.
+   **Expect:** the tip follows the crew's shares, on the desk before paying and in Staff pay after.
 
 **Done when:** Every discounted total and tax matches a hand calculation, and every tip reaches the right person untaxed.
 
@@ -1399,12 +1399,12 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 * `BILL-DOC-01 (web), discounts`
 * `DOC-E2E-06 (connect), discounted estimate`
 * `FLOW-02-A (journeys), discount carried through conversion`
-
-**To automate**
-
-* `SALE-E2E-16` in `apps/web/e2e/pos.e2e.ts`: Line and sale discounts with a percent tip, exact cents and tax.
-* `PAY-E2E-04` in `apps/web/e2e/earnings.e2e.ts`: Tips from desk and pay link land on the right member and outside sales.
-* `STR-E20` in `apps/connect/e2e/stripe/provider.stripe.ts`: Pay link with a tip settles one charge.
+* `SALE-E2E-16 (web)`
+* `SALE-E2E-18 (web)`
+* `SALE-E2E-19 (web)`
+* `PAY-E2E-04 (web)`
+* `STR-E20 (stripe)`
+* `NATIVE-SALE-02 (native-ios, native-android)`
 
 **Depends on:** Nothing
 
@@ -1463,17 +1463,19 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 **QA steps**
 
 1. On a phone, order a shampoo and a brush and pay with card 4242.
-   **Expect:** the owner is notified; the order waits for pickup.
-2. Order more than the stock.
-   **Expect:** refused.
-3. Mark ready.
-   **Expect:** the client gets the message; the order page shows ready.
+   **Expect:** the confirmation names the order by its sale number and still shows after a reload; the owner gets the order email and a New online order item in the bell; the order waits under Sales, Orders, To prepare; each item's stock drops once.
+2. Order more than the stock, then take the last unit in one checkout while another phone has it in its cart.
+   **Expect:** the quantity stops at what is left; the unit the first checkout holds shows as sold out; the second checkout is refused with a message naming the item, in view on the phone, and the item leaves its cart.
+3. Open the order from the bell on a phone, start preparing it and mark it ready; do the same for another order on web.
+   **Expect:** the bell opens the pickup board; the client gets one text with the order page link, or, when they turned texts off, none and the board says so; the order page shows ready.
 4. Mark picked up, then try to move it back.
-   **Expect:** refused.
+   **Expect:** refused; the order page shows Collected with every step done; the sale panel shows it was placed online, its pickup and where the receipt went.
 5. Lose the order response and reload.
    **Expect:** the order resumes with one key.
 6. Leave a ready order uncollected.
    **Expect:** one pickup reminder at 09:00 local.
+7. Cancel a paid order from its page before preparation starts.
+   **Expect:** refunded in full and the stock comes back; the page says what was refunded and drops the progress, pickup and texts toggle.
 
 **Done when:** Online orders are paid, prepared and collected without a phone call, and stock drops once.
 
@@ -1481,19 +1483,25 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 
 * `SALE-E2E-03 (connect)`
 * `SALE-E2E-12 (journeys)`
+* `SALE-E2E-17 (stripe)`
+* `STR-E22 (stripe)`
 * `FLOW-03-A (journeys)`
 * `FLOW-03-B (journeys)`
 * `XB-E2E-10 (connect)`
+* `NATIVE-SALE-01 (native-ios, native-android)`
 * `connect: publicShop.e2e.ts › a client finds the shop from the landing page and fills a cart`
 * `connect: publicShop.e2e.ts › the shop says tax is added when the business charges it`
 * `connect: publicShop.e2e.ts › a business that doesn't charge tax never mentions it in the shop`
 * `connect: publicShop.e2e.ts › the shop adds from the grid, changes quantities and checks out in steps`
 * `connect: publicShop.e2e.ts › the shop's order panel folds into a bottom bar on a phone`
-
-**To automate**
-
-* `STR-E22` in `apps/connect/e2e/stripe/shop.stripe.ts`: Shop order paid with a real card, ready and picked up.
-* `SALE-E2E-17` in `apps/web/e2e/journeys/stock.journey.ts`: Final-unit race between two online checkouts.
+* `connect: publicShop.e2e.ts › an item's quantity stops at what is left of it`
+* `connect: publicShop.e2e.ts › a paid confirmation comes back on checkout after a reload, while the shop opens on its catalog`
+* `connect: publicOrder.e2e.ts › a canceled order says what was refunded and drops the progress, pickup and texts`
+* `app-core: pos.board.test.ts › doesn't claim a text went to a client who turned texts off`
+* `app-core: pos.board.test.ts › doesn't claim a text went to a client who has a number no text can reach`
+* `backend: test_public_orders.py › test_an_uncollected_order_gets_one_reminder_text_at_nine_local`
+* `backend: test_public_orders.py › test_ready_order_reminder_sent_once_and_respects_alert_choice`
+* `backend: test_public_orders.py › test_cancel_order_refunds_once_and_releases_stock`
 
 **Depends on:** Nothing
 
@@ -1735,25 +1743,23 @@ The business sells gift cards, packages and memberships, and each is used, renew
 
 **QA steps**
 
-1. Sell a $100 gift card for cash to a recipient.
-   **Expect:** active with a code.
-2. Sell one by card.
-   **Expect:** active only after the payment settles.
+1. Sell a $100 gift card for cash to a recipient's mobile number.
+   **Expect:** active with a code, and the recipient gets the code by text.
+2. Sell one by card; first try a declined card, then a good one.
+   **Expect:** the decline is shown at the desk and the client gets no text; the card is active only after the payment settles. Canceling at the card step voids the card.
 3. Redeem $40, then try to spend $70.
-   **Expect:** $60 remains; overspend refused.
+   **Expect:** $60 remains; the overspend is refused in words that say only $60 is left.
 4. Spend the rest exactly.
-   **Expect:** balance $0 and exhausted.
+   **Expect:** balance $0 and spent; another spend is refused as spent.
 
 **Done when:** Every gift card balance matches what was sold and spent.
 
 **Automated by**
 
 * `ENT-E2E-01 (web)`
-
-**To automate**
-
-* `ENT-E2E-05` in `apps/connect/e2e/stripe/entitlements.stripe.ts`: Card gift card purchase pending to active, decline retry.
-* `ENT-E2E-06` in `apps/web/e2e/entitlements.e2e.ts`: Last balance race between two desks.
+* `ENT-E2E-05 (stripe)`
+* `ENT-E2E-06 (web)`
+* `NATIVE-ENT-02 (native-ios, native-android)`
 
 **Depends on:** Nothing
 
@@ -1857,17 +1863,17 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 **QA steps**
 
 1. Refund $10 of a $50 payment, then the rest.
-   **Expect:** credit notes with exact tax; invoice reads Refunded; tax set aside drops.
-2. Refund part of a desk sale, then the rest.
+   **Expect:** credit notes with exact tax, listed on the invoice and on the client's pay page; the confirmation stays on screen; invoice reads Refunded and its document is stamped Refunded; tax set aside drops.
+2. Refund part of a desk sale from its sale panel, then the rest.
    **Expect:** stock returns once, on the final refund only.
 3. Refund an unused package in full.
    **Expect:** cancelled on both devices and no longer usable.
-4. Refund a gift card purchase.
+4. Refund a gift card purchase from its own panel on the Gift cards page.
    **Expect:** it can no longer be redeemed.
 5. Refund a paid groom after staff pay was paid.
    **Expect:** a clawback appears for the next run.
 6. Refund in the Stripe dashboard.
-   **Expect:** recorded in the app; a refund that later fails is reversed.
+   **Expect:** recorded in the app as the next credit note; a refund that later fails is reversed, reads as failed on the payment and shows in the bell, and the payment then says to pay the client back another way instead of offering a second refund.
 
 **Done when:** Money, stock, entitlements and staff pay agree after every refund.
 
@@ -1875,16 +1881,14 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 
 * `REF-E2E-01 (web)`
 * `SALE-E2E-10 (web)`
+* `ENT-E2E-09 (web)`
 * `FLOW-02-B (journeys)`
 * `FLOW-03-B (journeys)`
 * `FLOW-07-B (journeys)`
 * `FIN-DEPOSIT-04 (stripe)`
+* `STR-E23 (stripe)`
 * `PAY-E2E-02 (web)`
-
-**To automate**
-
-* `STR-E23` in `apps/connect/e2e/stripe/refunds.stripe.ts`: Pending refund that fails later is reversed; dashboard refund recorded.
-* `ENT-E2E-09` in `apps/web/e2e/entitlements.e2e.ts`: Refunded gift card can't be redeemed.
+* `NATIVE-REF-01 (native-ios, native-android)`
 
 **Depends on:** Nothing
 

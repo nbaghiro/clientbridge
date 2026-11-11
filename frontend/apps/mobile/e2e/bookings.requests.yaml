@@ -29,6 +29,7 @@ name: NATIVE-SCH-01 The owner approves one new client's online request and decli
 - scrollUntilVisible:
       element: "Booking request, Hazel Moreau asked for.*"
       direction: DOWN
+      centerElement: true
       timeout: 60000
 - tapOn: "Booking request, Hazel Moreau asked for.*"
 - extendedWaitUntil:
@@ -47,6 +48,7 @@ name: NATIVE-SCH-01 The owner approves one new client's online request and decli
 - scrollUntilVisible:
       element: "Booking request, Moss Lindqvist asked for.*"
       direction: DOWN
+      centerElement: true
       timeout: 60000
 - tapOn: "Booking request, Moss Lindqvist asked for.*"
 - extendedWaitUntil:

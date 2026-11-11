@@ -40,6 +40,7 @@ import { useState } from "react";
 
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
+import { useOpenLink } from "../lib/links";
 
 const d = strings.pos.desk;
 
@@ -346,7 +347,11 @@ function SalePanel({
     const role = useRole();
     const zone = useBusinessZone();
     const { load, detail } = useSaleDetail(id, role);
-    const actions = useSaleActions(api, confirm, onResume);
+    const openLink = useOpenLink();
+    const actions = useSaleActions(api, confirm, onResume, (paymentId) => {
+        onClose();
+        openLink("refunds", paymentId);
+    });
     if (id === null) return null;
     return (
         <DetailView
@@ -427,7 +432,7 @@ function SalePanel({
                                     <ListRow
                                         key={p.id}
                                         density="compact"
-                                        icon={p.refund ? "refresh" : "card"}
+                                        icon={p.icon}
                                         title={p.label}
                                         detail={p.detail}
                                         meta={formatMoney(p.cents, BUSINESS_CURRENCY)}
@@ -459,9 +464,20 @@ function SalePanel({
                             </div>
                         </DetailSection>
                     ) : null}
+                    {detail.pickup !== null ? (
+                        <DetailSection title={d.pickupSection}>
+                            <p className="flex items-center gap-2 text-sm text-ink">
+                                <Badge label={detail.pickup.label} intent={detail.pickup.intent} />
+                                <span className="text-muted">{detail.pickup.when}</span>
+                            </p>
+                            {detail.pickup.window !== null ? (
+                                <p className="mt-1 text-sm text-ink-soft">{detail.pickup.window}</p>
+                            ) : null}
+                        </DetailSection>
+                    ) : null}
                     <DetailSection title={d.receiptSection}>
                         <p className="text-sm text-ink">{detail.receipt ?? d.noReceipt}</p>
-                        <p className="mt-0.5 text-xs text-muted">{d.rungBy(detail.rungBy)}</p>
+                        <p className="mt-0.5 text-xs text-muted">{detail.origin}</p>
                         {detail.note !== null && detail.note !== "" ? (
                             <p className="mt-2 text-sm text-ink-soft">{detail.note}</p>
                         ) : null}

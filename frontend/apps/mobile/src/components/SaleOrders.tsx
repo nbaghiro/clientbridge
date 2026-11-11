@@ -41,15 +41,22 @@ import {
 
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
+import { useOpenLink } from "../lib/links";
 
 const d = strings.pos.desk;
 const c = theme.colors;
 
 /** Orders B on a phone: one column at a time, held sales and pickups with their next step. */
-export function SalesBoard({ onResume }: { onResume: (order: OrderOut) => void }) {
+export function SalesBoard({
+    onResume,
+    start = "open",
+}: {
+    onResume: (order: OrderOut) => void;
+    start?: BoardColumn;
+}) {
     const board = useFrontDeskBoard(api, onResume);
     const manager = canManagePayments(useRole());
-    const [column, setColumn] = useState<BoardColumn>("open");
+    const [column, setColumn] = useState<BoardColumn>(start);
     const [open, setOpen] = useState<string | null>(null);
     if (board.load.state === "loading")
         return <Skeleton variant="row" count={4} label={d.loadingOrders} />;
@@ -276,7 +283,11 @@ function SalePanel({
     const zone = useBusinessZone();
     const role = useRole();
     const { detail } = useSaleDetail(id, role);
-    const actions = useSaleActions(api, confirm, onResume);
+    const openLink = useOpenLink();
+    const actions = useSaleActions(api, confirm, onResume, (paymentId) => {
+        onClose();
+        openLink("refunds", paymentId);
+    });
     if (id === null) return null;
     return (
         <DetailView
@@ -355,7 +366,7 @@ function SalePanel({
                                 <ListRow
                                     key={p.id}
                                     density="compact"
-                                    icon={p.refund ? "refresh" : "card"}
+                                    icon={p.icon}
                                     title={p.label}
                                     detail={p.detail}
                                     meta={formatMoney(p.cents, BUSINESS_CURRENCY)}
@@ -375,9 +386,20 @@ function SalePanel({
                             ))}
                         </DetailSection>
                     ) : null}
+                    {detail.pickup !== null ? (
+                        <DetailSection title={d.pickupSection}>
+                            <View style={styles.row}>
+                                <Badge label={detail.pickup.label} intent={detail.pickup.intent} />
+                                <Text style={styles.note}>{detail.pickup.when}</Text>
+                            </View>
+                            {detail.pickup.window !== null ? (
+                                <Text style={styles.soft}>{detail.pickup.window}</Text>
+                            ) : null}
+                        </DetailSection>
+                    ) : null}
                     <DetailSection title={d.receiptSection}>
                         <Text style={styles.soft}>{detail.receipt ?? d.noReceipt}</Text>
-                        <Text style={styles.note}>{d.rungBy(detail.rungBy)}</Text>
+                        <Text style={styles.note}>{detail.origin}</Text>
                     </DetailSection>
                 </>
             )}

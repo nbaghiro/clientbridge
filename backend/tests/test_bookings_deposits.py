@@ -268,7 +268,7 @@ async def _refund_deposit(
     }
 
 
-async def test_a_failed_deposit_refund_goes_back_on_the_invoice(
+async def test_a_failed_deposit_refund_goes_back_on_the_invoice_and_takes_no_second_refund(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     bid, pay_id = await _collected(as_owner, db, "2027-07-06T10:00:00Z")
@@ -278,8 +278,9 @@ async def test_a_failed_deposit_refund_goes_back_on_the_invoice(
     await stripe_event(as_owner, "refund.updated", failed)
     await stripe_event(as_owner, "refund.failed", failed)
     assert await _state(db, bid, inv_id) == ("applied", 0, invoice.total_cents - 2000)
-    await _refund_deposit(as_owner, db, pay_id)
-    assert await _state(db, bid, inv_id) == ("refunded", 0, invoice.total_cents)
+    again = await as_owner.post(f"/v1/payments/{pay_id}/refund", json={}, headers=retry_key())
+    assert again.status_code == 409 and again.json()["error"] == "refund_refused"
+    assert await _state(db, bid, inv_id) == ("applied", 0, invoice.total_cents - 2000)
 
 
 async def test_a_failed_deposit_refund_stays_held_once_the_invoice_is_void(
