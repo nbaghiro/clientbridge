@@ -1076,8 +1076,29 @@ function run(name: keyof typeof core, params: SqlValue[] = []): Row[] {
 }
 
 describe("app-core SQL against the replica schema", () => {
-    it("reads an accepted estimate's client and its chosen products for booking", () => {
+    it("reads an accepted estimate's client, its first bookable service and its chosen products for booking", () => {
+        scoped("items", [
+            { id: "it_trim", kind: "service", name: "Trim", price_cents: 4000, active: 1 },
+        ]);
         scoped("lines", [
+            {
+                id: "ln_e0",
+                estimate_id: "est_1",
+                description: "Trim, if wanted",
+                item_id: "it_trim",
+                quantity: 1,
+                optional: 1,
+                selected: 0,
+                position: -2,
+            },
+            {
+                id: "ln_eo",
+                estimate_id: "est_1",
+                description: "Old style cut",
+                item_id: "it_old",
+                quantity: 1,
+                position: -1,
+            },
             {
                 id: "ln_e1",
                 estimate_id: "est_1",
@@ -1117,7 +1138,7 @@ describe("app-core SQL against the replica schema", () => {
             },
         ]);
         expect(run("ESTIMATE_BOOKING_SQL", ["est_1"])).toEqual([
-            { client_id: "cl_ben", number: 3 },
+            { client_id: "cl_ben", number: 3, item_id: "it_cut" },
         ]);
         expect(run("ESTIMATE_PRODUCTS_SQL", ["est_1"]).map((r) => r.id)).toEqual([
             "ln_e1",
@@ -1136,7 +1157,7 @@ describe("app-core SQL against the replica schema", () => {
         db.run("UPDATE bookings SET status = 'canceled' WHERE id = 'bk_4'");
         expect(booking()).toEqual([{ id: "est_1", booking_id: null }]);
         expect(run("ESTIMATE_BOOKING_SQL", ["est_1"])).toEqual([
-            { client_id: "cl_ben", number: 3 },
+            { client_id: "cl_ben", number: 3, item_id: null },
         ]);
     });
 

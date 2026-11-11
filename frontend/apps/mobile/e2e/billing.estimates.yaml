@@ -1,0 +1,146 @@
+appId: ${APP_ID}
+name: NATIVE-BILL-02 An estimate written on the phone keeps its optional add-on, is checked before it is texted once, comes back accepted with the add-on, opens its booking and converts to a draft invoice
+---
+- evalScript: ${output.phone = "250" + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000))}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/clients
+          BODY: "${JSON.stringify({ name: 'Juniper Ashdown', phone: output.phone })}"
+- runFlow: helpers/owner.yaml
+# the Create shortcut opens an invoice; switched to an estimate, its lines can be optional
+- tapOn: "Create"
+# the menu's chip, not the Today card's Invoices link behind it
+- extendedWaitUntil:
+      visible: "Booking"
+      timeout: 15000
+- tapOn: "Invoice"
+- tapOn: "Estimate"
+- assertVisible: "New estimate"
+- runFlow:
+      when:
+          platform: iOS
+      commands:
+          - tapOn:
+                text: "Client"
+                index: 1
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - tapOn: "Choose a client"
+- tapOn: "Search"
+- inputText: "Juniper"
+- extendedWaitUntil:
+      visible: "Juniper Ashdown"
+      timeout: 60000
+- tapOn: "Juniper Ashdown"
+- runFlow:
+      file: helpers/add-from-catalog.yaml
+      env:
+          ITEM: "Bath & Tidy"
+- runFlow:
+      file: helpers/add-from-catalog.yaml
+      env:
+          ITEM: "Plush Fox Toy"
+# past the lines to the terms, then back to the toy's checkbox, clear of the editor's footer bar
+- scrollUntilVisible:
+      element: "Valid for"
+      direction: DOWN
+- scrollUntilVisible:
+      element:
+          text: "Optional add-on"
+          below: "Plush Fox Toy"
+      direction: UP
+      centerElement: true
+- waitForAnimationToEnd
+- tapOn:
+      text: "Optional add-on"
+      below: "Plush Fox Toy"
+# Bath & Tidy $45.00 plus 5% GST; the toy, now optional, stays out of the total
+- extendedWaitUntil:
+      visible: "\\$47\\.25"
+      timeout: 10000
+- takeScreenshot: estimate-with-optional-toy
+- tapOn: "Send"
+- extendedWaitUntil:
+      visible: "Check it before it goes out"
+      timeout: 30000
+- assertVisible: "Estimate #.* for \\$47\\.25 from .*"
+- takeScreenshot: estimate-send-preview
+- tapOn: "Cancel"
+- runScript:
+      file: helpers/texts.js
+      env:
+          PHONE: ${output.phone}
+          WORDS: "Estimate #"
+- assertTrue: ${output.texts == 0}
+- tapOn: "Send"
+- extendedWaitUntil:
+      visible: "Check it before it goes out"
+      timeout: 30000
+- tapOn: "Send estimate"
+- extendedWaitUntil:
+      visible: "Estimate sent"
+      timeout: 30000
+- runScript:
+      file: helpers/texts.js
+      env:
+          PHONE: ${output.phone}
+          WORDS: "Estimate #"
+- assertTrue: ${output.texts == 1}
+- runScript:
+      file: helpers/estimate-answer.js
+      env:
+          PHONE: ${output.phone}
+          TICK: "Plush Fox Toy"
+# the toy's $18.00 carries 5% GST and 7% PST: $47.25 + $20.16
+- assertTrue: ${output.estimate.status == "accepted" && output.estimate.total_cents == 6741}
+- tapOn: "Done"
+- tapOn: "Invoices"
+- tapOn: "Estimates"
+- extendedWaitUntil:
+      visible: ".*Juniper Ashdown.*Accepted.*"
+      timeout: 60000
+- tapOn: ".*Juniper Ashdown.*"
+- extendedWaitUntil:
+      visible: ".*Add-on, picked by the client.*"
+      timeout: 30000
+- assertVisible: "\\$67\\.41"
+- tapOn: "More"
+- tapOn: "Book the visit"
+- extendedWaitUntil:
+      visible: "New booking"
+      timeout: 30000
+- assertVisible: "Bath & Tidy"
+- scrollUntilVisible:
+      element: "1 × Plush Fox Toy"
+      direction: DOWN
+- assertVisible: "Products from estimate #.*"
+- takeScreenshot: booking-from-estimate
+- runFlow: helpers/close-sheet.yaml
+- extendedWaitUntil:
+      visible: "Convert to invoice"
+      timeout: 30000
+- tapOn: "Convert to invoice"
+# iOS stacks the alert's buttons over the record's own Convert; Android sets them side by side in capitals
+- runFlow:
+      when:
+          platform: iOS
+      commands:
+          - tapOn:
+                text: "Convert to invoice"
+                below: "Convert to invoice\\?"
+                above: "Cancel"
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - tapOn: "CONVERT TO INVOICE"
+- extendedWaitUntil:
+      visible: "Draft invoice"
+      timeout: 30000
+- assertVisible: "\\$67\\.41"
+- assertVisible: "Plush Fox Toy"
+- takeScreenshot: converted-draft-invoice

@@ -192,6 +192,10 @@
     "api.estimateChanged": {
         "message": "This estimate just changed. Reload the page to see the latest version."
     },
+    "api.estimateAnswered": {
+        "message": "This estimate is no longer open. Reload the page to see where it stands.",
+        "description": "Shown when a client answers an estimate that was answered, expired or turned into an invoice since the page loaded"
+    },
     "api.paymentInProgress": {
         "message": "A payment on this invoice is still going through. Wait for it to finish, then try again."
     },
@@ -1527,6 +1531,10 @@
     "printing.howToPay": {
         "message": "How to pay"
     },
+    "printing.howToAccept": {
+        "message": "How to accept",
+        "description": "Heading of the box on a printed estimate that says how the client accepts it"
+    },
     "printing.payOnline": {
         "message": "Pay online at {url}",
         "args": ["url"]
@@ -1570,6 +1578,10 @@
     },
     "printing.scanToPay": {
         "message": "Scan to pay"
+    },
+    "printing.scanToAccept": {
+        "message": "Scan to accept",
+        "description": "Caption under the QR code that opens the estimate's accept page"
     },
     "printing.amountPaid": {
         "message": "Amount paid"
@@ -12368,6 +12380,10 @@
     "publicEstimate.optional": {
         "message": "Optional"
     },
+    "publicEstimate.optionalAdded": {
+        "message": "Added to your estimate",
+        "description": "Under an optional add-on the client ticked, on their estimate page"
+    },
     "publicEstimate.optionalNote": {
         "message": "Tick it to add it"
     },
@@ -12411,6 +12427,14 @@
     },
     "publicEstimate.acceptedBody": {
         "message": "Thanks. {biz} has been told and will be in touch.",
+        "args": ["biz"]
+    },
+    "publicEstimate.convertedTitle": {
+        "message": "This estimate is now an invoice",
+        "description": "Shown to the client once the business turned their estimate into an invoice"
+    },
+    "publicEstimate.convertedBody": {
+        "message": "{biz} has gone ahead with this work and will send you the invoice.",
         "args": ["biz"]
     },
     "publicEstimate.declinedTitle": {

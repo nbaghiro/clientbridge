@@ -71,6 +71,7 @@ interface Strings {
         readonly estimateBooked: string;
         readonly estimateOnVisit: string;
         readonly estimateChanged: string;
+        readonly estimateAnswered: string;
         readonly paymentInProgress: string;
         readonly membershipVisitsUsed: string;
         readonly paymentMethodInUse: string;
@@ -512,6 +513,7 @@ interface Strings {
         readonly taxSummary: string;
         readonly taxBase: (amount: string) => string;
         readonly howToPay: string;
+        readonly howToAccept: string;
         readonly payOnline: (url: string) => string;
         readonly acceptOnline: (url: string) => string;
         readonly acceptBy: (when: string) => string;
@@ -523,6 +525,7 @@ interface Strings {
         readonly gstNo: (n: string) => string;
         readonly qstNo: (n: string) => string;
         readonly scanToPay: string;
+        readonly scanToAccept: string;
         readonly amountPaid: string;
         readonly paidStamp: string;
         readonly refundedStamp: string;
@@ -4213,6 +4216,7 @@ interface Strings {
         readonly validUntil: (when: string) => string;
         readonly lines: string;
         readonly optional: string;
+        readonly optionalAdded: string;
         readonly optionalNote: string;
         readonly subtotal: string;
         readonly total: string;
@@ -4227,6 +4231,8 @@ interface Strings {
         readonly acceptNote: (biz: string) => string;
         readonly acceptedTitle: string;
         readonly acceptedBody: (biz: string) => string;
+        readonly convertedTitle: string;
+        readonly convertedBody: (biz: string) => string;
         readonly declinedTitle: string;
         readonly declinedBody: (biz: string) => string;
         readonly expiredTitle: string;

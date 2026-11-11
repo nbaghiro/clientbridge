@@ -53,7 +53,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 5. Sell at the desk and online | Tips and discounts | [CB-32](https://linear.app/clientbridgeca/issue/CB-32) | Partly automated |
 | 5. Sell at the desk and online | Saved cards and bank accounts | [CB-12](https://linear.app/clientbridgeca/issue/CB-12) | Partly automated |
 | 5. Sell at the desk and online | Online shop orders and pickup | [CB-41](https://linear.app/clientbridgeca/issue/CB-41) | Automated |
-| 6. Invoice and get paid | Estimates to invoices | [CB-33](https://linear.app/clientbridgeca/issue/CB-33) | Partly automated |
+| 6. Invoice and get paid | Estimates to invoices | [CB-33](https://linear.app/clientbridgeca/issue/CB-33) | Automated |
 | 6. Invoice and get paid | Invoices and payment links | [CB-34](https://linear.app/clientbridgeca/issue/CB-34) | Partly automated |
 | 6. Invoice and get paid | Printed and shared documents | [CB-36](https://linear.app/clientbridgeca/issue/CB-36) | Manual |
 | 6. Invoice and get paid | Deposits applied to the bill | [CB-37](https://linear.app/clientbridgeca/issue/CB-37) | Partly automated |
@@ -1526,19 +1526,21 @@ Estimates become invoices, invoices are paid by link, saved card or by hand, and
 **QA steps**
 
 1. Write an estimate on a phone with an optional line and send it.
-   **Expect:** the preview shows the text; the client gets it.
+   **Expect:** the optional line stays out of the total; the preview shows the text; the client gets it once.
 2. As the client, tick the optional line and accept.
    **Expect:** the same discounted total is accepted.
 3. Convert it.
-   **Expect:** one draft invoice with the accepted lines, discount and tax.
+   **Expect:** one draft invoice with the accepted lines, discount and tax; the estimate and the invoice both show the discount.
 4. Decline another estimate.
-   **Expect:** it cannot be converted.
+   **Expect:** it cannot be converted, and staff can still mark it accepted if the client changes their mind.
 5. Lose the send response.
    **Expect:** the estimate reads unconfirmed, then sent, and texts once.
 6. Book the job from the accepted estimate.
-   **Expect:** the booking links to it and the estimate books once.
+   **Expect:** the booking starts with the estimate's service and products, links to it, and the estimate books once.
 7. Open the send preview, then cancel.
-   **Expect:** the preview shows word for word the text the client gets, and cancelling sends nothing.
+   **Expect:** the preview shows word for word the text the client gets, apart from the link's code, which is made when it is sent; cancelling sends nothing.
+8. Convert an estimate the client hasn't answered, then answer it from the link that was open.
+   **Expect:** the answer is refused, and the page says the estimate is now an invoice.
 
 **Done when:** A quote becomes a bill without retyping anything.
 
@@ -1546,15 +1548,14 @@ Estimates become invoices, invoices are paid by link, saved card or by hand, and
 
 * `BILL-DOC-02 (web)`
 * `BILL-DOC-20 (web)`
+* `BILL-DOC-22 (web)`
+* `BILL-DOC-25 (web)`
+* `BILL-DOC-26 (web)`
 * `DOC-E2E-06 (connect)`
 * `FLOW-02-A (journeys)`
+* `NATIVE-BILL-02 (native-ios, native-android)`
 * `connect: publicEstimate.e2e.ts › a client reads an estimate and a receipt`
 * `mobile: billing.yaml (walk, unregistered)`
-
-**To automate**
-
-* `BILL-DOC-22` in `apps/web/e2e/billing.e2e.ts`: Decline refuses conversion; late public answer after conversion.
-* `BILL-DOC-25` in `apps/web/e2e/billing.e2e.ts`: An estimate with mixed tax classes and a capped fixed discount totals to the hand calculation, and the invoice it converts to keeps those totals.
 
 **Depends on:** Nothing
 
@@ -2724,8 +2725,10 @@ Not tracked in Linear. These are pulled in by demand once the launch tickets pas
   today), suspending or offboarding a business through `businesses.status`.
 - **Feature depth:** membership pause, trial and plan change, package sessions used automatically on
   booking, a cancellation policy with a late-cancel fee, configurable reminders, Google and iCal calendar
-  sync, per-staff and travel buffers, conditional form fields, countersigning and a drawn signature, and paying
-  one sale with a gift card and a second method (split tender).
+  sync, per-staff and travel buffers, conditional form fields, countersigning and a drawn signature, paying
+  one sale with a gift card and a second method (split tender), and a visit booked from an estimate keeping
+  the estimate's quoted service price and document discount (today only its products keep their quoted
+  price).
 - **Scheduling depth:** recurrences generated on a rolling window with an identity per occurrence and
   skipped dates; slots that keep their local wall time and are re-anchored when a zone's rules change; class
   timetables booked as sessions with a capacity per series; and the rest of the hours model (split days,

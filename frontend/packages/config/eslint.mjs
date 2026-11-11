@@ -43,6 +43,7 @@ const MAESTRO_GLOBALS = {
         "SLUG",
         "TOKEN",
         "WORDS",
+        "TICK",
         "CLIENT",
         "DEFAULT",
     ]),

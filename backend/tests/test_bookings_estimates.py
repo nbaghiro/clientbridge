@@ -111,6 +111,28 @@ async def test_replaying_the_booking_adds_the_products_once(
     assert other.status_code == 409 and other.json()["error"] == "estimate_booked"
 
 
+async def test_a_booked_estimate_cannot_be_declined_until_its_visit_is_canceled(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await client_id(db)
+    eid = await _accepted(as_owner, cid)
+    booked = ok(
+        await as_owner.post(
+            "/v1/bookings",
+            json=_body(cid, await _service(db), "2027-03-04T17:00:00Z", estimate_id=eid),
+        ),
+        201,
+    ).json()
+    assert (await as_owner.post(f"/v1/estimates/{eid}/decline")).status_code == 409
+    estimate = await db.get(Estimate, eid)
+    assert estimate is not None
+    await db.refresh(estimate)
+    assert estimate.status == "accepted"
+    await db.execute(update(Booking).where(Booking.id == booked["id"]).values(status="canceled"))
+    await db.flush()
+    assert (await as_owner.post(f"/v1/estimates/{eid}/decline")).status_code == 200
+
+
 async def test_staff_cannot_book_from_an_estimate_403(
     as_staff: httpx.AsyncClient, db: AsyncSession
 ) -> None:

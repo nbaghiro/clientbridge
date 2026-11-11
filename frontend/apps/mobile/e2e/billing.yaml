@@ -3,7 +3,11 @@ name: Create Invoice switches to an estimate
 ---
 - runFlow: helpers/owner.yaml
 - tapOn: "Create"
-- tapOn: "Invoice.*"
+# the menu's chip, not the Today card's Invoices link behind it
+- extendedWaitUntil:
+      visible: "Booking"
+      timeout: 15000
+- tapOn: "Invoice"
 - tapOn: "Estimate"
 - takeScreenshot: estimate-shortcut
 - assertVisible: "New estimate"
