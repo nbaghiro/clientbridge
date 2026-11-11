@@ -501,18 +501,19 @@ function usePublicShop(
             }
             run(
                 async () => {
-                    await client.releaseOrder(token);
+                    try {
+                        await client.releaseOrder(token);
+                    } catch (e) {
+                        // the card went through before the page heard, so this order is the paid one
+                        if (failedCode(e) !== "checkout_paid") throw e;
+                        markPaid();
+                        return;
+                    }
                     key.current = null;
                     savePending(storage, pendingKey, null);
                     setOrder(null);
                 },
-                {
-                    errorMessage: (e) => {
-                        // the card went through before the page heard, so this order is the paid one
-                        if (failedCode(e) === "checkout_paid") markPaid();
-                        return failureMessage(e, strings.publicShop.orderError);
-                    },
-                },
+                { errorMessage: (e) => failureMessage(e, strings.publicShop.orderError) },
             );
         },
         busy,

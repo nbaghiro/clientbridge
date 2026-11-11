@@ -320,7 +320,7 @@ describe("after paying or losing stock", () => {
         await waitFor(() => {
             expect(result.current.status).toBe("paid");
         });
-        expect(result.current.orderNumber).toBe("S-22");
+        expect([result.current.orderNumber, result.current.error]).toEqual(["S-22", null]);
         act(() => {
             result.current.startOver();
         });

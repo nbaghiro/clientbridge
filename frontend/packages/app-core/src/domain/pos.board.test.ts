@@ -100,6 +100,7 @@ describe("the front desk board", () => {
     it.each([
         ["turned texts off", board.bind(null, 0)],
         ["has no phone number", board.bind(null, 1, { phone: null })],
+        ["has a number no text can reach", board.bind(null, 1, { phone: "555-0142" })],
         ["replied STOP", board.bind(null, 1, {}, ["cl_1"])],
     ])("doesn't claim a text went to a client who %s", async (_, open) => {
         const { hook, answer } = open();

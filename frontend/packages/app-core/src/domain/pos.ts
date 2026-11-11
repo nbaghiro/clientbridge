@@ -21,6 +21,7 @@ import {
     formatParts,
     formatPercent,
     formatPhone,
+    normalizePhone,
     parseCents,
     parseNumber,
     phoneDigits,
@@ -296,10 +297,10 @@ export function pickupOrder(
         total: row.total_cents === null ? "" : formatMoney(row.total_cents, BUSINESS_CURRENCY),
         contact: row.phone === null ? "" : formatPhone(row.phone),
         phone: row.phone,
-        // the server skips the text without a number or after a STOP reply
+        // the server skips the text without a mobile number it can send to, or after a STOP reply
         texts:
             row.notify_sms !== 0 &&
-            row.phone !== null &&
+            normalizePhone(row.phone) !== null &&
             !(row.client_id !== null && stopped.has(row.client_id)),
         when: pickupWhen(status, row, now, zone),
         waiting: p.waiting(Math.max(0, -daysUntil(since, zone, now))),
