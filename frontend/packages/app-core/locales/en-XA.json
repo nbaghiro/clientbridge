@@ -2051,6 +2051,12 @@
     "pos.desk.rungBy": {
         "message": "[Ŕûñĝ ûþ ƀý {name} one]"
     },
+    "pos.desk.placedOnline": {
+        "message": "[Þļåçéð öñļîñé one two]"
+    },
+    "pos.desk.pickupSection": {
+        "message": "[Þîçķûþ one]"
+    },
     "pos.desk.lines": {
         "message": "[Îţéɱš one]"
     },
@@ -2170,6 +2176,9 @@
     },
     "pos.desk.markedReady": {
         "message": "[Ṁåŕķéð ŕéåðý. Ŵé ţéẋţéð {name}. one two]"
+    },
+    "pos.desk.markedReadyNoText": {
+        "message": "[Ṁåŕķéð ŕéåðý. Ŵé çöûļðñ'ţ ţéẋţ {name}, šö ļéţ ţĥéɱ ķñöŵ åñöţĥéŕ ŵåý. one two three four]"
     },
     "pos.desk.markedPickedUp": {
         "message": "[{name}''š öŕðéŕ îš þîçķéð ûþ. one two]"
@@ -12029,6 +12038,24 @@
     "publicOrder.pending": {
         "message": "[Ŵé'ļļ ûþðåţé ţĥîš þåĝé åš ýöûŕ öŕðéŕ îš þŕéþåŕéð. one two three four]"
     },
+    "publicOrder.awaitingBody": {
+        "message": "[Ŵé'ŕé çöñƒîŕɱîñĝ ýöûŕ þåýɱéñţ. Ţĥîš þåĝé ûþðåţéš öñ îţš öŵñ. one two three four]"
+    },
+    "publicOrder.readyBody": {
+        "message": "[Ýöûŕ öŕðéŕ îš ŕéåðý. Þîçķ îţ ûþ åţ {business}. one two three]"
+    },
+    "publicOrder.collectedBody": {
+        "message": "[Ýöû þîçķéð ûþ ýöûŕ öŕðéŕ. Ţĥåñķ ýöû! one two three]"
+    },
+    "publicOrder.refundedBody": {
+        "message": "[Ŵé ŕéƒûñðéð {amount} ţö ţĥé çåŕð ýöû þåîð ŵîţĥ. one two three]"
+    },
+    "publicOrder.refundPendingBody": {
+        "message": "[{amount} îš öñ îţš ŵåý ƀåçķ ţö ţĥé çåŕð ýöû þåîð ŵîţĥ. one two three]"
+    },
+    "publicOrder.voidBody": {
+        "message": "[Ţĥîš öŕðéŕ ŵåš çåñçéļéð. Îƒ å þåýɱéñţ ŵéñţ ţĥŕöûĝĥ, îţ ĝöéš ƀåçķ ţö ýöûŕ çåŕð. one two three four five]"
+    },
     "publicOrder.updated": {
         "message": "[Öŕðéŕ ûþðåţéš one two]"
     },
@@ -12190,6 +12217,9 @@
     },
     "publicShop.orderError": {
         "message": "[Ŵé çöûļðñ'ţ þļåçé ţĥé öŕðéŕ. Þļéåšé ţŕý åĝåîñ. one two three]"
+    },
+    "publicShop.stockChanged": {
+        "message": "[{items} ĵûšţ šöļð öûţ öŕ ŕåñ ļöŵ, šö ŵé ûþðåţéð ýöûŕ öŕðéŕ. Çĥéçķ îţ, ţĥéñ çöñţîñûé. one two three four five]"
     },
     "publicShop.notFoundTitle": {
         "message": "[Šĥöþ ñöţ ƒöûñð one two]"

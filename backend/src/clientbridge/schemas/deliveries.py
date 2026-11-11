@@ -21,6 +21,9 @@ class SmsDelivery(BaseModel):
     message_id: str | None = Field(
         default=None, description="The inbox message this sends; its status follows the outcome"
     )
+    order_id: str | None = Field(
+        default=None, description="The online order whose receipt this is, recorded once sent"
+    )
 
 
 class PushDelivery(BaseModel):

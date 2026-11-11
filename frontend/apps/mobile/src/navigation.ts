@@ -1,4 +1,9 @@
-import type { InboxSegmentKey, PaymentsTabKey, SubjectKind } from "@clientbridge/app-core";
+import type {
+    InboxSegmentKey,
+    PaymentsTabKey,
+    SalesView,
+    SubjectKind,
+} from "@clientbridge/app-core";
 import type { NavigatorScreenParams } from "@react-navigation/native";
 
 export type TabParamList = {
@@ -18,7 +23,7 @@ export type TabParamList = {
 
 export type RootStackParamList = {
     Tabs: NavigatorScreenParams<TabParamList> | undefined;
-    Payments: { tab?: PaymentsTabKey } | undefined;
+    Payments: { tab?: PaymentsTabKey; view?: SalesView | undefined } | undefined;
     Search: undefined;
     Notifications: undefined;
     Setup: undefined;

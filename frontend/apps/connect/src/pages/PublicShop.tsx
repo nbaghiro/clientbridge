@@ -42,6 +42,7 @@ import { isEmbedded, useEmbedSuccess } from "../embed";
 const shopClient = createPublicShopClient(config.apiUrl);
 const s = strings.publicShop;
 const SUMMARY_ID = "order-summary";
+const ERROR_ID = "shop-error";
 const cartStorage = (() => {
     try {
         return window.sessionStorage;
@@ -65,7 +66,19 @@ function ShopPage({ slug }: { slug: string }) {
     const ready = page !== null;
     const cartParam = params.get("cart") === "1";
     const productParam = params.get("product");
-    useEmbedSuccess(shop.status === "paid", "shop");
+    useEmbedSuccess(shop.status === "paid" && !shop.restored, "shop");
+    const { restored, status: shopStatus, startOver } = shop;
+
+    // a confirmation read back after a reload belongs to checkout; the shop itself opens on the catalog
+    useEffect(() => {
+        if (restored && shopStatus === "paid" && !checkoutRoute) startOver();
+    }, [restored, shopStatus, checkoutRoute, startOver]);
+
+    // on a phone the sticky order bar covers the end of the page, where the error sits
+    useEffect(() => {
+        if (shop.error !== null)
+            document.getElementById(ERROR_ID)?.scrollIntoView({ block: "center" });
+    }, [shop.error]);
 
     useEffect(() => {
         if (!ready || (!cartParam && productParam === null)) return;
@@ -171,7 +184,13 @@ function ShopPage({ slug }: { slug: string }) {
             </p>
             {shop.status === "paid" ? (
                 <div className="mx-auto max-w-3xl rounded-2xl border border-line bg-surface p-6 shadow-card sm:p-8">
-                    <ShopDone shop={shop} />
+                    <ShopDone
+                        shop={shop}
+                        onShop={() => {
+                            shop.startOver();
+                            go(shopPath);
+                        }}
+                    />
                 </div>
             ) : (
                 <StepLayout
@@ -225,7 +244,7 @@ function ShopPage({ slug }: { slug: string }) {
                         <Catalog shop={shop} />
                     )}
                     {shop.error !== null ? (
-                        <div className="mt-4">
+                        <div id={ERROR_ID} className="mt-4">
                             <Notice tone="danger">{shop.error}</Notice>
                         </div>
                     ) : null}
@@ -541,15 +560,15 @@ function ShopPay({ shop }: { shop: ShopFlow }) {
     );
 }
 
-function ShopDone({ shop }: { shop: ShopFlow }) {
+function ShopDone({ shop, onShop }: { shop: ShopFlow; onShop: () => void }) {
     return (
         <div className="text-center">
             <h1 className="font-display text-2xl font-bold text-ink">{s.doneTitle}</h1>
             <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
-                {s.doneBody(shop.orderNumber ?? "")}
+                {s.doneBody(shop.orderNumber)}
             </p>
-            {shop.order?.order_token ? (
-                <div className="mt-5">
+            <div className="mt-5 flex flex-wrap justify-center gap-3">
+                {shop.order?.order_token ? (
                     <Button
                         onPress={() => {
                             window.location.assign(
@@ -559,8 +578,11 @@ function ShopDone({ shop }: { shop: ShopFlow }) {
                     >
                         {strings.publicOrder.title}
                     </Button>
-                </div>
-            ) : null}
+                ) : null}
+                <Button variant="outline" onPress={onShop}>
+                    {s.backToShop}
+                </Button>
+            </div>
             <div className="mx-auto mt-6 max-w-xs text-left">
                 <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
                     {s.whatNext}

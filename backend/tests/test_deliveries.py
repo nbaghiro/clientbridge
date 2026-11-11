@@ -15,6 +15,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.core.phones import reserved_phone
 from clientbridge.integrations.resend import Email, SmtpEmailSender
 from clientbridge.integrations.twilio import ConsoleSmsSender, Sms
+from clientbridge.models.billing import Order
 from clientbridge.models.business import Business
 from clientbridge.models.messaging import Delivery, Message, Thread
 from clientbridge.schemas.deliveries import DeliveryPayload, EmailDelivery, SmsDelivery
@@ -26,7 +27,15 @@ from clientbridge.services.deliveries import (
     run_deliveries,
     send_queued,
 )
-from tests.conftest import BIZ, Factory, FakeEmailSender, FakeJobs, FakePushSender, FakeSmsSender
+from tests.conftest import (
+    BIZ,
+    DownSmsSender,
+    Factory,
+    FakeEmailSender,
+    FakeJobs,
+    FakePushSender,
+    FakeSmsSender,
+)
 from tests.helpers import replied_stop
 
 
@@ -512,3 +521,28 @@ async def test_a_stop_stays_with_the_number_when_its_client_moves_to_another(
     assert rows[queued].state == "accepted"
     assert (rows[old].state, rows[old].error) == ("failed", "consent_withdrawn")
     assert await db.scalar(select(Message.status).where(Message.id == note.id)) == "sent"
+
+
+async def test_a_receipt_records_on_its_order_only_once_the_text_is_sent(
+    db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
+) -> None:
+    order = (
+        await db.scalars(select(Order).where(Order.business_id == BIZ, Order.source == "online"))
+    ).first()
+    assert order is not None
+    order.receipt_phone, order.receipt_sent_at = None, None
+
+    async def receipt(to: str) -> str:
+        message = Sms(to=to, body="Receipt", from_number="+12365550190")
+        payload = SmsDelivery(message=message, order_id=order.id)
+        identity = await enqueue(db, payload, key=f"receipt:{to}", business_id=BIZ)
+        await db.commit()
+        return identity
+
+    await dispatch(db, await receipt("+12505550201"), email, DownSmsSender(), push)
+    await db.refresh(order)
+    assert (order.receipt_phone, order.receipt_sent_at) == (None, None)
+    await dispatch(db, await receipt("+12505550200"), email, sms, push)
+    await db.refresh(order)
+    assert order.receipt_phone == "+12505550200"
+    assert order.receipt_sent_at is not None

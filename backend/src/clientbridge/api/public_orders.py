@@ -32,3 +32,10 @@ async def cancel_order(
     idempotency_key: Annotated[str, Header(alias="Idempotency-Key")],
 ) -> PublicOrderStatus:
     return await PublicOrderService(db).cancel(token, gateway, idempotency_key)
+
+
+@router.post("/{token}/release", response_model=PublicOrderStatus)
+async def release_order(
+    token: str, db: DbSession, gateway: GatewayDep, _: RateLimited
+) -> PublicOrderStatus:
+    return await PublicOrderService(db).release(token, gateway)

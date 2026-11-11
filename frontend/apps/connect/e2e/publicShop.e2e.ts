@@ -130,6 +130,7 @@ test("a business that doesn't charge tax never mentions it in the shop", async (
             json: {
                 order_id: "ord_01E2EUNTAXEDORDER",
                 order_token: null,
+                number: 31,
                 subtotal_cents: 2400,
                 tax_total_cents: 0,
                 total_cents: 2400,
@@ -169,6 +170,7 @@ test("the shop adds from the grid, changes quantities and checks out in steps", 
             json: {
                 order_id: "ord_01E2ESTUBORDER",
                 order_token: null,
+                number: 32,
                 subtotal_cents: 5000,
                 tax_total_cents: 250,
                 total_cents: 5250,
@@ -233,6 +235,7 @@ test(
                 json: {
                     order_id: "ord_01E2ERESUMEDORDER",
                     order_token: null,
+                    number: 33,
                     subtotal_cents: 2400,
                     tax_total_cents: 120,
                     total_cents: 2520,
@@ -281,6 +284,60 @@ test(
         expect(keys).toHaveLength(2);
     },
 );
+
+test("an item's quantity stops at what is left of it", async ({ page }) => {
+    const name = "Oatmeal Soothe Shampoo (500ml)";
+    await page.route(`${api}/book/${slug}/shop`, (route) =>
+        rewrite(route, (body) => ({
+            ...body,
+            items: (body.items as Json[]).map((item) =>
+                item.id === demoId("it_shampoo") ? { ...item, stock_left: 2 } : item,
+            ),
+        })),
+    );
+    await page.goto(shopPage);
+    const card = page.getByRole("group", { name, exact: true });
+    await card.getByRole("button", { name: strings.publicShop.addNamed(name) }).click();
+    const more = card.getByRole("button", { name: strings.common.increase(name) });
+    await more.click();
+    await expect(card.getByText("2", { exact: true }).last()).toBeVisible();
+    await expect(more).toBeDisabled();
+});
+
+test("a paid confirmation comes back on checkout after a reload, while the shop opens on its catalog", async ({
+    page,
+}) => {
+    const shop = strings.publicShop;
+    const paid = {
+        attempt: { key: "k_e2e_paid", request: "r" },
+        placedAt: Date.now(),
+        order: {
+            order_id: "ord_01E2EPAIDORDER",
+            order_token: "tok_e2e_paid",
+            number: 34,
+            total_cents: 2688,
+            currency: "CAD",
+            client_secret: "pi_e2e_paid_secret",
+            stripe_account_id: "acct_e2e",
+        },
+        paid: true,
+    };
+    await page.addInitScript(
+        ([key, value]) => {
+            if (sessionStorage.getItem("e2e-seeded") === null) {
+                sessionStorage.setItem(key, value);
+                sessionStorage.setItem("e2e-seeded", "1");
+            }
+        },
+        [`connect-order:${slug}`, JSON.stringify(paid)] as const,
+    );
+    await page.goto(`${shopPage}/checkout`);
+    await expect(page.getByText(shop.doneBody("S-34"), { exact: true })).toBeVisible();
+    await page.goto(shopPage);
+    await expect(page.getByRole("heading", { name: shop.title, level: 1 })).toBeVisible();
+    await page.goto(`${shopPage}/checkout`);
+    await expect(page.getByText(shop.doneBody("S-34"), { exact: true })).toHaveCount(0);
+});
 
 test("the shop's order panel folds into a bottom bar on a phone", async ({ page }) => {
     const shop = strings.publicShop;

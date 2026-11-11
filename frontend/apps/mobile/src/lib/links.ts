@@ -38,8 +38,10 @@ export function useOpenLink(): (target: ShellTarget, refId?: string | null) => v
                     return;
                 case "sale":
                 case "checkout":
-                case "orders":
                     nav.navigate("Payments", { tab: "sales" });
+                    return;
+                case "orders":
+                    nav.navigate("Payments", { tab: "sales", view: "board" });
                     return;
                 case "invoices":
                 case "payments":

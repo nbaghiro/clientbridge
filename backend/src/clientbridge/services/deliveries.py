@@ -30,6 +30,7 @@ from clientbridge.integrations.resend import (
     get_test_email_sender,
 )
 from clientbridge.integrations.twilio import ConsoleSmsSender, Sms, SmsSender, SmtpSmsSender
+from clientbridge.models.billing import Order
 from clientbridge.models.messaging import Delivery, DeliveryState, Message, MessageStatus
 from clientbridge.models.platform import Webhook, WebhookStatus
 from clientbridge.schemas.deliveries import (
@@ -231,15 +232,17 @@ _MESSAGE_STATUS: dict[DeliveryState, MessageStatus] = {
 
 
 async def _follow(db: AsyncSession, row: Delivery, payload: DeliveryPayload) -> None:
-    """The inbox message a delivery carries takes its outcome, never undoing a later one."""
-    status = _MESSAGE_STATUS.get(row.state)
-    if (
-        not isinstance(payload, SmsDelivery)
-        or payload.message_id is None
-        or row.business_id is None
-    ):
+    """The inbox message or order receipt a delivery carries takes its outcome."""
+    if not isinstance(payload, SmsDelivery) or row.business_id is None:
         return
-    if status is None:  # still queued for a retry
+    if payload.order_id is not None and row.state == "accepted":
+        await db.execute(
+            scoped_update(Order, row.business_id)
+            .where(Order.id == payload.order_id, Order.receipt_sent_at.is_(None))
+            .values(receipt_phone=payload.message.to, receipt_sent_at=clock.now())
+        )
+    status = _MESSAGE_STATUS.get(row.state)
+    if payload.message_id is None or status is None:  # no message, or still queued for a retry
         return
     earlier: tuple[MessageStatus, ...] = ("queued",) if status == "sent" else ("queued", "sent")
     await db.execute(

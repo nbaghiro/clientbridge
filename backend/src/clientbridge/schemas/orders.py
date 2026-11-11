@@ -192,6 +192,7 @@ class PublicOrderStatus(Mirror):
     picked_up_at: datetime | None
     notify_sms: bool
     refund_pending: bool = False
+    refund_cents: int = Field(description="Refunded or on its way back to the card")
     can_cancel: bool
     receipt_token: str | None
     currency: str

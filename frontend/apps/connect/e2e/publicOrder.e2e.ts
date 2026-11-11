@@ -31,3 +31,28 @@ test("the order page shows a tax row only when the order charged tax", async ({ 
     await expect(untaxed.getByText(s.tax, { exact: true })).toHaveCount(0);
     await untaxedContext.close();
 });
+
+test("a canceled order says what was refunded and drops the progress, pickup and texts", async ({
+    page,
+}) => {
+    const s = strings.publicOrder;
+    await page.route(`${runUrl("VITE_API_URL")}/order/${links.order}*`, (route) =>
+        rewrite(route, (body) => ({
+            ...body,
+            status: "refunded",
+            pickup_status: null,
+            can_cancel: false,
+            receipt_token: "rcpt_e2e",
+            total_cents: 5936,
+            refund_cents: 5936,
+            currency: "CAD",
+        })),
+    );
+    await page.goto(on("shop", `/order/${links.order}`));
+    await expect(page.getByRole("heading", { name: s.canceled, level: 1 })).toBeVisible();
+    await expect(page.getByText(s.refundedBody("$59.36"), { exact: true })).toBeVisible();
+    await expect(page.getByRole("list", { name: s.updated })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: s.pickup })).toHaveCount(0);
+    await expect(page.getByRole("switch", { name: s.alerts })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: s.receipt })).toHaveCount(1);
+});

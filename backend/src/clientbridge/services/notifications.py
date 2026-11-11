@@ -42,6 +42,7 @@ from clientbridge.models.platform import Device, DevicePlatform
 from clientbridge.models.reviews import ReviewRequest
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.schemas.auth import AuthEmailIn
+from clientbridge.schemas.deliveries import SmsDelivery
 from clientbridge.schemas.forms import FormDefinition
 from clientbridge.services import ledger
 from clientbridge.services.business import staff_names
@@ -850,12 +851,19 @@ class Notifier:
     """Sends every event to its channels; one channel failing never blocks the others."""
 
     def __init__(
-        self, email: EmailSender, sms: SmsSender, push: PushSender, *, raise_errors: bool = False
+        self,
+        email: EmailSender,
+        sms: SmsSender,
+        push: PushSender,
+        *,
+        raise_errors: bool = False,
+        queue: DeliveryQueue | None = None,
     ) -> None:
         self.raise_errors = raise_errors
         self.email = email
         self.sms = sms
         self.push = push
+        self.queue = queue
 
     async def on_payment_succeeded(self, db: AsyncSession, payment_id: str) -> None:
         """A receipt text to the client + a push alert to the provider's staff devices."""
@@ -882,7 +890,8 @@ class Notifier:
                     self.email.send(business_email(business, business.billing_email, alert))
                 )
         if payment.client_id is not None:
-            await self._to_client(db, payment.client_id, notice)
+            receipt = order.id if online and order else None
+            await self._to_client(db, payment.client_id, notice, receipt_of=receipt)
         elif order is not None:
             await self._to_contact(db, order.receipt_phone, notice, business=business)
         await self._alert_staff(
@@ -1498,7 +1507,14 @@ class Notifier:
                 self.sms.send(Sms(to=number, body=notice, from_number=business.sms_number))
             )
 
-    async def _to_client(self, db: AsyncSession, client_id: str | None, notice: str) -> Outcome:
+    async def _to_client(
+        self,
+        db: AsyncSession,
+        client_id: str | None,
+        notice: str,
+        *,
+        receipt_of: str | None = None,
+    ) -> Outcome:
         """A text to a client, unless they have no mobile number or replied STOP."""
         if client_id is None:
             return Outcome.SKIPPED
@@ -1510,7 +1526,13 @@ class Notifier:
             return Outcome.SKIPPED
         business = await db.get(Business, client.business_id)
         sms = Sms(to=number, body=notice, from_number=business.sms_number if business else None)
-        return Outcome.DELIVERED if await self._safe(self.sms.send(sms)) else Outcome.FAILED
+        # a queued receipt records on its order where it went once the text is actually sent
+        sending = (
+            self.queue.add(SmsDelivery(message=sms, order_id=receipt_of))
+            if receipt_of is not None and self.queue is not None
+            else self.sms.send(sms)
+        )
+        return Outcome.DELIVERED if await self._safe(sending) else Outcome.FAILED
 
     async def _alert_staff(
         self,
@@ -1639,4 +1661,6 @@ async def _taken_at_desk(db: AsyncSession, payment: Payment) -> bool:
 def queued_notifier(db: AsyncSession, business_id: str | None, key: str) -> Notifier:
     """A notifier that queues its messages under the delivery key instead of sending them."""
     queue = DeliveryQueue(db, key, business_id)
-    return Notifier(QueuedEmail(queue), QueuedSms(queue), QueuedPush(queue), raise_errors=True)
+    return Notifier(
+        QueuedEmail(queue), QueuedSms(queue), QueuedPush(queue), raise_errors=True, queue=queue
+    )

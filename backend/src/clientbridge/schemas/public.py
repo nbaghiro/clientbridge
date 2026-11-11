@@ -384,6 +384,7 @@ class PublicShopOrderResult(BaseModel):
     tax_total_cents: int | None = None
     order_id: str
     order_token: str | None = None
+    number: int
     total_cents: int
     currency: str
     client_secret: str
