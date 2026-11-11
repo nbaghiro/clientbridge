@@ -13,7 +13,7 @@ from urllib.request import Request, urlopen
 import pytest
 import stripe
 from e2e.stripe_fixtures import validate_cleanup_fixtures
-from e2e.stripe_relay import Relay, Target
+from e2e.stripe_relay import Relay, Target, event_customer
 
 from clientbridge.core import clock
 
@@ -36,7 +36,7 @@ def relay(tmp_path: Path) -> Relay:
             }
         )
     )
-    instance = Relay(manifest, "http://127.0.0.1:1/webhooks/stripe")
+    instance = Relay(manifest, "http://127.0.0.1:1/webhooks/stripe", "acct_owned")
     instance.secret = "whsec_synthetic_unit_fixture"
     return instance
 
@@ -452,3 +452,40 @@ def test_relay_shutdown_interrupts_real_local_upstream_wait(relay: Relay) -> Non
         upstream.server_close()
         server.join(5)
     assert not client.is_alive() and not server.is_alive()
+
+
+def test_relay_drops_events_from_another_runs_pool_pair(tmp_path: Path) -> None:
+    from e2e.stripe_pool import POOL
+
+    pool = json.loads(POOL.read_text())
+    ours, theirs = list(pool["pairs"].values())[:2]
+    relay = Relay(
+        tmp_path / "stripe-fixtures.json", "http://127.0.0.1:1/webhooks/stripe", ours["a"]
+    )
+    relay.secret = "whsec_synthetic_unit_fixture"
+    sent: list[str] = []
+
+    def transport(url: str, body: bytes, signature: str) -> int:
+        sent.append(json.loads(body)["account"])
+        return 200
+
+    relay.transport = transport
+    for account in (theirs["a"], theirs["b"], ours["a"], ours["b"], "acct_fresh_onboarding"):
+        assert relay.receive(*signed(relay, account=account)) == 200
+    assert sent == [ours["a"], ours["b"], "acct_fresh_onboarding"]
+
+
+async def test_a_mandate_event_is_redelivered_for_the_customer_behind_its_bank(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def retrieve(method: str, *, stripe_account: str) -> stripe.PaymentMethod:
+        assert (method, stripe_account) == ("pm_bank", "acct_owned")
+        return stripe.PaymentMethod.construct_from({"id": method, "customer": "cus_owner"}, "")
+
+    monkeypatch.setattr(stripe.PaymentMethod, "retrieve_async", retrieve)
+    mandate: dict[str, object] = {"object": "mandate", "payment_method": "pm_bank"}
+    assert await event_customer("acct_owned", mandate) == "cus_owner"
+    bank: dict[str, object] = {"object": "payment_method", "customer": "cus_owner"}
+    assert await event_customer("acct_owned", bank) == "cus_owner"
+    with pytest.raises(ValueError):
+        await event_customer("acct_owned", {"object": "payout"})

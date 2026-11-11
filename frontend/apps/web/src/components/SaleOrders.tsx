@@ -435,7 +435,7 @@ function SalePanel({
                                         icon={p.icon}
                                         title={p.label}
                                         detail={p.detail}
-                                        meta={formatMoney(p.cents, BUSINESS_CURRENCY)}
+                                        meta={p.amount}
                                     />
                                 ))}
                             </div>

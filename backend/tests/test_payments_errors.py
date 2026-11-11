@@ -43,6 +43,7 @@ def _failing(gateway: FakePaymentGateway, monkeypatch: pytest.MonkeyPatch, exc: 
         ),
         (stripe.APIConnectionError("network down"), 502, "payment_provider_error"),
         (stripe.RateLimitError("slow down"), 502, "payment_provider_error"),
+        (stripe.RateLimitError("busy", code="lock_timeout"), 503, "retry_later"),
     ],
 )
 async def test_stripe_errors_answer_with_a_stable_code(

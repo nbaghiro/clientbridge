@@ -1,7 +1,6 @@
 import {
     type DiscountEditor,
     type SaleDiscount,
-    type SalePayMethod,
     type SaleTicket,
     discountLabel,
     filterClients,
@@ -868,9 +867,6 @@ function MethodDetail({ sale }: { sale: SaleTicket }) {
 
 function ReceiptChooser({ sale }: { sale: SaleTicket }) {
     const r = sale.receipt;
-    const [choice, setChoice] = useState<"text" | "skip">(
-        sale.client?.phone != null ? "text" : "skip",
-    );
     if (r.sent !== null) {
         return (
             <Notice tone="success" banner>
@@ -880,46 +876,33 @@ function ReceiptChooser({ sale }: { sale: SaleTicket }) {
     }
     return (
         <div className="space-y-3">
-            <Choice
-                layout="segmented"
-                label={d.receiptTitle}
-                options={[
-                    { key: "text", label: d.receiptText },
-                    { key: "skip", label: d.receiptNone },
-                ]}
-                value={choice}
-                onChange={setChoice}
-            />
-            {choice === "skip" ? (
+            <div className="flex items-end gap-2">
+                <div className="flex-1">
+                    <TextField
+                        label={d.receiptPhoneTo}
+                        type="tel"
+                        value={r.phone}
+                        onChange={r.setPhone}
+                    />
+                </div>
                 <Button
                     variant="outline"
+                    busy={r.busy}
                     onPress={() => {
-                        r.skip();
+                        r.send();
                     }}
                 >
-                    {d.receiptNone}
+                    {d.sendText}
                 </Button>
-            ) : (
-                <div className="flex items-end gap-2">
-                    <div className="flex-1">
-                        <TextField
-                            label={d.receiptPhoneTo}
-                            type="tel"
-                            value={r.phone}
-                            onChange={r.setPhone}
-                        />
-                    </div>
-                    <Button
-                        variant="outline"
-                        busy={r.busy}
-                        onPress={() => {
-                            r.send();
-                        }}
-                    >
-                        {d.sendText}
-                    </Button>
-                </div>
-            )}
+            </div>
+            <Button
+                variant="quiet"
+                onPress={() => {
+                    r.skip();
+                }}
+            >
+                {d.receiptNone}
+            </Button>
             {r.error !== null ? <Notice tone="danger">{r.error}</Notice> : null}
         </div>
     );
@@ -983,21 +966,6 @@ function GiftCardEntry({ sale }: { sale: SaleTicket }) {
     );
 }
 
-const METHOD_LABEL: Record<SalePayMethod, string> = {
-    get tap() {
-        return d.methodTap;
-    },
-    get saved() {
-        return d.methodCard;
-    },
-    get card() {
-        return d.methodCard;
-    },
-    get cash() {
-        return d.methodCash;
-    },
-};
-
 function PaidSummary({
     sale,
     onNew,
@@ -1009,18 +977,13 @@ function PaidSummary({
 }) {
     const nextStart = useNextVisit(sale.visitId)?.start ?? null;
     const zone = useBusinessZone();
-    const method = sale.paidByGiftCard
-        ? d.paidByGiftCard
-        : sale.method === "saved" && sale.savedCardLabel !== null
-          ? sale.savedCardLabel
-          : METHOD_LABEL[sale.method];
     return (
         <div className="space-y-5">
             <div className="flex flex-col items-center pt-2 text-center">
                 <Icon name="check" size={32} className="text-ink-soft" />
                 <h2 className="mt-3 font-display text-xl font-bold text-ink">{d.paidTitle}</h2>
                 <p className="mt-1 text-sm text-muted">
-                    {d.paidBody(formatMoney(sale.paidCents, BUSINESS_CURRENCY), method)}
+                    {d.paidBody(formatMoney(sale.paidCents, BUSINESS_CURRENCY), sale.paidWith)}
                 </p>
                 {sale.changeGiven !== null && sale.changeGiven > 0 ? (
                     <p className="mt-3 rounded-md bg-warn-bg px-3 py-1.5 text-sm font-semibold text-warn-fg">

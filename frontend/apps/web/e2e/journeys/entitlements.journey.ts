@@ -7,13 +7,14 @@ import {
     strings,
     addDays,
 } from "@clientbridge/app-core/public";
-import { expect, test, type Page, type Request, type Route } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { bookingApi } from "../support/bookings";
 import { createClient, type ClientFixture } from "../support/clients";
 import {
     entitlementEvidence,
     expectEntitlementLedger,
     openEntitlement,
+    pairBarrier,
     sellEntitlement,
 } from "../support/entitlements";
 import { requireLocalMail } from "../support/evidence";
@@ -95,23 +96,6 @@ function deskRow(page: Page, service: string, starts: Date) {
             ),
         })
         .last();
-}
-
-/** Holds each request until both have arrived, then lets them through together. */
-function pairBarrier() {
-    const held: Request[] = [];
-    let release: () => void = () => undefined;
-    const open = new Promise<void>((resolve) => {
-        release = resolve;
-    });
-    const hold = async (route: Route) => {
-        if (route.request().method() !== "POST") return route.continue();
-        held.push(route.request());
-        if (held.length === 2) release();
-        await open;
-        await route.continue();
-    };
-    return { held, hold };
 }
 
 test("FLOW-07-A a package keeps the benefits it was sold with, covers only its service, settles a final-session race once and then refuses a refund in words", async ({
@@ -361,7 +345,7 @@ test("FLOW-07-B an unused package refunded in full is canceled on both devices a
         await openEntitlement(page, client.name, fixture.packageId);
         await page.getByRole("button", { name: w.action.refund, exact: true }).click();
         const panel = page.getByRole("complementary", { name: client.name, exact: true });
-        await expect(panel.getByText(r.wholeOnly, { exact: true })).toBeVisible({
+        await expect(panel.getByText(r.wholeOnly.purchase, { exact: true })).toBeVisible({
             timeout: 60_000,
         });
         await expect(panel.getByRole("button", { name: r.part, exact: true })).toBeDisabled();
@@ -850,4 +834,175 @@ test("CLS-E2E-02 a client enrols in a three-day camp on Connect and every day, w
     } finally {
         await context.close();
     }
+});
+
+test("CLS-E2E-03 cancelling a camp enrolment from Programs releases every day ahead, voids its invoice and drops the unpaid deposit", async ({
+    page,
+}, testInfo) => {
+    const p = strings.programs;
+    test.setTimeout(240_000);
+    await signIn(page, CEDAR);
+    const owner = await teamMember(page, runEmail("owner@cedarcoast.example"));
+    const run = randomUUID().slice(0, 6).toUpperCase();
+    const camp = await apiCall<{ id: string; name: string }>(
+        page,
+        "POST",
+        "/v1/items",
+        {
+            kind: "class",
+            name: `Agility day camp ${run}`,
+            duration_min: 60,
+            price_cents: 15000,
+            capacity: 4,
+            session_count: 3,
+            deposit_type: "fixed",
+            deposit_value: 3000,
+            online_bookable: true,
+        },
+        201,
+    );
+    let program: ScheduledProgram | null = null;
+    for (let week = 3; week < 12 && program === null; week++) {
+        const ahead = addDays(new Date(), week * 7, ZONE);
+        const weekday = new Date(`${dateKey(ahead, ZONE)}T12:00:00Z`).getUTCDay();
+        const monday = dateKey(addDays(ahead, -((weekday + 6) % 7), ZONE), ZONE);
+        const response = await page.request.post(`${bookingApi()}/v1/programs`, {
+            headers: { Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() },
+            data: {
+                item_id: camp.id,
+                staff_id: owner.id,
+                starts_at: combineDayAndTime(monday, "10:00", ZONE).toISOString(),
+                byday: ["MO", "TU", "WE"],
+                count: 3,
+            },
+        });
+        if (response.status() === 409) continue;
+        expect(response.status(), await response.text()).toBe(201);
+        program = (await response.json()) as ScheduledProgram;
+    }
+    if (program === null) throw new Error("No free week for the camp");
+    const client = await createClient(page);
+    const enrolled = await apiCall<{ booking_ids: string[] }>(
+        page,
+        "POST",
+        `/v1/programs/${program.id}/enrolments`,
+        { client_id: client.id, notify: false },
+        201,
+    );
+    expect(enrolled.booking_ids).toHaveLength(3);
+    const before = await visitEvidence([client.id]);
+    expect(before.bookings.map((booking) => booking.slot_id)).toEqual(
+        program.sessions.map((session) => session.slot_id),
+    );
+    const invoiceId = before.bookings[0]?.invoice_id ?? null;
+    if (invoiceId === null) throw new Error("The enrolment has no invoice");
+    expect(
+        before.bookings.map(({ status, price_cents, deposit_amount_cents, deposit_status }) => ({
+            status,
+            price_cents,
+            deposit_amount_cents,
+            deposit_status,
+        })),
+    ).toEqual([
+        {
+            status: "confirmed",
+            price_cents: 15000,
+            deposit_amount_cents: 3000,
+            deposit_status: "pending",
+        },
+        ...[1, 2].map(() => ({
+            status: "confirmed",
+            price_cents: 0,
+            deposit_amount_cents: 0,
+            deposit_status: "none",
+        })),
+    ]);
+    // 5% GST and 7% PST on the camp's price
+    expect(before.invoices).toEqual([
+        expect.objectContaining({ id: invoiceId, status: "sent", total_cents: 16800 }),
+    ]);
+    expect(before.payments).toEqual([]);
+    const receivable = (entries: typeof before.entries) =>
+        entries
+            .filter((entry) => entry.category === "receivable")
+            .reduce((sum, entry) => sum + entry.amount_cents, 0);
+    expect(receivable(before.entries)).toBe(16800);
+
+    await navigate(page, "/schedule/classes");
+    await page.getByRole("tab", { name: p.tab, exact: true }).click();
+    await page
+        .getByRole("navigation", { name: p.tab, exact: true })
+        .getByRole("button")
+        .filter({ hasText: camp.name })
+        .click({ timeout: 60_000 });
+    const row = page.getByRole("listitem").filter({ hasText: client.name });
+    await row.getByRole("button", { name: p.cancelEnrolment, exact: true }).click({
+        timeout: 60_000,
+    });
+    const confirm = page.getByRole("dialog", {
+        name: p.cancelEnrolmentTitle(client.name),
+        exact: true,
+    });
+    await confirm.getByRole("button", { name: p.keep, exact: true }).click();
+    expect(await visitEvidence([client.id])).toEqual(before);
+    await row.getByRole("button", { name: p.cancelEnrolment, exact: true }).click();
+    const cancelling = page.waitForResponse(
+        (response) =>
+            new URL(response.url()).pathname === `/v1/programs/${program.id}/enrolments/cancel` &&
+            response.request().method() === "POST",
+    );
+    await confirm.getByRole("button", { name: p.cancelEnrolment, exact: true }).click();
+    const cancelled = await cancelling;
+    expect(cancelled.status(), await cancelled.text()).toBe(200);
+    const outcome = (await cancelled.json()) as { canceled: string[] };
+    expect(outcome).toEqual({
+        program_id: program.id,
+        canceled: expect.any(Array),
+        refunded_cents: 0,
+    });
+    expect([...outcome.canceled].sort()).toEqual([...enrolled.booking_ids].sort());
+    await expect(page.getByText(p.canceledEnrolment(client.name), { exact: true })).toBeVisible();
+    await expect(row).toHaveCount(0, { timeout: 60_000 });
+
+    const after = await visitEvidence([client.id]);
+    expect(
+        after.bookings.map(({ id, status, deposit_status, slot_status }) => ({
+            id,
+            status,
+            deposit_status,
+            slot_status,
+        })),
+    ).toEqual(
+        enrolled.booking_ids.map((id) => ({
+            id,
+            status: "canceled",
+            deposit_status: "none",
+            slot_status: "scheduled",
+        })),
+    );
+    expect(after.invoices).toEqual([{ ...before.invoices[0], status: "void" }]);
+    expect(after.payments).toEqual([]);
+    expect(receivable(after.entries)).toBe(0);
+    expect(after.entries.reduce((sum, entry) => sum + entry.amount_cents, 0)).toBe(0);
+
+    const again = await page.request.post(
+        `${bookingApi()}/v1/programs/${program.id}/enrolments/cancel`,
+        {
+            headers: { Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() },
+            data: { client_id: client.id, notify: false },
+        },
+    );
+    expect(again.status(), await again.text()).toBe(404);
+    expect(await visitEvidence([client.id])).toEqual(after);
+    await openInvoice(page, { id: invoiceId, name: client.name, phone: client.phone });
+    await expect(
+        page
+            .getByRole("dialog")
+            .getByText(strings.billing.statusLabel.void, { exact: true })
+            .first(),
+    ).toBeVisible({ timeout: 60_000 });
+    await testInfo.attach("camp-enrolment-cancelled", {
+        body: JSON.stringify({ before, after }),
+        contentType: "application/json",
+    });
 });

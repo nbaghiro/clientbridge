@@ -224,6 +224,10 @@ export async function payOnlineDeposit(page: Page): Promise<void> {
 export async function sendBookingInvoiceUi(
     page: Page,
     invoice: { id: string; name: string; phone: string },
+    expected: { balance_cents: number; status: string } = {
+        balance_cents: 9200,
+        status: "partial",
+    },
 ): Promise<number> {
     await openInvoice(page, invoice);
     await page.getByRole("button", { name: strings.billing.sendInvoice, exact: true }).click();
@@ -246,7 +250,7 @@ export async function sendBookingInvoiceUi(
         balance_cents: number;
         status: string;
     };
-    expect(body).toMatchObject({ balance_cents: 9200, status: "partial" });
+    expect(body).toMatchObject(expected);
     return body.number;
 }
 
@@ -259,8 +263,8 @@ export async function refundUi(
     const s = strings.refunds;
     const panel = await openRefund(page, fixture);
     if (options.wholeOnly) {
-        await expect(panel.getByText(s.wholeOnly, { exact: true })).toBeVisible();
-        await expect(panel.getByRole("button", { name: s.part, exact: true })).toBeDisabled();
+        await expect(panel.getByText(s.wholeOnly.deposit, { exact: true })).toBeVisible();
+        await expect(panel.getByRole("button", { name: s.part, exact: true })).toHaveCount(0);
     } else {
         await panel.getByRole("button", { name: s.part, exact: true }).click();
         await panel.getByRole("textbox", { name: s.amount, exact: true }).fill("56.00");

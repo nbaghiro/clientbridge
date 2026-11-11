@@ -4,6 +4,7 @@ import {
     formatMoneyWithCurrency,
     printedPublicInvoice,
     publicDocLines,
+    publicInvoicePaidCents,
     publicInvoiceTotals,
     registrationLine,
     shortDate,
@@ -23,6 +24,7 @@ import { PrintModal, PublicDocument } from "../components/PublicDocument";
 import { PublicDone, PublicStatus } from "../components/PublicStatus";
 import { useEmbedSuccess } from "../embed";
 import { config } from "../config";
+import { useStripeReturn } from "../stripeReturn";
 
 const PUBLISHABLE_KEY = config.stripePublishableKey;
 const pay = createPublicPayClient(config.apiUrl);
@@ -30,7 +32,7 @@ const pp = strings.publicPay;
 
 export function PublicPay() {
     const { token = "" } = useParams<{ token: string }>();
-    const form = usePublicPayForm(pay, token);
+    const form = usePublicPayForm(pay, token, useStripeReturn());
     const invoice = form.invoice;
     const [printing, setPrinting] = useState(false);
     useEmbedSuccess(form.status === "paid", "pay");
@@ -119,9 +121,14 @@ export function PublicPay() {
                                 ? pp.invoiceNumber(invoice.number)
                                 : pp.invoice}{" "}
                         </span>
-                        {invoice.status === "paid" || form.closed
-                            ? formatMoneyWithCurrency(invoice.total_cents, invoice.currency)
-                            : formatMoneyWithCurrency(invoice.balance_cents, invoice.currency)}
+                        {invoice.status === "paid"
+                            ? formatMoneyWithCurrency(
+                                  publicInvoicePaidCents(invoice),
+                                  invoice.currency,
+                              )
+                            : form.closed
+                              ? formatMoneyWithCurrency(invoice.total_cents, invoice.currency)
+                              : formatMoneyWithCurrency(invoice.balance_cents, invoice.currency)}
                     </h1>
                     {heroStatus !== null ? (
                         <p className="mt-3 text-sm text-ink-soft">{heroStatus}</p>
@@ -231,9 +238,9 @@ export function PublicPay() {
                     ) : (
                         <>
                             <h2 className="font-display text-xl font-bold text-ink">
-                                {pp.cardLabel}
+                                {pp.payTitle}
                             </h2>
-                            <p className="mb-5 mt-1 text-sm text-ink-soft">{pp.cardBadge}</p>
+                            <p className="mb-5 mt-1 text-sm text-ink-soft">{pp.payMethods}</p>
                             <div className="space-y-4">
                                 {form.card === null && form.tip.available ? (
                                     <section className="space-y-3 border-t border-line-soft pt-4">
@@ -293,13 +300,13 @@ export function PublicPay() {
                                         {form.busy
                                             ? strings.common.working
                                             : form.tip.cents > 0
-                                              ? pp.payWithTip(
+                                              ? pp.continueWithTip(
                                                     formatMoneyWithCurrency(
                                                         form.tip.totalCents,
                                                         invoice.currency,
                                                     ),
                                                 )
-                                              : pp.payByCard}
+                                              : pp.continueToPay}
                                     </Button>
                                 )}
                                 {form.error ? <Notice tone="danger">{form.error}</Notice> : null}

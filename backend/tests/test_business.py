@@ -399,16 +399,17 @@ async def test_a_moved_plan_only_account_takes_the_new_address_to_stripe(
     )
     await db.flush()
     assert (await as_owner.patch("/v1/business", json={"name": "Renamed"})).status_code == 200
-    assert gateway.account_addresses == []
+    assert gateway.plan_addresses == []
     assert (await as_owner.patch("/v1/business", json={"unit": "Suite 4"})).status_code == 200
-    assert gateway.account_addresses == [
+    assert gateway.plan_addresses == [
         (
             "acct_plan",
+            "Renamed",
             PostalAddress("1207 Government Street", "Victoria", "BC", "V8W 1Y9", "Suite 4"),
         )
     ]
     assert (await as_owner.patch("/v1/business", json={"city": ""})).status_code == 200
-    assert len(gateway.account_addresses) == 1
+    assert len(gateway.plan_addresses) == 1
 
 
 async def test_a_stripe_failure_leaves_the_address_saved(
@@ -424,10 +425,10 @@ async def test_a_stripe_failure_leaves_the_address_saved(
     )
     await db.flush()
 
-    async def unavailable(account_id: str, *, address: PostalAddress) -> None:
+    async def unavailable(account_id: str, *, business_name: str, address: PostalAddress) -> None:
         raise RuntimeError("stripe is unavailable")
 
-    monkeypatch.setattr(gateway, "update_account_address", unavailable)
+    monkeypatch.setattr(gateway, "set_plan_address", unavailable)
     body = {"name": "Renamed", "unit": "Suite 9"}
     res = await as_owner.patch("/v1/business", json=body)
     assert res.status_code == 200, res.text
@@ -436,11 +437,26 @@ async def test_a_stripe_failure_leaves_the_address_saved(
     assert (business.name, business.unit) == ("Renamed", "Suite 9")
 
 
-async def test_a_payments_account_keeps_its_stripe_verified_address(
+async def test_a_payments_account_without_a_plan_is_not_given_plan_billing(
     as_owner: httpx.AsyncClient, gateway: FakePaymentGateway
 ) -> None:
     assert (await as_owner.patch("/v1/business", json={"unit": "Suite 4"})).status_code == 200
-    assert gateway.account_addresses == []
+    assert gateway.plan_addresses == []
+
+
+async def test_a_subscribed_payments_account_moves_its_plan_tax_with_the_business(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await db.execute(
+        update(Business).where(Business.id == BIZ).values(stripe_subscription_id="sub_plan")
+    )
+    await db.flush()
+    business = await db.get_one(Business, BIZ)
+    assert business.stripe_account_id is not None
+    assert (await as_owner.patch("/v1/business", json={"unit": "Suite 4"})).status_code == 200
+    ((account, _, address),) = gateway.plan_addresses
+    assert account == business.stripe_account_id
+    assert (address.line2, address.province) == ("Suite 4", "BC")
 
 
 async def test_staff_cannot_change_the_legal_address(

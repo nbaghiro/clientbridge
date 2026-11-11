@@ -1,6 +1,9 @@
+import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import { formatMoney, strings } from "@clientbridge/app-core/public";
-import { expect, type Locator, type Page } from "@playwright/test";
+import { expect, type Locator, type Page, type Request, type Route } from "@playwright/test";
 import { createClient, type ClientFixture } from "./clients";
 import { select } from "./db";
 import { requireLocalMail } from "./evidence";
@@ -298,4 +301,41 @@ export async function openPlanEditor(
     const editor = page.getByRole("dialog", { name: c.newItem(kind), exact: true });
     await expect(editor).toBeVisible();
     return editor;
+}
+
+/** Holds each request until both have arrived, then lets them through together. */
+export function pairBarrier() {
+    const held: Request[] = [];
+    let release: () => void = () => undefined;
+    const open = new Promise<void>((resolve) => {
+        release = resolve;
+    });
+    const hold = async (route: Route) => {
+        if (route.request().method() !== "POST") return route.continue();
+        held.push(route.request());
+        if (held.length === 2) release();
+        await open;
+        await route.continue();
+    };
+    return { held, hold };
+}
+
+export interface ExpirySweep {
+    swept: number[];
+    expires_at: string;
+    rows: { id: string; status: string }[];
+    breakage: { subject_id: string; category: string; amount_cents: number }[];
+}
+
+/** Moves expiry to `offset` seconds from now on cards and packages this case sold, then sweeps twice. */
+export async function expirySweep(offset: number, ids: string[]): Promise<ExpirySweep> {
+    const { stdout } = await promisify(execFile)(
+        "uv",
+        ["run", "python", "-m", "e2e.actions", "expiry", "--", String(offset), ...ids],
+        {
+            cwd: fileURLToPath(new URL("../../../../../backend", import.meta.url)),
+            timeout: 60_000,
+        },
+    );
+    return JSON.parse(stdout) as ExpirySweep;
 }

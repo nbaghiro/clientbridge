@@ -97,8 +97,8 @@ def bundle_sources() -> str:
     return digest.hexdigest()[:16]
 
 
-def ensure_builds(log: IO[bytes] | None = None) -> dict[str, Path]:
-    """One production build per app and source fingerprint, which every lane previews."""
+def ensure_builds(log: IO[bytes] | None = None, into: Path | None = None) -> dict[str, Path]:
+    """One production build per app and source fingerprint, copied into a run that previews it."""
     BUILDS.mkdir(parents=True, exist_ok=True)
     key = bundle_sources()
     built: dict[str, Path] = {}
@@ -119,6 +119,11 @@ def ensure_builds(log: IO[bytes] | None = None) -> dict[str, Path]:
                 shutil.rmtree(target, ignore_errors=True)
                 partial.rename(target)
             built[app] = target
+            if into is not None:
+                # another lane prunes the shared builds while this run still previews its own
+                built[app] = into / app
+                shutil.rmtree(built[app], ignore_errors=True)
+                shutil.copytree(target, built[app])
             older = sorted(
                 (found for found in BUILDS.glob(f"{app}-*") if found != target),
                 key=lambda found: found.stat().st_mtime,

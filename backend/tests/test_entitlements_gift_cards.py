@@ -173,6 +173,7 @@ async def test_purchase_interactive_returns_client_secret(
     assert res.status_code == 201, res.text
     assert res.json()["client_secret"]
     assert gateway.charged_methods == []
+    assert len(gateway.card_only_intents) == 1  # staff type the card, so no Link or Klarna
 
 
 async def test_purchase_by_item_uses_item_price(
@@ -484,6 +485,12 @@ async def test_refund_voids_settled_gift_card(
         await db.execute(select(GiftCard).where(GiftCard.id == body["gift_card_id"]))
     ).scalar_one()
     assert card.status == "void"
+    res = await as_owner.post(
+        "/v1/gift-cards/redeem", json={"code": card.code, "amount_cents": 100}, headers=key()
+    )
+    assert res.status_code == 409
+    assert res.json()["error"] == "gift_card_unusable"
+    assert res.json()["detail"] == {"status": "void"}
 
 
 async def test_refund_partially_redeemed_gift_card_blocked(
@@ -560,6 +567,7 @@ async def test_an_expired_card_is_refused_before_the_sweep_runs(
     body = {"code": card.code, "amount_cents": 1000}
     res = await as_owner.post("/v1/gift-cards/redeem", json=body, headers=key())
     assert res.status_code == 409
+    assert res.json()["error"] == "gift_card_unusable"
     assert res.json()["detail"] == {"status": "expired"}
     await db.refresh(card)
     assert await ledger.gift_card_balance(db, card) == 5000
@@ -841,6 +849,18 @@ async def test_a_gift_card_is_refused_when_it_cannot_pay(
         "message": "",
         "detail": {"status": "redeemed"},
     }
+    lapsed = await _active_card(db, code="GIFTLAPSED", balance=1000)
+    lapsed.expires_at = clock.now() - timedelta(minutes=1)
+    await db.flush()
+    refused = await _apply(as_owner, sale["id"], "GIFTLAPSED")
+    assert (refused.status_code, refused.json()["error"]) == (409, "gift_card_unusable")
+    assert refused.json()["detail"] == {"status": "expired"}
+    voided = await _active_card(db, code="GIFTVOIDED", balance=1000)
+    voided.status = "void"
+    await db.flush()
+    refused = await _apply(as_owner, sale["id"], "GIFTVOIDED")
+    assert (refused.status_code, refused.json()["error"]) == (409, "gift_card_unusable")
+    assert refused.json()["detail"] == {"status": "void"}
     other = await _active_card(db, code="GIFTOTHER")
     other.business_id = (await factory.business(name="Elsewhere")).id
     await db.flush()

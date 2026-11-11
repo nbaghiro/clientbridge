@@ -97,6 +97,7 @@ const FIELDS: Readonly<Record<string, () => string>> = {
     email: () => g.reqEmail,
     phone: () => g.reqPhone,
     title: () => g.reqJobTitle,
+    proof_of_liveness: () => g.reqLiveness,
 };
 
 /** Stripe's Accounts v2 requirement codes, such as `identity.individual.date_of_birth.day`. */

@@ -668,6 +668,29 @@ describe("a deposit due on the manage link", () => {
         expect(result.current.depositThanks).toBe(m.depositThanks(result.current.deposit));
     });
 
+    it("shows the deposit paid when Stripe sends the client back, before its event lands", async () => {
+        const client = manageClient(due);
+        const { result } = renderHook(() =>
+            useManageBooking(client, "token", { intent: "pi_1", status: "processing" }),
+        );
+        await waitFor(() => {
+            expect(result.current.depositThanks).toBe(m.depositThanks(result.current.deposit));
+        });
+        expect(result.current.canPayDeposit).toBe(false);
+        expect(result.current.hasDeposit).toBe(true);
+    });
+
+    it("says a redirect deposit failed and still offers to pay", async () => {
+        const client = manageClient(due);
+        const { result } = renderHook(() =>
+            useManageBooking(client, "token", { intent: "pi_1", status: "failed" }),
+        );
+        await waitFor(() => {
+            expect(result.current.depositError).toBe(strings.checkout.paymentFailed);
+        });
+        expect(result.current.canPayDeposit).toBe(true);
+    });
+
     it("offers nothing to pay when the business takes no cards online", async () => {
         const client = manageClient({ ...due, accepts_card: false });
         const { result } = renderHook(() => useManageBooking(client, "token"));
@@ -1225,14 +1248,17 @@ describe("a reload on the deposit step", () => {
         getPrograms: vi.fn().mockResolvedValue([]),
         payDeposit,
     });
+    // the flow loads through the client it is given, so each render must pass the same one
+    const mount = (
+        api: Parameters<typeof usePublicBookingFlow>[0],
+        kept: ReturnType<typeof storage> = storage(),
+    ) => renderHook(() => usePublicBookingFlow(api, "demo", { storage: kept }));
 
     it("goes back to paying for the held visit with a fresh card form", async () => {
         const pay = vi
             .fn()
             .mockResolvedValue({ client_secret: "pi_fresh", stripe_account_id: "acct_1" });
-        const { result } = renderHook(() =>
-            usePublicBookingFlow(client(pay), "demo", { storage: storage() }),
-        );
+        const { result } = mount(client(pay));
         await waitFor(() => {
             expect(result.current.result?.deposit_client_secret).toBe("pi_fresh");
         });
@@ -1242,13 +1268,26 @@ describe("a reload on the deposit step", () => {
         expect(result.current.fields.name).toBe("Sam Chen");
     });
 
-    it("shows the confirmation when the deposit went through before the reload", async () => {
-        const paid = Object.assign(new Error("paid"), { status: 409, code: "deposit_not_due" });
+    it("shows the confirmation when Stripe sends the client back paid", async () => {
+        const pay = vi.fn();
+        const once = client(pay);
+        const kept = storage();
         const { result } = renderHook(() =>
-            usePublicBookingFlow(client(vi.fn().mockRejectedValue(paid)), "demo", {
-                storage: storage(),
+            usePublicBookingFlow(once, "demo", {
+                storage: kept,
+                returned: { intent: "pi_old", status: "succeeded" },
             }),
         );
+        await waitFor(() => {
+            expect(result.current.step).toBe("done");
+        });
+        expect(pay).not.toHaveBeenCalled();
+        expect(result.current.slot?.starts_at).toBe(visit.starts_at);
+    });
+
+    it("shows the confirmation when the deposit went through before the reload", async () => {
+        const paid = Object.assign(new Error("paid"), { status: 409, code: "deposit_not_due" });
+        const { result } = mount(client(vi.fn().mockRejectedValue(paid)));
         await waitFor(() => {
             expect(result.current.step).toBe("done");
         });
@@ -1259,11 +1298,7 @@ describe("a reload on the deposit step", () => {
             status: 409,
             code: "deposit_in_progress",
         });
-        const { result } = renderHook(() =>
-            usePublicBookingFlow(client(vi.fn().mockRejectedValue(settling)), "demo", {
-                storage: storage(),
-            }),
-        );
+        const { result } = mount(client(vi.fn().mockRejectedValue(settling)));
         await waitFor(() => {
             expect(result.current.step).toBe("done");
         });
@@ -1272,11 +1307,7 @@ describe("a reload on the deposit step", () => {
 
     it("says the hold ended and asks for a new time once the visit was released", async () => {
         const gone = Object.assign(new Error("gone"), { status: 404, code: "not_found" });
-        const { result } = renderHook(() =>
-            usePublicBookingFlow(client(vi.fn().mockRejectedValue(gone)), "demo", {
-                storage: storage(),
-            }),
-        );
+        const { result } = mount(client(vi.fn().mockRejectedValue(gone)));
         await waitFor(() => {
             expect(result.current.error).toBe(s.resumeFailed);
         });
@@ -1291,9 +1322,7 @@ describe("a reload on the deposit step", () => {
         freed.getSlots = vi
             .fn()
             .mockResolvedValue([{ ...visit, staff_id: "member", waitlist: false }]);
-        const { result } = renderHook(() =>
-            usePublicBookingFlow(freed, "demo", { storage: storage() }),
-        );
+        const { result } = mount(freed);
         await waitFor(() => {
             expect(result.current.error).toBe(s.resumeFailed);
         });
@@ -1310,11 +1339,7 @@ describe("a reload on the deposit step", () => {
             status: 409,
             code: "card_payments_unavailable",
         });
-        const { result } = renderHook(() =>
-            usePublicBookingFlow(client(vi.fn().mockRejectedValue(off)), "demo", {
-                storage: storage(),
-            }),
-        );
+        const { result } = mount(client(vi.fn().mockRejectedValue(off)));
         await waitFor(() => {
             expect(result.current.error).toBe(s.resumeRetry);
         });
@@ -1331,9 +1356,7 @@ describe("a reload on the deposit step", () => {
             .mockResolvedValue({ client_secret: "pi_fresh", stripe_account_id: "acct_1" });
         const saved = storage();
         const stable = client(pay);
-        const { result } = renderHook(() =>
-            usePublicBookingFlow(stable, "demo", { storage: saved }),
-        );
+        const { result } = mount(stable, saved);
         await waitFor(() => {
             expect(result.current.error).toBe(s.resumeRetry);
         });
@@ -1356,9 +1379,7 @@ describe("a reload on the deposit step", () => {
             .fn()
             .mockResolvedValue({ client_secret: "pi_fresh", stripe_account_id: "acct_1" });
         const saved = storage();
-        const { result } = renderHook(() =>
-            usePublicBookingFlow(client(pay), "demo", { storage: saved }),
-        );
+        const { result } = mount(client(pay), saved);
         await waitFor(() => {
             expect(result.current.result?.deposit_client_secret).toBe("pi_fresh");
         });

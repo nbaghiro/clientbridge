@@ -1730,6 +1730,23 @@ describe("app-core SQL against the replica schema", () => {
         ]);
     });
 
+    it("lists a bank inquiry with the disputes and on its payment", () => {
+        db.run(
+            "UPDATE payments SET dispute_respond_by = '2026-07-10T00:00:00Z' WHERE id = 'pay_3'",
+        );
+        expect(pick(run("DISPUTES_SQL"), "id", "dispute_status")).toEqual([
+            { id: "pay_3", dispute_status: "inquiry" },
+            { id: "pay_web", dispute_status: "needs_response" },
+        ]);
+        expect(
+            pick(
+                run("REFUNDABLE_PAYMENTS_SQL").filter((r) => r.id === "pay_3"),
+                "dispute_status",
+                "dispute_respond_by",
+            ),
+        ).toEqual([{ dispute_status: null, dispute_respond_by: "2026-07-10T00:00:00Z" }]);
+    });
+
     it("reads the front desk: today's visits, sales and one sale's record", () => {
         expect(
             run("SALE_STAFF_SQL")
@@ -1758,12 +1775,20 @@ describe("app-core SQL against the replica schema", () => {
                 cover_package_id: null,
             },
         ]);
-        const sales = pick(run("SALES_SQL"), "id", "status", "method", "summary");
-        expect(sales.find((r) => r.id === "ord_gift")).toMatchObject({ status: "paid" });
+        const sales = pick(run("SALES_SQL"), "id", "status", "methods", "gift_card_cents");
+        expect(sales.find((r) => r.id === "ord_gift")).toMatchObject({
+            status: "paid",
+            methods: null,
+            gift_card_cents: 3000,
+        });
         expect(sales.find((r) => r.id === "ord_web")).toMatchObject({
             status: "paid",
-            method: "card",
+            methods: "card",
+            gift_card_cents: 0,
         });
+        expect(pick(run("SALE_GIFT_CARDS_SQL", ["ord_gift"]), "id", "event", "cents")).toEqual([
+            { id: "j_gift", event: "redemption", cents: 3000 },
+        ]);
         expect(pick(run("SALE_RECORD_SQL", ["ord_open"]), "id", "status", "client_name")).toEqual([
             { id: "ord_open", status: "open", client_name: "Ann" },
         ]);
@@ -3148,7 +3173,7 @@ describe("app-core SQL against the replica schema", () => {
                 "discount_cents",
                 "refunded_cents",
                 "item_count",
-                "method",
+                "methods",
                 "summary",
                 "client_name",
             ),
@@ -3160,7 +3185,7 @@ describe("app-core SQL against the replica schema", () => {
                 discount_cents: 2380,
                 refunded_cents: 2000,
                 item_count: 3,
-                method: "card",
+                methods: "card",
                 summary: "Cut, 2 × Soap",
                 client_name: "Ann",
             },

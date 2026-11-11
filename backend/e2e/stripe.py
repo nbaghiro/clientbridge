@@ -26,6 +26,7 @@ from scripts.stripe_qa import environment, preflight
 from clientbridge.core import clock
 from clientbridge.integrations.stripe import (
     PAYMENT_EVENTS,
+    PLAN_EVENTS,
     STRIPE_API_VERSION,
 )
 from e2e import tier
@@ -41,12 +42,15 @@ from e2e.stripe_disputes import disputes_main
 from e2e.stripe_evidence import browser_main
 from e2e.stripe_fixtures import setup_main
 from e2e.stripe_onboarding import onboarding_main
+from e2e.stripe_plans import plans_main
 from e2e.stripe_pool import lease_file, pair, pairs
 from e2e.stripe_reconcile import plan_main, reconcile_main
 from e2e.stripe_recovery import recover_main
 from e2e.stripe_refunds import refunds_main
 from e2e.stripe_relay import Relay, delivery_main
 from e2e.tier import ROOT
+
+STRIPE_WORKER = "e2e.stripe_worker.LANE_WORKER"
 
 
 def stack_credentials(
@@ -85,7 +89,8 @@ def _credentials(
     if os.environ.get("CI"):
         raise ValueError("local CLI profile onboarding credentials are forbidden in CI")
     selected = tomllib.loads((Path.home() / ".config/stripe/config.toml").read_text())[profile]
-    key = selected.get("test_mode_api_key", "")
+    # a newer CLI keeps the key in the keychain; preflight checks it is this profile's platform
+    key = selected.get("test_mode_api_key") or os.environ.get("STRIPE_TEST_SECRET_KEY", "")
     if (
         not key.startswith(("sk_test_", "rk_test_"))
         or "clientbridge" not in selected.get("display_name", "").lower()
@@ -232,6 +237,54 @@ def listener(stack: Stack, processes: ExitStack) -> str:
     return found["secret"]
 
 
+def platform_listener(stack: Stack, processes: ExitStack) -> str:
+    """Forward the platform's plan events, which the Connect listener never sees, to the API."""
+    process = subprocess.Popen(
+        [
+            "stripe",
+            "listen",
+            "--events",
+            ",".join(PLAN_EVENTS),
+            "--forward-to",
+            f"{stack.api}/webhooks/stripe",
+            "--skip-update",
+            "--color",
+            "off",
+        ],
+        env={**stack.env, "STRIPE_API_KEY": stack.env["STRIPE_TEST_SECRET_KEY"]},
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        start_new_session=True,
+    )
+    secrets_seen: queue.Queue[str] = queue.Queue()
+
+    def drain() -> None:
+        if process.stdout is None:
+            return
+        for line in iter(process.stdout.readline, b""):
+            if found := re.search(rb"whsec_[A-Za-z0-9]+", line):
+                secrets_seen.put(found[0].decode())
+        secrets_seen.put("")
+
+    thread = threading.Thread(target=drain, daemon=True)
+
+    def finish() -> None:
+        stop(process)
+        thread.join(40)
+        if thread.is_alive():
+            raise RuntimeError("Stripe platform listener did not stop")
+
+    processes.callback(finish)
+    thread.start()
+    try:
+        secret = secrets_seen.get(timeout=30)
+    except queue.Empty:
+        raise RuntimeError("Stripe platform listener did not confirm its signing secret") from None
+    if not secret:
+        raise RuntimeError("Stripe platform listener exited before readiness")
+    return secret
+
+
 def native_target(value: str) -> tuple[Literal["ios", "android"], str]:
     platform, _, device = value.partition(":")
     if platform not in ("ios", "android") or not device:
@@ -240,7 +293,7 @@ def native_target(value: str) -> tuple[Literal["ios", "android"], str]:
 
 
 def native_actions(stack: Stack) -> dict[str, Callable[[bytes], bytes | None]]:
-    """What the phone flows ask of the lane: file a client as a purchaser, and read its wallet."""
+    """What the phone flows ask of the lane: file a purchaser, read its wallet or its money."""
 
     def clients(*argv: str) -> bytes:
         return subprocess.run(
@@ -257,6 +310,7 @@ def native_actions(stack: Stack) -> dict[str, Callable[[bytes], bytes | None]]:
     return {
         "/purchaser": purchaser,
         "/wallet": lambda body: clients("wallet", body.decode()),
+        "/money": lambda body: clients("money", body.decode()),
     }
 
 
@@ -299,7 +353,7 @@ def run_browser(args: argparse.Namespace, stack: Stack, directory: Path, log: IO
 
 
 def run_lane(args: argparse.Namespace, directory: Path, lease: tier.Lease) -> None:
-    stack = Stack(directory, lease)
+    stack = Stack(directory, lease, worker=STRIPE_WORKER)
     stack.configure()
     print(f"Stripe browser diagnostics: {directory}", flush=True)
     if args.configure_only:
@@ -350,12 +404,18 @@ def run_lane(args: argparse.Namespace, directory: Path, lease: tier.Lease) -> No
                         "STRIPE_BROWSER_STATE_FILE": str(directory / "stripe-fixtures.json"),
                     }
                 )
-                relay = Relay(directory / "stripe-fixtures.json", f"{stack.api}/webhooks/stripe")
+                relay = Relay(
+                    directory / "stripe-fixtures.json",
+                    f"{stack.api}/webhooks/stripe",
+                    stack.env["STRIPE_TEST_CONNECTED_ACCOUNT"],
+                )
+                relay.resend = resend
                 stack.env["STRIPE_BROWSER_RELAY_URL"] = relay.start()
                 stack.env["STRIPE_BROWSER_RELAY_TOKEN"] = relay.token
                 processes.callback(relay.close)
                 stack.env["STRIPE_WEBHOOK_SECRET"] = listener(stack, processes)
                 relay.secret = stack.env["STRIPE_WEBHOOK_SECRET"]
+                stack.env["STRIPE_PLATFORM_WEBHOOK_SECRET"] = platform_listener(stack, processes)
 
                 def recover_held() -> None:
                     if relay is not None:
@@ -363,6 +423,9 @@ def run_lane(args: argparse.Namespace, directory: Path, lease: tier.Lease) -> No
 
                 processes.callback(recover_held)
                 record["listener_api_version"] = STRIPE_API_VERSION
+                if args.payout_case:
+                    # before prepare, so the reconciliation window starts after the float
+                    stack.command([sys.executable, "-m", "e2e.merchant", "fund"], log)
                 stack.command([sys.executable, "-m", "e2e.stripe", "setup", "prepare"], log)
                 prepared = True
                 record["provider_cleanup"] = "pending"
@@ -524,6 +587,7 @@ COMMANDS: dict[str, Callable[[list[str]], int | None]] = {
     "onboarding": lambda argv: asyncio.run(onboarding_main(argv)),
     "reconcile": lambda argv: asyncio.run(reconcile_main(argv)),
     "plan": lambda argv: asyncio.run(plan_main(argv)),
+    "plans": lambda argv: asyncio.run(plans_main(argv)),
     "stack": stack_main,
     "native-build": native_build_main,
 }

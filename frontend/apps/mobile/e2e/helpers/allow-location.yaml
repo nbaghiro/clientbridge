@@ -1,0 +1,10 @@
+appId: ${APP_ID}
+---
+# Stripe Terminal asks for the location once per install, when it first takes a card or as the app reopens
+- extendedWaitUntil:
+      visible: "Allow While Using App"
+      timeout: 10000
+      optional: true
+- tapOn:
+      text: "Allow While Using App"
+      optional: true

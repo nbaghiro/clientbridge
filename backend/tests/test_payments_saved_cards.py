@@ -1,16 +1,26 @@
+import asyncio
 import json
 
 import httpx
+from scripts.seed_demo import purge_businesses
 from sqlalchemy import select, update
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
+from clientbridge.core.config import get_settings
+from clientbridge.core.db import SessionLocal
 from clientbridge.core.ids import new_id
-from clientbridge.integrations.stripe import StripeGateway, get_payment_gateway
+from clientbridge.integrations.stripe import (
+    STRIPE_API_VERSION,
+    GatewayEvent,
+    StripeGateway,
+    get_payment_gateway,
+)
 from clientbridge.main import app
 from clientbridge.models.billing import Invoice
 from clientbridge.models.business import Business
 from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment, PaymentMethod
+from clientbridge.services.payments import apply_stripe_event
 from tests.conftest import Factory, FakePaymentGateway, book_invoice
 from tests.helpers import client_id, enable_payments, new_client
 from tests.helpers import key as retry_key
@@ -492,3 +502,53 @@ async def test_a_method_without_a_provider_reference_cannot_become_the_default(
     res = await as_owner.post(f"/v1/payments/methods/{bank.id}/default")
     assert res.status_code == 409
     assert res.json()["error"] == "payment_method_not_chargeable"
+
+
+async def test_two_deliveries_saving_one_card_at_once_record_it_once(db: AsyncSession) -> None:
+    async with SessionLocal() as setup:
+        factory = Factory(setup)
+        business = await factory.business(name="Race Card")
+        business.stripe_account_id = f"acct_{new_id('business')[-12:]}"
+        client = await factory.client(business=business)
+        client.stripe_customer_id = "cus_race"
+        await setup.commit()
+    gateway = FakePaymentGateway()
+
+    async def attach(event: str, card: str) -> None:
+        async with SessionLocal() as session:
+            await apply_stripe_event(
+                session,
+                gateway,
+                GatewayEvent(
+                    id=event,
+                    type="payment_method.attached",
+                    account=business.stripe_account_id,
+                    api_version=STRIPE_API_VERSION,
+                    data={
+                        "id": card,
+                        "type": "card",
+                        "customer": "cus_race",
+                        "card": {"brand": "visa", "last4": "4242"},
+                    },
+                ),
+            )
+            await session.commit()
+
+    try:
+        for attempt in range(5):
+            card = f"pm_race_{attempt}"
+            await asyncio.gather(*(attach(f"evt_{new_id('webhook')}", card) for _ in range(2)))
+            async with SessionLocal() as session:
+                saved = await session.scalars(
+                    select(PaymentMethod.id).where(
+                        PaymentMethod.business_id == business.id,
+                        PaymentMethod.provider_ref == card,
+                    )
+                )
+                assert len(saved.all()) == 1
+    finally:
+        owner = create_async_engine(get_settings().migration_database_url)
+        async with AsyncSession(owner) as session:
+            await purge_businesses(session, [business.id], [])
+            await session.commit()
+        await owner.dispose()

@@ -1,11 +1,13 @@
 import { execFile } from "node:child_process";
+import { writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { strings } from "@clientbridge/app-core/public";
 import { demoId } from "@clientbridge/config/e2e/run";
 import { expect, type Frame, type Page, type TestInfo } from "@playwright/test";
 import { select } from "../../../../web/e2e/support/db";
-import { artifact, periodDates, reports } from "../../../../web/e2e/support/reports";
+import { bookingApi } from "../../../../web/e2e/support/bookings";
+import { artifact } from "../../../../web/e2e/support/reports";
 
 const execute = promisify(execFile);
 const s = strings.payouts;
@@ -97,21 +99,21 @@ export async function depositedCents(page: Page): Promise<number> {
 }
 
 /** The Bank deposits file of this month's bookkeeper pack, as CSV rows. */
-export async function bankDeposits(page: Page, info: TestInfo, tag: string): Promise<string[][]> {
-    await reports(page, "thisMonth");
-    await page.getByRole("button", { name: strings.reports.bookkeeperPack, exact: true }).click();
-    const dialog = page.getByRole("dialog");
-    for (const checkbox of await dialog.getByRole("checkbox").all()) await checkbox.uncheck();
-    await dialog
-        .getByRole("checkbox", { name: strings.reports.library.payouts, exact: true })
-        .check();
-    const pending = page.waitForEvent("download");
-    await dialog.getByRole("button", { name: strings.reports.packDownload, exact: true }).click();
-    const download = await pending;
+/** The bookkeeper pack's payouts file for one day, as the business's zone counts it. */
+export async function bankDeposits(
+    page: Page,
+    info: TestInfo,
+    tag: string,
+    day: string,
+): Promise<string[][]> {
+    const response = await page.request.post(`${bookingApi()}/v1/reports/export`, {
+        data: { kinds: ["payouts"], start: day, end: day },
+        headers: { Origin: new URL(page.url()).origin },
+    });
+    expect(response.status(), await response.text()).toBe(200);
     const path = info.outputPath(`${tag}.zip`);
-    await download.saveAs(path);
+    await writeFile(path, await response.body());
     await info.attach(tag, { path, contentType: "application/zip" });
-    const span = periodDates("thisMonth");
     const pack = await artifact(path);
-    return pack.rows[`payouts-${span.start}-to-${span.end}.csv`] ?? [];
+    return pack.rows[`payouts-${day}-to-${day}.csv`] ?? [];
 }

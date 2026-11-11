@@ -58,6 +58,13 @@ export function invoiceStatusSql(alias: string): string {
         ELSE 'sent' END`;
 }
 
+/** Gift card balance spent on a sale, net of what a refund or void put back on the card. */
+export function giftCardAppliedSql(idExpr: string): string {
+    return `COALESCE((SELECT SUM(le.amount_cents) FROM entries le
+        JOIN accounts la ON la.id = le.account_id
+        WHERE la.category = 'gift_card' AND le.source_type = 'order' AND le.source_id = ${idExpr}), 0)`;
+}
+
 /** An order stores open/void; whether it is paid or refunded is read off the ledger. */
 export function orderStatusSql(alias: string): string {
     const paid = collectedSql("order", `${alias}.id`);
@@ -65,9 +72,7 @@ export function orderStatusSql(alias: string): string {
     const covered = `(${paid} + COALESCE((SELECT SUM(le.amount_cents) FROM entries le
         JOIN accounts la ON la.id = le.account_id JOIN payments lp ON lp.id = le.source_id
         WHERE la.category = 'deposit' AND le.event = 'payment' AND le.source_type = 'payment'
-          AND lp.order_id = ${alias}.id), 0) + COALESCE((SELECT SUM(le.amount_cents) FROM entries le
-        JOIN accounts la ON la.id = le.account_id
-        WHERE la.category = 'gift_card' AND le.source_type = 'order' AND le.source_id = ${alias}.id), 0))`;
+          AND lp.order_id = ${alias}.id), 0) + ${giftCardAppliedSql(`${alias}.id`)})`;
     const refunded = refundedSql("order", `${alias}.id`);
     return `CASE
         WHEN ${alias}.status = 'void' THEN 'void'

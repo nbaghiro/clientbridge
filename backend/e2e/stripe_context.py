@@ -12,9 +12,7 @@ from scripts.demo_context import FIXTURE_BUSINESS, run_id
 from scripts.stripe_qa import preflight
 
 from clientbridge.core.config import get_settings
-from clientbridge.integrations.stripe import (
-    STRIPE_API_VERSION,
-)
+from clientbridge.integrations.stripe import STRIPE_API_VERSION, stripe_http_client
 from e2e.stripe_pool import checked, lease_file
 
 BUSINESS = run_id(FIXTURE_BUSINESS)
@@ -39,6 +37,9 @@ def guard() -> str:
     account = os.environ["STRIPE_TEST_CONNECTED_ACCOUNT"]
     stripe.api_key = settings.stripe_secret_key
     stripe.api_version = STRIPE_API_VERSION
+    # the SDK's own client waits 80s on a stalled request, longer than a browser case waits on this
+    stripe.default_http_client = stripe_http_client()
+    stripe.max_network_retries = 2
     return account
 
 
@@ -97,6 +98,7 @@ async def validate_context() -> str:
             fcntl.flock(lock, fcntl.LOCK_UN)
             raise ValueError("runner must hold the shared Stripe QA merchant lease")
     await preflight(dict(os.environ))
+    stripe.max_network_retries = 2
     for merchant_id, slot in (
         (account, "a"),
         (os.environ["STRIPE_TEST_OTHER_ACCOUNT"], "b"),

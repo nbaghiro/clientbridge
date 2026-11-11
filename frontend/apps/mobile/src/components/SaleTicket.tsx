@@ -1,7 +1,6 @@
 import {
     type DiscountEditor,
     type SaleDiscount,
-    type SalePayMethod,
     type SaleTicket,
     discountLabel,
     filterClients,
@@ -420,9 +419,6 @@ function CashBox({ sale }: { sale: SaleTicket }) {
 
 function ReceiptChooser({ sale }: { sale: SaleTicket }) {
     const r = sale.receipt;
-    const [choice, setChoice] = useState<"text" | "skip">(
-        sale.client?.phone != null ? "text" : "skip",
-    );
     if (r.sent !== null)
         return (
             <Notice tone="success">
@@ -431,33 +427,23 @@ function ReceiptChooser({ sale }: { sale: SaleTicket }) {
         );
     return (
         <View style={styles.stack}>
-            <Choice
-                layout="segmented"
-                label={d.receiptTitle}
-                options={[
-                    { key: "text", label: d.receiptText },
-                    { key: "skip", label: d.receiptNone },
-                ]}
-                value={choice}
-                onChange={setChoice}
-            />
-            {choice === "text" ? (
-                <TextField
-                    label={d.receiptPhoneTo}
-                    type="tel"
-                    value={r.phone}
-                    onChange={r.setPhone}
-                />
-            ) : null}
+            <TextField label={d.receiptPhoneTo} type="tel" value={r.phone} onChange={r.setPhone} />
             <Button
                 variant="outline"
                 busy={r.busy}
                 onPress={() => {
-                    if (choice === "text") r.send();
-                    else r.skip();
+                    r.send();
                 }}
             >
-                {choice === "text" ? d.sendText : d.receiptNone}
+                {d.sendText}
+            </Button>
+            <Button
+                variant="quiet"
+                onPress={() => {
+                    r.skip();
+                }}
+            >
+                {d.receiptNone}
             </Button>
             {r.error !== null ? <Notice tone="danger">{r.error}</Notice> : null}
         </View>
@@ -516,21 +502,6 @@ function GiftCardEntry({ sale }: { sale: SaleTicket }) {
         </View>
     );
 }
-
-const METHOD_LABEL: Record<SalePayMethod, string> = {
-    get tap() {
-        return d.methodTap;
-    },
-    get saved() {
-        return d.methodCard;
-    },
-    get card() {
-        return d.methodCard;
-    },
-    get cash() {
-        return d.methodCash;
-    },
-};
 
 /** Tap to Pay: connects the phone's reader, then collects the sale's PaymentIntent. */
 function Reader({ sale, locationId }: { sale: SaleTicket; locationId: string | null }) {
@@ -594,16 +565,11 @@ function PaidSummary({
 }) {
     const nextStart = useNextVisit(sale.visitId)?.start ?? null;
     const zone = useBusinessZone();
-    const method = sale.paidByGiftCard
-        ? d.paidByGiftCard
-        : sale.method === "saved" && sale.savedCardLabel !== null
-          ? sale.savedCardLabel
-          : METHOD_LABEL[sale.method];
     return (
         <View style={styles.stack}>
             <SheetHeader title={d.paidTitle} />
             <Text style={styles.soft}>
-                {d.paidBody(formatMoney(sale.paidCents, BUSINESS_CURRENCY), method)}
+                {d.paidBody(formatMoney(sale.paidCents, BUSINESS_CURRENCY), sale.paidWith)}
             </Text>
             {sale.changeGiven !== null && sale.changeGiven > 0 ? (
                 <Notice tone="info">

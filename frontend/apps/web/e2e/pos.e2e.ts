@@ -9,6 +9,13 @@ import { expect, test, type Page } from "@playwright/test";
 import { bookingApi, createBookingFixture } from "./support/bookings";
 import { createClient, type ClientFixture } from "./support/clients";
 import { select } from "./support/db";
+import {
+    entitlementEvidence,
+    entitlementFixture,
+    expectEntitlementLedger,
+    openEntitlement,
+    sellEntitlement,
+} from "./support/entitlements";
 import { joinHoursStaff } from "./support/hours";
 import { openRefund } from "./support/refunds";
 import {
@@ -453,6 +460,111 @@ test("SALE-E2E-11 front-desk staff may sell past zero stock but cannot refund, v
         await staff.cleanup();
         await desk.close();
     }
+});
+
+test("SALE-E2E-15 a gift card pays part of a desk sale and cash pays the rest, with both tenders on the sale", async ({
+    page,
+}, testInfo) => {
+    test.setTimeout(240_000);
+    await signIn(page);
+    const { client } = await entitlementFixture(page, "gift_card");
+    await sellEntitlement(page, client, "gift_card", null);
+    const issued = await entitlementEvidence(client.id);
+    const gift = issued.gifts[0];
+    if (gift === undefined) throw new Error("The gift card was not issued");
+    expectEntitlementLedger(issued, 5000, "gift_card", []);
+    const product = await stockProduct(page, {
+        name: "Salmon training treats",
+        prefix: "BB-ST",
+        priceCents: 3500,
+        taxClass: "exempt",
+        stock: 4,
+    });
+    const payment = await ringCash(page, {
+        product,
+        stock: 4,
+        taps: 2,
+        client,
+        charge: "$70.00",
+        given: "20.00",
+    });
+    await payment.getByRole("textbox", { name: d.giftCardCode, exact: true }).fill(gift.code);
+    const applying = page.waitForResponse(
+        (response) =>
+            /\/v1\/orders\/[^/]+\/gift-card$/.test(response.url()) &&
+            response.request().method() === "POST",
+    );
+    await payment.getByRole("button", { name: d.giftCardApply, exact: true }).click();
+    const applied = await applying;
+    expect(applied.status(), await applied.text()).toBe(200);
+    expect(await applied.json()).toMatchObject({ total_cents: 7000, gift_card_cents: 5000 });
+    await expect(payment.getByRole("textbox", { name: d.giftCardCode, exact: true })).toHaveValue(
+        "",
+    );
+    const replay = await page.request.post(new URL(applied.url()).toString(), {
+        headers: apiHeaders(page, applied.request().headers()["idempotency-key"]),
+        data: applied.request().postDataJSON() as Record<string, unknown>,
+    });
+    expect(replay.status(), await replay.text()).toBe(200);
+    expect(await replay.json()).toMatchObject({ gift_card_cents: 5000 });
+    const paid = await payCash(page, payment, "$20.00");
+    expect(paid).toMatchObject({ amount_cents: 2000, change_cents: 0 });
+
+    const sold = await saleEvidence(product.id);
+    const order = sold.orders[0];
+    if (order === undefined) throw new Error("The sale was not committed");
+    expect(sold.item.stock_on_hand).toBe(2);
+    expect(sold.orders).toEqual([
+        expect.objectContaining({ client_id: client.id, total_cents: 7000, paid: true }),
+    ]);
+    expect(sold.payments).toEqual([
+        expect.objectContaining({
+            id: paid.payment_id,
+            kind: "payment",
+            method: "cash",
+            status: "succeeded",
+            amount_cents: 2000,
+            tendered_cents: 2000,
+            tip_cents: 0,
+        }),
+    ]);
+    expect(
+        sold.entries
+            .map(({ category, amount_cents }) => ({ category, amount_cents }))
+            .sort((x, y) => x.category.localeCompare(y.category)),
+    ).toEqual([
+        { category: "cash", amount_cents: 2000 },
+        { category: "revenue", amount_cents: -2000 },
+    ]);
+    const redeemed = await entitlementEvidence(client.id);
+    expectEntitlementLedger(redeemed, 5000, "gift_card", [5000]);
+    const redemptions = await select<{ source_id: string }>`
+        SELECT DISTINCT e.source_id FROM entries e
+        WHERE e.subject_type = 'gift_card' AND e.subject_id = ${gift.id}
+            AND e.event = 'redemption'`;
+    expect(redemptions).toEqual([{ source_id: order.id }]);
+
+    const detail = await openSale(page, client, order.number);
+    await expect(detail.getByText(d.status.paid, { exact: true })).toBeVisible();
+    const tenders: [string, number][] = [
+        [d.giftCardPaid, 5000],
+        [strings.publicReceipt.method.cash, 2000],
+    ];
+    for (const [label, cents] of tenders) {
+        await expect(detail.getByText(label, { exact: true })).toBeVisible();
+        await expect(detail).toContainText(formatMoney(cents, "CAD"));
+    }
+    await openEntitlement(page, client.name, gift.id);
+    await expect(page.getByRole("dialog")).toContainText(
+        strings.entitlements.statusLabel.redeemed,
+        {
+            timeout: 60_000,
+        },
+    );
+    await testInfo.attach("gift-and-cash-sale", {
+        body: JSON.stringify({ sold, redeemed }),
+        contentType: "application/json",
+    });
 });
 
 test("SALE-E2E-16 line and sale discounts with a percent tip charge exact cents and tax", async ({

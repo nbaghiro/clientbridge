@@ -13,6 +13,7 @@ import {
 } from "@playwright/test";
 import { formatMoneyWithCurrency, strings } from "@clientbridge/app-core/public";
 
+import { select } from "../../../../web/e2e/support/db";
 import { documentApi, documentProvider } from "../../support/documents";
 import { on } from "../../support/hosts";
 import { demoId } from "@clientbridge/config/e2e/run";
@@ -117,6 +118,13 @@ export async function stripeInvoice(request: APIRequestContext) {
     return { ...(await registerStripeInvoice(request, invoice)), phone: provider.phone };
 }
 
+export async function payToken(invoiceId: string): Promise<string> {
+    const [row] = await select<{ pay_token: string }>`
+        SELECT pay_token FROM invoices WHERE id = ${invoiceId}`;
+    if (!row) throw new Error("the invoice has no pay link");
+    return row.pay_token;
+}
+
 export async function registerStripeInvoice(
     request: APIRequestContext,
     invoice: { id: string; pay_token: string },
@@ -151,7 +159,7 @@ export async function openRegisteredStripeInvoice<
     const starting = page.waitForRequest(
         (r) => r.method() === "POST" && r.url() === `${documentApi}/pay/${invoice.pay_token}/card`,
     );
-    await page.getByRole("button", { name: strings.publicPay.payByCard, exact: true }).click();
+    await page.getByRole("button", { name: strings.publicPay.continueToPay, exact: true }).click();
     expect((await starting).postDataJSON()).toMatchObject({ tip_cents: 0 });
     return { invoice, payment: await cardFrame(page) };
 }
@@ -379,7 +387,7 @@ export async function submitStripeCard(page: Page, info: TestInfo, cents = 2000)
     checkoutObservations.set(page, { observation, network, response });
     const activation = process.env.STRIPE_BROWSER_ACTIVATION ?? "pointer";
     if (activation === "pointer") {
-        await page.getByRole("heading", { name: strings.publicPay.cardLabel, exact: true }).click();
+        await page.getByRole("heading", { name: strings.publicPay.payTitle, exact: true }).click();
     }
     await submit.scrollIntoViewIfNeeded();
     await expect(submit).toBeInViewport({ ratio: 1 });
@@ -502,9 +510,9 @@ export async function settledStripeInvoice(
         await expect(
             page.getByRole("heading", { name: strings.publicPay.paidTitle }),
         ).toBeVisible();
-        await expect(page.getByRole("button", { name: strings.publicPay.payByCard })).toHaveCount(
-            0,
-        );
+        await expect(
+            page.getByRole("button", { name: strings.publicPay.continueToPay }),
+        ).toHaveCount(0);
         expect(await stripeEvidence(invoice.id)).toEqual(saved);
         // Contains IDs/accounting only; never provider client secrets, keys or raw card fields.
         await info.attach("committed-stripe-settlement", {

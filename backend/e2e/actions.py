@@ -25,14 +25,17 @@ from scripts.demo_context import (
     run_email,
     run_id,
 )
-from sqlalchemy import func, select, text, update
+from sqlalchemy import event, func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import ORMExecuteState, with_loader_criteria
+from sqlalchemy.sql.base import ExecutableOption
 
 from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import SessionLocal, engine
 from clientbridge.core.ids import new_id
 from clientbridge.core.locale import SOURCE_LOCALE
+from clientbridge.core.namespaces import confine_to_namespace
 from clientbridge.core.zones import zone
 from clientbridge.integrations.expo import get_push_sender
 from clientbridge.integrations.resend import get_email_sender
@@ -40,12 +43,13 @@ from clientbridge.integrations.stripe import PlanSubscription, SubscribedItem
 from clientbridge.integrations.twilio import get_sms_sender
 from clientbridge.models.billing import Invoice
 from clientbridge.models.business import Business, Staff
-from clientbridge.models.catalog import Item
+from clientbridge.models.catalog import GiftCard, Item, Package
 from clientbridge.models.clients import Client, Subject
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Recurrence, Slot
 from clientbridge.services import ledger
 from clientbridge.services.billing import sweep_overdue
+from clientbridge.services.entitlements import run_expiry_sweeps
 from clientbridge.services.notifications import Notifier, inbound_message_alert_text
 from clientbridge.services.plans import PLAN_PRICES, apply_plan_subscription
 from clientbridge.services.reports import add_months, period_of
@@ -542,6 +546,95 @@ def client_photo_main(argv: list[str]) -> None:
     print(json.dumps(asyncio.run(client_photo(args.client_id, args.file_id, args.upload_url))))
 
 
+def _run_namespace(*ids: str) -> str:
+    settings = get_settings()
+    if settings.env != "dev" or urlparse(settings.smtp_url or "").hostname not in (
+        "localhost",
+        "127.0.0.1",
+        "mailpit",
+    ):
+        raise RuntimeError("e2e requires dev settings and a local SMTP sink")
+    namespace = settings.run_namespace
+    if not namespace or not all(id_.endswith(namespace) for id_ in ids):
+        raise RuntimeError("only rows a run created, inside the run's namespace")
+    return namespace
+
+
+def _confine(db: AsyncSession, namespace: str, *only: ExecutableOption) -> None:
+    """As the run's worker sees the tier, narrowed further to the rows a case owns."""
+    confine_to_namespace(namespace, db.sync_session)
+
+    def narrow(state: ORMExecuteState) -> None:
+        if state.is_select or state.is_update or state.is_delete:
+            state.statement = state.statement.options(*only)
+
+    event.listen(db.sync_session, "do_orm_execute", narrow)
+
+
+def _fresh(created_at: datetime) -> bool:
+    return created_at > clock.now() - timedelta(hours=2)
+
+
+async def expiry(offset: int, ids: list[str]) -> Row:
+    namespace = _run_namespace(*ids)
+    cards = [id_ for id_ in ids if id_.startswith("gc_")]
+    packages = [id_ for id_ in ids if id_.startswith("pkg_")]
+    if len(cards) + len(packages) != len(ids):
+        raise RuntimeError("expiry takes gift card and package ids")
+    async with SessionLocal() as db:
+        _confine(
+            db,
+            namespace,
+            with_loader_criteria(GiftCard, GiftCard.id.in_(cards)),
+            with_loader_criteria(Package, Package.id.in_(packages)),
+        )
+        owned: list[GiftCard | Package] = [
+            *(await db.execute(select(GiftCard).with_for_update())).scalars(),
+            *(await db.execute(select(Package).with_for_update())).scalars(),
+        ]
+        if len(owned) != len(ids) or any(
+            row.status != "active" or not _fresh(row.created_at) for row in owned
+        ):
+            raise RuntimeError("only active gift cards and packages this case sold")
+        expires_at = clock.now() + timedelta(seconds=offset)
+        for row in owned:
+            row.expires_at = expires_at
+        await db.commit()
+        swept = [await run_expiry_sweeps(db, clock.now()), await run_expiry_sweeps(db, clock.now())]
+    rows = await _rows(
+        "SELECT id, status FROM gift_cards WHERE id = ANY(:ids) "
+        "UNION ALL SELECT id, status FROM packages WHERE id = ANY(:ids) ORDER BY id",
+        {"ids": ids},
+    )
+    breakage = await _rows(
+        "SELECT e.subject_id, a.category, e.amount_cents FROM entries e "
+        "JOIN accounts a ON a.id = e.account_id "
+        "WHERE e.event = 'breakage' AND e.subject_id = ANY(:ids) ORDER BY e.subject_id, e.leg",
+        {"ids": ids},
+    )
+    return {
+        "swept": swept,
+        "expires_at": expires_at.isoformat(),
+        "rows": rows,
+        "breakage": breakage,
+    }
+
+
+async def expiry_main(argv: list[str]) -> None:
+    """Move expiry for gift cards and packages a case sold, then run the expiry sweep twice."""
+    parser = argparse.ArgumentParser(prog="python -m e2e.actions expiry")
+    parser.add_argument("offset", type=int, help="seconds from now; negative has passed")
+    parser.add_argument("ids", nargs="+")
+    args = parser.parse_args(argv)
+    try:
+        print(json.dumps(await expiry(args.offset, list(args.ids))))
+    finally:
+        await engine.dispose()
+
+
+# no money or saved cards, so a merge is not blocked; no demo name list has it, so it is unique
+
+
 async def tax_quarter(business_id: str) -> Row:
     """Bill a GST and PST sale into the business's last quarter, so it has a return to file."""
     async with SessionLocal() as db:
@@ -840,6 +933,7 @@ COMMANDS: dict[str, Callable[[list[str]], None]] = {
     "client-photo": client_photo_main,
     "web-fixtures": web_fixtures_main,
     "tax-quarter": tax_quarter_main,
+    "expiry": lambda argv: asyncio.run(expiry_main(argv)),
 }
 
 

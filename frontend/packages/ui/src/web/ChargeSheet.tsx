@@ -26,6 +26,7 @@ export function ChargeSheet({
     if (checkout.clientSecret !== null) {
         return (
             <CardForm
+                variant="desk"
                 className={cx(FRAME, className)}
                 clientSecret={checkout.clientSecret}
                 stripeAccount={stripeAccount ?? currentStripeAccount()}

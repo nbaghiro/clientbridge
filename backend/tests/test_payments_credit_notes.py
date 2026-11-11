@@ -150,6 +150,46 @@ async def test_sale_credit_notes_use_the_sale_number(db: AsyncSession) -> None:
     assert credit_note_number("1143", 2) == "CN-1143-2"
 
 
+async def test_payments_whose_ids_end_alike_get_their_own_credit_notes(db: AsyncSession) -> None:
+    tail = "Q07017"
+    first, second = (
+        Payment(
+            id=f"pay_01CREDITNOTE{head}{tail}",
+            business_id=BIZ,
+            kind="payment",
+            amount_cents=500,
+            method="card",
+            provider="stripe",
+            status="succeeded",
+        )
+        for head in ("AAAAAAA", "BBBBBBB")
+    )
+    # a draft invoice has no number yet, so its payment's credit notes count by the id too
+    draft = Invoice(id=new_id("invoice"), business_id=BIZ, client_id=await client_id(db))
+    db.add(draft)
+    await db.flush()
+    second.invoice_id = draft.id
+    db.add_all([first, second])
+    await db.flush()
+    note = await next_credit_note(db, first)
+    assert note == f"CN-P-{tail}-1"
+    db.add(
+        Payment(
+            id=new_id("payment"),
+            business_id=BIZ,
+            kind="refund",
+            parent_payment_id=first.id,
+            amount_cents=500,
+            method="card",
+            provider="stripe",
+            status="succeeded",
+            credit_note=note,
+        )
+    )
+    await db.flush()
+    assert await next_credit_note(db, second) == f"CN-P-{tail}-2"
+
+
 async def test_preview_rejects_a_bad_amount_and_reports_blocks(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:

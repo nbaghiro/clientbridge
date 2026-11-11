@@ -9,6 +9,7 @@ import {
     printedPublicInvoice,
     publicDocLines,
     publicDocTaxes,
+    publicInvoicePaidCents,
     publicInvoiceTotals,
     usePublicPayForm,
 } from "./publicPay";
@@ -52,11 +53,18 @@ function publicInvoice(extra: Partial<PublicInvoice> = {}): PublicInvoice {
         lines: [],
         taxes: TAXES.slice(0, 2),
         credits: [
-            { kind: "deposit", method: "card", amount_cents: 2750, at: "2026-10-01T12:00:00Z" },
+            {
+                kind: "deposit",
+                method: "card",
+                amount_cents: 2750,
+                tip_cents: 0,
+                at: "2026-10-01T12:00:00Z",
+            },
             {
                 kind: "payment",
                 method: "etransfer",
                 amount_cents: 5000,
+                tip_cents: 0,
                 at: "2026-10-03T12:00:00Z",
             },
         ],
@@ -153,7 +161,9 @@ describe("the public pay page", () => {
                 discount_cents: 1000,
                 discount_reason: "Loyalty",
                 taxes: [],
-                credits: [{ kind: "payment", method: null, amount_cents: 100, at: null }],
+                credits: [
+                    { kind: "payment", method: null, amount_cents: 100, tip_cents: 0, at: null },
+                ],
             }),
         );
         expect(totals[0]).toEqual({
@@ -445,5 +455,66 @@ describe("printed documents in the pseudo-locale", () => {
             l.qtyTimes(2, "3"),
         ];
         expect(copy.filter((text) => /[A-Za-z]/.test(text) && !text.startsWith("["))).toEqual([]);
+    });
+});
+
+describe("a paid invoice with a tip", () => {
+    const tipped = publicInvoice({
+        status: "paid",
+        total_cents: 5000,
+        balance_cents: 0,
+        taxes: [],
+        credits: [
+            {
+                kind: "payment",
+                method: "card",
+                amount_cents: 5000,
+                tip_cents: 725,
+                at: "2026-10-03T12:00:00Z",
+            },
+        ],
+    });
+
+    it("shows the tip and what the client paid, and still adds up", () => {
+        const totals = publicInvoiceTotals(tipped);
+        expect(totals.map((l) => [l.key, l.cents])).toEqual([
+            ["subtotal", 10000],
+            ["total", 5000],
+            ["tip", 725],
+            ["credit-0", 5725],
+            ["balance", 0],
+        ]);
+        expect(totals[2]?.label).toBe(pp.tipRow);
+        expect(publicInvoicePaidCents(tipped)).toBe(5725);
+    });
+});
+
+describe("coming back from a redirect payment", () => {
+    const client = {
+        getPublicInvoice: () => Promise.resolve(publicInvoice()),
+        payCard: () => Promise.reject(new Error("never")),
+    };
+
+    it.each(["succeeded", "processing"] as const)(
+        "shows the invoice paid when Stripe says %s, before its event lands",
+        async (status) => {
+            const { result } = renderHook(() =>
+                usePublicPayForm(client, "tok", { intent: "pi_1", status }),
+            );
+            await waitFor(() => {
+                expect(result.current.status).toBe("paid");
+            });
+            expect(result.current.invoice?.status).toBe("partial");
+        },
+    );
+
+    it("says the payment failed and offers the form again", async () => {
+        const { result } = renderHook(() =>
+            usePublicPayForm(client, "tok", { intent: "pi_1", status: "failed" }),
+        );
+        await waitFor(() => {
+            expect(result.current.status).toBe("ready");
+        });
+        expect(result.current.error).toBe(strings.checkout.paymentFailed);
     });
 });

@@ -275,6 +275,7 @@ class OrderService:
                 idempotency_key=idempotency_key,
                 tip=tip,
                 due=due,
+                card_only=True,  # staff type the card at the desk
             )
             cmd.record("order.pay", entity_type="order", entity_id=order.id)
             return CheckoutOut(
@@ -605,7 +606,10 @@ class OrderService:
 
 async def next_order_number(db: AsyncSession, business_id: str) -> int:
     """The next sale number; the business row lock serializes two desks ringing up at once."""
-    await db.execute(select(Business.id).where(Business.id == business_id).with_for_update())
+    # no-key: a new client's row already holds a key-share lock, which a full lock would deadlock on
+    await db.execute(
+        select(Business.id).where(Business.id == business_id).with_for_update(key_share=True)
+    )
     sub = scoped(Order, business_id).subquery()
     current = (await db.execute(select(func.max(sub.c.number)))).scalar_one_or_none()
     return (current or 0) + 1

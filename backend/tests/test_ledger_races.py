@@ -158,8 +158,20 @@ async def test_two_posts_on_one_ref_write_one_journal(
         )
 
 
+@pytest.mark.parametrize(
+    ("amount", "refusal", "detail", "left"),
+    [
+        (700, "gift_card_short", {"balance_cents": 300}, 300),
+        (1000, "gift_card_unusable", {"status": "redeemed"}, 0),
+    ],
+)
 async def test_two_redemptions_of_one_card_cannot_overspend_it(
-    db: AsyncSession, throwaway: Throwaway
+    db: AsyncSession,
+    throwaway: Throwaway,
+    amount: int,
+    refusal: str,
+    detail: dict[str, object],
+    left: int,
 ) -> None:
     business, client, principal = await throwaway()
     code = f"RACE-{uuid.uuid4().hex[:8].upper()}"
@@ -201,7 +213,7 @@ async def test_two_redemptions_of_one_card_cannot_overspend_it(
                 else:
                     await race.join(session)
                 await service.redeem_gift_card(
-                    GiftCardRedeem(code=code, amount_cents=700), f"race-redeem-{first}"
+                    GiftCardRedeem(code=code, amount_cents=amount), f"race-redeem-{first}"
                 )
             except Conflict as exc:
                 return exc
@@ -209,11 +221,11 @@ async def test_two_redemptions_of_one_card_cannot_overspend_it(
 
     first, second = await race.run(lambda: redeem(True), lambda: redeem(False))
     assert first is None
-    assert second is not None and second.code == "gift_card_short"
-    assert second.detail == {"balance_cents": 300}
+    assert second is not None and second.code == refusal
+    assert second.detail == detail
     async with SessionLocal() as check:
         settled = await check.get(GiftCard, card_id)
-        assert settled is not None and await ledger.gift_card_balance(check, settled) == 300
+        assert settled is not None and await ledger.gift_card_balance(check, settled) == left
 
 
 async def test_two_consumes_of_a_one_session_package_use_it_once(

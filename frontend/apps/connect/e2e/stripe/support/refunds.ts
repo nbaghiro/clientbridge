@@ -4,12 +4,14 @@ import { type ChargeEvidence, stripeHarness } from "./disputes";
 // Stripe's sandbox card whose refunds succeed at first and fail a couple of minutes later
 export const REFUND_FAILS_CARD = "4000000000005126";
 
+export type RefundEvidence = ChargeEvidence & { events: { id: string; type: string }[] };
+
 export function stripeRefund(
     action: "show" | "create",
     intentId: string,
     cents?: number,
-): Promise<ChargeEvidence> {
-    return stripeHarness<ChargeEvidence>([
+): Promise<RefundEvidence> {
+    return stripeHarness<RefundEvidence>([
         "refunds",
         action,
         intentId,

@@ -29,6 +29,13 @@ def pair(name: str) -> dict[str, str]:
     }
 
 
+def other_pairs(account: str) -> frozenset[str]:
+    """Every pool merchant outside the pair that holds this account, which other runs lease."""
+    pool = json.loads(POOL.read_text())
+    held = [set(accounts.values()) for accounts in pool["pairs"].values()]
+    return frozenset(found for accounts in held if account not in accounts for found in accounts)
+
+
 def pairs() -> list[str]:
     return sorted(json.loads(POOL.read_text())["pairs"])
 

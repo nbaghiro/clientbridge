@@ -14,7 +14,7 @@ from clientbridge.models.ledger import Account
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Addon, Booking
 from clientbridge.services import ledger
-from tests.conftest import BIZ, Factory, FakeEmailSender, FakeSmsSender
+from tests.conftest import BIZ, Factory, FakeEmailSender, FakePaymentGateway, FakeSmsSender
 from tests.helpers import enable_payments, key, ok, reachable, settle
 
 SLUG = "birchbark"
@@ -100,7 +100,7 @@ async def test_only_products_sell_online_422(as_owner: httpx.AsyncClient) -> Non
 
 
 async def test_order_is_online_for_pickup_and_taxed(
-    api: httpx.AsyncClient, db: AsyncSession
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
     await _enable(db)
     res = await api.post(f"/book/{SLUG}/shop/orders", json=_order((BRUSH, 2)), headers=_key())
@@ -113,6 +113,7 @@ async def test_order_is_online_for_pickup_and_taxed(
     assert order.total_cents == body["total_cents"] > 5800  # BC tax on goods
     assert body["client_secret"]
     assert body["number"] == order.number is not None
+    assert gateway.card_only_intents == []  # the client's own checkout keeps every method
 
 
 async def test_order_replay_returns_the_same_order(
@@ -618,3 +619,57 @@ async def test_a_shop_order_with_tax_off_charges_and_books_none(
     assert payment.amount_cents == 4800
     await settle(api, db, payment.id, "evt_tax_off_shop")
     assert await ledger.account_total(db, BIZ, Account.category == "tax") == before
+
+
+async def test_two_new_shoppers_ordering_at_once_both_get_their_orders(db: AsyncSession) -> None:
+    import asyncio
+
+    from sqlalchemy import delete
+
+    from clientbridge.core.db import SessionLocal
+    from clientbridge.models.clients import Client
+    from clientbridge.models.platform import Audit, IdempotencyKey
+    from clientbridge.schemas.public import PublicShopOrderCreate
+    from clientbridge.services.public import PublicShopService
+
+    phones = ["+16045550281", "+16045550282"]
+    keys = [uuid.uuid4().hex, uuid.uuid4().hex]
+    async with SessionLocal() as setup:
+        business = await setup.get(Business, BIZ)
+        assert business is not None
+        was = (business.stripe_account_id, business.stripe_charges_enabled)
+        business.stripe_account_id, business.stripe_charges_enabled = "acct_test", True
+        await setup.commit()
+    ready = asyncio.Barrier(2)
+
+    async def place(phone: str, idempotency_key: str) -> str:
+        async with SessionLocal() as session:
+            data = PublicShopOrderCreate.model_validate(_order((SHAMPOO, 1), phone=phone))
+            await ready.wait()
+            placed = await PublicShopService(session, FakePaymentGateway()).order(
+                SLUG, data, idempotency_key
+            )
+            return placed.order_id
+
+    try:
+        # each new client's row holds a key-share lock on the business while its sale is numbered
+        placed = await asyncio.gather(*(place(p, k) for p, k in zip(phones, keys, strict=True)))
+        assert len(set(placed)) == 2
+    finally:
+        async with SessionLocal() as cleanup:
+            clients = list(await cleanup.scalars(select(Client.id).where(Client.phone.in_(phones))))
+            orders = list(
+                await cleanup.scalars(select(Order.id).where(Order.client_id.in_(clients)))
+            )
+            await cleanup.execute(delete(Payment).where(Payment.order_id.in_(orders)))
+            await cleanup.execute(delete(Line).where(Line.order_id.in_(orders)))
+            await cleanup.execute(delete(Order).where(Order.id.in_(orders)))
+            await cleanup.execute(delete(IdempotencyKey).where(IdempotencyKey.key.in_(keys)))
+            await cleanup.execute(delete(Audit).where(Audit.entity_id.in_([*orders, *clients])))
+            await cleanup.execute(delete(Client).where(Client.id.in_(clients)))
+            await cleanup.execute(
+                update(Business)
+                .where(Business.id == BIZ)
+                .values(stripe_account_id=was[0], stripe_charges_enabled=was[1])
+            )
+            await cleanup.commit()

@@ -4,12 +4,12 @@ import {
     usePublicPaymentSetup,
 } from "@clientbridge/app-core/public";
 import { Button, CardForm, Notice, TextField } from "@clientbridge/ui";
-import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 
 import { PublicPage } from "../components/PublicPage";
 import { PublicStatus } from "../components/PublicStatus";
 import { config } from "../config";
+import { useStripeReturn } from "../stripeReturn";
 
 const client = createPublicPaymentSetupClient(config.apiUrl);
 const s = strings.checkout;
@@ -18,13 +18,7 @@ export function PublicPaymentSetup() {
     const location = useLocation();
     const token = new URLSearchParams(location.hash.slice(1)).get("token") ?? "";
     const flow = usePublicPaymentSetup(client, token);
-    useEffect(() => {
-        const clean = new URL(window.location.href);
-        clean.searchParams.delete("setup_intent_client_secret");
-        clean.searchParams.delete("setup_intent");
-        clean.searchParams.delete("redirect_status");
-        window.history.replaceState(null, "", clean.toString());
-    }, []);
+    useStripeReturn();
     if (flow.status === "loading") return <PublicStatus kind="loading" />;
     if (flow.status !== "ready" || flow.data === null)
         return (

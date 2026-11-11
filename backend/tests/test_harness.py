@@ -62,6 +62,7 @@ from e2e.results import (
 from e2e.results import Test as FunctionalTest
 from e2e.stack import environment, stop
 from e2e.stripe_recovery import Fixture, Manifest, recover
+from e2e.stripe_worker import LANE_WORKER
 from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
@@ -1106,12 +1107,12 @@ def test_provider_runner_retains_cleanup_failures_without_external_services(
     runtime = _Runtime(tmp_path, fault)
     relays: list[_Relay] = []
 
-    def relay(manifest: Path, upstream: str) -> _Relay:
+    def relay(manifest: Path, upstream: str, _account: str) -> _Relay:
         boundary = _Relay(manifest, upstream)
         relays.append(boundary)
         return boundary
 
-    def stack(_directory: Path, _lease: tier.Lease) -> _Runtime:
+    def stack(_directory: Path, _lease: tier.Lease, *, worker: str) -> _Runtime:
         return runtime
 
     def credentials(
@@ -1121,7 +1122,7 @@ def test_provider_runner_retains_cleanup_failures_without_external_services(
         _mode: str,
         _leased: str | None = None,
     ) -> dict[str, str]:
-        return {}
+        return {"STRIPE_TEST_CONNECTED_ACCOUNT": "acct_runner"}
 
     def listener(_runtime: _Runtime, _processes: ExitStack) -> str:
         return "whsec_harness_fixture"
@@ -1130,6 +1131,7 @@ def test_provider_runner_retains_cleanup_failures_without_external_services(
     monkeypatch.setattr(stripe_lane, "Relay", relay)
     monkeypatch.setattr(stripe_lane, "stack_credentials", credentials)
     monkeypatch.setattr(stripe_lane, "listener", listener)
+    monkeypatch.setattr(stripe_lane, "platform_listener", listener)
     monkeypatch.setattr(
         stripe_lane, "source_snapshot", lambda: {"source_sha256": "harness-fixture"}
     )
@@ -1412,7 +1414,13 @@ async def test_recovery_keeps_a_charge_whose_bank_failed_its_refund(
         await recover(_manifest(), ENV, "local", apply=True)
     boundary.refunds.append(
         stripe.Refund.construct_from(
-            {"id": "re_a", "object": "refund", "amount": 500, "status": "failed"},
+            {
+                "id": "re_a",
+                "object": "refund",
+                "amount": 500,
+                "status": "failed",
+                "failure_reason": None,
+            },
             "sk_test_fixture",
         )
     )
@@ -2436,6 +2444,30 @@ def test_bundles_are_built_once_per_source_and_older_ones_pruned(
     assert kept == [f"web-{letter * 16}" for letter in "bcd"]
 
 
+def test_a_run_previews_its_own_copy_that_pruning_leaves_alone(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    key = ["a" * 16]
+
+    def build(command: list[str], **_: object) -> subprocess.CompletedProcess[bytes]:
+        out = Path(command[command.index("--outDir") + 1])
+        out.mkdir(parents=True)
+        (out / "index.html").write_text(command[2])
+        return subprocess.CompletedProcess(command, 0)
+
+    shared, run = tmp_path / "shared", tmp_path / "run"
+    monkeypatch.setattr(builds, "BUILDS", shared)
+    monkeypatch.setattr(builds, "bundle_sources", lambda: key[0])
+    monkeypatch.setattr(builds.subprocess, "run", build)
+    previewed = builds.ensure_builds(into=run)
+    assert previewed == {app: run / app for app in builds.BUNDLES}
+    for letter in "bcde":
+        key[0] = letter * 16
+        builds.ensure_builds()
+    assert not (shared / f"web-{'a' * 16}").exists()
+    assert (previewed["web"] / "index.html").read_text() == "web"
+
+
 def test_bundle_sources_follow_the_app_code_and_not_its_tests(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -2551,9 +2583,13 @@ def test_a_run_leases_a_distinct_pair_for_each_real_stripe_job() -> None:
     for run in range(1, 40):
         planned = stripe_plan.plan(run, browser=True)
         shards = cast(list[dict[str, str]], planned["browser"])
-        assert [shard["name"] for shard in shards] == ["browser (1/2)", "browser (2/2)"]
+        assert [shard["name"] for shard in shards] == [
+            "browser (1/3)",
+            "browser (2/3)",
+            "browser (3/3)",
+        ]
         leased = [cast(str, planned["api"]), *(shard["pair"] for shard in shards)]
-        assert len(set(leased)) == 3
+        assert len(set(leased)) == 4
         assert set(leased) <= set(stripe_pool.pairs())
     assert stripe_plan.plan(7, browser=False)["browser"] == []
     assert stripe_plan.plan(7, browser=True, ready=False) == {"api": "", "browser": []}
@@ -2565,6 +2601,8 @@ def test_a_run_leases_a_distinct_pair_for_each_real_stripe_job() -> None:
         ("frontend/apps/web/src/components/SaleTicket.tsx", True),
         ("frontend/apps/web/e2e/support/pos.ts", True),
         ("backend/src/clientbridge/services/ledger.py", True),
+        ("backend/src/clientbridge/services/plans.py", True),
+        ("backend/e2e/merchant.py", True),
         (".github/workflows/e2e-stripe.yml", True),
         ("frontend/apps/mobile/src/screens/Today.tsx", False),
         ("backend/src/clientbridge/services/messaging.py", False),
@@ -2573,3 +2611,24 @@ def test_a_run_leases_a_distinct_pair_for_each_real_stripe_job() -> None:
 )
 def test_the_browser_lane_runs_when_its_screens_or_payments_change(path: str, runs: bool) -> None:
     assert stripe_plan.touches_browser_lane([path]) is runs
+
+
+def test_the_stripe_lane_worker_runs_production_jobs_but_the_event_repairs() -> None:
+    from arq.cron import CronJob
+    from arq.worker import get_kwargs
+
+    from clientbridge.tasks.worker import WorkerSettings
+
+    def names(jobs: object) -> set[str]:
+        assert isinstance(jobs, list)
+        return {job.name for job in cast(list[object], jobs) if isinstance(job, CronJob)}
+
+    lane, production = get_kwargs(LANE_WORKER), get_kwargs(dict(vars(WorkerSettings)))
+    assert {k: v for k, v in lane.items() if k != "cron_jobs"} == {
+        k: v for k, v in production.items() if k != "cron_jobs"
+    }
+    assert lane["redis_settings"] is WorkerSettings.redis_settings
+    dropped = names(production["cron_jobs"]) - names(lane["cron_jobs"])
+    assert dropped == {"cron:reconcile_ledger", "cron:replay_missed_events"}
+    assert f"cron:{run_stack.PROBE_JOB}" in names(lane["cron_jobs"])
+    assert stripe_lane.STRIPE_WORKER == "e2e.stripe_worker.LANE_WORKER"

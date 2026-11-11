@@ -38,6 +38,7 @@ import { StepCard, StepLayout, SummaryBar, SummaryPanel } from "../components/St
 import { config } from "../config";
 import { useSlug } from "../site";
 import { useEmbedBrand, useEmbedSuccess } from "../embed";
+import { useStripeReturn } from "../stripeReturn";
 
 const booking = createPublicBookingClient(config.apiUrl);
 const returningClient = createReturningClient(config.apiUrl);
@@ -61,6 +62,7 @@ export function PublicBooking() {
         itemId: params.get("service") ?? undefined,
         staffId: params.get("staff") ?? undefined,
         startsAt: params.get("starts") ?? params.get("at") ?? undefined,
+        returned: useStripeReturn(),
     });
     const returning = useReturningClient(returningClient, slug, flow);
     const page = flow.page;

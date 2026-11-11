@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { formatList, formatMoney, formatPercent, parseCents, BUSINESS_CURRENCY } from "../format";
 import { useAsyncAction } from "../hooks";
@@ -17,6 +17,7 @@ import {
 import { type PublicBrand, usePublicResource } from "./publicResource";
 import { failedCode, failureMessage, refusal } from "../api";
 import type { IconName } from "../icons";
+import { returnedPaid, type StripeReturn } from "./checkout";
 
 export interface PublicDocLine {
     description: string;
@@ -39,6 +40,7 @@ interface PublicCredit {
     kind: "payment" | "deposit";
     method: string | null;
     amount_cents: number;
+    tip_cents: number;
     at: string | null;
 }
 
@@ -104,10 +106,16 @@ export function publicDocLines(lines: readonly PublicDocLine[]): PrintedDocLine[
     }));
 }
 
-/** What the client reads under the lines: subtotal, tax per code, total, payments and balance. */
+/** What the client paid in all, the invoice and any tip they added on top. */
+export function publicInvoicePaidCents(invoice: PublicInvoice): number {
+    return invoice.total_cents + invoice.credits.reduce((sum, c) => sum + c.tip_cents, 0);
+}
+
+/** What the client reads under the lines: subtotal, tax per code, total, tip, payments and balance. */
 export function publicInvoiceTotals(invoice: PublicInvoice): DocTotalLine[] {
     const pp = strings.publicPay;
     const discount = invoice.discount_cents ?? 0;
+    const tip = invoice.credits.reduce((sum, c) => sum + c.tip_cents, 0);
     return [
         ...(discount > 0
             ? [
@@ -128,6 +136,9 @@ export function publicInvoiceTotals(invoice: PublicInvoice): DocTotalLine[] {
             kind: "tax",
         })),
         { key: "total", label: pp.total, cents: invoice.total_cents, kind: "total" },
+        ...(tip > 0
+            ? [{ key: "tip", label: pp.tipRow, cents: tip, kind: "subtotal" as const }]
+            : []),
         ...invoice.credits.map((c, i): DocTotalLine => ({
             key: `credit-${String(i)}`,
             label:
@@ -137,7 +148,7 @@ export function publicInvoiceTotals(invoice: PublicInvoice): DocTotalLine[] {
                           pp.method[c.method ?? "other"] ?? pp.method.other,
                           shortDate(c.at, invoice.timezone),
                       ),
-            cents: c.amount_cents,
+            cents: c.amount_cents + c.tip_cents,
             kind: "credit",
         })),
         { key: "balance", label: pp.balanceDue, cents: invoice.balance_cents, kind: "balance" },
@@ -275,11 +286,21 @@ interface PublicPayForm {
     setError: (message: string | null) => void;
 }
 
-export function usePublicPayForm(pay: PublicPayClient, token: string): PublicPayForm {
+/** The pay link; `returned` is Stripe's answer when a redirect payment sends the client back here. */
+export function usePublicPayForm(
+    pay: PublicPayClient,
+    token: string,
+    returnedNow: StripeReturn | null = null,
+): PublicPayForm {
     const { status: load, data: invoice, retry } = usePublicResource(pay.getPublicInvoice, token);
+    const [returned] = useState(returnedNow);
     const [card, setCard] = useState<PublicCardIntent | null>(null);
-    const [paid, setPaid] = useState(false);
+    // Stripe's event can land after the client is back, so its answer stands until then
+    const [paid, setPaid] = useState(() => returnedPaid(returned));
     const { busy, error, setError, run } = useAsyncAction();
+    useEffect(() => {
+        if (returned?.status === "failed") setError(strings.checkout.paymentFailed);
+    }, [returned, setError]);
 
     // a card payment Stripe took counts as paid before its event settles the invoice with us
     const settled = invoice?.status === "paid" || invoice?.paying === true;

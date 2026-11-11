@@ -278,7 +278,7 @@ async def test_cancel_subscription(
     assert status == "canceled"
 
 
-async def test_cancel_already_canceled_conflicts(
+async def test_cancel_retried_after_it_went_through_succeeds_once(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
     await enable_payments(db)
@@ -297,8 +297,14 @@ async def test_cancel_already_canceled_conflicts(
     r1 = await as_owner.post(f"/v1/subscriptions/{sub.id}/cancel")
     assert r1.status_code == 200, r1.text
     r2 = await as_owner.post(f"/v1/subscriptions/{sub.id}/cancel")
-    assert r2.status_code == 409, r2.text
+    assert (r2.status_code, r2.json()["status"]) == (200, "canceled")
     assert gateway.canceled_subscriptions.count("sub_cx") == 1  # Stripe canceled once only
+    audits = await db.scalar(
+        select(func.count())
+        .select_from(Audit)
+        .where(Audit.action == "subscription.cancel", Audit.entity_id == sub.id)
+    )
+    assert audits == 1
 
 
 async def test_create_with_non_subscription_item_409(

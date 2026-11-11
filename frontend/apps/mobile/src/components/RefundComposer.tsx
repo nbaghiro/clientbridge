@@ -114,17 +114,19 @@ export function RefundComposer({
                 )
             ) : (
                 <DetailSection title={s.creditNote}>
-                    {form.wholeOnly ? <Notice tone="info">{s.wholeOnly}</Notice> : null}
+                    {form.wholeOnly !== null ? <Notice tone="info">{form.wholeOnly}</Notice> : null}
                     {form.byHand ? <Notice tone="info">{s.byHandNote}</Notice> : null}
-                    <Field label={s.howMuch}>
-                        <Choice
-                            layout="segmented"
-                            label={s.howMuch}
-                            options={form.modes}
-                            value={form.mode}
-                            onChange={form.setMode}
-                        />
-                    </Field>
+                    {form.modes.length > 1 ? (
+                        <Field label={s.howMuch}>
+                            <Choice
+                                layout="segmented"
+                                label={s.howMuch}
+                                options={form.modes}
+                                value={form.mode}
+                                onChange={form.setMode}
+                            />
+                        </Field>
+                    ) : null}
                     {form.mode === "part" ? (
                         <TextField
                             label={s.amount}

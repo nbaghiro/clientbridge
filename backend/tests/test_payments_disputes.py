@@ -253,6 +253,64 @@ async def test_an_inquiry_alerts_staff_once_and_books_nothing(
     assert await business_balance(db, "stripe") == before
 
 
+async def test_an_inquiry_shows_until_it_closes_and_a_refund_stays_possible(
+    as_owner: httpx.AsyncClient, api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    _, pay_id = await _paid_invoice(as_owner, db)
+    pi = await _intent(db, pay_id)
+    asked = json.loads(_dispute("evt_inq_open", pi, "warning_needs_response", 11200, "created"))
+    asked["data"]["object"]["evidence_details"] = {"due_by": 1792000000}
+    res = await api.post("/webhooks/stripe", content=json.dumps(asked), headers=GOOD)
+    assert res.status_code == 200
+    payment = await db.get(Payment, pay_id)
+    assert payment is not None
+    await db.refresh(payment)
+    assert payment.dispute_status is None
+    assert payment.dispute_respond_by is not None
+    preview = await as_owner.get(f"/v1/payments/{pay_id}/refund-preview")
+    assert preview.json()["blocked"] is None
+    closed = _dispute("evt_inq_closed", pi, "warning_closed", 11200)
+    for _ in range(2):
+        assert (await api.post("/webhooks/stripe", content=closed, headers=GOOD)).status_code == 200
+    await db.refresh(payment)
+    assert (payment.dispute_status, payment.dispute_respond_by) == (None, None)
+
+
+async def test_an_escalated_inquiry_keeps_its_dispute_when_the_inquiry_closes(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    payment = await _purchase(db, 4500)
+    pi = await _intent(db, payment.id)
+    opened = json.loads(_dispute("evt_esc_open", pi, "needs_response", 4500, "created"))
+    opened["data"]["object"]["evidence_details"] = {"due_by": 1792000000}
+    res = await api.post("/webhooks/stripe", content=json.dumps(opened), headers=GOOD)
+    assert res.status_code == 200
+    stale = _dispute("evt_esc_stale", pi, "warning_closed", 4500)
+    assert (await api.post("/webhooks/stripe", content=stale, headers=GOOD)).status_code == 200
+    await db.refresh(payment)
+    assert payment.dispute_status == "needs_response"
+    assert payment.dispute_respond_by is not None
+
+
+async def test_a_lost_dispute_leaves_nothing_to_refund(
+    as_owner: httpx.AsyncClient, api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    _, pay_id = await _paid_invoice(as_owner, db)
+    lost = _dispute("evt_lost_nothing_left", await _intent(db, pay_id), "lost", 11200)
+    assert (await api.post("/webhooks/stripe", content=lost, headers=GOOD)).status_code == 200
+    preview = (await as_owner.get(f"/v1/payments/{pay_id}/refund-preview")).json()
+    assert (preview["blocked"], preview["left_cents"], preview["refund_cents"]) == (
+        "dispute_lost",
+        0,
+        0,
+    )
+    res = await as_owner.post(
+        f"/v1/payments/{pay_id}/refund", json={"amount_cents": 1000}, headers=retry_key()
+    )
+    assert res.status_code == 409, res.text
+    assert res.json()["error"] == "dispute_lost"
+
+
 async def test_a_prevented_dispute_books_nothing_and_leaves_the_payment_refundable(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:

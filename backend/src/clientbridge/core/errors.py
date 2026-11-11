@@ -104,6 +104,8 @@ _stripe_log = logging.getLogger("clientbridge.stripe")
 _STRIPE_CODES: Mapping[str, tuple[int, str, str]] = {
     "charge_disputed": (409, "payment_disputed", "the payment is disputed"),
     "amount_too_small": (422, "amount_too_small", "the amount is below the card minimum"),
+    # Stripe is still writing the object and asks for the request again
+    "lock_timeout": (503, "retry_later", "the payment provider is busy with this object"),
 }
 
 

@@ -229,7 +229,7 @@ async def test_a_failed_checkout_keeps_the_new_account_for_the_retry(
     assert "connect.account_created" in set(actions)
     ok(await as_owner.post("/v1/plan/checkout", json=choice))
     assert gateway.created_accounts == [account]
-    assert [added[0] for added in gateway.customer_added] == [account]
+    assert [added[0] for added in gateway.plan_addresses] == [account]
     assert gateway.checkouts[0].account_id == account
 
 
@@ -277,8 +277,8 @@ async def test_checkout_adds_billing_to_an_existing_payments_account(
     await _trial(db, timedelta(days=5), stripe_account_id="acct_merchant")
     ok(await as_owner.post("/v1/plan/checkout", json={"plan": "team", "interval": "year"}))
     assert gateway.created_accounts == []
-    (added,) = gateway.customer_added
-    assert added[0] == "acct_merchant" and added[1].province == "BC"
+    (added,) = gateway.plan_addresses
+    assert added[0] == "acct_merchant" and added[2].province == "BC"
     actions = (await db.execute(select(Audit.action).where(Audit.entity_id == BIZ))).scalars()
     assert "plan.checkout" in set(actions)
 

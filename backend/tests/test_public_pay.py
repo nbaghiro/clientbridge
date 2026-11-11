@@ -226,6 +226,24 @@ async def test_card_tip_change_supersedes_the_live_attempt(
     assert gateway.canceled_intents == [rows[0][1], rows[1][1]]
 
 
+async def test_a_paid_invoice_shows_the_tip_with_the_card_payment(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    inv_id, token = await _card_ready_invoice(db)
+    assert (await pay_link_card(api, db, token, tip_cents=725)).status_code == 200
+    [(_, pi, _)] = await _card_rows(db, inv_id)
+    assert pi is not None
+    paid = await api.post(
+        "/webhooks/stripe", content=_intent_event("payment_intent.succeeded", pi), headers=GOOD
+    )
+    assert paid.status_code == 200
+    page = (await api.get(f"/pay/{token}")).json()
+    assert page["balance_cents"] == 0
+    assert [(c["kind"], c["amount_cents"], c["tip_cents"]) for c in page["credits"]] == [
+        ("payment", 8000, 725)
+    ]
+
+
 async def test_card_attempt_refused_while_the_payer_already_confirmed(
     api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
@@ -336,6 +354,22 @@ async def test_a_paid_invoice_never_asks_stripe_whether_it_is_paying(
     page = (await api.get(f"/pay/{token}")).json()
     assert (page["status"], page["paying"]) == ("paid", False)
     assert gateway.status_reads == []
+
+
+async def test_a_second_tab_hears_the_payment_is_in_progress_before_its_event_lands(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    inv_id, token = await _card_ready_invoice(db)
+    first = (await pay_link_card(api, db, token)).json()["client_secret"]
+    live = (await _card_rows(db, inv_id))[0][1]
+    assert live is not None
+    again = (await pay_link_card(api, db, token)).json()["client_secret"]
+    assert again == first  # not yet confirmed: the same form is offered again
+    gateway.confirmed.add(live)
+    res = await pay_link_card(api, db, token)
+    assert (res.status_code, res.json()["error"]) == (409, "payment_in_progress")
+    assert await _card_rows(db, inv_id) == [("pending", live, 0)]
+    assert gateway.canceled_intents == []
 
 
 async def test_card_payment_is_refused_when_the_balance_changed_since_the_page_loaded(

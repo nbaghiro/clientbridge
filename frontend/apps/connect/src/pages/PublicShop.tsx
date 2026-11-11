@@ -38,6 +38,7 @@ import {
 import { config } from "../config";
 import { useSlug } from "../site";
 import { isEmbedded, useEmbedSuccess } from "../embed";
+import { useStripeReturn } from "../stripeReturn";
 
 const shopClient = createPublicShopClient(config.apiUrl);
 const s = strings.publicShop;
@@ -59,7 +60,7 @@ export function PublicShop() {
 function ShopPage({ slug }: { slug: string }) {
     const navigate = useNavigate();
     const checkoutRoute = useLocation().pathname.endsWith("/checkout");
-    const shop = useShopFlow(shopClient, slug, cartStorage);
+    const shop = useShopFlow(shopClient, slug, cartStorage, useStripeReturn());
     const [params, setParams] = useSearchParams();
     const [barOpen, setBarOpen] = useState(false);
     const page = shop.shop;

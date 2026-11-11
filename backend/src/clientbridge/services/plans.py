@@ -354,7 +354,9 @@ class PlanService:
             cmd = Command(self.db, self.principal)
             business = await self._business(lock=True)
         else:
-            await self.gateway.add_customer_configuration(account_id, address=address)
+            await self.gateway.set_plan_address(
+                account_id, business_name=business.name, address=address
+            )
         left = business.trial_ends_at - now
         carry = plan_access(business, now) == "trial" and left >= _CHECKOUT_TRIAL_MIN
         parameters = request_hash(

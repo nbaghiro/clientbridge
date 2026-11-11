@@ -18,6 +18,7 @@ import {
 } from "./support/provider";
 import { signIn } from "../../../web/e2e/support/session";
 import { expectPaid, openInvoice, recordPayment } from "../../../web/e2e/support/billing";
+import { bookingApi } from "../../../web/e2e/support/bookings";
 import { createClient } from "../../../web/e2e/support/clients";
 import { deliveredTexts } from "../../../web/e2e/support/messaging";
 import {
@@ -26,13 +27,18 @@ import {
     stripeReceipt,
     stripeReceiptEvidence,
 } from "./support/bridge";
+import {
+    categoryTotals,
+    clientMoney,
+    expectLedgerMatchesStripe,
+    registerPurchaser,
+} from "./support/disputes";
+import { saveCardUi } from "./support/memberships";
+import { chargeSavedMethod, savedMethods, sentInvoice, walletEvidence } from "./support/wallet";
 import { documentApi, documentProvider } from "../support/documents";
 import { on } from "../support/hosts";
 import { freshPhone } from "../../../web/e2e/support/auth";
-import { paymentEvidence, receiptMessages } from "../../../web/e2e/support/evidence";
-import { registerPurchaser } from "./support/disputes";
-import { saveCardUi } from "./support/memberships";
-import { chargeSavedMethod, sentInvoice } from "./support/wallet";
+import { receiptMessages } from "../../../web/e2e/support/evidence";
 import { demoId, runPort } from "@clientbridge/config/e2e/run";
 
 const authenticatedCard = "4000000000003220";
@@ -169,7 +175,7 @@ test("STRIPE-BROWSER-04 closing a real 3DS challenge leaves the invoice unpaid a
     await checkoutDiagnostics(page, info);
     await page.reload();
     await expect(
-        page.getByRole("button", { name: strings.publicPay.payByCard, exact: true }),
+        page.getByRole("button", { name: strings.publicPay.continueToPay, exact: true }),
     ).toBeVisible();
     await expect(page.getByRole("heading", { name: strings.publicPay.paidTitle })).toHaveCount(0);
     expect(await unpaidStripeInvoice(request, invoice)).toEqual(canceled);
@@ -331,7 +337,7 @@ test("STRIPE-BROWSER-06 held genuine settlement leaves durable invoice unpaid un
             customer.getByRole("heading", { name: strings.publicPay.paidTitle }),
         ).toBeVisible();
         await expect(
-            customer.getByRole("button", { name: strings.publicPay.payByCard, exact: true }),
+            customer.getByRole("button", { name: strings.publicPay.continueToPay, exact: true }),
         ).toHaveCount(0);
         const publicState = await customer.request.get(
             `${documentApi}/pay/${fixture.invoice.pay_token}`,
@@ -405,63 +411,6 @@ test("STRIPE-BROWSER-06 held genuine settlement leaves durable invoice unpaid un
     }
 });
 
-test("STR-E21 cash pays part of an invoice and its saved card, charged from Record payment, pays the rest", async ({
-    browser,
-}) => {
-    test.setTimeout(600_000);
-    const context = await browser.newContext({
-        baseURL: `http://localhost:${String(runPort("WEB_E2E_PORT"))}`,
-    });
-    try {
-        const owner = await context.newPage();
-        await signIn(owner);
-        const client = await createClient(owner);
-        await registerPurchaser(client.id);
-        await saveCardUi(owner, client);
-        const invoiceId = await sentInvoice(owner, client, 5000);
-        await openInvoice(owner, { id: invoiceId, name: client.name, phone: client.phone });
-        const cash = await recordPayment(owner, "cash", "$20.00", "20.00");
-        expect(cash).toContain(formatMoney(3000, "CAD"));
-        await expect(
-            owner
-                .getByRole("dialog")
-                .getByText(strings.billing.statusLabel.partial, { exact: true })
-                .first(),
-        ).toBeVisible();
-        const { charge, summary } = await chargeSavedMethod(owner, client, invoiceId, "4242", 3000);
-        expect(charge).toMatchObject({ status: "pending", balance_cents: 3000 });
-        expect(summary).toContain(strings.billing.rec.cardTitle);
-        await expect
-            .poll(
-                async () =>
-                    (await paymentEvidence(invoiceId)).payments
-                        .map((p) => [p.method, p.status, p.amount_cents])
-                        .sort(),
-                { timeout: 120_000 },
-            )
-            .toEqual([
-                ["card", "succeeded", 3000],
-                ["cash", "succeeded", 2000],
-            ]);
-        await openInvoice(owner, { id: invoiceId, name: client.name, phone: client.phone });
-        await expectPaid(owner);
-        await expect
-            .poll(async () => (await receiptMessages(owner.request, client.phone)).length, {
-                timeout: 120_000,
-            })
-            .toBe(2);
-        const receipts = (await deliveredTexts(owner.request, client.phone))
-            .map((text) => text.text)
-            .filter((text) => text.includes("was received"));
-        expect(receipts).toEqual([
-            expect.stringMatching(/\nPaid by cash\nBalance due {2}\$30\.00$/),
-            expect.stringMatching(/\nPaid by card$/),
-        ]);
-    } finally {
-        await context.close();
-    }
-});
-
 test("STR-E20 a pay link tip settles in one charge, stays shown at the card and reaches the receipt and its member", async ({
     page,
     request,
@@ -505,7 +454,7 @@ test("STR-E20 a pay link tip settles in one charge, stays shown at the card and 
     );
     await page
         .getByRole("button", {
-            name: pp.payWithTip(formatMoneyWithCurrency(2350, "CAD")),
+            name: pp.continueWithTip(formatMoneyWithCurrency(2350, "CAD")),
             exact: true,
         })
         .click();
@@ -536,4 +485,126 @@ test("STR-E20 a pay link tip settles in one charge, stays shown at the card and 
         expect(receipt?.Snippet).toContain(`${pp.tipRow} ${formatMoney(350, "CAD")}`);
         expect(receipt?.Snippet).toContain(`Total ${formatMoney(2350, "CAD")}`);
     }).toPass({ timeout: 60_000 });
+});
+
+test("STR-E21 cash pays part of an invoice and its saved card, charged from Record payment, pays the rest once with a receipt for each", async ({
+    browser,
+}, info) => {
+    test.setTimeout(420_000);
+    const context = await browser.newContext({
+        baseURL: `http://localhost:${String(runPort("WEB_E2E_PORT"))}`,
+    });
+    try {
+        const owner = await context.newPage();
+        await signIn(owner);
+        const client = await createClient(owner);
+        await registerPurchaser(client.id);
+        await saveCardUi(owner, client);
+        const [card] = await savedMethods(client.id);
+        if (!card?.provider_ref) throw new Error("the saved card has no Stripe method");
+        const invoiceId = await sentInvoice(owner, client, 2000);
+        await openInvoice(owner, { id: invoiceId, name: client.name, phone: client.phone });
+        await recordPayment(owner, "cash", formatMoney(500, "CAD"), "5.00");
+        await expect
+            .poll(async () =>
+                (await clientMoney(client.id)).payments.map((p) => [p.status, p.amount_cents]),
+            )
+            .toEqual([["succeeded", 500]]);
+
+        const charges = `${bookingApi()}/v1/invoices/${invoiceId}/payments`;
+        const headers = (key: string) => ({
+            Origin: new URL(owner.url()).origin,
+            "Idempotency-Key": key,
+        });
+        // the whole total is more than the invoice still owes, so Stripe is never asked
+        const over = await owner.request.post(charges, {
+            headers: headers(randomUUID()),
+            data: { method: "card", amount_cents: 2000, payment_method_id: card.id },
+        });
+        expect(over.status(), await over.text()).toBe(409);
+        expect((await walletEvidence(client.id)).intents).toEqual([]);
+
+        const recorded = await chargeSavedMethod(owner, client, invoiceId, "4242", 1500);
+        expect(recorded.body).toMatchObject({
+            method: "card",
+            amount_cents: 1500,
+            payment_method_id: card.id,
+        });
+        expect(recorded.charge).toMatchObject({ status: "pending", balance_cents: 1500 });
+        await expect
+            .poll(
+                async () =>
+                    (await walletEvidence(client.id)).intents.map((i) => [
+                        i.status,
+                        i.amount,
+                        i.payment_method,
+                        i.invoice_id,
+                    ]),
+                { timeout: 120_000 },
+            )
+            .toEqual([["succeeded", 1500, card.provider_ref, invoiceId]]);
+        const stripe = await walletEvidence(client.id);
+        const intent = stripe.intents[0];
+        if (!intent?.charge) throw new Error("the remainder charge has no Stripe evidence");
+        await expect
+            .poll(
+                async () =>
+                    (await clientMoney(client.id)).payments.map((p) => [
+                        p.id,
+                        p.status,
+                        p.amount_cents,
+                    ]),
+                { timeout: 120_000 },
+            )
+            .toEqual([
+                [expect.any(String), "succeeded", 500],
+                [recorded.charge.payment_id, "succeeded", 1500],
+            ]);
+        await expect
+            .poll(
+                async () => categoryTotals((await clientMoney(client.id)).entries).receivable ?? 0,
+                { timeout: 120_000 },
+            )
+            .toBe(0);
+        const money = await clientMoney(client.id);
+        expect(money.payments[1]?.provider_ref).toBe(intent.id);
+        expectLedgerMatchesStripe(money.entries, intent.charge);
+        const totals = categoryTotals(money.entries);
+        expect(totals.revenue).toBe(-2000);
+        expect(totals.cash).toBe(500);
+
+        // the same request again replays the recorded charge; a new one finds nothing owed
+        const replay = await owner.request.post(charges, {
+            headers: headers(recorded.key),
+            data: recorded.body,
+        });
+        expect(replay.status(), await replay.text()).toBe(201);
+        expect(await replay.json()).toMatchObject({ payment_id: recorded.charge.payment_id });
+        const again = await owner.request.post(charges, {
+            headers: headers(randomUUID()),
+            data: recorded.body,
+        });
+        expect(again.status(), await again.text()).toBe(409);
+        expect((await walletEvidence(client.id)).intents).toHaveLength(1);
+        await openInvoice(owner, { id: invoiceId, name: client.name, phone: client.phone });
+        await expectPaid(owner);
+        await expect
+            .poll(async () => (await receiptMessages(owner.request, client.phone)).length, {
+                timeout: 120_000,
+            })
+            .toBe(2);
+        const receipts = (await deliveredTexts(owner.request, client.phone))
+            .map((text) => text.text)
+            .filter((text) => text.includes("was received"));
+        expect(receipts).toEqual([
+            expect.stringMatching(/\nPaid by cash\nBalance due {2}\$15\.00$/),
+            expect.stringMatching(/\nPaid by card$/),
+        ]);
+        await info.attach("str-e21", {
+            body: JSON.stringify({ stripe, ledger: money }, null, 2),
+            contentType: "application/json",
+        });
+    } finally {
+        await context.close();
+    }
 });
