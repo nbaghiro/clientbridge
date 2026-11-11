@@ -146,7 +146,7 @@ test("ENT-E2E-09 a gift card refunded from its own panel is void everywhere and 
         await expect(page.getByRole("dialog", { name: gift.code, exact: true })).toBeHidden();
         const panel = page.getByRole("complementary", { name: fixture.client.name, exact: true });
         await expect(panel).toContainText(r.wholeOnly.purchase, { timeout: 60_000 });
-        await expect(panel.getByRole("button", { name: r.part, exact: true })).toBeDisabled();
+        await expect(panel.getByRole("button", { name: r.part, exact: true })).toHaveCount(0);
         const label = r.refundButton(formatMoney(5000, "CAD"));
         await panel.getByRole("switch", { name: r.notify, exact: true }).uncheck();
         await panel.getByRole("button", { name: label, exact: true }).click();

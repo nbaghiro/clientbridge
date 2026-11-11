@@ -348,7 +348,7 @@ test("FLOW-07-B an unused package refunded in full is canceled on both devices a
         await expect(panel.getByText(r.wholeOnly.purchase, { exact: true })).toBeVisible({
             timeout: 60_000,
         });
-        await expect(panel.getByRole("button", { name: r.part, exact: true })).toBeDisabled();
+        await expect(panel.getByRole("button", { name: r.part, exact: true })).toHaveCount(0);
         await panel.getByRole("switch", { name: r.notify, exact: true }).uncheck();
         const label = r.refundButton(formatMoney(6001, "CAD"));
         await panel.getByRole("button", { name: label, exact: true }).click();
