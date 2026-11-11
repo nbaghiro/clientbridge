@@ -14,6 +14,8 @@
     "BILL-DOC-04": {"lanes": ["web"], "browsers": false, "status": "verified"},
     "BILL-DOC-20": {"lanes": ["web"], "browsers": false, "status": "implemented"},
     "BILL-DOC-21": {"lanes": ["web"], "browsers": false, "status": "implemented"},
+    "BILL-DOC-23": {"lanes": ["web"], "browsers": false, "status": "verified"},
+    "BILL-DOC-24": {"lanes": ["web"], "browsers": false, "status": "verified"},
     "SEC-E2E-01": {"lanes": ["web"], "browsers": false, "status": "verified"},
     "SEC-E2E-02": {"lanes": ["web"], "browsers": false, "status": "verified"},
     "OFF-E2E-01": {"lanes": ["web"], "browsers": true, "status": "verified"},
@@ -137,6 +139,7 @@
     "NATIVE-AUTH-02": {"lanes": ["native-ios", "native-android"], "browsers": false, "status": "implemented"},
     "NATIVE-AUTH-03": {"lanes": ["native-ios", "native-android"], "browsers": false, "status": "implemented"},
     "NATIVE-BILL-01": {"lanes": ["native-ios", "native-android"], "browsers": false, "status": "implemented"},
+    "NATIVE-BILL-03": {"lanes": ["native-ios", "native-android"], "browsers": false, "status": "verified"},
     "NATIVE-IOS-01": {"lanes": ["native-ios", "native-android"], "browsers": false, "status": "implemented"},
     "NATIVE-IOS-02": {"lanes": ["native-ios", "native-android"], "browsers": false, "status": "implemented"},
     "NATIVE-IOS-03": {"lanes": ["native-ios"], "browsers": false, "status": "implemented"},
@@ -204,6 +207,7 @@
     "SCH-E2E-22": {"lanes": ["journeys"], "browsers": false, "status": "verified"},
     "XB-E2E-23": {"lanes": ["connect"], "browsers": true, "status": "verified"},
     "STR-E18": {"lanes": ["stripe"], "browsers": false, "status": "verified"},
+    "STR-E21": {"lanes": ["stripe"], "browsers": false, "status": "verified"},
     "STR-E31": {"lanes": ["stripe"], "browsers": false, "status": "verified"},
     "NATIVE-SCH-02": {"lanes": ["native-ios", "native-android"], "browsers": false, "status": "verified"}
 }

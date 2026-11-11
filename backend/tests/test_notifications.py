@@ -8,12 +8,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.ids import new_id
+from clientbridge.models.billing import Invoice
 from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Device
-from clientbridge.services.notifications import run_prune_devices
+from clientbridge.services import ledger
+from clientbridge.services.ledger import Leg
+from clientbridge.services.notifications import pay_link, run_prune_devices
 from tests.conftest import Factory, FakeEmailSender, FakePushSender, FakeSmsSender
 from tests.helpers import begin, card_pay, enable_payments, sent_invoice
 from tests.helpers import key as retry_key
@@ -330,7 +333,42 @@ async def test_payment_failed_notifies_client(
     res = await as_owner.post("/webhooks/stripe", content=event, headers=GOOD)
     assert res.status_code == 200, res.text
     assert email.sent == []
-    assert len(sms.sent) == 1
+    token = (await db.execute(select(Invoice.pay_token).where(Invoice.id == inv_id))).scalar_one()
+    assert token is not None
+    assert [m.body for m in sms.sent if m.to == "+15145551234"] == [
+        f"Your payment of $50.00 to Birchbark Pet Studio failed. Try again: {pay_link(token)}"
+    ]
+
+
+async def test_payment_failed_on_an_invoice_paid_meanwhile_carries_no_link(
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
+) -> None:
+    await enable_payments(db)
+    cid = await _client_with_contact(db, phone="+15145551235")
+    inv_id = await sent_invoice(db, client=cid, number=9601)
+    pay = await card_pay(as_owner, db, inv_id)
+    pi = (await db.execute(select(Payment.provider_ref).where(Payment.id == pay))).scalar_one()
+    await ledger.post(
+        db,
+        BIZ,
+        event="payment",
+        ref=f"test:paid:{inv_id}",
+        legs=[Leg("business", BIZ, "bank", 5000), Leg("client", cid, "receivable", -5000)],
+        subject=("invoice", inv_id),
+    )
+    sms.sent.clear()
+    event = json.dumps(
+        {
+            "id": "evt_pf_paid",
+            "type": "payment_intent.payment_failed",
+            "data": {"object": {"id": pi}},
+        }
+    )
+    res = await as_owner.post("/webhooks/stripe", content=event, headers=GOOD)
+    assert res.status_code == 200, res.text
+    assert [m.body for m in sms.sent if m.to == "+15145551235"] == [
+        "Your payment of $50.00 to Birchbark Pet Studio failed. Please try again."
+    ]
 
 
 async def test_estimate_decline_notifies_business(

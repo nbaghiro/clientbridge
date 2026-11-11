@@ -1,8 +1,11 @@
-import { formatPhone, strings } from "@clientbridge/app-core/public";
+import { formatMoney, formatPhone, strings } from "@clientbridge/app-core/public";
 import { expect, type Locator, type Page } from "@playwright/test";
 import {
+    billingAction,
     createInvoice,
     expectPaid,
+    paymentDrawer,
+    recordPayment,
     openInvoice,
     recordCash,
     applyPercentDiscount,
@@ -23,6 +26,9 @@ import {
 import { businessEvidence, newBusiness, patchBusiness, type NewBusiness } from "./support/business";
 import { payCash, ringCash, stockProduct } from "./support/pos";
 import { paymentEvidence, receiptMessages } from "./support/evidence";
+import { textsTo } from "./support/auth";
+import { deliveredTexts } from "./support/messaging";
+import { reports } from "./support/reports";
 import { navigate, signIn, test } from "./support/session";
 import { randomUUID } from "node:crypto";
 import { demoId, runUrl } from "@clientbridge/config/e2e/run";
@@ -833,4 +839,214 @@ test("BILL-DOC-21 golden tax matrix for ON, BC, QC and NS with exempt and GST-on
     expect((await payCash(page, payment, "$20.00")).amount_cents).toBe(2000);
 
     expect(await chargesTax()).toEqual([false, false]);
+});
+
+async function voidInvoice(page: Page, invoiceId: string): Promise<number> {
+    await page.getByRole("button", { name: strings.billing.void, exact: true }).click();
+    const voided = page.waitForResponse(
+        (response) =>
+            response.url().endsWith(`/invoices/${invoiceId}/void`) &&
+            response.request().method() === "POST",
+    );
+    await page
+        .getByRole("dialog")
+        .last()
+        .getByRole("button", { name: strings.billing.void, exact: true })
+        .click();
+    return (await voided).status();
+}
+
+async function issueInvoice(page: Page, clientId: string, cents: number, dueAt?: string) {
+    const response = await page.request.post(`${runUrl("VITE_API_URL")}/v1/invoices`, {
+        headers: { Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() },
+        data: {
+            client_id: clientId,
+            send: true,
+            ...(dueAt === undefined ? {} : { due_at: dueAt }),
+            lines: [
+                {
+                    description: "Coat care",
+                    quantity: 1,
+                    unit_amount_cents: cents,
+                    tax_class: "exempt",
+                },
+            ],
+        },
+    });
+    expect(response.status(), await response.text()).toBe(201);
+    return (await response.json()) as { id: string; number: number };
+}
+
+test("BILL-DOC-23 an overdue invoice reaches Today once the overdue sweep runs, which texts its reminder once, and isn't voided while a card payment goes through", async ({
+    page,
+}) => {
+    await signIn(page);
+    const client = await createDocumentClient(page);
+    const invoice = await issueInvoice(
+        page,
+        client.id,
+        4400,
+        new Date(Date.now() - 2 * 86_400_000).toISOString(),
+    );
+    await expect
+        .poll(async () => (await textsTo(page.request, client.phone)).length, { timeout: 90_000 })
+        .toBe(1);
+    const overdue = page.getByText(strings.today.attention.overdueTitle(invoice.number), {
+        exact: true,
+    });
+
+    await test.step("past due, it waits for the sweep before Today calls it overdue", async () => {
+        // the drawer opens once the replica has the invoice
+        await openDocument(page, client, "invoice", invoice.id);
+        await navigate(page, "/today");
+        await expect(page.getByText(strings.today.collected, { exact: true })).toBeVisible();
+        await expect(overdue).toHaveCount(0);
+        // the books agree: past due is not overdue until the sweep has told the client
+        expect((await documentEvidence("invoice", invoice.id)).document).toMatchObject({
+            overdue_notified_at: null,
+        });
+    });
+
+    await test.step("the sweep texts the reminder the owner previews, and only once", async () => {
+        const preview = await page.request.get(
+            `${runUrl("VITE_API_URL")}/v1/previews/invoices/${invoice.id}/remind`,
+        );
+        expect(preview.status(), await preview.text()).toBe(200);
+        const reminder = ((await preview.json()) as { text: { body: string } }).text.body;
+        expect(await billingAction("overdue-sweep", invoice.id)).toEqual({ swept: 1 });
+        await expect(overdue).toBeVisible({ timeout: 60_000 });
+        expect(await billingAction("overdue-sweep", invoice.id)).toEqual({ swept: 0 });
+        const texts = await deliveredTexts(page.request, client.phone);
+        expect(texts.map((text) => text.text)).toEqual([
+            expect.stringMatching(new RegExp(`^Invoice #${String(invoice.number)} for `)),
+            reminder,
+        ]);
+    });
+
+    await test.step("a card payment going through blocks the void until it closes", async () => {
+        await billingAction("card-open", invoice.id);
+        await openDocument(page, client, "invoice", invoice.id);
+        expect(await voidInvoice(page, invoice.id)).toBe(409);
+        await expect(page.getByText(strings.api.paymentInProgress, { exact: true })).toBeVisible();
+        expect((await documentEvidence("invoice", invoice.id)).document.status).toBe("sent");
+        await billingAction("card-close", invoice.id);
+        await openDocument(page, client, "invoice", invoice.id);
+        expect(await voidInvoice(page, invoice.id)).toBe(200);
+        expect((await documentEvidence("invoice", invoice.id)).document.status).toBe("void");
+    });
+});
+
+test("BILL-DOC-24 an e-Transfer and a cheque are recorded once each, named on the receipt and counted once on Today and in the income report", async ({
+    page,
+    browser,
+}) => {
+    await signIn(page);
+    const client = await createDocumentClient(page);
+    const transfer = await issueInvoice(page, client.id, 4000);
+    const cheque = await issueInvoice(page, client.id, 6000);
+    const phone = formatPhone(client.phone);
+    const r = strings.billing.rec;
+
+    await test.step("an e-Transfer pays the first in full", async () => {
+        await openDocument(page, client, "invoice", transfer.id);
+        const done = await recordPayment(page, "etransfer", "$40.00", undefined, "CA1MRx7Q");
+        expect(done).toContain(r.donePaid(strings.billing.invoiceNo(transfer.number)));
+        expect(done).toContain(r.receiptSent(phone));
+        await expect(
+            page
+                .getByRole("dialog")
+                .getByText(strings.billing.statusLabel.paid, { exact: true })
+                .first(),
+        ).toBeVisible();
+    });
+
+    await test.step("a cheque pays part of the second", async () => {
+        await openDocument(page, client, "invoice", cheque.id);
+        await page
+            .getByRole("button", { name: strings.billing.recordPayment, exact: true })
+            .click();
+        const drawer = paymentDrawer(page);
+        await drawer
+            .getByRole("group", { name: r.howPaid, exact: true })
+            .getByRole("button")
+            .filter({ hasText: r.cheque })
+            .click();
+        await drawer.getByRole("textbox", { name: r.chequeNo }).fill("000123");
+        await drawer
+            .getByRole("group", { name: r.amount, exact: true })
+            .getByRole("button", { name: r.partial, exact: true })
+            .click();
+        await drawer.getByRole("textbox", { name: r.amount, exact: true }).fill("25");
+        await drawer.getByRole("button", { name: r.record("$25.00"), exact: true }).click();
+        await expect(drawer.getByText(r.doneTitle, { exact: true })).toBeVisible();
+        await expect(drawer).toContainText(
+            r.donePartial(strings.billing.invoiceNo(cheque.number), formatMoney(3500, "CAD")),
+        );
+        await expect(drawer).toContainText(r.receiptSent(phone));
+        // the header shows the balance the server returned, not the one before the payment
+        await expect(drawer.getByText(formatMoney(6000, "CAD"), { exact: true })).toHaveCount(0);
+        await drawer.getByRole("button", { name: strings.common.done, exact: true }).click();
+    });
+
+    await test.step("each receipt names how it was paid, and the part payment what is left", async () => {
+        await expect
+            .poll(async () => (await receiptMessages(page.request, client.phone)).length, {
+                timeout: 90_000,
+            })
+            .toBe(2);
+        const receipts = (await deliveredTexts(page.request, client.phone))
+            .map((text) => text.text)
+            .filter((text) => text.includes("was received"));
+        expect(receipts).toEqual([
+            expect.stringMatching(/\nPaid by e-Transfer$/),
+            expect.stringMatching(/\nPaid by cheque\nBalance due {2}\$35\.00$/),
+        ]);
+    });
+
+    await test.step("Today and the income report count each once, in a business of their own", async () => {
+        const context = await browser.newContext({ baseURL: new URL(page.url()).origin });
+        try {
+            const owner = await context.newPage();
+            await newBusiness(owner, owner.request, "methods");
+            const payer = await createDocumentClient(owner);
+            for (const [method, cents, reference] of [
+                ["etransfer", 4000, "CA1MRx7Q"],
+                ["cheque", 2500, "000123"],
+            ] as const) {
+                const invoice = await issueInvoice(owner, payer.id, 4000);
+                const paid = await owner.request.post(
+                    `${runUrl("VITE_API_URL")}/v1/invoices/${invoice.id}/payments`,
+                    {
+                        headers: {
+                            Origin: new URL(owner.url()).origin,
+                            "Idempotency-Key": randomUUID(),
+                        },
+                        data: { method, amount_cents: cents, reference, send_receipt: false },
+                    },
+                );
+                expect(paid.status(), await paid.text()).toBe(201);
+            }
+            await navigate(owner, "/today");
+            const collected = owner
+                .getByText(strings.today.collected, { exact: true })
+                .locator("..");
+            await expect(collected).toContainText(formatMoney(6500, "CAD"), { timeout: 60_000 });
+            await expect(collected).toContainText(strings.today.collectedHint(2));
+            await reports(owner);
+            await expect(
+                owner.getByText(strings.reports.received(formatMoney(6500, "CAD")), {
+                    exact: true,
+                }),
+            ).toBeVisible();
+            for (const [method, cents] of [
+                [strings.billing.method.etransfer, 4000],
+                [strings.billing.method.cheque, 2500],
+            ] as const)
+                await expect(owner.locator("li").filter({ hasText: method })).toContainText(
+                    formatMoney(cents, "CAD"),
+                );
+        } finally {
+            await context.close();
+        }
+    });
 });

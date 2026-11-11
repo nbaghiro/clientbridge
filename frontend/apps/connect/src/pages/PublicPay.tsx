@@ -41,8 +41,15 @@ export function PublicPay() {
     if (form.status === "error" || invoice === null) return <PublicStatus kind="error" />;
 
     const paid = form.status === "paid";
+    // a card Stripe took is paid, as the tab said when it went through; a bank debit still clears
     if (paid && invoice.status !== "paid")
-        return (
+        return invoice.clearing ? (
+            <PublicDone
+                brand={invoice.brand}
+                title={pp.payingTitle}
+                body={pp.payingBody(invoice.business_name)}
+            />
+        ) : (
             <PublicDone
                 brand={invoice.brand}
                 title={pp.paidTitle}
@@ -57,6 +64,14 @@ export function PublicPay() {
         }
         form.payCard();
     };
+    const heroStatus =
+        invoice.status === "paid"
+            ? pp.paidInFull
+            : form.closed
+              ? pp.closed
+              : invoice.due_at !== null
+                ? pp.dueOn(shortDate(invoice.due_at, invoice.timezone))
+                : null;
     const lines = publicDocLines(invoice.lines);
     const registration = registrationLine(invoice.gst_hst_number, invoice.qst_number);
     const doc = printedPublicInvoice(invoice, window.location.href, cssVar("accent"));
@@ -94,18 +109,13 @@ export function PublicPay() {
                                 ? pp.invoiceNumber(invoice.number)
                                 : pp.invoice}{" "}
                         </span>
-                        {invoice.status === "paid"
+                        {invoice.status === "paid" || form.closed
                             ? formatMoneyWithCurrency(invoice.total_cents, invoice.currency)
                             : formatMoneyWithCurrency(invoice.balance_cents, invoice.currency)}
                     </h1>
-                    <p className="mt-3 text-sm text-ink-soft">
-                        {formatParts([
-                            invoice.number !== null ? pp.invoiceNumber(invoice.number) : pp.invoice,
-                            invoice.due_at !== null
-                                ? pp.dueOn(shortDate(invoice.due_at, invoice.timezone))
-                                : null,
-                        ])}
-                    </p>
+                    {heroStatus !== null ? (
+                        <p className="mt-3 text-sm text-ink-soft">{heroStatus}</p>
+                    ) : null}
                 </div>
             }
         >
@@ -267,6 +277,7 @@ export function PublicPay() {
                                         )}
                                         busyLabel={strings.common.working}
                                         onDone={form.markPaid}
+                                        onCanceled={form.cardCanceled}
                                         onCancel={form.cancelCard}
                                     />
                                 ) : (

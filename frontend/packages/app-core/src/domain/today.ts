@@ -1,6 +1,6 @@
 import { useBusinessQuery as useQuery } from "../hooks";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { strings } from "../strings";
 import { type ApiLike, failureMessage } from "../api";
@@ -662,6 +662,20 @@ export function useOwnerToday(api: ApiLike, viewer: Viewer | null): OwnerToday {
         ? combineDayAndTime(s.gst_hst_filing_due, "00:00", zone)
         : null;
     const open = invoices.filter((i) => OPEN_INVOICE.has(i.status) && (i.balance_cents ?? 0) > 0);
+    // the server's sums follow each payment and balance this device syncs, as its counts do
+    const moneyKey = [
+        ...payments.data.map((p) => p.id),
+        ...open.map((i) => `${i.id}:${String(i.balance_cents ?? 0)}`),
+    ].join(",");
+    const summed = useRef<string | null>(null);
+    const reloadSummary = summary.reload;
+    useEffect(() => {
+        if (payments.isLoading) return;
+        // the read made on mount already answers for what the replica first loads
+        const seen = summed.current;
+        summed.current = moneyKey;
+        if (seen !== null && seen !== moneyKey) reloadSummary().catch(() => undefined);
+    }, [moneyKey, payments.isLoading, reloadSummary]);
     const pending = earnings.filter((e) => e.status === "pending");
     const attention = [
         ...requests,

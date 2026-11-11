@@ -54,7 +54,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 5. Sell at the desk and online | Saved cards and bank accounts | [CB-12](https://linear.app/clientbridgeca/issue/CB-12) | Partly automated |
 | 5. Sell at the desk and online | Online shop orders and pickup | [CB-41](https://linear.app/clientbridgeca/issue/CB-41) | Partly automated |
 | 6. Invoice and get paid | Estimates to invoices | [CB-33](https://linear.app/clientbridgeca/issue/CB-33) | Partly automated |
-| 6. Invoice and get paid | Invoices and payment links | [CB-34](https://linear.app/clientbridgeca/issue/CB-34) | Partly automated |
+| 6. Invoice and get paid | Invoices and payment links | [CB-34](https://linear.app/clientbridgeca/issue/CB-34) | Automated |
 | 6. Invoice and get paid | Printed and shared documents | [CB-36](https://linear.app/clientbridgeca/issue/CB-36) | Manual |
 | 6. Invoice and get paid | Deposits applied to the bill | [CB-37](https://linear.app/clientbridgeca/issue/CB-37) | Partly automated |
 | 7. Gift cards, packages and memberships | Package, membership and gift card items | [CB-15](https://linear.app/clientbridgeca/issue/CB-15) | Automated |
@@ -1563,7 +1563,7 @@ Estimates become invoices, invoices are paid by link, saved card or by hand, and
 **QA steps**
 
  1. Create an invoice from a completed booking and send it.
-    **Expect:** the preview matches the text that arrives.
+    **Expect:** the preview matches the text that arrives, except the pay link, which shows as … until sending creates it.
  2. Pay through the link in a private window with card 4242.
     **Expect:** Paid on web and phones, receipt texted.
  3. Pay another with a 3DS card, then close the challenge on a third.
@@ -1583,7 +1583,7 @@ Estimates become invoices, invoices are paid by link, saved card or by hand, and
 10. Lose the response after recording cash and retry.
     **Expect:** one payment.
 11. Open the send preview, then cancel.
-    **Expect:** the preview shows word for word the text the client gets, and cancelling sends nothing.
+    **Expect:** the preview shows word for word the text the client gets, apart from a draft's pay link (… until sending creates it), and cancelling sends nothing.
 
 **Done when:** Invoices move from draft to paid or void with the right status everywhere, and every way a client actually pays is recorded once.
 
@@ -1605,12 +1605,12 @@ Estimates become invoices, invoices are paid by link, saved card or by hand, and
 * `BILL-PILOT-02 (web)`
 * `FLOW-02-B (journeys)`
 * `web: sync.e2e.ts › a recorded payment holds the invoice until its new balance reaches this device`
-
-**To automate**
-
-* `BILL-DOC-23` in `apps/web/e2e/billing.e2e.ts`: Void refused while a payment is in progress; the overdue sweep runs once.
-* `STR-E21` in `apps/connect/e2e/stripe/provider.stripe.ts`: Charge the remainder to a saved card from Record payment.
-* `STR-E30` in `apps/connect/e2e/stripe/tabs.stripe.ts`: Hold Stripe's payment event, as SCH-E2E-17 does for a deposit, and check the invoice stays unpaid in the books until the event arrives, then settles once. Connect shows the invoice paid as soon as Stripe confirms the card, before the event.
+* `BILL-DOC-23 (web)`
+* `BILL-DOC-24 (web)`
+* `STR-E21 (stripe)`
+* `SCH-E2E-07 (journeys)`
+* `connect: publicPay.e2e.ts › a paid or voided invoice says so at the top and asks for nothing`
+* `NATIVE-BILL-03 (native-ios, native-android)`
 
 **Depends on:** Nothing
 

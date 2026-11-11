@@ -481,7 +481,12 @@ function BookingAddons({ event }: { event: ScheduleEvent }) {
                     </p>
                 ) : null}
                 {addons.invoiceId !== null ? (
-                    <span className="text-xs text-muted">{s.visitInvoiced}</span>
+                    <span className="flex items-center gap-2 text-xs text-muted">
+                        {s.visitInvoiced}
+                        <Button size="sm" variant="link" onPress={addons.openInvoice}>
+                            {s.openInvoice}
+                        </Button>
+                    </span>
                 ) : addons.canInvoice ? (
                     <Button
                         size="sm"

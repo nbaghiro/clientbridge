@@ -265,6 +265,27 @@ msgstr "[{business} åšķš ýöû ţö åûţĥöŕîžé þŕé-åûţĥöŕ�
 msgid "payment_failed.body"
 msgstr "[Ýöûŕ þåýɱéñţ öƒ {amount} ţö {business} ƒåîļéð. Þļéåšé ţŕý åĝåîñ.~~~~~~~~~~~~~~~~~]"
 
+msgid "payment_failed.body_link"
+msgstr "[Ýöûŕ þåýɱéñţ öƒ {amount} ţö {business} ƒåîļéð. Ţŕý åĝåîñ: {link}~~~~~~~~~~~~~~]"
+
+msgid "payment_method.bank_eft"
+msgstr "[ƀåñķ ðéƀîţ~~~~]"
+
+msgid "payment_method.card"
+msgstr "[çåŕð~~]"
+
+msgid "payment_method.cash"
+msgstr "[çåšĥ~~]"
+
+msgid "payment_method.cheque"
+msgstr "[çĥéǫûé~~~]"
+
+msgid "payment_method.etransfer"
+msgstr "[é-Ţŕåñšƒéŕ~~~~]"
+
+msgid "payment_method.other"
+msgstr "[åñöţĥéŕ ɱéţĥöð~~~~~]"
+
 msgid "pickup.body"
 msgstr "[Çöļļéçţ ýöûŕ öŕðéŕ åţ {business}. Ŵé'ļļ ļéţ ýöû ķñöŵ ŵĥéñ îţ'š ŕéåðý.~~~~~~~~~~~~~~~~~~~~~]"
 
@@ -297,11 +318,17 @@ msgstr "[Çļîéñţƀŕîðĝé šţåƒƒ šéåţ~~~~~~~~~]"
 msgid "plans.team"
 msgstr "[Çļîéñţƀŕîðĝé Ţéåɱ~~~~~~]"
 
+msgid "receipt.balance"
+msgstr "[Ɓåļåñçé ðûé  {amount}~~~~~]"
+
 msgid "receipt.body"
 msgstr "[Ţĥåñķ ýöû! Ýöûŕ þåýɱéñţ öƒ {amount} ţö {business} ŵåš ŕéçéîṽéð.~~~~~~~~~~~~~~~~]"
 
 msgid "receipt.line"
 msgstr "[{item} ẋ{quantity}  {amount}~~]"
+
+msgid "receipt.paid_by"
+msgstr "[Þåîð ƀý {method}~~~]"
 
 msgid "receipt.push"
 msgstr "[Þåýɱéñţ ŕéçéîṽéð: {amount}~~~~~~~]"

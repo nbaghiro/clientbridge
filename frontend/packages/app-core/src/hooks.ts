@@ -153,6 +153,8 @@ export interface Remote<T> extends LoadSource {
     data: T | null;
     error: Error | null;
     refresh: () => Promise<void>;
+    // fetches again behind what is shown: no loading state, and a failure keeps the last answer
+    reload: () => Promise<void>;
 }
 
 /** A server-only figure: fetched on mount and whenever `key` changes, with a refresh for retry. */
@@ -177,6 +179,20 @@ export function useRemote<T>(load: () => Promise<T>, key = ""): Remote<T> {
             if (request === generation.current) setLoading(false);
         }
     }, []);
+    const reload = useCallback(async (): Promise<void> => {
+        const request = ++generation.current;
+        let next: T;
+        try {
+            next = await current.current();
+        } catch {
+            return;
+        }
+        if (request !== generation.current) return;
+        // it may have replaced a load still in flight, which then never clears its own state
+        setData(next);
+        setError(null);
+        setLoading(false);
+    }, []);
     useEffect(() => {
         setData(null);
         refresh().catch(() => undefined);
@@ -184,7 +200,7 @@ export function useRemote<T>(load: () => Promise<T>, key = ""): Remote<T> {
             generation.current += 1;
         };
     }, [refresh, key]);
-    return { data, error, isLoading, refresh };
+    return { data, error, isLoading, refresh, reload };
 }
 
 type DayMove = "day" | "week" | "month" | "year" | "weekEdge";

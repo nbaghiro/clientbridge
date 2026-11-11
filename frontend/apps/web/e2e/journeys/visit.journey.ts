@@ -1162,6 +1162,16 @@ test("SCH-E2E-07 an add-on that lengthens the visit narrows the times Connect of
             tax_total_cents: 2688,
             total_cents: 25088,
         });
+        // the draft opens over the visit, and the visit links back to it once closed
+        const draft = page.getByRole("dialog").filter({
+            has: page.getByRole("heading", { name: strings.billing.draftInvoice, exact: true }),
+        });
+        await expect(draft).toBeVisible();
+        await draft.getByRole("button", { name: strings.common.close, exact: true }).click();
+        await expect(draft).toBeHidden();
+        await page.getByRole("button", { name: strings.bookings.openInvoice, exact: true }).click();
+        await expect(draft).toBeVisible();
+        await draft.getByRole("button", { name: strings.common.close, exact: true }).click();
         const invoiced = await visitEvidence([booker.phone]);
         const invoiceId = invoiced.bookings[0]?.invoice_id;
         expect(invoiceId).toBeTruthy();

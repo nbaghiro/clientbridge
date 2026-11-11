@@ -1,0 +1,155 @@
+appId: ${APP_ID}
+name: NATIVE-BILL-03 An invoice made from a visit opens on the phone, goes out after its preview, and cash then an e-Transfer pay it with a receipt naming each
+tags:
+    - lane
+onFlowComplete:
+    - runScript: helpers/restore-week.js
+---
+- evalScript: ${output.phone = "250" + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000))}
+- evalScript: ${output.shown = "\\(250\\) " + output.phone.slice(3, 6) + "-" + output.phone.slice(6)}
+- evalScript: ${output.name = "Tamsin Holloway"}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/clients
+          BODY: "${JSON.stringify({ name: output.name, phone: output.phone })}"
+- evalScript: ${output.clientId = output.response.id}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/items
+          BODY: "${JSON.stringify({ kind: 'service', name: 'Coat care ' + output.phone.slice(-4), duration_min: 10, price_cents: 5000, tax_class: 'exempt', deposit_type: 'none', online_bookable: false })}"
+- evalScript: ${output.itemId = output.response.id}
+- runScript:
+      file: helpers/book-today.js
+      env:
+          BODY: "${JSON.stringify({ client_id: output.clientId, item_id: output.itemId, staff_id: 'st_owner_' + E2E_NAMESPACE })}"
+- runFlow: helpers/owner.yaml
+# today's visit, opened from Schedule; the day opens at midnight, where the helper moved its hours,
+# and a short swipe lifts a thin block off the bottom edge before the upward scroll centres it, so an
+# early-morning visit isn't left under the header
+- tapOn: "Schedule"
+- tapOn: ${output.dayLabel}
+- scrollUntilVisible:
+      element: ${".*" + output.name + ".*"}
+      direction: DOWN
+      timeout: 60000
+- swipe:
+      start: 50%, 70%
+      end: 50%, 40%
+      duration: 600
+- scrollUntilVisible:
+      element: ${".*" + output.name + ".*"}
+      direction: UP
+      timeout: 20000
+      centerElement: true
+- retry:
+      maxRetries: 3
+      commands:
+          - tapOn: ${".*" + output.name + ".*"}
+          - extendedWaitUntil:
+                visible: "Close"
+                timeout: 10000
+- scrollUntilVisible:
+      element: "Create invoice"
+      direction: DOWN
+      timeout: 30000
+- tapOn: "Create invoice"
+# the new draft opens over the visit, ready to check and send
+- extendedWaitUntil:
+      visible: "Draft invoice"
+      timeout: 30000
+- takeScreenshot: draft-opened
+- tapOn: "Send invoice"
+- extendedWaitUntil:
+      visible: "Check it before it goes out"
+      timeout: 30000
+- assertVisible: ${"Text to " + output.shown}
+# the draft's own Send invoice stays in Android's tree behind the preview sheet
+- tapOn:
+      text: "Send invoice"
+      below: "Show the document"
+- extendedWaitUntil:
+      visible: "Invoice #\\d+ sent to .*"
+      timeout: 30000
+- runScript:
+      file: helpers/texts.js
+      env:
+          PHONE: ${output.phone}
+          WORDS: for $50.00 from
+- assertTrue: ${output.texts == 1}
+# $20 cash first: the invoice is named once, the phone formatted, the new balance shown
+- tapOn: "Record payment"
+- tapOn: "Cash.*"
+- tapOn: "Part of it"
+- tapOn:
+      below: "Part of it"
+      index: 0
+- inputText: "20"
+- runFlow:
+      when:
+          platform: iOS
+      commands:
+          - tapOn: "Done"
+# Android's hideKeyboard presses Back, which closes the payment form; Enter only puts the keyboard away
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - pressKey: Enter
+- scrollUntilVisible:
+      element: "Record \\$20\\.00"
+      direction: DOWN
+- tapOn: "Record \\$20\\.00"
+- extendedWaitUntil:
+      visible: "Payment recorded"
+      timeout: 30000
+# a "\\$" inside an expression never matches in Maestro, so the dollar sign is any character here
+- assertVisible: '${".*Invoice #\\d+ has .30\\.00 left to pay\\. Receipt sent to " + output.shown + "\\..*"}'
+- assertVisible: "\\$30\\.00"
+- assertNotVisible: "\\$50\\.00"
+- takeScreenshot: cash-recorded
+- tapOn: "Done"
+- extendedWaitUntil:
+      visible: "Partly paid"
+      timeout: 30000
+# the rest by e-Transfer settles it
+- tapOn: "Record payment"
+- tapOn: "e-Transfer received.*"
+- tapOn:
+      below: "e-Transfer reference.*"
+      index: 0
+- inputText: "CA9LANE"
+- pressKey: Enter
+- scrollUntilVisible:
+      element: "Record \\$30\\.00"
+      direction: DOWN
+- tapOn: "Record \\$30\\.00"
+- extendedWaitUntil:
+      visible: ".*Invoice #\\d+ is paid in full\\..*"
+      timeout: 30000
+- tapOn: "Done"
+- extendedWaitUntil:
+      visible: "Paid"
+      timeout: 30000
+- takeScreenshot: invoice-paid
+- runScript:
+      file: helpers/texts.js
+      env:
+          PHONE: ${output.phone}
+          WORDS: Paid by cash
+- assertTrue: ${output.texts == 1}
+- runScript:
+      file: helpers/texts.js
+      env:
+          PHONE: ${output.phone}
+          WORDS: Balance due
+- assertTrue: ${output.texts == 1}
+- runScript:
+      file: helpers/texts.js
+      env:
+          PHONE: ${output.phone}
+          WORDS: Paid by e-Transfer
+- assertTrue: ${output.texts == 1}

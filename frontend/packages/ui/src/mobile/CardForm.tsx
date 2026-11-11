@@ -1,4 +1,9 @@
-import { strings, useAsyncAction, type CardFormProps } from "@clientbridge/app-core";
+import {
+    refusedConfirm,
+    strings,
+    useAsyncAction,
+    type CardFormProps,
+} from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
     CardField,
@@ -56,13 +61,10 @@ export function CardForm(props: NativeProps<CardFormProps>) {
     return <ConfirmForm {...props} />;
 }
 
-// paid from another tab or device: the payment went through, so it's done
-async function alreadyPaid(clientSecret: string): Promise<boolean> {
+// after a failed confirm: paid from another tab or device, or closed before it went through
+async function intentStatus(clientSecret: string): Promise<PaymentIntent.Status | undefined> {
     const { paymentIntent } = await retrievePaymentIntent(clientSecret);
-    return (
-        paymentIntent?.status === PaymentIntent.Status.Succeeded ||
-        paymentIntent?.status === PaymentIntent.Status.Processing
-    );
+    return paymentIntent?.status;
 }
 
 function ConfirmForm({
@@ -70,6 +72,7 @@ function ConfirmForm({
     mode = "payment",
     submitLabel,
     onDone,
+    onCanceled,
     onCancel,
     defaultValue,
     style,
@@ -98,11 +101,25 @@ function ConfirmForm({
                               paymentMethodType: "Card",
                               paymentMethodData,
                           });
-                if (result.error && !(mode === "payment" && (await alreadyPaid(clientSecret))))
-                    throw new Error(result.error.message);
+                if (!result.error) {
+                    onDone();
+                    return;
+                }
+                const outcome =
+                    mode === "payment"
+                        ? refusedConfirm(await intentStatus(clientSecret))
+                        : "failed";
+                if (outcome === "paid") {
+                    onDone();
+                    return;
+                }
+                if (outcome === "canceled" && onCanceled !== undefined) {
+                    onCanceled();
+                    return;
+                }
+                throw new Error(result.error.message);
             },
             {
-                onSuccess: onDone,
                 errorMessage:
                     mode === "payment"
                         ? strings.checkout.paymentFailed

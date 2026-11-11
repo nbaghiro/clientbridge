@@ -283,6 +283,13 @@ class PublicInvoice(BaseModel):
     balance_cents: int
     status: str
     accepts_card: bool
+    paying: bool = Field(
+        default=False,
+        description="Stripe took payments covering the balance that haven't settled with us yet",
+    )
+    clearing: bool = Field(
+        default=False, description="One of the payments Stripe took is a bank debit still clearing"
+    )
     contact_phone: str | None = Field(
         default=None, description="The business's public phone, for paying when it takes no cards"
     )

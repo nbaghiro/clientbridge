@@ -150,13 +150,11 @@ class BillingService:
     async def send_invoice(self, invoice_id: str, idempotency_key: str | None) -> InvoiceOut:
         self._assert_admin()
         invoice = await self._invoice(invoice_id)
-        if invoice.status == "void":
-            raise Conflict("a void invoice can't be sent")
 
+        # checked inside the command, so a retried send replays its answer after a later payment
         async def run(cmd: Command) -> InvoiceOut:
             await self._lock(invoice)
-            if invoice.status == "void":
-                raise Conflict("a void invoice can't be sent")
+            await assert_sendable(self.db, invoice)
             if invoice.status == "draft":
                 await issue_invoice(self.db, invoice, cmd)
             else:
@@ -747,6 +745,15 @@ async def run_reprice_open_documents(db: AsyncSession, now: datetime) -> int:
     return repriced
 
 
+async def assert_sendable(db: AsyncSession, invoice: Invoice) -> None:
+    """A draft goes out once issued; a sent one goes again only while it still asks for money."""
+    if invoice.status == "draft":
+        return
+    status, _ = await ledger.invoice_state(db, invoice)
+    if status in ("void", "paid", "refunded"):
+        raise Conflict(f"a {status} invoice can't be sent")
+
+
 async def issue_invoice(db: AsyncSession, invoice: Invoice, cmd: Command) -> None:
     """Number, date and post a draft invoice; its tax is fixed here and matches its journal."""
     biz = invoice.business_id
@@ -890,25 +897,40 @@ async def run_overdue_sweep(db: AsyncSession, notifier: Notifier, now: datetime)
     """Notify the client once for each sent, unpaid invoice past due, at 7 a.m. business time."""
     swept = 0
     for business in await businesses_at_hour(db, now, _OVERDUE_HOUR):
-        invoices = (
-            (
-                await db.execute(
-                    scoped(Invoice, business.id).where(
-                        Invoice.due_at < now,
-                        Invoice.overdue_notified_at.is_(None),
-                        invoice_status_expr() == "sent",
-                    )
+        swept += await sweep_overdue(db, notifier, business.id, now)
+    return swept
+
+
+async def sweep_overdue(
+    db: AsyncSession,
+    notifier: Notifier,
+    business_id: str,
+    now: datetime,
+    *,
+    invoice_id: str | None = None,
+) -> int:
+    only = () if invoice_id is None else (Invoice.id == invoice_id,)
+    invoices = (
+        (
+            await db.execute(
+                scoped(Invoice, business_id).where(
+                    Invoice.due_at < now,
+                    Invoice.overdue_notified_at.is_(None),
+                    invoice_status_expr() == "sent",
+                    *only,
                 )
             )
-            .scalars()
-            .all()
         )
-        for invoice in invoices:
-            if await notifier.on_invoice_overdue(db, invoice.id) is Outcome.FAILED:
-                continue
-            invoice.overdue_notified_at = now
-            await db.commit()
-            swept += 1
+        .scalars()
+        .all()
+    )
+    swept = 0
+    for invoice in invoices:
+        if await notifier.on_invoice_overdue(db, invoice.id) is Outcome.FAILED:
+            continue
+        invoice.overdue_notified_at = now
+        await db.commit()
+        swept += 1
     return swept
 
 

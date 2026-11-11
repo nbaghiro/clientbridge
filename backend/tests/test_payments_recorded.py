@@ -304,3 +304,22 @@ async def test_no_receipt_when_not_asked(
         201,
     )
     assert sms.sent == []
+
+
+async def test_receipts_name_the_method_and_what_is_still_owed(
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
+) -> None:
+    cid = await client_id(db, phone="+16045550321")
+    inv = await sent_invoice(db, client=cid, total=5000)
+    for method, amount in (("etransfer", 2000), ("cheque", 3000)):
+        ok(
+            await as_owner.post(
+                f"/v1/invoices/{inv}/payments", json=_pay(method, amount), headers=key()
+            ),
+            201,
+        )
+    part, rest = [text.body for text in sms.sent if text.to == "+16045550321"]
+    assert "Paid by e-Transfer" in part
+    assert "Balance due  $30.00" in part
+    assert "Paid by cheque" in rest
+    assert "Balance due" not in rest

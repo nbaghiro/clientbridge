@@ -1337,22 +1337,14 @@ class PublicManageService:
         )
         if account_id is None or booking.deposit_amount_cents <= 0 or not owing:
             return False
-        refs = await self.db.scalars(
-            scoped(Payment, business.id)
-            .with_only_columns(Payment.provider_ref)
-            .where(
-                Payment.booking_id == booking.id,
-                Payment.kind == "deposit",
-                Payment.status == "pending",
-                Payment.provider == "stripe",
-                Payment.provider_ref.is_not(None),
-            )
+        taken = await stripe_taken(
+            self.db,
+            self.gateway,
+            business,
+            Payment.booking_id == booking.id,
+            Payment.kind == "deposit",
         )
-        # asked together, so a slow Stripe holds the page for one read's wait, not one per attempt
-        statuses = await asyncio.gather(
-            *(self.gateway.payment_intent_status(account_id, ref) for ref in refs.all() if ref)
-        )
-        return any(status in _PAID_INTENT for status in statuses)
+        return bool(taken)
 
     def _blocked(
         self,
@@ -1586,6 +1578,36 @@ def _length(slot: Slot) -> int:
 
 # a charge on its way (a bank debit) counts too: paying again would charge the client twice
 _PAID_INTENT = ("succeeded", "processing", "requires_capture")
+_OWING = ("sent", "partial", "overdue")
+
+
+async def stripe_taken(
+    db: AsyncSession, gateway: PaymentGateway, business: Business, *match: ColumnElement[bool]
+) -> list[tuple[int, str]]:
+    """(amount less tip, intent status) of each pending Stripe payment matching `match` it took."""
+    account_id = _account(business)
+    if account_id is None:
+        return []
+    rows = await db.execute(
+        scoped(Payment, business.id)
+        .with_only_columns(Payment.provider_ref, Payment.amount_cents - Payment.tip_cents)
+        .where(
+            Payment.status == "pending",
+            Payment.provider == "stripe",
+            Payment.provider_ref.is_not(None),
+            *match,
+        )
+    )
+    live = [(ref, cents) for ref, cents in rows.tuples().all() if ref]
+    # asked together, so a slow Stripe holds the page for one read's wait, not one per attempt
+    statuses = await asyncio.gather(
+        *(gateway.payment_intent_status(account_id, ref) for ref, _ in live)
+    )
+    return [
+        (cents, status)
+        for (_, cents), status in zip(live, statuses, strict=True)
+        if status is not None and status in _PAID_INTENT
+    ]
 
 
 def _deposit_due(booking: Booking) -> bool:
@@ -1883,6 +1905,11 @@ class PublicPayService:
         lines = await fetch_lines(self.db, invoice.business_id, "invoice", invoice.id)
         doc_lines, taxes = await public_doc_lines(self.db, invoice, lines)
         contact = BrandInput.model_validate(business.brand or {})
+        status = (await ledger.invoice_state(self.db, invoice))[0]
+        balance = await ledger.invoice_balance(self.db, invoice)
+        taken = await self._taken(invoice, business) if status in _OWING else []
+        # a part of the balance staff charged leaves the rest for the client to pay
+        paying = bool(taken) and sum(cents for cents, _ in taken) >= balance
         return PublicInvoice(
             tip_base_cents=sum(
                 line.amount_cents for line in await tip_lines(self.db, invoice.business_id, lines)
@@ -1897,9 +1924,11 @@ class PublicPayService:
             subtotal_cents=invoice.subtotal_cents,
             tax_total_cents=invoice.tax_total_cents,
             total_cents=invoice.total_cents,
-            balance_cents=await ledger.invoice_balance(self.db, invoice),
-            status=(await ledger.invoice_state(self.db, invoice))[0],
+            balance_cents=balance,
+            status=status,
             accepts_card=business.stripe_charges_enabled,
+            paying=paying,
+            clearing=paying and any(state == "processing" for _, state in taken),
             contact_phone=contact.phone,
             contact_email=contact.email,
             client_name=client.name if client is not None else None,
@@ -1916,8 +1945,22 @@ class PublicPayService:
             tip_for=await _tip_names(self.db, invoice.business_id, lines),
         )
 
+    async def _taken(self, invoice: Invoice, business: Business) -> list[tuple[int, str]]:
+        return await stripe_taken(
+            self.db,
+            self.gateway,
+            business,
+            Payment.invoice_id == invoice.id,
+            Payment.kind == "payment",
+        )
+
     async def pay_card(self, token: str, data: PublicPayIn) -> PublicCardIntent:
         invoice, business = await self._resolve(token)
+        # asked before the lock, so a slow Stripe answer holds up no other tab
+        if await self._taken(invoice, business):
+            raise Conflict(
+                "this invoice already has a payment in progress", code="payment_in_progress"
+            )
         # two tabs serialize here, so neither opens an intent the other then cancels at Stripe
         await self.db.execute(select(Invoice.id).where(Invoice.id == invoice.id).with_for_update())
         try:

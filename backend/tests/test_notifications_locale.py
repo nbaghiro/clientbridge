@@ -132,7 +132,14 @@ def _builders() -> dict[str, Render]:
             n.estimate_declined_message(c, 7, "Too far"),
             n.estimate_declined_message(c, 7, None),
         ),
-        "payment_failed_message": lambda c: n.payment_failed_message(c, amount(c), NAME),
+        "payment_failed_message": lambda c: (
+            n.payment_failed_message(c, amount(c), NAME, LINK),
+            n.payment_failed_message(c, amount(c), NAME),
+        ),
+        "payment_method_name": lambda c: tuple(
+            n.payment_method_name(c, method)
+            for method in ("card", "etransfer", "bank_eft", "cash", "cheque", "other")
+        ),
         "refund_failed_message": lambda c: n.refund_failed_message(c, amount(c), NAME),
         "refund_message": lambda c: (
             n.refund_message(c, amount(c), NAME, "CN-1"),

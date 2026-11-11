@@ -45,6 +45,7 @@ import { type Load, isConnectionFailure, useAsyncAction, useNow, useRemote } fro
 import { strings } from "../strings";
 import type { CalendarEventFlag, Intent, OptionMedia, TimelineEntry } from "../ui";
 import { type Viewer, isManager } from "./auth";
+import { openRecord } from "./navigation";
 import { afterReview, outgoing, review } from "./previews";
 import {
     type ItemRow,
@@ -2919,6 +2920,7 @@ interface BookingAddons {
     add: (itemId: string) => void;
     remove: (addonId: string) => void;
     createInvoice: () => void;
+    openInvoice: () => void;
     busy: boolean;
     error: string | null;
 }
@@ -2936,6 +2938,8 @@ export function useBookingAddons(
         useQuery<{ invoice_id: string | null }>(BOOKING_INVOICE_SQL, [bookingId]).data.at(0)
             ?.invoice_id ?? null;
     const { busy, error, run } = useAsyncAction();
+    // the new draft opens over the visit once it reaches this device, and stays busy until then
+    const invoicing = useArrival(`visit-invoice:${bookingId}`, invoiceId === null ? 0 : 1);
     const key = useRef<Attempt | null>(null);
     const adding = useRef<Attempt | null>(null);
     const removing = useRef<Attempt | null>(null);
@@ -2982,11 +2986,23 @@ export function useBookingAddons(
         },
         createInvoice: () => {
             const idempotencyKey = attemptKey(key, bookingId);
-            run(() => api.post(`/v1/invoices/from-booking/${bookingId}`, {}, { idempotencyKey }), {
-                errorMessage: s.invoiceVisitError,
-            });
+            run(
+                async () => {
+                    const invoice = await api.post<{ id: string }>(
+                        `/v1/invoices/from-booking/${bookingId}`,
+                        {},
+                        { idempotencyKey },
+                    );
+                    expectArrival(`visit-invoice:${bookingId}`, (current) => current > 0);
+                    openRecord("invoice", invoice.id);
+                },
+                { errorMessage: s.invoiceVisitError },
+            );
         },
-        busy,
+        openInvoice: () => {
+            if (invoiceId !== null) openRecord("invoice", invoiceId);
+        },
+        busy: busy || invoicing === "arriving",
         error,
     };
 }

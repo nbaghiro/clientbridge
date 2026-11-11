@@ -57,6 +57,77 @@ it("ignores an older remote response when the resource changes", async () => {
     expect(result.current.data).toBe("current");
 });
 
+it("reloads a remote behind its shown answer and keeps it when the reload fails", async () => {
+    const answers: (() => Promise<string>)[] = [
+        () => Promise.resolve("first"),
+        () => Promise.resolve("second"),
+        () => Promise.reject(new Error("offline")),
+    ];
+    const { result } = renderHook(() =>
+        useRemote(() => (answers.shift() ?? (() => Promise.resolve("none")))()),
+    );
+    await act(async () => {
+        await Promise.resolve();
+    });
+    expect(result.current.data).toBe("first");
+    let loadingDuring = false;
+    await act(async () => {
+        const reloading = result.current.reload();
+        loadingDuring = result.current.isLoading;
+        await reloading;
+    });
+    expect(loadingDuring).toBe(false);
+    expect(result.current.data).toBe("second");
+    await act(async () => {
+        await result.current.reload();
+    });
+    expect(result.current.data).toBe("second");
+    expect(result.current.error).toBeNull();
+});
+
+it("settles a remote when a reload overtakes its first load", async () => {
+    const pending: ((value: string) => void)[] = [];
+    const { result } = renderHook(() =>
+        useRemote(
+            () =>
+                new Promise<string>((resolve) => {
+                    pending.push(resolve);
+                }),
+        ),
+    );
+    expect(result.current.isLoading).toBe(true);
+    let reloading = Promise.resolve();
+    act(() => {
+        reloading = result.current.reload();
+    });
+    await act(async () => {
+        pending[0]?.("first");
+        pending[1]?.("reloaded");
+        await reloading;
+    });
+    expect(result.current.data).toBe("reloaded");
+    expect(result.current.isLoading).toBe(false);
+});
+
+it("clears a failed first load once a reload answers", async () => {
+    const answers: (() => Promise<string>)[] = [
+        () => Promise.reject(new Error("offline")),
+        () => Promise.resolve("back"),
+    ];
+    const { result } = renderHook(() =>
+        useRemote(() => (answers.shift() ?? (() => Promise.resolve("none")))()),
+    );
+    await act(async () => {
+        await Promise.resolve();
+    });
+    expect(result.current.error).not.toBeNull();
+    await act(async () => {
+        await result.current.reload();
+    });
+    expect(result.current.data).toBe("back");
+    expect(result.current.error).toBeNull();
+});
+
 const KEYS = ["name", "phone"] as const;
 
 it("edits a draft list over its stored rows and stops at the limit", () => {

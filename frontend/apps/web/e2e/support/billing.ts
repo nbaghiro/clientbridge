@@ -1,4 +1,7 @@
+import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import { demoPerson } from "@clientbridge/config/e2e/demo";
 import { strings, formatMoney } from "@clientbridge/app-core/public";
 import { expect, type Page, type Locator } from "@playwright/test";
@@ -97,12 +100,19 @@ export function paymentDrawer(page: Page): Locator {
     return page.getByRole("region", { name: strings.billing.rec.title, exact: true });
 }
 
+const TENDER = {
+    cash: () => strings.billing.rec.cash,
+    etransfer: () => strings.billing.rec.etransfer,
+    cheque: () => strings.billing.rec.cheque,
+};
+
 /** Records a manual payment in the invoice's drawer, for part of the balance when given. */
 export async function recordPayment(
     page: Page,
-    method: "cash" | "etransfer",
+    method: keyof typeof TENDER,
     label: string,
     part?: string,
+    reference?: string,
 ): Promise<string> {
     const r = strings.billing.rec;
     await page.getByRole("button", { name: strings.billing.recordPayment, exact: true }).click();
@@ -110,8 +120,13 @@ export async function recordPayment(
     await dialog
         .getByRole("group", { name: r.howPaid, exact: true })
         .getByRole("button")
-        .filter({ hasText: method === "cash" ? r.cash : r.etransfer })
+        .filter({ hasText: TENDER[method]() })
         .click();
+    if (reference !== undefined)
+        await dialog
+            // the label carries an "(optional)" hint after the field's name
+            .getByRole("textbox", { name: method === "cheque" ? r.chequeNo : r.reference })
+            .fill(reference);
     if (part !== undefined) {
         await dialog
             .getByRole("group", { name: r.amount, exact: true })
@@ -376,4 +391,20 @@ export async function sendDocument(
     const response = await sent;
     expect(response.status(), await response.text()).toBe(200);
     return (await response.json()) as DocumentRecord & { pay_token: string };
+}
+
+/** A product-code action on one invoice of the run's business: the overdue sweep, or a held card payment. */
+export async function billingAction(
+    action: "overdue-sweep" | "card-open" | "card-close",
+    invoiceId: string,
+): Promise<{ swept?: number }> {
+    const { stdout } = await promisify(execFile)(
+        "uv",
+        ["run", "python", "-m", "e2e.actions", "billing", action, invoiceId],
+        {
+            cwd: fileURLToPath(new URL("../../../../../backend", import.meta.url)),
+            timeout: 60_000,
+        },
+    );
+    return JSON.parse(stdout) as { swept?: number };
 }

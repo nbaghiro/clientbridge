@@ -20,7 +20,7 @@ from clientbridge.models.platform import Device
 from clientbridge.models.reviews import ReviewRequest
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services import ledger
-from clientbridge.services.billing import estimate_status, run_overdue_sweep
+from clientbridge.services.billing import estimate_status, run_overdue_sweep, sweep_overdue
 from clientbridge.services.entitlements import run_expiry_sweeps
 from clientbridge.services.ledger import Leg
 from clientbridge.services.notifications import Notifier, run_prune_devices
@@ -93,6 +93,18 @@ async def test_overdue_sweep_is_idempotent(
     assert (
         await run_overdue_sweep(db, notifier, OVERDUE_AT) == 0
     )  # the transition is the dedup marker
+
+
+async def test_an_overdue_sweep_for_one_invoice_leaves_the_others(
+    db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
+) -> None:
+    cid = await client_id(db)
+    chosen = await sent_invoice(db, client=cid, due_at=NOW - timedelta(days=5))
+    other = await sent_invoice(db, client=cid, due_at=NOW - timedelta(days=5))
+    notifier = _notifier(email, sms, push)
+    assert await sweep_overdue(db, notifier, BIZ, OVERDUE_AT, invoice_id=chosen) == 1
+    assert await _status(db, Invoice, chosen) == "overdue"
+    assert await _status(db, Invoice, other) == "sent"
 
 
 async def test_a_failed_overdue_notice_is_sent_on_a_later_morning(
