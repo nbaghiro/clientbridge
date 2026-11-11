@@ -636,6 +636,7 @@ interface DocPaymentView {
     amountCents: number;
     pending: boolean;
     refund: boolean;
+    refundable: boolean;
     payment: PaymentRow;
 }
 
@@ -766,15 +767,33 @@ export function useInvoiceRecord(id: string | null, payBase: string): InvoiceRec
             kind: "credit",
         })),
     ];
+    const refunds = payments.filter((pm) => pm.kind === "refund" && pm.status === "succeeded");
     if (!draft)
         totals.push({ key: "balance", label: s.balanceDue, cents: balanceCents, kind: "balance" });
+    for (const r of refunds)
+        totals.push({
+            key: r.id,
+            label: s.refundedOn(r.credit_note ?? "", shortDate(r.paid_at ?? r.created_at, zone)),
+            cents: r.amount_cents,
+            kind: "subtotal",
+        });
+    const refundedOf = (id: string): number =>
+        refunds.filter((r) => r.parent_payment_id === id).reduce((n, r) => n + r.amount_cents, 0);
+    // the server takes no other refund on a payment while one is still processing
+    const processing = (id: string): boolean =>
+        payments.some((r) => r.parent_payment_id === id && r.status === "pending");
 
     const paymentViews: DocPaymentView[] = payments
         .filter((pm) => pm.status !== "failed" && pm.status !== "canceled")
         .map((pm) => ({
             id: pm.id,
             kind: pm.kind,
-            label: pm.kind === "refund" ? s.refundBadge : methodLabel(pm.method),
+            label:
+                pm.kind !== "refund"
+                    ? methodLabel(pm.method)
+                    : pm.credit_note === null
+                      ? s.refundBadge
+                      : s.creditNote(pm.credit_note),
             detail: formatParts([
                 shortDate(pm.paid_at ?? pm.created_at, zone),
                 pm.reference,
@@ -783,6 +802,11 @@ export function useInvoiceRecord(id: string | null, payBase: string): InvoiceRec
             amountCents: pm.amount_cents,
             pending: pm.status === "pending",
             refund: pm.kind === "refund",
+            refundable:
+                pm.kind !== "refund" &&
+                pm.status === "succeeded" &&
+                !processing(pm.id) &&
+                refundedOf(pm.id) < pm.amount_cents,
             payment: pm,
         }));
 
@@ -979,7 +1003,7 @@ export function printedInvoice(
                 label: s.balanceDue,
                 cents: rec.status === "draft" ? (r.total_cents ?? 0) : rec.balanceCents,
             },
-            stamp: paid ? p.paidStamp : null,
+            stamp: rec.status === "refunded" ? p.refundedStamp : paid ? p.paidStamp : null,
             payUrl: paid ? null : rec.payUrl,
             instructions: paid || rec.payUrl === null ? [] : [p.payOnline(rec.payUrl)],
             message: r.notes,

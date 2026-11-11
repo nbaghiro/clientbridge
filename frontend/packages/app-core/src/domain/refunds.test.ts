@@ -15,6 +15,7 @@ const payment = (amount: number, refunded: number): PaymentRow => ({
     id: "pay_1",
     client_id: "cl_1",
     client_name: "Ann",
+    client_phone: "+12505550100",
     kind: "payment",
     method: "card",
     provider: "stripe",

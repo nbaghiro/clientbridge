@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute, Session, SessionTransaction, aliased
 
 from clientbridge.core import clock
-from clientbridge.core.errors import UnsupportedCurrency
+from clientbridge.core.errors import Conflict, UnsupportedCurrency
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.stripe import ChargeFees
@@ -1332,6 +1332,19 @@ async def gift_card_balance(db: AsyncSession, card: GiftCard) -> int:
 def gift_card_status(card: GiftCard, balance_cents: int) -> str:
     """A spent card stays `active` in storage and reads as `redeemed`."""
     return "redeemed" if card.status == "active" and balance_cents == 0 else card.status
+
+
+def assert_gift_card_usable(card: GiftCard, balance_cents: int) -> None:
+    """Refuse a card that can't pay for anything, naming why: spent, unpaid, expired or void."""
+    status = gift_card_status(card, balance_cents)
+    if status == "active" and card.expires_at is not None and card.expires_at <= clock.now():
+        status = "expired"  # past its date before the nightly sweep marks it
+    if status != "active":
+        raise Conflict(
+            "only an active gift card can be used",
+            code="gift_card_unusable",
+            detail={"status": status},
+        )
 
 
 async def _order_tax(

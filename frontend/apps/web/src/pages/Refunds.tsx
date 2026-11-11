@@ -178,7 +178,7 @@ function PaymentsDesk({ desk }: { desk: ReturnType<typeof useRefundDesk> }) {
             />
             {desk.selected !== null ? (
                 <RefundPanel
-                    key={`${desk.selected.payment.id}:${String(desk.selected.payment.refunded_cents)}`}
+                    key={desk.selected.payment.id}
                     summary={desk.selected}
                     refunds={desk.refunds}
                     onClose={() => {

@@ -57,6 +57,7 @@ function publicInvoice(extra: Partial<PublicInvoice> = {}): PublicInvoice {
                 at: "2026-10-03T12:00:00Z",
             },
         ],
+        refunds: [],
         ...extra,
     };
 }
@@ -294,7 +295,34 @@ describe("a closed invoice", () => {
                 expect(result.current.status).toBe("ready");
             });
             expect(result.current.closed).toBe(true);
+            expect(result.current.closedBody).toBe(
+                status === "refunded"
+                    ? pp.refundedBody("Birch Studio")
+                    : pp.closedBody("Birch Studio"),
+            );
         }
+    });
+
+    it("lists each credit note under the balance and is stamped refunded", () => {
+        const refunded = publicInvoice({
+            status: "refunded",
+            balance_cents: 0,
+            refunds: [
+                { credit_note: "CN-7-1", amount_cents: 1000, paid_at: "2026-10-04T12:00:00Z" },
+                { credit_note: "CN-7-2", amount_cents: 6750, paid_at: "2026-10-05T12:00:00Z" },
+            ],
+        });
+        const totals = publicInvoiceTotals(refunded);
+        expect(totals.slice(-3).map((t) => [t.key, t.label, t.cents])).toEqual([
+            ["balance", pp.balanceDue, 0],
+            ["refund-0", pp.refundedOn("CN-7-1", shortDate("2026-10-04T12:00:00Z", ZONE)), 1000],
+            ["refund-1", pp.refundedOn("CN-7-2", shortDate("2026-10-05T12:00:00Z", ZONE)), 6750],
+        ]);
+        expect(printedPublicInvoice(refunded, "u", "#000").stamp).toBe(
+            strings.printing.refundedStamp,
+        );
+        const paid = publicInvoice({ status: "paid", balance_cents: 0 });
+        expect(printedPublicInvoice(paid, "u", "#000").stamp).toBe(strings.printing.paidStamp);
     });
 });
 

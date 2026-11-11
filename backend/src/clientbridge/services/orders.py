@@ -364,16 +364,14 @@ class OrderService:
             card = (
                 await self.db.execute(
                     scoped(GiftCard, self.biz)
-                    .where(GiftCard.code == data.code.strip())
+                    .where(GiftCard.code == data.code.strip().upper())
                     .with_for_update()
                 )
             ).scalar_one_or_none()
             if card is None:
-                raise NotFound("gift card not found")
+                raise NotFound("gift card not found", code="gift_card_not_found")
             balance = await ledger.gift_card_balance(self.db, card)
-            expired = card.expires_at is not None and card.expires_at <= clock.now()
-            if ledger.gift_card_status(card, balance) != "active" or expired:
-                raise Conflict("only an active gift card can be used")
+            ledger.assert_gift_card_usable(card, balance)
             amount = min(balance, due)
             if amount <= 0:
                 raise Conflict("nothing is left to pay on this sale")

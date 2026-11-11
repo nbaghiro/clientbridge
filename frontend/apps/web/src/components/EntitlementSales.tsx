@@ -106,6 +106,7 @@ function SaleFields({
                     <TextField
                         label={w.recipient}
                         hint={w.recipientHint}
+                        type="tel"
                         optional
                         value={form.recipient}
                         onChange={form.setRecipient}

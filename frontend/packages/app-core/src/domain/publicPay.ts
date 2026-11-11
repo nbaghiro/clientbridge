@@ -42,6 +42,12 @@ interface PublicCredit {
     at: string | null;
 }
 
+interface PublicRefund {
+    credit_note: string;
+    amount_cents: number;
+    paid_at: string | null;
+}
+
 interface PublicInvoice {
     number: number | null;
     business_name: string;
@@ -69,6 +75,7 @@ interface PublicInvoice {
     discount_reason?: string | null;
     taxes: PublicDocTax[];
     credits: PublicCredit[];
+    refunds: PublicRefund[];
     tip_for?: string[];
     tip_base_cents?: number;
 }
@@ -131,6 +138,12 @@ export function publicInvoiceTotals(invoice: PublicInvoice): DocTotalLine[] {
             kind: "credit",
         })),
         { key: "balance", label: pp.balanceDue, cents: invoice.balance_cents, kind: "balance" },
+        ...invoice.refunds.map((r, i): DocTotalLine => ({
+            key: `refund-${String(i)}`,
+            label: pp.refundedOn(r.credit_note, shortDate(r.paid_at, invoice.timezone)),
+            cents: r.amount_cents,
+            kind: "subtotal",
+        })),
     ];
 }
 
@@ -160,7 +173,7 @@ export function printedPublicInvoice(
             taxes: publicDocTaxes(invoice.taxes),
             totals: publicInvoiceTotals(invoice),
             headline: { label: strings.publicPay.balanceDue, cents: invoice.balance_cents },
-            stamp: paid ? pr.paidStamp : null,
+            stamp: invoice.status === "refunded" ? pr.refundedStamp : paid ? pr.paidStamp : null,
             payUrl: online ? payUrl : null,
             instructions: online ? [pr.payOnline(payUrl)] : [],
             message: invoice.notes,
@@ -245,6 +258,7 @@ interface PublicPayForm {
     invoice: PublicInvoice | null;
     /** Voided or refunded: nothing is due, so the page offers no payment. */
     closed: boolean;
+    closedBody: string;
     online: boolean;
     contact: ContactAction[];
     card: PublicCardIntent | null;
@@ -287,6 +301,12 @@ export function usePublicPayForm(pay: PublicPayClient, token: string): PublicPay
         status,
         invoice,
         closed: invoice?.status === "void" || invoice?.status === "refunded",
+        closedBody:
+            invoice === null
+                ? ""
+                : invoice.status === "refunded"
+                  ? strings.publicPay.refundedBody(invoice.business_name)
+                  : strings.publicPay.closedBody(invoice.business_name),
         online: invoice?.accepts_card === true,
         contact: invoice !== null ? contactActions(invoice) : [],
         card,

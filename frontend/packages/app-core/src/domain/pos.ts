@@ -46,10 +46,11 @@ import {
 import { afterReview, outgoing } from "./previews";
 import { utcBeforeSql, utcFromSql, utcSql } from "../datetime";
 import { TEXTS_STOPPED_SQL } from "./broadcasts";
+import type { IconName } from "../icons";
 import { type ItemRow, ITEMS_SQL, sellableItems, stockState } from "./catalog";
 import { type Checkout, NEW_CARD, useCheckout } from "./checkout";
 import { orderStatusSql } from "./ledger";
-import { canManagePayments, creditNoteNumber, type SavedCardRow, savedCardLabel } from "./payments";
+import { canManagePayments, type SavedCardRow, savedCardLabel } from "./payments";
 import { discountReason, saleNumber } from "./printing";
 import { staffName, staffNameSql } from "./staff";
 import { useReplicaLoad } from "./sync";
@@ -2012,8 +2013,10 @@ SELECT o.id, o.number, o.client_id, c.name AS client_name, o.source, o.pickup_st
                  WHERE p.order_id = o.id AND p.kind = 'refund' AND p.status = 'succeeded'), 0) AS refunded_cents,
        COALESCE((SELECT SUM(l.discount_cents + l.sale_discount_cents) FROM lines l
                  WHERE l.order_id = o.id), 0) AS discount_cents,
-       (SELECT p.method FROM payments p WHERE p.order_id = o.id AND p.kind = 'payment'
-          AND p.status = 'succeeded' ORDER BY p.paid_at DESC LIMIT 1) AS method,
+       COALESCE((SELECT p.method FROM payments p WHERE p.order_id = o.id AND p.kind = 'payment'
+                   AND p.status = 'succeeded' ORDER BY p.paid_at DESC LIMIT 1),
+                (SELECT 'gift_card' FROM entries e WHERE e.event = 'redemption'
+                   AND e.source_type = 'order' AND e.source_id = o.id LIMIT 1)) AS method,
        (SELECT GROUP_CONCAT(CASE WHEN l.quantity > 1 THEN CAST(l.quantity AS INTEGER) || ' × ' || l.description
                                  ELSE l.description END, ', ')
           FROM lines l WHERE l.order_id = o.id) AS summary,
@@ -2099,9 +2102,13 @@ function saleSummary(row: SaleRow): SaleSummary {
         intent: saleStatusIntent(status),
         source: row.source === "online" ? "online" : "desk",
         methodLabel:
-            row.method === null
+            // a gift card that paid part of a sale still open hasn't settled it
+            row.method === null || (row.method === "gift_card" && status === "open")
                 ? d.notPaid
-                : (strings.publicReceipt.method[row.method] ?? strings.publicReceipt.method.other),
+                : row.method === "gift_card"
+                  ? d.giftCardPaid
+                  : (strings.publicReceipt.method[row.method] ??
+                    strings.publicReceipt.method.other),
     };
 }
 
@@ -2134,7 +2141,17 @@ interface SalesHistory {
     };
 }
 
-/** Every sale, newest first, grouped by day with the day's takings. */
+// A refund gives back its share of the tip too, so what stays as sales shrinks in proportion.
+function keptBeforeTip(r: SaleSummary): number {
+    if (r.totalCents <= 0) return 0;
+    const kept = Math.max(0, r.totalCents - r.refundedCents);
+    return Math.round(((r.totalCents - r.tipCents) * kept) / r.totalCents);
+}
+
+const countsAsSale = (r: SaleSummary): boolean =>
+    r.status !== "void" && r.status !== "open" && r.status !== "refunded";
+
+/** Every sale, newest first, grouped by day with the day's takings after refunds. */
 export function useSalesHistory(): SalesHistory {
     const [now] = useState(() => new Date());
     const zone = useBusinessZone();
@@ -2165,21 +2182,16 @@ export function useSalesHistory(): SalesHistory {
                 rows: [],
             };
             day.rows.push(r);
-            if (r.status !== "void" && r.status !== "open") {
-                day.totalCents += r.totalCents;
+            if (countsAsSale(r)) {
+                day.totalCents += Math.max(0, r.totalCents - r.refundedCents);
                 day.count += 1;
             }
             map.set(k, day);
         }
         return [...map.values()];
     }, [all, filter, q, now]);
-    const todays = all.filter(
-        (r) =>
-            dateKey(r.at, zone) === dateKey(now, zone) &&
-            r.status !== "void" &&
-            r.status !== "open",
-    );
-    const salesCents = todays.reduce((n, r) => n + r.totalCents - r.tipCents, 0);
+    const todays = all.filter((r) => dateKey(r.at, zone) === dateKey(now, zone) && countsAsSale(r));
+    const salesCents = todays.reduce((n, r) => n + keptBeforeTip(r), 0);
     return {
         load: useReplicaLoad([rows], all.length === 0),
         filter,
@@ -2199,7 +2211,10 @@ export function useSalesHistory(): SalesHistory {
         today: {
             salesCents,
             count: todays.length,
-            tipsCents: todays.reduce((n, r) => n + r.tipCents, 0),
+            tipsCents: todays.reduce(
+                (n, r) => n + Math.max(0, r.totalCents - r.refundedCents) - keptBeforeTip(r),
+                0,
+            ),
             discountsCents: todays.reduce((n, r) => n + r.discountCents, 0),
             averageCents: todays.length === 0 ? 0 : Math.round(salesCents / todays.length),
         },
@@ -2309,6 +2324,12 @@ export function discountFrom(
     return { kind, value, reason };
 }
 
+function paymentIcon(kind: string, method: string): IconName {
+    if (kind === "refund") return "refresh";
+    if (method === "card") return "card";
+    return method === "bank_eft" ? "bank" : "dollar";
+}
+
 type SaleActionKey =
     "preparing" | "receipt" | "refund" | "void" | "returnGift" | "resume" | "ready" | "pickedUp";
 
@@ -2334,12 +2355,10 @@ interface SaleDetail {
         detail: string;
         cents: number;
         refund: boolean;
+        icon: IconName;
     }[];
     tipShares: TipShare[];
     refundablePaymentId: string | null;
-    paidWith: string;
-    refundableCents: number;
-    creditNotes: string[];
     receipt: string | null;
     actions: { key: SaleActionKey; label: string; tone: "primary" | "outline" | "danger" }[];
 }
@@ -2385,9 +2404,6 @@ export function useSaleDetail(
         const refunded = pays
             .filter((p) => p.kind === "refund")
             .reduce((n, p) => n + p.amount_cents, 0);
-        const paidIn = pays
-            .filter((p) => p.kind === "payment")
-            .reduce((n, p) => n + p.amount_cents, 0);
         const saleDiscount = discountFrom(
             row.discount_kind,
             row.discount_value,
@@ -2416,6 +2432,14 @@ export function useSaleDetail(
         const manager = isManager(role);
         const now = new Date();
         const lastPaid = [...pays].reverse().find((p) => p.kind === "payment") ?? null;
+        const givenBack = (paymentId: string): number =>
+            payRows.data
+                .filter((p) => p.kind === "refund" && p.parent_payment_id === paymentId)
+                .reduce((n, p) => n + p.amount_cents, 0);
+        const refundable =
+            [...pays]
+                .reverse()
+                .find((p) => p.kind === "payment" && givenBack(p.id) < p.amount_cents) ?? null;
         const splits: { staff_id: string; cents: number }[] =
             lastPaid?.tip_split != null
                 ? ((JSON.parse(lastPaid.tip_split) as
@@ -2438,7 +2462,12 @@ export function useSaleDetail(
             actions.push({ key: "receipt", label: d.resendReceipt, tone: "outline" });
         // gift cards paid this sale in full: there is no payment to refund, so it goes back to them
         const giftPaid = status === "paid" && lastPaid === null && row.source !== "online";
-        if (manager && (status === "paid" || status === "partly_refunded") && !giftPaid)
+        if (
+            manager &&
+            (status === "paid" || status === "partly_refunded") &&
+            !giftPaid &&
+            refundable !== null
+        )
             actions.push({ key: "refund", label: d.refund, tone: "outline" });
         if (manager && giftPaid)
             actions.push({ key: "returnGift", label: d.returnGiftSale, tone: "danger" });
@@ -2488,6 +2517,7 @@ export function useSaleDetail(
                 detail: p.paid_at === null ? "" : relativeDayTime(parseTimestamp(p.paid_at), zone),
                 cents: p.kind === "refund" ? -p.amount_cents : p.amount_cents,
                 refund: p.kind === "refund",
+                icon: paymentIcon(p.kind, p.method),
             })),
             tipShares: splits.map((s) => {
                 const who = staffOf(s.staff_id);
@@ -2498,10 +2528,7 @@ export function useSaleDetail(
                     cents: s.cents,
                 };
             }),
-            refundablePaymentId: lastPaid?.id ?? null,
-            paidWith: lastPaid === null ? d.methodCard : (method[lastPaid.method] ?? method.other),
-            refundableCents: Math.max(0, paidIn - refunded),
-            creditNotes: pays.flatMap((p) => (p.credit_note === null ? [] : [p.credit_note])),
+            refundablePaymentId: refundable?.id ?? null,
             receipt: row.receipt_phone === null ? null : d.sentBy(formatPhone(row.receipt_phone)),
             actions,
         };
@@ -2528,16 +2555,16 @@ interface SaleActions {
     dismiss: () => void;
 }
 
-/** Resend, refund and void from a sale's panel; refund and void ask first and are manager-only. */
+/** Resend, refund and void from a sale's panel; a refund opens the refund desk, void asks first. */
 export function useSaleActions(
     api: ApiLike,
     confirmFn: (o: ConfirmOptions) => Promise<boolean>,
     onResume: (orderId: string) => void,
+    onRefund: (paymentId: string) => void,
 ): SaleActions {
     const { busy, error, setError, run } = useAsyncAction();
     const [busyKey, setBusyKey] = useState<SaleActionKey | null>(null);
     const [done, setDone] = useState<string | null>(null);
-    const refundAttempt = useRef<Attempt | null>(null);
     const ask = (options: ConfirmOptions, then: () => void): void => {
         confirmFn(options)
             .then((ok) => {
@@ -2550,7 +2577,6 @@ export function useSaleActions(
         setDone(null);
         run(fn, {
             onSuccess: () => {
-                if (key === "refund") refundAttempt.current = null;
                 setBusyKey(null);
                 setDone(message);
             },
@@ -2616,38 +2642,7 @@ export function useSaleActions(
                 return;
             }
             if (key === "refund" && detail.refundablePaymentId !== null) {
-                const cents = detail.refundableCents;
-                const paymentId = detail.refundablePaymentId;
-                const note = creditNoteNumber(detail.number, detail.creditNotes.length + 1);
-                ask(
-                    {
-                        title: d.refundTitle(detail.number),
-                        message: d.refundBody(
-                            formatMoney(cents, BUSINESS_CURRENCY),
-                            detail.paidWith,
-                            note,
-                        ),
-                        confirmLabel: d.refundConfirm(formatMoney(cents, BUSINESS_CURRENCY)),
-                        destructive: true,
-                    },
-                    () => {
-                        go(
-                            key,
-                            () =>
-                                api.post(
-                                    `/v1/payments/${paymentId}/refund`,
-                                    { amount_cents: cents, notify: true },
-                                    {
-                                        idempotencyKey: attemptKey(refundAttempt, [
-                                            paymentId,
-                                            cents,
-                                        ]),
-                                    },
-                                ),
-                            d.refundDone(formatMoney(cents, BUSINESS_CURRENCY), note),
-                        );
-                    },
-                );
+                onRefund(detail.refundablePaymentId);
                 return;
             }
             if (key === "returnGift") {
