@@ -9,7 +9,12 @@ from clientbridge.schemas.business import BrandInput
 from clientbridge.schemas.orders import PublicOrderAlerts, PublicOrderStatus
 from clientbridge.services import ledger
 from clientbridge.services.lines import fetch_lines
-from clientbridge.services.payments import has_pending_order_refund, refund_online_order
+from clientbridge.services.payments import (
+    cancel_order_intents,
+    has_pending_order_refund,
+    order_refund_cents,
+    refund_online_order,
+)
 from clientbridge.services.public import (
     business_or_404,
     public_brand,
@@ -37,6 +42,7 @@ class PublicOrderService:
         doc_lines, taxes = await public_doc_lines(self.db, order, lines)
         status, _ = await ledger.order_state(self.db, order)
         pending = await has_pending_order_refund(self.db, order)
+        refunded = await order_refund_cents(self.db, order)
         brand = BrandInput.model_validate(business.brand or {})
         return PublicOrderStatus(
             pickup_from=order.pickup_from,
@@ -54,6 +60,7 @@ class PublicOrderService:
             picked_up_at=order.picked_up_at,
             notify_sms=order.notify_sms,
             refund_pending=pending,
+            refund_cents=refunded,
             can_cancel=status == "paid" and order.pickup_status == "unfulfilled" and not pending,
             receipt_token=order.receipt_token
             if status in ("paid", "partly_refunded", "refunded")
@@ -100,4 +107,36 @@ class PublicOrderService:
             response_model=PublicOrderStatus,
             idempotency_key=key,
             request={"order_id": order.id},
+        )
+
+    async def release(self, token: str, gateway: PaymentGateway) -> PublicOrderStatus:
+        """Let go of an unpaid order the client stepped back from, so its units are free again."""
+        order = await self.resolve(token)
+        business = await business_or_404(self.db, order.business_id, "order not found")
+
+        async def run(cmd: Command) -> PublicOrderStatus:
+            locked = (
+                await self.db.execute(
+                    scoped(Order, order.business_id)
+                    .where(Order.id == order.id)
+                    .with_for_update()
+                    .execution_options(populate_existing=True)
+                )
+            ).scalar_one()
+            status, _ = await ledger.order_state(self.db, locked)
+            if status not in ("open", "void"):
+                raise Conflict("the card payment already went through", code="checkout_paid")
+            if status == "open":
+                if business.stripe_account_id is not None:
+                    await cancel_order_intents(self.db, gateway, business.stripe_account_id, locked)
+                locked.status = "void"
+                cmd.record("order.release", entity_type="order", entity_id=locked.id)
+            return await self.view(token)
+
+        return await run_command(
+            self.db,
+            PublicPrincipal(order.business_id),
+            action=f"order.release.{order.id}",
+            run=run,
+            response_model=PublicOrderStatus,
         )

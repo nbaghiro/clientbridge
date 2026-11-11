@@ -1,6 +1,6 @@
 from decimal import ROUND_HALF_UP, Decimal
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import Exists, func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,7 +13,10 @@ from clientbridge.models.billing import Invoice, Line, Order
 from clientbridge.models.catalog import Item, StockMovement
 from clientbridge.models.payments import Payment
 from clientbridge.schemas.catalog import ItemOut, RestockIn
+from clientbridge.services.ledger import invoice_status_expr, order_status_expr
 from clientbridge.services.lines import LineParent, parent_fk
+
+_SETTLED = ("paid", "refunded", "void")
 
 
 class StockService:
@@ -169,13 +172,10 @@ async def assert_parent_stock(
         scoped(model, business_id).where(model.id == parent_id).with_for_update()
     )
     strict = isinstance(document, Order) and document.source == "online"
-    sold = select(StockMovement.line_id).where(
-        StockMovement.reason == "sale", StockMovement.line_id.is_not(None)
-    )
     lines = list(
         await db.scalars(
             scoped(Line, business_id).where(
-                parent_fk(parent) == parent_id, Line.item_id.is_not(None), ~Line.id.in_(sold)
+                parent_fk(parent) == parent_id, Line.item_id.is_not(None), ~_sold(business_id)
             )
         )
     )
@@ -195,6 +195,28 @@ async def assert_parent_stock(
     )
     if not items:
         return
+    held = await held_units(db, business_id, list(wanted), (parent, parent_id))
+    for item in items:
+        available = (item.stock_on_hand or 0) - held.get(item.id, 0)
+        if (strict or held.get(item.id, 0) > 0) and wanted[item.id] > available:
+            raise Conflict("not enough stock available for this sale", code="out_of_stock")
+
+
+def _sold(business_id: str) -> Exists:
+    return (
+        scoped(StockMovement, business_id)
+        .where(StockMovement.line_id == Line.id, StockMovement.reason == "sale")
+        .exists()
+    )
+
+
+async def held_units(
+    db: AsyncSession,
+    business_id: str,
+    item_ids: list[str],
+    besides: tuple[LineParent, str] | None = None,
+) -> dict[str, int]:
+    """Units of each item on other sales whose payment is under way but not yet taken from stock."""
     active = (
         scoped(Payment, business_id)
         .where(
@@ -204,24 +226,23 @@ async def assert_parent_stock(
         )
         .exists()
     )
-    held = dict(
-        (
-            await db.execute(
-                scoped(Line, business_id)
-                .with_only_columns(Line.item_id, func.sum(func.round(Line.quantity)))
-                .where(
-                    Line.item_id.in_(wanted),
-                    ~Line.id.in_(sold),
-                    active,
-                    or_(parent_fk(parent).is_(None), parent_fk(parent) != parent_id),
-                )
-                .group_by(Line.item_id)
-            )
-        )
-        .tuples()
-        .all()
+    # a paid, refunded or void sale holds nothing, even one sold before its item tracked stock
+    settled = or_(
+        select(Order.id)
+        .where(Order.id == Line.order_id, order_status_expr().in_(_SETTLED))
+        .exists(),
+        select(Invoice.id)
+        .where(Invoice.id == Line.invoice_id, invoice_status_expr().in_(_SETTLED))
+        .exists(),
     )
-    for item in items:
-        available = (item.stock_on_hand or 0) - int(held.get(item.id, 0))
-        if (strict or int(held.get(item.id, 0)) > 0) and wanted[item.id] > available:
-            raise Conflict("not enough stock available for this sale", code="out_of_stock")
+    query = (
+        scoped(Line, business_id)
+        .with_only_columns(Line.item_id, func.sum(func.round(Line.quantity)))
+        .where(Line.item_id.in_(item_ids), ~_sold(business_id), active, ~settled)
+        .group_by(Line.item_id)
+    )
+    if besides is not None:
+        parent, parent_id = besides
+        query = query.where(or_(parent_fk(parent).is_(None), parent_fk(parent) != parent_id))
+    rows = (await db.execute(query)).tuples().all()
+    return {item_id: int(units) for item_id, units in rows if item_id is not None}

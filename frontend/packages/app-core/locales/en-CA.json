@@ -2226,6 +2226,12 @@
         "message": "Rung up by {name}",
         "args": ["name"]
     },
+    "pos.desk.placedOnline": {
+        "message": "Placed online"
+    },
+    "pos.desk.pickupSection": {
+        "message": "Pickup"
+    },
     "pos.desk.lines": {
         "message": "Items"
     },
@@ -2354,6 +2360,10 @@
     },
     "pos.desk.markedReady": {
         "message": "Marked ready. We texted {name}.",
+        "args": ["name"]
+    },
+    "pos.desk.markedReadyNoText": {
+        "message": "Marked ready. We couldn't text {name}, so let them know another way.",
         "args": ["name"]
     },
     "pos.desk.markedPickedUp": {
@@ -12947,6 +12957,27 @@
     "publicOrder.pending": {
         "message": "We'll update this page as your order is prepared."
     },
+    "publicOrder.awaitingBody": {
+        "message": "We're confirming your payment. This page updates on its own."
+    },
+    "publicOrder.readyBody": {
+        "message": "Your order is ready. Pick it up at {business}.",
+        "args": ["business"]
+    },
+    "publicOrder.collectedBody": {
+        "message": "You picked up your order. Thank you!"
+    },
+    "publicOrder.refundedBody": {
+        "message": "We refunded {amount} to the card you paid with.",
+        "args": ["amount"]
+    },
+    "publicOrder.refundPendingBody": {
+        "message": "{amount} is on its way back to the card you paid with.",
+        "args": ["amount"]
+    },
+    "publicOrder.voidBody": {
+        "message": "This order was canceled. If a payment went through, it goes back to your card."
+    },
     "publicOrder.updated": {
         "message": "Order updates"
     },
@@ -13116,6 +13147,11 @@
     },
     "publicShop.orderError": {
         "message": "We couldn't place the order. Please try again."
+    },
+    "publicShop.stockChanged": {
+        "message": "{items} just sold out or ran low, so we updated your order. Check it, then continue.",
+        "description": "items is a list of product names",
+        "args": ["items"]
     },
     "publicShop.notFoundTitle": {
         "message": "Shop not found"

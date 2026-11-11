@@ -46,84 +46,86 @@ export function PublicOrder() {
                         {flow.title}
                     </h1>
                     <p className="mt-3 max-w-xl text-base leading-relaxed text-ink-soft">
-                        {s.pending}
+                        {flow.lead}
                     </p>
+                    {flow.refundNote !== null ? (
+                        <p className="mt-2 max-w-xl text-sm text-muted">{flow.refundNote}</p>
+                    ) : null}
                 </div>
             }
         >
             <div className="space-y-5">
-                <section className="rounded-2xl border border-line bg-surface p-5 shadow-card sm:p-7">
-                    <ProgressSteps
-                        label={s.updated}
-                        steps={flow.steps}
-                        layout="column"
-                        className="sm:hidden"
-                    />
-                    <ol aria-label={s.updated} className="hidden grid-cols-4 sm:grid">
-                        {flow.steps.map((step, index) => (
-                            <li
-                                key={step.key}
-                                aria-current={step.state === "current" ? "step" : undefined}
-                                className="relative pr-4"
-                            >
-                                <div className="flex items-center">
-                                    <span
-                                        className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${step.state === "todo" ? "border-2 border-line bg-surface text-muted" : "bg-accent text-accent-ink ring-4 ring-accent-weak"}`}
-                                    >
-                                        {step.state === "done" ? (
-                                            <Icon name="check" size={15} />
-                                        ) : (
-                                            index + 1
-                                        )}
-                                    </span>
-                                    {index < 3 ? (
+                {flow.canceled ? null : (
+                    <section className="rounded-2xl border border-line bg-surface p-5 shadow-card sm:p-7">
+                        <ProgressSteps
+                            label={s.updated}
+                            steps={flow.steps}
+                            layout="column"
+                            className="sm:hidden"
+                        />
+                        <ol aria-label={s.updated} className="hidden grid-cols-4 sm:grid">
+                            {flow.steps.map((step, index) => (
+                                <li
+                                    key={step.key}
+                                    aria-current={step.state === "current" ? "step" : undefined}
+                                    className="relative pr-4"
+                                >
+                                    <div className="flex items-center">
                                         <span
-                                            className={`mx-2 h-0.5 flex-1 ${step.state === "done" ? "bg-accent" : "bg-line"}`}
-                                        />
-                                    ) : null}
-                                </div>
-                                <p className="mt-3 text-sm font-semibold">{step.label}</p>
-                                <p className="mt-1 text-xs text-muted">
-                                    {flow.dates[index]
-                                        ? formatDateTime(
-                                              parseTimestamp(flow.dates[index] ?? ""),
-                                              order.timezone,
-                                          )
-                                        : "—"}
-                                </p>
-                            </li>
-                        ))}
-                    </ol>
-                </section>
-                <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-                    <div className="space-y-5">
-                        <section className="rounded-2xl border border-line bg-surface p-5 shadow-card sm:p-6">
-                            <h2 className="mb-4 font-display text-lg font-bold">{s.pickup}</h2>
-                            <div className="grid gap-5 sm:grid-cols-2">
-                                <div>
-                                    <p className="text-xs uppercase tracking-wide text-muted">
-                                        {s.pickupTime}
-                                    </p>
-                                    <p className="mt-1 font-semibold">
-                                        {order.pickup_from
+                                            className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${step.state === "todo" ? "border-2 border-line bg-surface text-muted" : "bg-accent text-accent-ink ring-4 ring-accent-weak"}`}
+                                        >
+                                            {step.state === "done" ? (
+                                                <Icon name="check" size={15} />
+                                            ) : (
+                                                index + 1
+                                            )}
+                                        </span>
+                                        {index < 3 ? (
+                                            <span
+                                                className={`mx-2 h-0.5 flex-1 ${step.state === "done" ? "bg-accent" : "bg-line"}`}
+                                            />
+                                        ) : null}
+                                    </div>
+                                    <p className="mt-3 text-sm font-semibold">{step.label}</p>
+                                    <p className="mt-1 text-xs text-muted">
+                                        {flow.dates[index]
                                             ? formatDateTime(
-                                                  parseTimestamp(order.pickup_from),
+                                                  parseTimestamp(flow.dates[index] ?? ""),
                                                   order.timezone,
                                               )
-                                            : strings.publicShop.pickupAsap}
+                                            : "—"}
                                     </p>
+                                </li>
+                            ))}
+                        </ol>
+                    </section>
+                )}
+                <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+                    <div className="space-y-5">
+                        {flow.canceled ? null : (
+                            <section className="rounded-2xl border border-line bg-surface p-5 shadow-card sm:p-6">
+                                <h2 className="mb-4 font-display text-lg font-bold">{s.pickup}</h2>
+                                <div className="grid gap-5 sm:grid-cols-2">
+                                    <div>
+                                        <p className="text-xs uppercase tracking-wide text-muted">
+                                            {s.pickupTime}
+                                        </p>
+                                        <p className="mt-1 font-semibold">{flow.pickupLabel}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs uppercase tracking-wide text-muted">
+                                            {s.pickupWhere}
+                                        </p>
+                                        <p className="mt-1 font-semibold">{order.business_name}</p>
+                                        {order.address ? (
+                                            <p className="mt-1 text-sm text-muted">
+                                                {order.address}
+                                            </p>
+                                        ) : null}
+                                    </div>
                                 </div>
-                                <div>
-                                    <p className="text-xs uppercase tracking-wide text-muted">
-                                        {s.pickupWhere}
-                                    </p>
-                                    <p className="mt-1 font-semibold">{order.business_name}</p>
-                                    {order.address ? (
-                                        <p className="mt-1 text-sm text-muted">{order.address}</p>
-                                    ) : null}
-                                </div>
-                            </div>
-                        </section>
+                            </section>
+                        )}
                         <section className="rounded-2xl border border-line bg-surface p-5">
                             <div className="mb-4 flex items-center justify-between">
                                 <h2 className="font-display text-lg font-bold">{s.items}</h2>
@@ -172,15 +174,17 @@ export function PublicOrder() {
                         </section>
                     </div>
                     <aside className="space-y-5 self-start">
-                        <section className="space-y-4 rounded-2xl border border-line bg-surface p-5 shadow-card">
-                            <h2 className="font-display text-lg font-bold">{s.alertTitle}</h2>
-                            <Toggle
-                                label={s.alerts}
-                                value={order.notify_sms}
-                                onChange={flow.setAlerts}
-                                disabled={flow.busy}
-                            />
-                        </section>
+                        {flow.showAlerts ? (
+                            <section className="space-y-4 rounded-2xl border border-line bg-surface p-5 shadow-card">
+                                <h2 className="font-display text-lg font-bold">{s.alertTitle}</h2>
+                                <Toggle
+                                    label={s.alerts}
+                                    value={order.notify_sms}
+                                    onChange={flow.setAlerts}
+                                    disabled={flow.busy}
+                                />
+                            </section>
+                        ) : null}
                         <section className="space-y-4 rounded-2xl border border-line bg-surface p-5 shadow-card">
                             <h2 className="font-display text-lg font-bold">{s.contact}</h2>
                             <p className="text-sm text-muted">{s.contactBody}</p>
@@ -211,18 +215,6 @@ export function PublicOrder() {
                             <Button variant="outline" full onPress={flow.retry}>
                                 {s.refresh}
                             </Button>
-                            {order.receipt_token ? (
-                                <Button
-                                    full
-                                    onPress={() => {
-                                        window.location.assign(
-                                            links.receipt(order.receipt_token ?? ""),
-                                        );
-                                    }}
-                                >
-                                    {s.receipt}
-                                </Button>
-                            ) : null}
                         </section>
                     </aside>
                 </div>

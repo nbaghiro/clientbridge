@@ -207,7 +207,7 @@ class WorkerSettings:
         cron(retry_deferred_payments, second=40),
         cron(send_review_requests, minute=0),
         cron(send_pickup_reminders, minute=0),
-        cron(reap_unpaid_orders, minute={5, 20, 35, 50}),
+        cron(reap_unpaid_orders, minute=set(range(0, 60, 5))),
         cron(cancel_stale_intents, minute=45),
         cron(send_intake_forms, minute={10, 25, 40, 55}),
         cron(sync_plans, hour=5, minute=0),

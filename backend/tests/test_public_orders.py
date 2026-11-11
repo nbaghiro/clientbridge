@@ -10,12 +10,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core import clock
 from clientbridge.core.errors import AppError
 from clientbridge.models.billing import Order
+from clientbridge.models.catalog import Item
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
 from clientbridge.services.notifications import Notifier
 from clientbridge.services.orders import run_pickup_reminders, run_reap_unpaid_orders
 from tests.conftest import FakeEmailSender, FakePaymentGateway, FakePushSender, FakeSmsSender
-from tests.helpers import column, enable_payments, settle, stripe_event
+from tests.helpers import column, enable_payments, replied_stop, settle, stripe_event
 
 
 async def place(api: httpx.AsyncClient, db: AsyncSession) -> dict[str, str]:
@@ -88,6 +89,7 @@ async def test_cancel_order_refunds_once_and_releases_stock(
     response = await api.post(url, headers=headers)
     assert response.status_code == 200, response.text
     assert response.json()["status"] == "refunded"
+    assert response.json()["refund_cents"] == response.json()["total_cents"]
     again = await api.post(url, headers=headers)
     assert again.status_code == 200
     assert again.json() == response.json()
@@ -104,6 +106,131 @@ async def test_cancel_order_refunds_once_and_releases_stock(
         .all()
     )
     assert len(refunds) == 1
+
+
+async def test_releasing_an_unpaid_order_cancels_its_intent_and_frees_its_units(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    await db.execute(
+        update(Item).where(Item.id == "it_shampoo").values(track_stock=True, stock_on_hand=1)
+    )
+    await db.commit()
+
+    async def order_one() -> httpx.Response:
+        return await api.post(
+            "/book/birchbark/shop/orders",
+            headers={"Idempotency-Key": uuid.uuid4().hex},
+            json={
+                "client": {"name": "Changed Mind", "phone": "+16045550168"},
+                "lines": [{"item_id": "it_shampoo", "quantity": 1}],
+            },
+        )
+
+    first = await order_one()
+    assert first.status_code == 200, first.text
+    assert (await order_one()).status_code == 409
+    url = f"/order/{first.json()['order_token']}/release"
+    released = await api.post(url)
+    assert released.status_code == 200, released.text
+    assert released.json()["status"] == "void"
+    payment = (
+        await db.scalars(select(Payment).where(Payment.order_id == first.json()["order_id"]))
+    ).one()
+    await db.refresh(payment)
+    assert payment.status == "canceled"
+    assert gateway.canceled_intents == [payment.provider_ref]
+    assert (await api.post(url)).json()["status"] == "void"
+    assert gateway.canceled_intents == [payment.provider_ref]
+    assert (await order_one()).status_code == 200
+
+
+async def test_releasing_refuses_a_paid_order_and_needs_a_real_token(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    order = await place(api, db)
+    refused = await api.post(f"/order/{order['order_token']}/release")
+    assert refused.status_code == 409
+    assert refused.json()["error"] == "checkout_paid"
+    assert await column(db, "orders", order["order_id"], "status") == "open"
+    page = (await api.get(f"/order/{order['order_token']}")).json()
+    assert (page["status"], page["pickup_status"]) == ("paid", "unfulfilled")
+    assert gateway.canceled_intents == []
+    assert (await api.post("/order/not-a-token/release")).status_code == 404
+
+
+async def test_releasing_an_order_whose_card_just_went_through_is_refused(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    placed = await api.post(
+        "/book/birchbark/shop/orders",
+        headers={"Idempotency-Key": uuid.uuid4().hex},
+        json={
+            "client": {"name": "Fast Card", "phone": "+16045550169"},
+            "lines": [{"item_id": "it_shampoo", "quantity": 1}],
+        },
+    )
+    payment = (
+        await db.scalars(select(Payment).where(Payment.order_id == placed.json()["order_id"]))
+    ).one()
+    assert payment.provider_ref is not None
+    gateway.confirmed.add(payment.provider_ref)
+    refused = await api.post(f"/order/{placed.json()['order_token']}/release")
+    assert refused.status_code == 409
+    assert refused.json()["error"] == "checkout_paid"
+    assert await column(db, "orders", placed.json()["order_id"], "status") == "open"
+
+
+async def test_a_paid_online_order_records_the_receipt_text_unless_the_client_stopped_texts(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    texted = await place(api, db)
+    assert await column(db, "orders", texted["order_id"], "receipt_phone") == "+16045550164"
+    assert await column(db, "orders", texted["order_id"], "receipt_sent_at") is not None
+
+    placed = await api.post(
+        "/book/birchbark/shop/orders",
+        headers={"Idempotency-Key": uuid.uuid4().hex},
+        json={
+            "client": {"name": "Stopped Texts", "phone": "+16045550170"},
+            "lines": [{"item_id": "it_shampoo", "quantity": 1}],
+        },
+    )
+    order_id = placed.json()["order_id"]
+    await replied_stop(db, str(await column(db, "orders", order_id, "client_id")))
+    payment_id = (
+        await db.execute(select(Payment.id).where(Payment.order_id == order_id))
+    ).scalar_one()
+    await settle(api, db, payment_id, uuid.uuid4().hex)
+    assert await column(db, "orders", order_id, "receipt_phone") is None
+    assert await column(db, "orders", order_id, "receipt_sent_at") is None
+
+
+async def test_order_page_reports_only_the_part_refunded(
+    api: httpx.AsyncClient,
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+) -> None:
+    order = await place(api, db)
+    payment_id = (
+        await db.execute(
+            select(Payment.id).where(
+                Payment.order_id == order["order_id"], Payment.kind == "payment"
+            )
+        )
+    ).scalar_one()
+    gateway.refund_status = "pending"
+    refunded = await as_owner.post(
+        f"/v1/payments/{payment_id}/refund",
+        json={"amount_cents": 500},
+        headers={"Idempotency-Key": uuid.uuid4().hex},
+    )
+    assert refunded.status_code == 200, refunded.text
+    page = (await api.get(f"/order/{order['order_token']}")).json()
+    assert (page["status"], page["refund_pending"], page["refund_cents"]) == ("paid", True, 500)
+    assert page["total_cents"] > 500
 
 
 async def test_pickup_windows_validate_and_enforce_capacity(
@@ -160,6 +287,7 @@ async def test_pending_refund_blocks_cancellation_and_preparation(
     response = await api.post(url + "/cancel", headers={"Idempotency-Key": uuid.uuid4().hex})
     assert response.status_code == 200, response.text
     assert response.json()["refund_pending"] is True
+    assert response.json()["refund_cents"] == response.json()["total_cents"]
     assert response.json()["status"] == "paid"
     assert response.json()["can_cancel"] is False
     assert (
@@ -275,10 +403,41 @@ async def test_ready_order_reminder_sent_once_and_respects_alert_choice(
     assert email.sent == []
 
 
+async def test_an_uncollected_order_gets_one_reminder_text_at_nine_local(
+    api: httpx.AsyncClient,
+    db: AsyncSession,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+    push: FakePushSender,
+) -> None:
+    await db.execute(
+        update(Order).where(Order.pickup_status == "ready").values(ready_at=clock.now())
+    )
+    placed = await place(api, db)
+    order = await db.get(Order, placed["order_id"])
+    assert order is not None
+    order.pickup_status = "ready"
+    order.ready_at = clock.now() - timedelta(hours=25)
+    await db.flush()
+    sms.sent.clear()
+    notifier = Notifier(email, sms, push)
+    morning = clock.now().astimezone(ZoneInfo("America/Vancouver")).replace(hour=9, minute=0)
+    assert await run_pickup_reminders(db, notifier, morning.replace(hour=8)) == 0
+    assert await run_pickup_reminders(db, notifier, morning) == 1
+    assert [text.to for text in sms.sent] == ["+16045550164"]
+    assert placed["order_token"] in sms.sent[0].body
+    assert await run_pickup_reminders(db, notifier, morning.replace(minute=30)) == 0
+    assert await run_pickup_reminders(db, notifier, morning + timedelta(days=1)) == 0
+    assert len(sms.sent) == 1
+
+
 async def test_late_settlement_of_a_void_order_is_recorded_and_refunded(
     api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
     await enable_payments(db)
+    await db.execute(
+        update(Item).where(Item.id == "it_shampoo").values(track_stock=True, stock_on_hand=1)
+    )
     response = await api.post(
         "/book/birchbark/shop/orders",
         headers={"Idempotency-Key": uuid.uuid4().hex},
@@ -304,6 +463,8 @@ async def test_late_settlement_of_a_void_order_is_recorded_and_refunded(
         len(list(await db.scalars(select(Payment).where(Payment.parent_payment_id == payment.id))))
         == 1
     )
+    listed = (await api.get("/book/birchbark/shop")).json()["items"]
+    assert next(i for i in listed if i["id"] == "it_shampoo")["stock_left"] == 1
 
 
 async def test_pickup_windows_use_a_bounded_number_of_queries(db: AsyncSession) -> None:

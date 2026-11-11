@@ -728,6 +728,8 @@ interface Strings {
             } & Labels;
             readonly sourceOnline: string;
             readonly rungBy: (name: string) => string;
+            readonly placedOnline: string;
+            readonly pickupSection: string;
             readonly lines: string;
             readonly payments: string;
             readonly tipsTo: string;
@@ -768,6 +770,7 @@ interface Strings {
             readonly otherReason: string;
             readonly discountedBy: (label: string) => string;
             readonly markedReady: (name: string) => string;
+            readonly markedReadyNoText: (name: string) => string;
             readonly markedPickedUp: (name: string) => string;
             readonly details: string;
             readonly loadingCatalog: string;
@@ -4397,13 +4400,19 @@ interface Strings {
         readonly alerts: string;
         readonly receipt: string;
         readonly pending: string;
+        readonly awaitingBody: string;
+        readonly readyBody: (business: string) => string;
+        readonly collectedBody: string;
+        readonly refundedBody: (amount: string) => string;
+        readonly refundPendingBody: (amount: string) => string;
+        readonly voidBody: string;
         readonly updated: string;
         readonly refresh: string;
         readonly error: string;
         readonly subtotal: string;
         readonly tax: string;
         readonly total: string;
-    } & Labels;
+    };
     readonly publicShop: {
         readonly checkoutBody: string;
         readonly pickupDay: string;
@@ -4453,6 +4462,7 @@ interface Strings {
         readonly incomplete: string;
         readonly phoneInvalid: string;
         readonly orderError: string;
+        readonly stockChanged: (items: string) => string;
         readonly notFoundTitle: string;
         readonly notFoundBody: string;
         readonly loadErrorTitle: string;

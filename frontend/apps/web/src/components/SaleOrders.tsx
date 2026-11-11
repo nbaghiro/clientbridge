@@ -464,9 +464,20 @@ function SalePanel({
                             </div>
                         </DetailSection>
                     ) : null}
+                    {detail.pickup !== null ? (
+                        <DetailSection title={d.pickupSection}>
+                            <p className="flex items-center gap-2 text-sm text-ink">
+                                <Badge label={detail.pickup.label} intent={detail.pickup.intent} />
+                                <span className="text-muted">{detail.pickup.when}</span>
+                            </p>
+                            {detail.pickup.window !== null ? (
+                                <p className="mt-1 text-sm text-ink-soft">{detail.pickup.window}</p>
+                            ) : null}
+                        </DetailSection>
+                    ) : null}
                     <DetailSection title={d.receiptSection}>
                         <p className="text-sm text-ink">{detail.receipt ?? d.noReceipt}</p>
-                        <p className="mt-0.5 text-xs text-muted">{d.rungBy(detail.rungBy)}</p>
+                        <p className="mt-0.5 text-xs text-muted">{detail.origin}</p>
                         {detail.note !== null && detail.note !== "" ? (
                             <p className="mt-2 text-sm text-ink-soft">{detail.note}</p>
                         ) : null}

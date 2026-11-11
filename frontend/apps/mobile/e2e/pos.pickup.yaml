@@ -1,0 +1,77 @@
+appId: ${APP_ID}
+name: NATIVE-SALE-01 The owner opens a paid online order from the bell, packs it, marks it ready and hands it over on the phone, and the client is texted once
+---
+# the seeded client's number is a reserved 555-01xx one, whose texts the lane never mails
+- evalScript: ${output.phone = "250" + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000))}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: PATCH
+          PATH: /v1/clients/cl_grace_${E2E_NAMESPACE}
+          BODY: "${JSON.stringify({ phone: output.phone })}"
+- runFlow: helpers/owner.yaml
+- tapOn: "Notifications.*"
+- scrollUntilVisible:
+      element: ".*Grace Lin, order S-5.*"
+      direction: DOWN
+      timeout: 30000
+- tapOn: ".*Grace Lin, order S-5.*"
+# the bell opens the pickup board itself, not the register
+- extendedWaitUntil:
+      visible: "To prepare.*"
+      timeout: 30000
+- assertNotVisible: "Search products"
+# and on what to pack, where the new order is
+- assertVisible: "Online orders to pack"
+- assertVisible: ".*S-5 · Placed.*"
+- takeScreenshot: to-prepare
+- tapOn:
+      text: "Start preparing"
+      below: ".*S-5 · Placed.*"
+- extendedWaitUntil:
+      visible: "Order preparation started."
+      timeout: 30000
+- tapOn:
+      text: "Mark ready"
+      below: ".*S-5 · Placed.*"
+- extendedWaitUntil:
+      visible: "Marked ready. We texted Grace Lin."
+      timeout: 30000
+- runScript:
+      file: helpers/texts.js
+      env:
+          PHONE: ${output.phone}
+          WORDS: is ready to pick up
+- assertTrue: ${output.texts == 1}
+- tapOn: "Ready for pickup.*"
+- extendedWaitUntil:
+      visible: ".*S-5 · Ready since.*"
+      timeout: 30000
+- tapOn:
+      text: "Details"
+      below: ".*S-5 · Ready since.*"
+- extendedWaitUntil:
+      visible: "Sale S-5"
+      timeout: 30000
+- scrollUntilVisible:
+      element: "Placed online"
+      direction: DOWN
+- assertVisible: "Pickup"
+- assertVisible: "Ready since.*"
+- takeScreenshot: sale-panel
+- runFlow: helpers/close-sheet.yaml
+- tapOn:
+      text: "Picked up"
+      below: ".*S-5 · Ready since.*"
+- extendedWaitUntil:
+      visible: "Grace Lin's order is picked up."
+      timeout: 30000
+- assertNotVisible: ".*S-5 · Ready since.*"
+- takeScreenshot: picked-up
+# by now any second ready text would have landed too
+- runScript:
+      file: helpers/texts.js
+      env:
+          PHONE: ${output.phone}
+          WORDS: is ready to pick up
+- assertTrue: ${output.texts == 1}
