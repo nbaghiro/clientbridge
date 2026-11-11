@@ -2219,10 +2219,10 @@ class Cedar(Demo):
         )
         # gift cards: one partly used for cat visits, one still to be spent
         card = self.gift_card(
-            "paul", "catherine", GIFT, 10000, self.at(-62, 13), recipient="Paul Dubois"
+            "paul", "catherine", GIFT, 10000, self.at(-62, 13), recipient="+12365550171"
         )
         self.redeem(card, 6300, self.at(-50, 17))
-        self.gift_card("kate", "olivia", GIFT, 7500, self.at(-20, 19), recipient="Kate Bennett")
+        self.gift_card("kate", "olivia", GIFT, 7500, self.at(-20, 19), recipient="+12365550172")
         # tips on a few walks
         for key, client_key, staff, day, tip in (
             ("isabel_tip", "isabel", TESSA, -16, 1000),

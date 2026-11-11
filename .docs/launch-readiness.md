@@ -58,10 +58,10 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 6. Invoice and get paid | Printed and shared documents | [CB-36](https://linear.app/clientbridgeca/issue/CB-36) | Manual |
 | 6. Invoice and get paid | Deposits applied to the bill | [CB-37](https://linear.app/clientbridgeca/issue/CB-37) | Partly automated |
 | 7. Gift cards, packages and memberships | Package, membership and gift card items | [CB-15](https://linear.app/clientbridgeca/issue/CB-15) | Automated |
-| 7. Gift cards, packages and memberships | Gift cards: sell and redeem | [CB-38](https://linear.app/clientbridgeca/issue/CB-38) | Partly automated |
+| 7. Gift cards, packages and memberships | Gift cards: sell and redeem | [CB-38](https://linear.app/clientbridgeca/issue/CB-38) | Automated |
 | 7. Gift cards, packages and memberships | Packages: sell, use and expire | [CB-39](https://linear.app/clientbridgeca/issue/CB-39) | Partly automated |
 | 7. Gift cards, packages and memberships | Memberships: renewals and failed payments | [CB-40](https://linear.app/clientbridgeca/issue/CB-40) | Partly automated |
-| 8. Refunds and the books | Refunds and credit notes | [CB-42](https://linear.app/clientbridgeca/issue/CB-42) | Partly automated |
+| 8. Refunds and the books | Refunds and credit notes | [CB-42](https://linear.app/clientbridgeca/issue/CB-42) | Automated |
 | 8. Refunds and the books | Disputes and chargebacks | [CB-43](https://linear.app/clientbridgeca/issue/CB-43) | Partly automated |
 | 8. Refunds and the books | Bookkeeper reports and exports | [CB-45](https://linear.app/clientbridgeca/issue/CB-45) | Partly automated |
 | 8. Refunds and the books | GST/HST returns | [CB-46](https://linear.app/clientbridgeca/issue/CB-46) | Partly automated |
@@ -1735,25 +1735,23 @@ The business sells gift cards, packages and memberships, and each is used, renew
 
 **QA steps**
 
-1. Sell a $100 gift card for cash to a recipient.
-   **Expect:** active with a code.
-2. Sell one by card.
-   **Expect:** active only after the payment settles.
+1. Sell a $100 gift card for cash to a recipient's mobile number.
+   **Expect:** active with a code, and the recipient gets the code by text.
+2. Sell one by card; first try a declined card, then a good one.
+   **Expect:** the decline is shown at the desk and the client gets no text; the card is active only after the payment settles. Canceling at the card step voids the card.
 3. Redeem $40, then try to spend $70.
-   **Expect:** $60 remains; overspend refused.
+   **Expect:** $60 remains; the overspend is refused in words that say only $60 is left.
 4. Spend the rest exactly.
-   **Expect:** balance $0 and exhausted.
+   **Expect:** balance $0 and spent; another spend is refused as spent.
 
 **Done when:** Every gift card balance matches what was sold and spent.
 
 **Automated by**
 
 * `ENT-E2E-01 (web)`
-
-**To automate**
-
-* `ENT-E2E-05` in `apps/connect/e2e/stripe/entitlements.stripe.ts`: Card gift card purchase pending to active, decline retry.
-* `ENT-E2E-06` in `apps/web/e2e/entitlements.e2e.ts`: Last balance race between two desks.
+* `ENT-E2E-05 (stripe)`
+* `ENT-E2E-06 (web)`
+* `NATIVE-ENT-02 (native-ios, native-android)`
 
 **Depends on:** Nothing
 
@@ -1857,17 +1855,17 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 **QA steps**
 
 1. Refund $10 of a $50 payment, then the rest.
-   **Expect:** credit notes with exact tax; invoice reads Refunded; tax set aside drops.
-2. Refund part of a desk sale, then the rest.
+   **Expect:** credit notes with exact tax, listed on the invoice and on the client's pay page; the confirmation stays on screen; invoice reads Refunded and its document is stamped Refunded; tax set aside drops.
+2. Refund part of a desk sale from its sale panel, then the rest.
    **Expect:** stock returns once, on the final refund only.
 3. Refund an unused package in full.
    **Expect:** cancelled on both devices and no longer usable.
-4. Refund a gift card purchase.
+4. Refund a gift card purchase from its own panel on the Gift cards page.
    **Expect:** it can no longer be redeemed.
 5. Refund a paid groom after staff pay was paid.
    **Expect:** a clawback appears for the next run.
 6. Refund in the Stripe dashboard.
-   **Expect:** recorded in the app; a refund that later fails is reversed.
+   **Expect:** recorded in the app as the next credit note; a refund that later fails is reversed, reads as failed on the payment and shows in the bell, and the payment then says to pay the client back another way instead of offering a second refund.
 
 **Done when:** Money, stock, entitlements and staff pay agree after every refund.
 
@@ -1875,16 +1873,14 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 
 * `REF-E2E-01 (web)`
 * `SALE-E2E-10 (web)`
+* `ENT-E2E-09 (web)`
 * `FLOW-02-B (journeys)`
 * `FLOW-03-B (journeys)`
 * `FLOW-07-B (journeys)`
 * `FIN-DEPOSIT-04 (stripe)`
+* `STR-E23 (stripe)`
 * `PAY-E2E-02 (web)`
-
-**To automate**
-
-* `STR-E23` in `apps/connect/e2e/stripe/refunds.stripe.ts`: Pending refund that fails later is reversed; dashboard refund recorded.
-* `ENT-E2E-09` in `apps/web/e2e/entitlements.e2e.ts`: Refunded gift card can't be redeemed.
+* `NATIVE-REF-01 (native-ios, native-android)`
 
 **Depends on:** Nothing
 

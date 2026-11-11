@@ -14,8 +14,14 @@ from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Device
 from clientbridge.services.notifications import run_prune_devices
-from tests.conftest import Factory, FakeEmailSender, FakePushSender, FakeSmsSender
-from tests.helpers import begin, card_pay, enable_payments, sent_invoice
+from tests.conftest import (
+    Factory,
+    FakeEmailSender,
+    FakePaymentGateway,
+    FakePushSender,
+    FakeSmsSender,
+)
+from tests.helpers import begin, card_pay, enable_payments, saved_method, sent_invoice
 from tests.helpers import key as retry_key
 
 BIZ = "bz_birchbark"
@@ -331,6 +337,71 @@ async def test_payment_failed_notifies_client(
     assert res.status_code == 200, res.text
     assert email.sent == []
     assert len(sms.sent) == 1
+
+
+async def test_a_declined_card_at_the_desk_does_not_text_the_client(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    sms: FakeSmsSender,
+) -> None:
+    await enable_payments(db)
+    cid = await _client_with_contact(db, phone="+15145551234")
+    gift = await as_owner.post(
+        "/v1/gift-cards",
+        json={"purchaser_client_id": cid, "amount_cents": 5000},
+        headers=retry_key(),
+    )
+    line = {"description": "Latte", "quantity": 1, "unit_amount_cents": 500}
+    sale = (await as_owner.post("/v1/orders", json={"client_id": cid, "lines": [line]})).json()
+    desk = await as_owner.post(f"/v1/orders/{sale['id']}/checkout", headers=retry_key())
+    sms.sent.clear()
+    for n, payment_id in enumerate((gift.json()["payment_id"], desk.json()["payment_id"])):
+        pi = await db.scalar(select(Payment.provider_ref).where(Payment.id == payment_id))
+        event = json.dumps(
+            {
+                "id": f"evt_desk_pf_{n}",
+                "type": "payment_intent.payment_failed",
+                "data": {"object": {"id": pi}},
+            }
+        )
+        res = await as_owner.post("/webhooks/stripe", content=event, headers=GOOD)
+        assert res.status_code == 200, res.text
+        status = await db.scalar(
+            select(Payment.status)
+            .where(Payment.id == payment_id)
+            .execution_options(populate_existing=True)
+        )
+        assert status == "failed"
+    assert sms.sent == []
+
+
+async def test_a_bank_debit_taken_at_the_desk_that_fails_later_texts_the_client(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+    sms: FakeSmsSender,
+) -> None:
+    await enable_payments(db)
+    cid = await _client_with_contact(db, phone="+15145551234")
+    bank = await saved_method(db, gateway, cid, "pm_desk_debit", "bank_eft")
+    gift = await as_owner.post(
+        "/v1/gift-cards",
+        json={"purchaser_client_id": cid, "amount_cents": 5000, "payment_method_id": bank},
+        headers=retry_key(),
+    )
+    assert gift.status_code == 201, gift.text
+    payment = await db.get(Payment, gift.json()["payment_id"])
+    assert payment is not None and payment.method == "bank_eft"
+    sms.sent.clear()
+    event = json.dumps(
+        {
+            "id": "evt_desk_debit_pf",
+            "type": "payment_intent.payment_failed",
+            "data": {"object": {"id": payment.provider_ref}},
+        }
+    )
+    assert (await as_owner.post("/webhooks/stripe", content=event, headers=GOOD)).status_code == 200
+    assert [m.to for m in sms.sent] == ["+15145551234"]
 
 
 async def test_estimate_decline_notifies_business(

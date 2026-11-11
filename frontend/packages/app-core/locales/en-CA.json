@@ -294,6 +294,21 @@
     "api.planNotManaged": {
         "message": "This business has no plan to change."
     },
+    "api.giftCardNotFound": {
+        "message": "No gift card has that code. Check it and try again."
+    },
+    "api.giftCardUnusable": {
+        "message": "{status, select, redeemed {This gift card has been spent.} pending {This gift card can be used once its payment goes through.} expired {This gift card has expired.} void {This gift card was canceled and can't be used.} other {This gift card can't be used.}}",
+        "description": "Why a gift card was refused at the desk; status is the card's state",
+        "args": ["status"]
+    },
+    "api.giftCardShort": {
+        "message": "This gift card has only {balance} left.",
+        "args": ["balance"]
+    },
+    "api.invalidPhone": {
+        "message": "That phone number doesn't look right."
+    },
     "api.skuTaken": {
         "message": "Another item already uses that SKU. Choose a different one."
     },
@@ -1416,6 +1431,15 @@
     "billing.refundBadge": {
         "message": "Refund"
     },
+    "billing.creditNote": {
+        "message": "Credit note {note}",
+        "args": ["note"]
+    },
+    "billing.refundedOn": {
+        "message": "Refunded with credit note {note}, {when}",
+        "description": "A refund listed under an invoice's balance, with its credit note and date",
+        "args": ["note", "when"]
+    },
     "printing.kinds.invoice": {
         "message": "Invoice"
     },
@@ -1552,6 +1576,9 @@
     },
     "printing.paidStamp": {
         "message": "Paid"
+    },
+    "printing.refundedStamp": {
+        "message": "Refunded"
     },
     "printing.forSubject": {
         "message": "for {name}",
@@ -2396,22 +2423,6 @@
     "pos.desk.actionError": {
         "message": "That didn't go through. Please try again."
     },
-    "pos.desk.refundTitle": {
-        "message": "Refund sale {n}?",
-        "args": ["n"]
-    },
-    "pos.desk.refundBody": {
-        "message": "{money} goes back to {card}. We issue credit note {cn} and text it with the refund.",
-        "args": ["money", "card", "cn"]
-    },
-    "pos.desk.refundConfirm": {
-        "message": "Refund {money}",
-        "args": ["money"]
-    },
-    "pos.desk.refundDone": {
-        "message": "Refunded {money}. Credit note {cn} is on its way to the client.",
-        "args": ["money", "cn"]
-    },
     "pos.desk.returnGiftSale": {
         "message": "Return to gift card"
     },
@@ -2917,8 +2928,9 @@
         "description": "kind is what the business books besides the client"
     },
     "entitlements.forRecipient": {
-        "message": "For {name}",
-        "args": ["name"]
+        "message": "To {phone}",
+        "description": "Who a gift card is for: the mobile number its code is texted to",
+        "args": ["phone"]
     },
     "entitlements.statusLabel.active": {
         "message": "Active"
@@ -3011,6 +3023,10 @@
     "entitlements.event.dispute": {
         "message": "Disputed"
     },
+    "entitlements.event.reversal": {
+        "message": "Returned",
+        "description": "A sale's spend put back on the gift card or package, after the sale was voided or refunded"
+    },
     "entitlements.review.useTitle": {
         "message": "Use one session from this package?"
     },
@@ -3059,10 +3075,10 @@
         "message": "Amount"
     },
     "entitlements.recipient": {
-        "message": "Recipient's name"
+        "message": "Recipient's mobile number"
     },
     "entitlements.recipientHint": {
-        "message": "Printed on the gift card message"
+        "message": "We text them the code once the card is paid."
     },
     "entitlements.client": {
         "message": "Client"
@@ -3112,6 +3128,9 @@
     "entitlements.errClient": {
         "message": "Choose a client."
     },
+    "entitlements.errRecipient": {
+        "message": "Enter the recipient's mobile number, or leave it blank."
+    },
     "entitlements.errAmount": {
         "message": "Enter a gift card amount from {min} to {max}.",
         "args": ["min", "max"]
@@ -3137,8 +3156,8 @@
     "entitlements.giftCards.codePlaceholder": {
         "message": "ABCD2345EFGH"
     },
-    "entitlements.giftCards.balance": {
-        "message": "Balance"
+    "entitlements.giftCards.amount": {
+        "message": "Amount to spend"
     },
     "entitlements.giftCards.redeemAmountPlaceholder": {
         "message": "25.00"
@@ -3151,6 +3170,10 @@
     },
     "entitlements.giftCards.redeemError": {
         "message": "Couldn't redeem this gift card. Please try again."
+    },
+    "entitlements.giftCards.redeemed": {
+        "message": "Spent {amount} from {code}. {balance} left.",
+        "args": ["amount", "code", "balance"]
     },
     "bookings.title": {
         "message": "Schedule"
@@ -9796,6 +9819,9 @@
     "refunds.blocked.payment_disputed": {
         "message": "This payment is disputed, so it can't be refunded unless the dispute is won."
     },
+    "refunds.blocked.refund_refused": {
+        "message": "The client's bank turned down an earlier refund of this payment, so it can't be refunded again here. Pay the client back another way, such as cash or e-Transfer."
+    },
     "refunds.blocked.whole_only": {
         "message": "Part of this payment has already been refunded, and the rest can't be refunded separately."
     },
@@ -9808,6 +9834,12 @@
     "refunds.refundEvent": {
         "message": "Refunded · {note}",
         "args": ["note"]
+    },
+    "refunds.failedEvent": {
+        "message": "Refund didn't go through"
+    },
+    "refunds.pendingEvent": {
+        "message": "Refund processing"
     },
     "refunds.method.card": {
         "message": "Card"
@@ -12257,6 +12289,15 @@
         "message": "{method}, {when}",
         "args": ["method", "when"]
     },
+    "publicPay.refundedOn": {
+        "message": "Refunded with credit note {note}, {when}",
+        "description": "A refund listed under the invoice's balance, with its credit note and date",
+        "args": ["note", "when"]
+    },
+    "publicPay.refundedBody": {
+        "message": "{businessName} refunded this invoice, so there's nothing to pay. Contact them if you have a question about it.",
+        "args": ["businessName"]
+    },
     "publicPay.depositCredit": {
         "message": "Deposit you paid when booking"
     },
@@ -14574,6 +14615,13 @@
     },
     "notifications.kinds.refundBody": {
         "message": "{amount} back to {client}",
+        "args": ["client", "amount"]
+    },
+    "notifications.kinds.refundFailed": {
+        "message": "Refund didn't go through"
+    },
+    "notifications.kinds.refundFailedBody": {
+        "message": "{amount} didn't reach {client}. The money is back in your account.",
         "args": ["client", "amount"]
     },
     "notifications.kinds.orderNew": {

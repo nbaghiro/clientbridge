@@ -3,14 +3,18 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.core import clock
 from clientbridge.core.config import get_settings
-from clientbridge.core.ids import new_id
-from clientbridge.integrations.stripe import MandateState
-from clientbridge.models.payments import Payment, PaymentMethod, PaymentSetupLink
+from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.services.payments import FeeMethod, application_fee_cents
 from tests.conftest import FakePaymentGateway
-from tests.helpers import card_pay, client_id, enable_payments, provider_ref, sent_invoice
+from tests.helpers import (
+    card_pay,
+    client_id,
+    enable_payments,
+    provider_ref,
+    saved_method,
+    sent_invoice,
+)
 from tests.helpers import key as retry_key
 
 BIZ = "bz_birchbark"
@@ -44,36 +48,6 @@ def test_the_fee_is_clamped_to_the_maximum_and_never_negative(
     assert application_fee_cents(10_000, "card", converted=False) == 0
 
 
-async def _saved(
-    db: AsyncSession, gateway: FakePaymentGateway, cid: str, ref: str, method: str
-) -> str:
-    if method == "bank_eft":  # a PAD debit is charged under the mandate its setup link recorded
-        db.add(
-            PaymentSetupLink(
-                id=new_id("payment_setup_link"),
-                business_id=BIZ,
-                client_id=cid,
-                account_id="acct_test",
-                customer_id="cus_pad",
-                token_hash=new_id("payment_setup_link"),
-                expires_at=clock.now(),
-                mandate_ref=f"mandate_{ref}",
-            )
-        )
-        gateway.mandates[f"mandate_{ref}"] = MandateState(f"mandate_{ref}", "active", ref)
-    pm = PaymentMethod(
-        id=new_id("payment_method"),
-        business_id=BIZ,
-        client_id=cid,
-        method=method,
-        provider_ref=ref,
-        mandate_status="active" if method == "bank_eft" else "none",
-    )
-    db.add(pm)
-    await db.flush()
-    return pm.id
-
-
 async def _charge_saved(
     api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway, method_id: str
 ) -> int:
@@ -98,7 +72,7 @@ async def test_a_saved_method_is_charged_its_own_fee(
     fee: int,
 ) -> None:
     await enable_payments(db)
-    method_id = await _saved(db, gateway, await client_id(db), ref, method)
+    method_id = await saved_method(db, gateway, await client_id(db), ref, method)
     assert await _charge_saved(as_owner, db, gateway, method_id) == fee
 
 
@@ -135,7 +109,7 @@ async def test_every_saved_card_takes_the_domestic_card_fee_without_asking_strip
 
     monkeypatch.setattr(gateway, "get_card_country", abroad, raising=False)
     await enable_payments(db)
-    method_id = await _saved(db, gateway, await client_id(db), "pm_abroad", "card")
+    method_id = await saved_method(db, gateway, await client_id(db), "pm_abroad", "card")
     assert await _charge_saved(as_owner, db, gateway, method_id) == 30
 
 
@@ -150,7 +124,7 @@ async def test_a_saved_method_charge_is_recorded_as_its_own_method(
     method: str,
 ) -> None:
     await enable_payments(db)
-    method_id = await _saved(db, gateway, await client_id(db), ref, method)
+    method_id = await saved_method(db, gateway, await client_id(db), ref, method)
     await _charge_saved(as_owner, db, gateway, method_id)
     recorded = await db.scalar(
         select(Payment.method)

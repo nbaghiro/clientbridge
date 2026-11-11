@@ -2259,6 +2259,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/payments/{payment_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Payment */
+        post: operations["cancel_payment_v1_payments__payment_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/payments/{payment_id}/refund-preview": {
         parameters: {
             query?: never;
@@ -6103,7 +6120,10 @@ export interface components {
             item_id?: string | null;
             /** Amount Cents */
             amount_cents?: number | null;
-            /** Recipient */
+            /**
+             * Recipient
+             * @description The recipient's mobile number; the code is texted there once paid
+             */
             recipient?: string | null;
             /** Purchaser Client Id */
             purchaser_client_id?: string | null;
@@ -7724,6 +7744,16 @@ export interface components {
              */
             through?: string | null;
         };
+        /** PaymentCancelOut */
+        PaymentCancelOut: {
+            /** Id */
+            id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "succeeded" | "failed" | "canceled";
+        };
         /** PaymentMethodOut */
         PaymentMethodOut: {
             /** Id */
@@ -8671,6 +8701,11 @@ export interface components {
             /** Credits */
             credits?: components["schemas"]["PublicCredit"][];
             /**
+             * Refunds
+             * @description Each credit note issued against the invoice, oldest first
+             */
+            refunds?: components["schemas"]["PublicRefund"][];
+            /**
              * Tip For
              * @description First names of the staff a tip on this invoice goes to
              */
@@ -9021,6 +9056,15 @@ export interface components {
             tip_cents: number;
             /** At */
             at: string | null;
+        };
+        /** PublicRefund */
+        PublicRefund: {
+            /** Credit Note */
+            credit_note: string;
+            /** Amount Cents */
+            amount_cents: number;
+            /** Paid At */
+            paid_at: string | null;
         };
         /** PublicService */
         PublicService: {
@@ -9492,7 +9536,7 @@ export interface components {
              * Blocked
              * @description Why nothing can be refunded, as a code the client renders
              */
-            blocked?: ("not_succeeded" | "already_refunded" | "gift_card_expired" | "gift_card_redeemed" | "package_expired" | "package_used" | "whole_only" | "payment_disputed") | null;
+            blocked?: ("not_succeeded" | "already_refunded" | "gift_card_expired" | "gift_card_redeemed" | "package_expired" | "package_used" | "whole_only" | "payment_disputed" | "refund_refused") | null;
             /**
              * By Hand
              * @description Money goes back outside Stripe (cash, cheque, e-Transfer)
@@ -15451,6 +15495,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RefundOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_payment_v1_payments__payment_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                payment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentCancelOut"];
                 };
             };
             /** @description Validation Error */

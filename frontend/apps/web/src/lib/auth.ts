@@ -43,40 +43,68 @@ export function sessionExpected(): boolean {
     return expected;
 }
 
+function hold(key: string, token: string, ms: number): void {
+    try {
+        localStorage.setItem(key, JSON.stringify({ token, until: Date.now() + ms }));
+    } catch {
+        return;
+    }
+}
+
+function held(key: string): string | null {
+    try {
+        const value = JSON.parse(localStorage.getItem(key) ?? "null") as {
+            token?: unknown;
+            until?: unknown;
+        } | null;
+        if (typeof value?.token === "string" && typeof value.until === "number") {
+            if (value.until > Date.now()) return value.token;
+        }
+        localStorage.removeItem(key);
+        return null;
+    } catch {
+        return null;
+    }
+}
+
+function release(key: string): void {
+    try {
+        localStorage.removeItem(key);
+    } catch {
+        return;
+    }
+}
+
 // An invite token waits here (never in a URL); a new tab from an emailed link finds it too.
 const INVITE = "cb_invite";
 const INVITE_HOLD_MS = 60 * 60 * 1000;
 
 export function holdInvite(token: string): void {
-    try {
-        localStorage.setItem(INVITE, JSON.stringify({ token, until: Date.now() + INVITE_HOLD_MS }));
-    } catch {
-        return;
-    }
+    hold(INVITE, token, INVITE_HOLD_MS);
 }
 
 export function heldInvite(): string | null {
-    try {
-        const held = JSON.parse(localStorage.getItem(INVITE) ?? "null") as {
-            token?: unknown;
-            until?: unknown;
-        } | null;
-        if (typeof held?.token === "string" && typeof held.until === "number") {
-            if (held.until > Date.now()) return held.token;
-        }
-        localStorage.removeItem(INVITE);
-        return null;
-    } catch {
-        return null;
-    }
+    return held(INVITE);
 }
 
 export function releaseInvite(): void {
-    try {
-        localStorage.removeItem(INVITE);
-    } catch {
-        return;
-    }
+    release(INVITE);
+}
+
+// Sign-up's verification flow while its code lasts: the URL can lose it, and a new flow mails a second code.
+const VERIFYING = "cb_verifying";
+const VERIFY_HOLD_MS = 15 * 60 * 1000;
+
+export function holdVerification(flowId: string): void {
+    hold(VERIFYING, flowId, VERIFY_HOLD_MS);
+}
+
+export function heldVerification(): string | null {
+    return held(VERIFYING);
+}
+
+export function releaseVerification(): void {
+    release(VERIFYING);
 }
 
 export function forgetUser(): Promise<void> {
@@ -84,6 +112,7 @@ export function forgetUser(): Promise<void> {
     localStorage.removeItem(KEY);
     localStorage.removeItem(VERIFIED);
     localStorage.removeItem(HINT);
+    releaseVerification();
     return Promise.resolve();
 }
 

@@ -11,6 +11,7 @@ from clientbridge.core.command import Command, run_command
 from clientbridge.core.deps import Principal, assert_can_act_as, assert_role
 from clientbridge.core.errors import AppError, Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
+from clientbridge.core.phones import e164
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.stripe import PaymentGateway
 from clientbridge.models.billing import Invoice
@@ -36,7 +37,9 @@ from clientbridge.services import ledger
 from clientbridge.services.bookings import assert_subject
 from clientbridge.services.business import merchant_account
 from clientbridge.services.clients import assert_client_active
+from clientbridge.services.deliveries import delivery_key
 from clientbridge.services.earnings import accrue_covered_visit
+from clientbridge.services.notifications import queued_notifier
 from clientbridge.services.payments import (
     cancel_open_deposits,
     complete_when_done,
@@ -116,6 +119,9 @@ class GiftCardService:
                 status_code=422,
                 code="purchaser_required",
             )
+        recipient = e164(data.recipient) if data.recipient else None
+        if data.recipient and recipient is None:
+            raise Unprocessable("that phone number doesn't look right", code="invalid_phone")
         client = await self._client(data.purchaser_client_id)
         account_id = _charge_account(await self._business(), data)
         pm_ref = await resolve_saved_method_ref(
@@ -151,7 +157,7 @@ class GiftCardService:
                 item_id=data.item_id,
                 initial_cents=face,
                 purchaser_client_id=data.purchaser_client_id,
-                recipient=data.recipient,
+                recipient=recipient,
                 status="pending",
                 payment_id=payment.id,
             )
@@ -162,6 +168,8 @@ class GiftCardService:
                 raise Conflict("gift card code collision — please retry") from exc
             if account_id is None:
                 await _settle_cash(self.db, payment)
+                notifier = queued_notifier(self.db, self.biz, delivery_key("gift-card", card.id))
+                await notifier.on_gift_card_issued(self.db, card.id)
             cmd.record("gift_card.purchase", entity_type="gift_card", entity_id=card.id)
             return GiftCardPurchaseOut(
                 gift_card_id=card.id,
@@ -186,11 +194,15 @@ class GiftCardService:
 
         async def run(cmd: Command) -> GiftCardOut:
             remaining = await ledger.gift_card_balance(self.db, card)
-            expired = card.expires_at is not None and card.expires_at <= clock.now()
-            if ledger.gift_card_status(card, remaining) != "active" or expired:
-                raise Conflict("only an active gift card can be redeemed")
-            if data.amount_cents <= 0 or data.amount_cents > remaining:
+            ledger.assert_gift_card_usable(card, remaining)
+            if data.amount_cents <= 0:
                 raise Conflict("invalid redemption amount")
+            if data.amount_cents > remaining:
+                raise Conflict(
+                    "the gift card holds less than that",
+                    code="gift_card_short",
+                    detail={"balance_cents": remaining},
+                )
             await ledger.post_redemption(self.db, card, data.amount_cents)
             cmd.record("gift_card.redeem", entity_type="gift_card", entity_id=card.id)
             return await _gift_card_out(self.db, card)
@@ -256,12 +268,12 @@ class GiftCardService:
         return row
 
     async def _by_code(self, code: str, *, lock: bool = False) -> GiftCard:
-        query = scoped(GiftCard, self.biz).where(GiftCard.code == code)
+        query = scoped(GiftCard, self.biz).where(GiftCard.code == code.strip().upper())
         if lock:
             query = query.with_for_update()  # serialize concurrent redemptions (no lost update)
         row = (await self.db.execute(query)).scalar_one_or_none()
         if row is None:
-            raise NotFound("gift card not found")
+            raise NotFound("gift card not found", code="gift_card_not_found")
         return row
 
 
@@ -298,6 +310,36 @@ async def void_purchased_gift_card(db: AsyncSession, business_id: str, payment_i
     if card is not None and card.status in ("pending", "active"):
         card.status = "void"
         await db.flush()
+
+
+async def buys_entitlement(db: AsyncSession, payment: Payment) -> bool:
+    """A charge that pays for a gift card or package sold on its own, not a sale or invoice."""
+    if payment.invoice_id or payment.order_id or payment.booking_id:
+        return False
+    for model in (GiftCard, Package):
+        bought = await db.scalar(
+            scoped(model, payment.business_id)
+            .with_only_columns(model.id)
+            .where(model.payment_id == payment.id)
+        )
+        if bought is not None:
+            return True
+    return False
+
+
+async def release_unpaid_purchase(db: AsyncSession, business_id: str, payment_id: str) -> None:
+    """Void the gift card or package an abandoned purchase charge never paid for (pending only)."""
+    card = (
+        await db.execute(scoped(GiftCard, business_id).where(GiftCard.payment_id == payment_id))
+    ).scalar_one_or_none()
+    if card is not None and card.status == "pending":
+        card.status = "void"
+    package = (
+        await db.execute(scoped(Package, business_id).where(Package.payment_id == payment_id))
+    ).scalar_one_or_none()
+    if package is not None and package.status == "pending":
+        package.status = "canceled"
+    await db.flush()
 
 
 async def restore_purchased_gift_card(db: AsyncSession, business_id: str, payment_id: str) -> None:

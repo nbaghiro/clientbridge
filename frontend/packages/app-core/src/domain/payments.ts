@@ -36,11 +36,12 @@ export interface PaymentRow {
     note: string | null;
     tendered_cents: number | null;
     tip_cents: number;
+    credit_note: string | null;
 }
 
 export const INVOICE_PAYMENTS_SQL = `
 SELECT id, kind, parent_payment_id, amount_cents, currency, status, method, created_at, paid_at,
-       reference, note, tendered_cents, tip_cents
+       reference, note, tendered_cents, tip_cents, credit_note
 FROM payments WHERE invoice_id = ? ORDER BY created_at`;
 
 export function useInvoicePayments(invoiceId: string): PaymentRow[] {
@@ -60,11 +61,6 @@ export function canManagePayments(role: string | null): boolean {
 /** `base` is the one pay host (pay.clientbridge.ca in production) each app is configured with. */
 export function payLinkUrl(base: string, token: string): string {
     return `${base.replace(/\/+$/, "")}/i/${token}`;
-}
-
-/** Credit notes are numbered after the invoice or sale they credit, from 1: CN-1143-1, CN-S-1044-1. */
-export function creditNoteNumber(docNumber: string | number, n: number): string {
-    return `CN-${String(docNumber)}-${String(n)}`;
 }
 
 export interface SavedCardRow {

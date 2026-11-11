@@ -1,3 +1,4 @@
+import { BUSINESS_CURRENCY, formatMoney } from "./format";
 import { strings } from "./strings";
 
 interface PostOptions {
@@ -71,6 +72,9 @@ export async function refusal(
 }
 
 const detailCount = (d: FailureDetail): number => (typeof d.count === "number" ? d.count : 0);
+const detailStatus = (d: FailureDetail): string => (typeof d.status === "string" ? d.status : "");
+const detailBalance = (d: FailureDetail): number =>
+    typeof d.balance_cents === "number" ? d.balance_cents : 0;
 
 // Failures the server names that read the same wherever they happen.
 const FAILURES: Record<string, (detail: FailureDetail) => string> = {
@@ -160,6 +164,11 @@ const FAILURES: Record<string, (detail: FailureDetail) => string> = {
     idempotency_mismatch: () => strings.api.idempotencyMismatch,
     payment_provider_error: () => strings.api.paymentProviderError,
     unsupported_currency: () => strings.api.unsupportedCurrency,
+    gift_card_not_found: () => strings.api.giftCardNotFound,
+    gift_card_unusable: (d) => strings.api.giftCardUnusable(detailStatus(d)),
+    gift_card_short: (d) =>
+        strings.api.giftCardShort(formatMoney(detailBalance(d), BUSINESS_CURRENCY)),
+    invalid_phone: () => strings.api.invalidPhone,
     sku_taken: () => strings.api.skuTaken,
     invoice_has_payments: () => strings.api.invoiceHasPayments,
     file_type_unsupported: () => strings.api.fileTypeUnsupported,

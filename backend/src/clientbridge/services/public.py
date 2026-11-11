@@ -157,6 +157,7 @@ from clientbridge.services.payments import (
     booking_refund_status,
     cancel_open_deposits,
     invoice_credits,
+    invoice_refunds,
     open_booking_deposit,
     open_card_payment,
     open_order_card_payment,
@@ -1913,6 +1914,7 @@ class PublicPayService:
             discount_reason=invoice.discount_reason,
             taxes=taxes,
             credits=await invoice_credits(self.db, invoice),
+            refunds=await invoice_refunds(self.db, invoice),
             tip_for=await _tip_names(self.db, invoice.business_id, lines),
         )
 

@@ -17,6 +17,7 @@ interface RefundablePaymentRow {
     client_id: string | null;
     id: string;
     client_name: string | null;
+    client_phone: string | null;
     kind: string;
     method: string;
     provider: string;
@@ -32,9 +33,10 @@ interface RefundablePaymentRow {
     fee_cents: number;
 }
 
-export const REFUNDABLE_PAYMENTS_SQL = `
-SELECT p.id, p.client_id, c.name AS client_name, p.kind, p.method, p.provider, p.amount_cents, p.paid_at,
-       p.created_at, i.number AS invoice_number, o.number AS order_number, p.booking_id,
+const REFUNDABLE_SQL = `
+SELECT p.id, p.client_id, c.name AS client_name, c.phone AS client_phone, p.kind, p.method,
+       p.provider, p.amount_cents, p.paid_at, p.created_at, i.number AS invoice_number,
+       o.number AS order_number, p.booking_id,
        g.code AS gift_code, pi.name AS package_name,
        COALESCE((SELECT SUM(r.amount_cents) FROM payments r
                  WHERE r.parent_payment_id = p.id AND r.kind = 'refund'
@@ -49,9 +51,14 @@ LEFT JOIN orders o ON o.id = p.order_id
 LEFT JOIN gift_cards g ON g.payment_id = p.id
 LEFT JOIN packages pk ON pk.payment_id = p.id
 LEFT JOIN items pi ON pi.id = pk.item_id
-WHERE p.kind IN ('payment', 'deposit') AND p.status = 'succeeded'
+WHERE p.kind IN ('payment', 'deposit') AND p.status = 'succeeded'`;
+
+export const REFUNDABLE_PAYMENTS_SQL = `${REFUNDABLE_SQL}
 ORDER BY COALESCE(p.paid_at, p.created_at) DESC
 LIMIT 200`;
+
+// a refund opened from a record may be for a payment older than the desk's recent list
+export const REFUNDABLE_PAYMENT_SQL = `${REFUNDABLE_SQL} AND p.id = ?`;
 
 export interface RefundRow {
     id: string;
@@ -157,6 +164,7 @@ interface RefundDesk {
 /** Recent payments to refund, the one being refunded, and every credit note issued. */
 export function useRefundDesk(initialId: string | null = null): RefundDesk {
     const paymentsQuery = useQuery<RefundablePaymentRow>(REFUNDABLE_PAYMENTS_SQL);
+    const linked = useQuery<RefundablePaymentRow>(REFUNDABLE_PAYMENT_SQL, [initialId ?? ""]).data;
     const notesQuery = useQuery<RefundRow>(CREDIT_NOTES_SQL);
     const load = useReplicaLoad([paymentsQuery, notesQuery], paymentsQuery.data.length === 0);
     const [q, setQ] = useState("");
@@ -182,7 +190,10 @@ export function useRefundDesk(initialId: string | null = null): RefundDesk {
         rows,
         selectedId,
         select,
-        selected: all.find((r) => r.payment.id === selectedId) ?? null,
+        selected:
+            all.find((r) => r.payment.id === selectedId) ??
+            linked.filter((p) => p.id === selectedId).map((p) => summarize(p, zone))[0] ??
+            null,
         refunds: notesQuery.data,
     };
 }
@@ -254,6 +265,7 @@ interface RefundComposer {
     reasons: { key: string; label: string }[];
     notify: boolean;
     setNotify: (v: boolean) => void;
+    canNotify: boolean;
     cents: number;
     valid: boolean;
     lines: DocTotalLine[];
@@ -266,6 +278,8 @@ interface RefundComposer {
     error: string | null;
     submit: () => void;
     issued: string | null;
+    // false while the last refund hasn't synced or one is still processing, or the payment is blocked
+    open: boolean;
     history: TimelineEntry[];
 }
 
@@ -280,8 +294,9 @@ export function useRefundComposer(
     const [mode, setModeState] = useState<RefundMode>("full");
     const [amount, setAmountState] = useState("");
     const [reason, setReason] = useState<string>(REFUND_REASONS[0] ?? "other");
+    const canNotify = (p.client_phone ?? "") !== "";
     const [notify, setNotify] = useState(true);
-    const [issued, setIssued] = useState<string | null>(null);
+    const [issuedRefund, setIssuedRefund] = useState<{ id: string; text: string } | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
     const keyRef = useRef<Attempt | null>(null);
 
@@ -295,7 +310,6 @@ export function useRefundComposer(
         `${p.id}${query}${String(p.refunded_cents)}`,
     );
     const data = preview.data;
-    const blocked = data?.blocked == null ? null : (s.blocked[data.blocked] ?? null);
     const wholeOnly = data?.whole_only === true;
     const backTo = s.backTo(summary.method);
     const lines: DocTotalLine[] =
@@ -312,6 +326,31 @@ export function useRefundComposer(
               ];
     const nextNote = data?.next_credit_note ?? "";
     const mine = refunds.filter((r) => r.parent_payment_id === p.id);
+    // the confirmation follows the refund once it syncs: done, still processing, or gone if it failed
+    const issuedRow =
+        issuedRefund === null ? undefined : mine.find((r) => r.id === issuedRefund.id);
+    const issued =
+        issuedRefund === null || issuedRow?.status === "failed" || issuedRow?.status === "canceled"
+            ? null
+            : issuedRow?.status === "succeeded"
+              ? s.refundedDone(
+                    formatMoney(issuedRow.amount_cents, BUSINESS_CURRENCY),
+                    issuedRow.credit_note ?? "",
+                )
+              : issuedRow?.status === "pending"
+                ? s.refundPending
+                : issuedRefund.text;
+    const processing = mine.some((r) => r.status === "pending");
+    const code = data?.blocked ?? null;
+    const blockedText = processing
+        ? s.refundPending
+        : code === null
+          ? null
+          : (s.blocked[code] ?? null);
+    const blocked =
+        issued !== null && (processing || code === "already_refunded") ? null : blockedText;
+    const open =
+        !(issuedRefund !== null && issuedRow === undefined) && !processing && code === null;
 
     const setMode = (m: RefundMode): void => {
         keyRef.current = null;
@@ -320,12 +359,13 @@ export function useRefundComposer(
     };
 
     const submit = (): void => {
-        if (!valid || blocked !== null) {
+        if (!valid || !open) {
             setError(s.errAmount(formatMoney(leftCents, BUSINESS_CURRENCY)));
             return;
         }
-        const body = { amount_cents: cents, reason, notify };
+        const body = { amount_cents: cents, reason, notify: notify && canNotify };
         const key = attemptKey(keyRef, [p.id, body]);
+        setIssuedRefund(null);
         run(
             async () => {
                 const out = await api.post<RefundResult>(`/v1/payments/${p.id}/refund`, body, {
@@ -338,14 +378,16 @@ export function useRefundComposer(
                 }
                 setAmountState("");
                 setModeState("full");
-                setIssued(
-                    out.status === "succeeded"
-                        ? s.refundedDone(
-                              formatMoney(cents, BUSINESS_CURRENCY),
-                              out.credit_note ?? nextNote,
-                          )
-                        : s.refundPending,
-                );
+                setIssuedRefund({
+                    id: out.refund_id,
+                    text:
+                        out.status === "succeeded"
+                            ? s.refundedDone(
+                                  formatMoney(cents, BUSINESS_CURRENCY),
+                                  out.credit_note ?? nextNote,
+                              )
+                            : s.refundPending,
+                });
             },
             { errorMessage: refundFailure },
         );
@@ -374,6 +416,7 @@ export function useRefundComposer(
         reasons: REFUND_REASONS.map((k) => ({ key: k, label: s.reasons[k] ?? k })),
         notify,
         setNotify,
+        canNotify,
         cents,
         valid,
         lines,
@@ -389,6 +432,7 @@ export function useRefundComposer(
         error,
         submit,
         issued,
+        open,
         history: [
             {
                 key: p.id,
@@ -402,13 +446,24 @@ export function useRefundComposer(
             },
             ...mine.map((r): TimelineEntry => ({
                 key: r.id,
-                label: formatParts([
-                    s.refundEvent(r.credit_note ?? ""),
-                    formatCredit(r.amount_cents, BUSINESS_CURRENCY),
-                ]),
+                label:
+                    r.status === "succeeded"
+                        ? formatParts([
+                              s.refundEvent(r.credit_note ?? ""),
+                              formatCredit(r.amount_cents, BUSINESS_CURRENCY),
+                          ])
+                        : formatParts([
+                              r.status === "pending" ? s.pendingEvent : s.failedEvent,
+                              formatMoney(r.amount_cents, BUSINESS_CURRENCY),
+                          ]),
                 detail: s.reasons[r.reason ?? ""] ?? s.noReason,
                 at: formatDate(parseTimestamp(r.paid_at ?? r.created_at), zone),
-                intent: "neutral",
+                intent:
+                    r.status === "succeeded"
+                        ? "neutral"
+                        : r.status === "pending"
+                          ? "warning"
+                          : "danger",
             })),
         ],
     };

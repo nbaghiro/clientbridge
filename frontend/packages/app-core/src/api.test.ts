@@ -11,6 +11,7 @@ import {
     refusal,
     sendAttempt,
 } from "./api";
+import { BUSINESS_CURRENCY, formatMoney } from "./format";
 import { strings } from "./strings";
 
 const refused = (status: number, code: string | null): Error =>
@@ -82,6 +83,27 @@ describe("refused requests", () => {
         expect(failureMessage(e, "fallback")).toBe(strings.api.addonLengthInUse(3));
         expect(failedDetail(refused(409, "conflict"))).toEqual({});
         expect(failedDetail(Object.assign(new Error("x"), { detail: [1] }))).toEqual({});
+    });
+
+    it("says why a gift card was refused, with what is left on it", async () => {
+        const refusedWith = (code: string, detail: object) =>
+            refusal(Response.json({ error: code, message: "x", detail }, { status: 409 }));
+        expect(failureMessage(refused(404, "gift_card_not_found"), "fallback")).toBe(
+            strings.api.giftCardNotFound,
+        );
+        expect(
+            failureMessage(await refusedWith("gift_card_short", { balance_cents: 6000 }), "x"),
+        ).toBe(strings.api.giftCardShort(formatMoney(6000, BUSINESS_CURRENCY)));
+        for (const status of ["redeemed", "pending", "expired", "void"]) {
+            const message = failureMessage(
+                await refusedWith("gift_card_unusable", { status }),
+                "x",
+            );
+            expect(message).toBe(strings.api.giftCardUnusable(status));
+        }
+        expect(strings.api.giftCardUnusable("redeemed")).not.toBe(
+            strings.api.giftCardUnusable("pending"),
+        );
     });
 
     it("keeps the action's own message for any other failure", () => {

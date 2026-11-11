@@ -151,6 +151,18 @@ async function mailed(
     throw new Error(`nothing mailed to ${email}`);
 }
 
+/** How many emails whose subject mentions `subject` reached `email`. */
+export async function mailCount(
+    request: APIRequestContext,
+    email: string,
+    subject: string,
+): Promise<number> {
+    const search = await request.get(`${MAILPIT}/api/v1/search`, {
+        params: { query: `to:"${email}" subject:"${subject}"` },
+    });
+    return ((await search.json()) as { messages_count: number }).messages_count;
+}
+
 /** Deletes the auth identity behind `email`, as an operator would; its sessions die with it. */
 export async function deleteIdentity(request: APIRequestContext, email: string): Promise<void> {
     const found = (await (

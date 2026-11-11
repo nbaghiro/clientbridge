@@ -5,6 +5,7 @@ import {
     browserSession,
     deleteIdentity,
     mailedCode,
+    mailCount,
     mailedCodeForFlow,
     mailedVerificationLink,
     nativeSession,
@@ -772,6 +773,27 @@ test("a new account stays on the code step, through a reload, until its email is
     await expect(
         page.getByRole("heading", { name: strings.business.onboarding.title }),
     ).toBeVisible();
+});
+
+test("a sign-up whose code step loses its flow resumes it instead of mailing a second code", async ({
+    page,
+    request,
+}) => {
+    const account = newAccount("lost-flow");
+    await startSignUp(page, account);
+    await expect(page).toHaveURL(/\/verify\?flow=/);
+    const flowId = new URL(page.url()).searchParams.get("flow") ?? "";
+    // what the switch to the code step can leave behind when it outruns sign-up's own navigation
+    await page.goto("/verify");
+    await expect(page.getByRole("heading", { name: a.verifyTitle })).toBeVisible();
+    await page
+        .getByLabel(a.code, { exact: true })
+        .fill(await mailedCodeForFlow(request, account.email, flowId));
+    await page.getByRole("button", { name: a.verify, exact: true }).click();
+    await expect(
+        page.getByRole("heading", { name: strings.business.onboarding.title }),
+    ).toBeVisible();
+    expect(await mailCount(request, account.email, "verification")).toBe(1);
 });
 
 test("an account whose identity was recreated confirms its email instead of looping", async ({

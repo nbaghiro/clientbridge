@@ -2,7 +2,15 @@ from typing import Annotated
 
 from fastapi import APIRouter, Header
 
-from clientbridge.core.deps import CurrentPrincipal, DbSession, GatewayDep
+from clientbridge.core.deps import (
+    CurrentPrincipal,
+    DbSession,
+    EmailDep,
+    GatewayDep,
+    JobsDep,
+    PushDep,
+    SmsDep,
+)
 from clientbridge.schemas.entitlements import (
     GiftCardOut,
     GiftCardPurchase,
@@ -15,6 +23,7 @@ from clientbridge.schemas.entitlements import (
     SubscriptionCreate,
     SubscriptionOut,
 )
+from clientbridge.services.deliveries import send_queued
 from clientbridge.services.entitlements import GiftCardService, PackageService, SubscriptionService
 
 gift_cards_router = APIRouter(prefix="/gift-cards", tags=["gift-cards"])
@@ -26,9 +35,15 @@ async def purchase_gift_card(
     principal: CurrentPrincipal,
     db: DbSession,
     gateway: GatewayDep,
+    email: EmailDep,
+    sms: SmsDep,
+    push: PushDep,
+    jobs: JobsDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> GiftCardPurchaseOut:
-    return await GiftCardService(db, principal, gateway).purchase_gift_card(body, idempotency_key)
+    out = await GiftCardService(db, principal, gateway).purchase_gift_card(body, idempotency_key)
+    await send_queued(db, email, sms, push, jobs)
+    return out
 
 
 @gift_cards_router.post("/redeem", response_model=GiftCardOut)

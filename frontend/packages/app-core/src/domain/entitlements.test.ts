@@ -1,7 +1,10 @@
+// @vitest-environment happy-dom
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { ApiLike } from "../api";
 import { formatDate, parseTimestamp } from "../datetime";
+import { BUSINESS_CURRENCY, formatMoney } from "../format";
 import { strings } from "../strings";
 
 import { packageBalance } from "./clients";
@@ -14,6 +17,7 @@ import {
     nextSessionCents,
     sessionsRemaining,
     subscriptionTiming,
+    useGiftCardRedeemForm,
 } from "./entitlements";
 
 const pkg = (total: number, used: number, status = "active"): PackageRow => ({
@@ -117,5 +121,79 @@ describe("subscriptionTiming", () => {
     it("says nothing for a membership not yet billing or without a period", () => {
         expect(subscriptionTiming(sub("incomplete"), zone)).toBeNull();
         expect(subscriptionTiming(sub("active", null), zone)).toBeNull();
+    });
+});
+
+describe("useGiftCardRedeemForm", () => {
+    const refusal = (code: string, detail: object) =>
+        Object.assign(new Error("refused"), { status: 409, code, detail });
+
+    it("says what a redemption took and left, and why one was refused", async () => {
+        const answers: unknown[] = [
+            refusal("gift_card_short", { balance_cents: 6000 }),
+            {
+                id: "gc_1",
+                code: "ABCD2345EFGH",
+                initial_cents: 10000,
+                balance_cents: 0,
+                status: "redeemed",
+            },
+        ];
+        const sent: unknown[] = [];
+        const api = {
+            post: (_path: string, body: unknown) => {
+                sent.push(body);
+                const answer = answers.shift();
+                return answer instanceof Error ? Promise.reject(answer) : Promise.resolve(answer);
+            },
+        } as unknown as ApiLike;
+        const { result } = renderHook(() => useGiftCardRedeemForm(api));
+        act(() => {
+            result.current.setCode(" abcd2345efgh ");
+            result.current.setAmount("70");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(result.current.error).toBe(
+                strings.api.giftCardShort(formatMoney(6000, BUSINESS_CURRENCY)),
+            );
+        });
+        act(() => {
+            result.current.setAmount("60");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(result.current.done).toBe(
+                strings.entitlements.giftCards.redeemed(
+                    formatMoney(6000, BUSINESS_CURRENCY),
+                    "ABCD2345EFGH",
+                    formatMoney(0, BUSINESS_CURRENCY),
+                ),
+            );
+        });
+        expect(sent).toEqual([
+            { code: "ABCD2345EFGH", amount_cents: 7000 },
+            { code: "ABCD2345EFGH", amount_cents: 6000 },
+        ]);
+        expect([result.current.code, result.current.amount, result.current.error]).toEqual([
+            "",
+            "",
+            null,
+        ]);
+        act(() => {
+            result.current.submit();
+        });
+        expect([result.current.done, result.current.error]).toEqual([
+            null,
+            strings.entitlements.giftCards.enterCode,
+        ]);
+        act(() => {
+            result.current.setCode("NEXT");
+        });
+        expect(result.current.done).toBeNull();
     });
 });

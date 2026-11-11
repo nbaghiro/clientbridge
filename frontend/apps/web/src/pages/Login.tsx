@@ -15,11 +15,20 @@ import {
     Notice,
     TextField,
 } from "@clientbridge/ui";
-import { type ReactNode, type SubmitEvent, useRef } from "react";
+import { type ReactNode, type SubmitEvent, useEffect, useRef } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { identity } from "../lib/api";
-import { expectSession, getUserId, heldInvite, hintSession, sessionHinted } from "../lib/auth";
+import {
+    expectSession,
+    getUserId,
+    heldInvite,
+    heldVerification,
+    hintSession,
+    holdVerification,
+    releaseVerification,
+    sessionHinted,
+} from "../lib/auth";
 import { leave } from "../lib/powersync";
 import { webauthn } from "../lib/webauthn";
 import { BrandBackdrop, resolveVariant } from "../components/BrandBackdrop";
@@ -433,6 +442,7 @@ function SignIn({ onSuccess, probe }: { onSuccess: () => void; probe?: boolean }
             probe: probe ?? (getUserId() !== null || params.has("session") || sessionHinted()),
             onVerificationStarted: (flowId) => {
                 hintSession();
+                holdVerification(flowId);
                 verification.current = flowId;
             },
             openUrl: (url) => leave(url).then(() => null),
@@ -488,8 +498,11 @@ function Recover({ onSuccess }: { onSuccess: () => void }) {
 export function VerifyEmail() {
     const [params] = useSearchParams();
     const navigate = useNavigate();
-    const flowId = params.get("flow");
+    const flowId = params.get("flow") ?? heldVerification();
     const verification = useVerificationForm(identity, flowId ? { flowId } : {});
+    useEffect(() => {
+        if (verification.verified) releaseVerification();
+    }, [verification.verified]);
     const home = (): void => {
         const navigated = navigate(heldInvite() !== null ? "/accept-invite" : "/", {
             replace: true,

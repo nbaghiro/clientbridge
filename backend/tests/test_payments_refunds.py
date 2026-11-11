@@ -643,6 +643,31 @@ async def test_a_refund_that_fails_later_retains_its_credit_note_and_tells_the_c
     assert await next_credit_note(db, payment) == "CN-9100-2"
 
 
+async def test_a_payment_whose_bank_turned_down_a_refund_takes_no_other(
+    as_owner: httpx.AsyncClient,
+    api: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+) -> None:
+    await enable_payments(db)
+    cid = await client_id(db)
+    inv_id = await sent_invoice(db, number=9102, total=8000)
+    payment = await _settled_charge(db, "pi_refused", client=cid)
+    payment.invoice_id = inv_id
+    await db.flush()
+    await ledger.post_payment(db, payment)
+    await stripe_event(api, "refund.created", _refund_object("pi_refused", "succeeded"))
+    await stripe_event(api, "refund.failed", _refund_object("pi_refused", "failed"))
+    preview = ok(await as_owner.get(f"/v1/payments/{payment.id}/refund-preview")).json()
+    refused = await as_owner.post(
+        f"/v1/payments/{payment.id}/refund", json={"amount_cents": 1000}, headers=retry_key()
+    )
+    assert preview["blocked"] == refused.json()["error"] == "refund_refused"
+    assert refused.status_code == 409
+    assert preview["left_cents"] == 8000 and preview["refund_cents"] == 0
+    assert gateway.refunds == []
+
+
 async def test_a_succeeded_snapshot_arriving_after_the_failure_keeps_the_refund_failed(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:

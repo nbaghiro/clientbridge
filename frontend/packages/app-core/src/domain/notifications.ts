@@ -13,7 +13,7 @@ import {
     useBusinessZone,
 } from "../datetime";
 import { formatMoney, BUSINESS_CURRENCY } from "../format";
-import type { Load } from "../hooks";
+import { type Load, useNow } from "../hooks";
 import type { IconName } from "../icons";
 import { strings } from "../strings";
 import type { Intent } from "../ui";
@@ -50,6 +50,7 @@ type NotificationKind =
     | "payment"
     | "deposit"
     | "refund"
+    | "refund_failed"
     | "order_new"
     | "booking_new"
     | "booking_request"
@@ -74,7 +75,7 @@ interface FeedRow {
 
 const since = (column: string): string => `${utcSql(column)} >= datetime(?)`;
 
-// Derived from synced rows, so each member only sees what their sync bucket holds. Seven `since` params.
+// Derived from synced rows, so each member only sees what their sync bucket holds. Eight `since` params.
 export const NOTIFICATION_FEED_SQL = `
 SELECT 'pay-' || p.id AS id,
        CASE p.kind WHEN 'refund' THEN 'refund' WHEN 'deposit' THEN 'deposit' ELSE 'payment' END AS kind,
@@ -84,6 +85,11 @@ SELECT 'pay-' || p.id AS id,
 FROM payments p LEFT JOIN clients c ON c.id = p.client_id LEFT JOIN orders o ON o.id = p.order_id
 WHERE p.status = 'succeeded' AND ${since("COALESCE(p.paid_at, p.created_at)")}
   AND (p.kind <> 'payment' OR COALESCE(o.source, '') <> 'online')
+UNION ALL
+SELECT 'rff-' || p.id, 'refund_failed', p.updated_at, p.client_id, c.name, p.amount_cents, NULL,
+       NULL, NULL, p.parent_payment_id, NULL
+FROM payments p LEFT JOIN clients c ON c.id = p.client_id
+WHERE p.kind = 'refund' AND p.status IN ('failed', 'canceled') AND ${since("p.updated_at")}
 UNION ALL
 SELECT 'ord-' || o.id, 'order_new', o.paid_at, o.client_id, c.name, NULL, NULL, o.number,
        NULL, o.id, NULL
@@ -142,6 +148,13 @@ const META: Record<
     payment: { category: "payments", icon: "dollar", intent: "success", link: "payments" },
     deposit: { category: "payments", icon: "dollar", intent: "success", link: "schedule" },
     refund: { category: "payments", icon: "refresh", intent: "neutral", link: "payments" },
+    refund_failed: {
+        category: "payments",
+        icon: "alert",
+        intent: "danger",
+        link: "refunds",
+        withId: true,
+    },
     order_new: { category: "payments", icon: "bag", intent: "accent", link: "orders" },
     booking_new: {
         category: "bookings",
@@ -214,6 +227,8 @@ function describeRow(row: FeedRow, zone: string): { title: string; body: string 
             return { title: n.deposit, body: n.depositBody(client, amount) };
         case "refund":
             return { title: n.refund, body: n.refundBody(client, amount) };
+        case "refund_failed":
+            return { title: n.refundFailed, body: n.refundFailedBody(client, amount) };
         case "order_new":
             return { title: n.orderNew, body: n.orderNewBody(client, row.number ?? 0) };
         case "booking_new":
@@ -281,15 +296,17 @@ const FEED_DAYS = 7;
 
 /** The bell: what happened in the last week, from this member's synced rows, read state per device. */
 export function useNotifications(viewer: Viewer | null): NotificationsView {
-    const [now] = useState(() => new Date());
+    const clock = useNow();
     const zone = useBusinessZone();
-    const from = addDays(now, -FEED_DAYS, zone).toISOString();
-    const feed = useQuery<FeedRow>(NOTIFICATION_FEED_SQL, Array<string>(7).fill(from));
+    const from = addDays(startOfDay(clock, zone), -FEED_DAYS, zone).toISOString();
+    const feed = useQuery<FeedRow>(NOTIFICATION_FEED_SQL, Array<string>(8).fill(from));
     const manager = canManagePayments(viewer?.role ?? null);
     const mine = useQuery<{ client_id: string }>(MY_CLIENTS_SQL, [viewer?.staffId ?? ""]).data;
     const [readIds, setReadIds] = useDeviceList("notifications.read", 200);
     const [seenRaw, setSeen] = useDevicePref("notifications.seenAt");
     const [filter, setFilter] = useState<"all" | "unread">("all");
+    // the shell stays mounted all day, so what is new is measured against the latest sync
+    const now = useMemo(() => new Date(), [feed.data, clock]);
     const items = useMemo(() => {
         const clients = new Set(mine.map((r) => r.client_id));
         const rows = manager
