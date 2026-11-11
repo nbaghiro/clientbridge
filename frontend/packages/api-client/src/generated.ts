@@ -5940,22 +5940,22 @@ export interface components {
             due: string;
             /**
              * Federal Cents
-             * @description GST/HST booked in the period, before credits
+             * @description GST/HST booked in the period, before credits; once part of it is filed, only the days still to file
              */
             federal_cents: number;
             /**
              * Provincial Cents
-             * @description PST/QST booked in the period
+             * @description PST/QST booked in the period; once part of it is filed, only the days still to file
              */
             provincial_cents: number;
             /**
              * Taxable Cents
-             * @description Sales before tax booked in the period (line 101)
+             * @description Sales before tax booked on the same days as federal_cents (line 101)
              */
             taxable_cents: number;
             /**
              * Provincial Taxable Cents
-             * @description Sales that carried PST/QST
+             * @description Sales that carried PST/QST on the same days as provincial_cents
              */
             provincial_taxable_cents: number;
             /**
@@ -9640,7 +9640,7 @@ export interface components {
             itc_cents: number;
             /**
              * Total Cents
-             * @description What was paid: the tax owed less input tax credits
+             * @description What was paid: the tax owed less input tax credits; negative when more tax was refunded than collected, so the return claims it back
              */
             total_cents: number;
             /** Confirmation */

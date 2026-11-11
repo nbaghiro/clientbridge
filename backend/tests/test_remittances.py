@@ -113,7 +113,7 @@ async def test_overlapping_or_refiled_period_409(
     again = await as_owner.post(
         "/v1/payments/remittances", json=Q1, headers={"Idempotency-Key": "another-filing"}
     )
-    assert again.status_code == 409
+    assert (again.status_code, again.json()["error"]) == (409, "return_filed")
     overlap = {"period_start": "2021-03-01", "period_end": "2021-05-31"}
     assert (
         await as_owner.post("/v1/payments/remittances", json=overlap, headers=retry_key())
@@ -187,7 +187,7 @@ async def test_period_that_has_not_ended_is_422(
         headers=retry_key(),
     )
     assert res.status_code == 422
-    assert res.json()["error"] == "invalid_period"
+    assert res.json()["error"] == "period_open"
 
 
 async def test_two_businesses_can_file_the_same_period(

@@ -15,8 +15,10 @@ from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice
 from clientbridge.models.business import Business
 from clientbridge.models.clients import Client
+from clientbridge.models.ledger import Account, Entry
 from clientbridge.schemas.payments import RemittanceIn, TaxFilings
 from clientbridge.services import ledger
+from clientbridge.services.ledger import Leg
 from clientbridge.services.remittances import RemittanceService
 from clientbridge.services.reports import add_months, due_date, period_of
 from clientbridge.services.tax import TaxResult
@@ -156,6 +158,40 @@ async def test_filed_in_the_future_422(as_owner: httpx.AsyncClient) -> None:
     )
     assert res.status_code == 422
     assert res.json()["error"] == "invalid_filed_on"
+
+
+async def test_filed_before_the_period_ended_422(as_owner: httpx.AsyncClient) -> None:
+    res = await as_owner.post(
+        "/v1/payments/remittances",
+        json={**Q1, "family": "federal", "filed_on": Q1["period_end"]},
+        headers=retry_key(),
+    )
+    assert res.status_code == 422
+    assert res.json()["error"] == "invalid_filed_on"
+
+
+async def test_more_refunded_than_collected_files_a_refund_claim(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    gst, bank = await _balance(db, "tax", "GST"), await _balance(db, "bank")
+    await ledger.post(
+        db,
+        BIZ,
+        event="refund",
+        ref="test:refund-above-tax",
+        legs=[Leg("business", BIZ, "tax", 300, "GST"), Leg("business", BIZ, "bank", -300)],
+        occurred_at=IN_Q1,
+    )
+    await db.commit()
+    federal = {**Q1, "family": "federal"}
+    credits = await as_owner.post(
+        "/v1/payments/remittances", json={**federal, "itc_cents": 1}, headers=retry_key()
+    )
+    assert (credits.status_code, credits.json()["error"]) == (422, "invalid_itc")
+    res = await as_owner.post("/v1/payments/remittances", json=federal, headers=retry_key())
+    assert res.status_code == 201, res.text
+    assert (res.json()["by_code"], res.json()["total_cents"]) == ({"GST": -300}, -300)
+    assert (await _balance(db, "tax", "GST"), await _balance(db, "bank")) == (gst, bank)
 
 
 async def test_a_family_with_nothing_owed_files_a_nil_return(
@@ -346,3 +382,151 @@ async def test_a_nil_return_files_a_period_with_no_tax(db: AsyncSession, factory
     )
     with pytest.raises(Conflict):
         await service.record(RemittanceIn.model_validate(q3), None)
+
+
+def _unfiled(filings: dict[str, list[dict[str, object]]], family: str) -> int:
+    return sum(
+        int(str(p[f"{family}_cents"]))
+        for p in filings["periods"]
+        if p[f"{family}_status"] != "filed"
+    )
+
+
+async def test_tax_dated_into_a_filed_period_goes_on_the_next_return(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    start, end = await _last_period(db)
+    mid = datetime.combine(start + timedelta(days=20), datetime.min.time(), tzinfo=UTC)
+    await _invoice(db, issued_at=mid, tax={"GST": 4000})
+    window = {"period_start": start.isoformat(), "period_end": end.isoformat()}
+    filed = await as_owner.post(
+        "/v1/payments/remittances", json={**window, "family": "federal"}, headers=retry_key()
+    )
+    assert filed.status_code == 201, filed.text
+    before = (await as_owner.get("/v1/payments/remittances")).json()
+
+    # a renewal paid after its period was filed is dated to the period's start
+    await _invoice(db, issued_at=mid, tax={"GST": 500, "PST": 300})
+    after = (await as_owner.get("/v1/payments/remittances")).json()
+    renewal = (
+        await db.execute(
+            select(Invoice.id).where(Invoice.business_id == BIZ, Invoice.number == 9900 + 800)
+        )
+    ).scalar_one()
+    legs = (
+        await db.execute(
+            select(Account.category, Entry.occurred_at)
+            .join(Account, Account.id == Entry.account_id)
+            .where(Entry.ref == f"invoice:{renewal}")
+        )
+    ).all()
+    assert {"tax", "revenue"} <= {category for category, _ in legs}
+    # only the tax moves to the return in progress; the sale stays on its own day
+    for category, at in legs:
+        assert (at.date() > end) == (category == "tax"), category
+    filed_period = next(p for p in after["periods"] if p["start"] == start.isoformat())
+    assert filed_period["federal_status"] == "filed"
+    assert filed_period["federal_cents"] == filed.json()["by_code"]["GST"]
+    assert after["periods"][0]["federal_cents"] == before["periods"][0]["federal_cents"] + 500
+    assert after["periods"][0]["provincial_cents"] == before["periods"][0]["provincial_cents"] + 300
+    for family in ("federal", "provincial"):
+        assert after[f"{family}_set_aside_cents"] == _unfiled(after, family)
+
+    # PST in that period isn't filed yet, so PST dated into it stays there
+    await _invoice(db, issued_at=mid, tax={"PST": 200})
+    last = (await as_owner.get("/v1/payments/remittances")).json()
+    period = next(p for p in last["periods"] if p["start"] == start.isoformat())
+    assert period["provincial_cents"] == filed_period["provincial_cents"] + 200
+    for family in ("federal", "provincial"):
+        assert last[f"{family}_set_aside_cents"] == _unfiled(last, family)
+
+
+async def test_a_partly_filed_period_owes_and_files_only_the_rest(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    start, end = await _last_period(db)
+    first_month_end = add_months(start, 1) - timedelta(days=1)
+    for days, pst in ((5, 700), (40, 300)):
+        at = datetime.combine(start + timedelta(days=days), datetime.min.time(), tzinfo=UTC)
+        await _invoice(db, issued_at=at + timedelta(hours=20), tax={"PST": pst})
+    family = {"family": "provincial"}
+    month = {"period_start": start.isoformat(), "period_end": first_month_end.isoformat()}
+    part = await as_owner.post(
+        "/v1/payments/remittances", json={**month, **family}, headers=retry_key()
+    )
+    assert part.status_code == 201, part.text
+    filings = (await as_owner.get("/v1/payments/remittances")).json()
+    period = next(p for p in filings["periods"] if p["start"] == start.isoformat())
+    assert period["provincial_status"] == "due"
+    assert filings["provincial_set_aside_cents"] == _unfiled(filings, "provincial")
+
+    whole = {"period_start": start.isoformat(), "period_end": end.isoformat(), **family}
+    rest = await as_owner.post("/v1/payments/remittances", json=whole, headers=retry_key())
+    assert rest.status_code == 201, rest.text
+    assert rest.json()["period_start"] == (first_month_end + timedelta(days=1)).isoformat()
+    assert rest.json()["total_cents"] == period["provincial_cents"]
+    again = await as_owner.post("/v1/payments/remittances", json=whole, headers=retry_key())
+    assert (again.status_code, again.json()["error"]) == (409, "return_filed")
+    inside = await as_owner.post(
+        "/v1/payments/remittances", json={**month, **family}, headers=retry_key()
+    )
+    assert (inside.status_code, inside.json()["error"]) == (409, "return_filed")
+    after = (await as_owner.get("/v1/payments/remittances")).json()
+    period = next(p for p in after["periods"] if p["start"] == start.isoformat())
+    assert period["provincial_status"] == "filed"
+    assert after["provincial_set_aside_cents"] == _unfiled(after, "provincial")
+
+
+async def test_returns_inside_a_period_leave_gaps_that_file_together(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    start, end = await _last_period(db)
+    second = add_months(start, 1)
+    third = add_months(start, 2)
+    for first_day, gst in ((start, 1000), (second, 400), (third, 500)):
+        at = datetime.combine(first_day + timedelta(days=5), datetime.min.time(), tzinfo=UTC)
+        await _invoice(db, issued_at=at + timedelta(hours=20), tax={"GST": gst})
+    middle = {
+        "period_start": second.isoformat(),
+        "period_end": (third - timedelta(days=1)).isoformat(),
+        "family": "federal",
+    }
+    inside = await as_owner.post("/v1/payments/remittances", json=middle, headers=retry_key())
+    assert inside.status_code == 201, inside.text
+    filings = (await as_owner.get("/v1/payments/remittances")).json()
+    period = next(p for p in filings["periods"] if p["start"] == start.isoformat())
+    assert period["federal_status"] == "due"
+    assert filings["federal_set_aside_cents"] == _unfiled(filings, "federal")
+
+    whole = {"period_start": start.isoformat(), "period_end": end.isoformat(), "family": "federal"}
+    remaining = period["federal_cents"]
+    over = await as_owner.post(
+        "/v1/payments/remittances",
+        json={**whole, "itc_cents": remaining + 1},
+        headers=retry_key(),
+    )
+    assert (over.status_code, over.json()["error"]) == (422, "invalid_itc")
+    credits = remaining - 100
+    rest = await as_owner.post(
+        "/v1/payments/remittances",
+        json={**whole, "itc_cents": credits, "confirmation": "CRA-REST"},
+        headers=retry_key(),
+    )
+    assert rest.status_code == 201, rest.text
+    body = rest.json()
+    assert (body["period_start"], body["period_end"]) == (start.isoformat(), end.isoformat())
+    assert (body["itc_cents"], body["total_cents"]) == (credits, 100)
+
+    after = (await as_owner.get("/v1/payments/remittances")).json()
+    period = next(p for p in after["periods"] if p["start"] == start.isoformat())
+    assert period["federal_status"] == "filed"
+    assert after["federal_set_aside_cents"] == _unfiled(after, "federal")
+    first, last = sorted(
+        (r["period_start"], r["by_code"]["GST"], r["itc_cents"])
+        for r in period["returns"]
+        if r["confirmation"] == "CRA-REST"
+    )
+    assert (first[0], last[0]) == (start.isoformat(), third.isoformat())
+    # the credits go against the earlier gap's tax first, the rest against the later one
+    assert first[2] == min(credits, first[1])
+    assert last[2] == credits - first[2]

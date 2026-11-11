@@ -294,6 +294,14 @@
     "api.planNotManaged": {
         "message": "This business has no plan to change."
     },
+    "api.returnFiled": {
+        "message": "A return for this period was already recorded. The page now shows what's left to file.",
+        "description": "Recording a tax return for days another return already covers"
+    },
+    "api.periodOpen": {
+        "message": "This period hasn't ended yet. Record its return once it's over.",
+        "description": "Recording a tax return before its period ends"
+    },
     "api.giftCardNotFound": {
         "message": "No gift card has that code. Check it and try again."
     },
@@ -11433,10 +11441,6 @@
         "message": "You don't collect sales tax yet, so there is nothing to file. Turn on tax registration in Setup once you pass {threshold} in a year.",
         "args": ["threshold"]
     },
-    "remittances.recordTitle": {
-        "message": "Record the filed return: {period}",
-        "args": ["period"]
-    },
     "remittances.whichReturn": {
         "message": "Return"
     },
@@ -11542,7 +11546,7 @@
         "message": "Enter the confirmation number from the province."
     },
     "remittances.errors.filedOn": {
-        "message": "Enter the day you filed, today or earlier."
+        "message": "Enter the day you filed: after the period ended, and today or earlier."
     },
     "remittances.errors.filingFailed": {
         "message": "Couldn't record the return. Please try again."

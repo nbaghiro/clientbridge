@@ -269,6 +269,12 @@
     "api.planNotManaged": {
         "message": "[Ţĥîš ƀûšîñéšš ĥåš ñö þļåñ ţö çĥåñĝé. one two three]"
     },
+    "api.returnFiled": {
+        "message": "[Å ŕéţûŕñ ƒöŕ ţĥîš þéŕîöð ŵåš åļŕéåðý ŕéçöŕðéð. Ţĥé þåĝé ñöŵ šĥöŵš ŵĥåţ'š ļéƒţ ţö ƒîļé. one two three four five six]"
+    },
+    "api.periodOpen": {
+        "message": "[Ţĥîš þéŕîöð ĥåšñ'ţ éñðéð ýéţ. Ŕéçöŕð îţš ŕéţûŕñ öñçé îţ'š öṽéŕ. one two three four]"
+    },
     "api.giftCardNotFound": {
         "message": "[Ñö ĝîƒţ çåŕð ĥåš ţĥåţ çöðé. Çĥéçķ îţ åñð ţŕý åĝåîñ. one two three four]"
     },
@@ -10601,9 +10607,6 @@
     "remittances.notRegistered": {
         "message": "[Ýöû ðöñ'ţ çöļļéçţ šåļéš ţåẋ ýéţ, šö ţĥéŕé îš ñöţĥîñĝ ţö ƒîļé. Ţûŕñ öñ ţåẋ ŕéĝîšţŕåţîöñ îñ Šéţûþ öñçé ýöû þåšš {threshold} îñ å ýéåŕ. one two three four five six seven]"
     },
-    "remittances.recordTitle": {
-        "message": "[Ŕéçöŕð ţĥé ƒîļéð ŕéţûŕñ: {period} one two]"
-    },
     "remittances.whichReturn": {
         "message": "[Ŕéţûŕñ one]"
     },
@@ -10704,7 +10707,7 @@
         "message": "[Éñţéŕ ţĥé çöñƒîŕɱåţîöñ ñûɱƀéŕ ƒŕöɱ ţĥé þŕöṽîñçé. one two three four]"
     },
     "remittances.errors.filedOn": {
-        "message": "[Éñţéŕ ţĥé ðåý ýöû ƒîļéð, ţöðåý öŕ éåŕļîéŕ. one two three]"
+        "message": "[Éñţéŕ ţĥé ðåý ýöû ƒîļéð: åƒţéŕ ţĥé þéŕîöð éñðéð, åñð ţöðåý öŕ éåŕļîéŕ. one two three four five]"
     },
     "remittances.errors.filingFailed": {
         "message": "[Çöûļðñ'ţ ŕéçöŕð ţĥé ŕéţûŕñ. Þļéåšé ţŕý åĝåîñ. one two three]"

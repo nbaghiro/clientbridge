@@ -40,6 +40,29 @@ def _covers(meta: dict[str, object], family: str | None) -> bool:
     return family is None or filed is None or filed == family
 
 
+def _covering(
+    filed: list[FiledReturn], start: date, end: date, family: TaxFamily
+) -> list[FiledReturn]:
+    return [
+        r
+        for r in filed
+        if r.family in (None, family) and r.period_start <= end and start <= r.period_end
+    ]
+
+
+def _gaps(start: date, end: date, filed: list[FiledReturn]) -> list[tuple[date, date]]:
+    """The days from start to end that none of these returns covers."""
+    gaps: list[tuple[date, date]] = []
+    cursor = start
+    for first, last in sorted((max(r.period_start, start), min(r.period_end, end)) for r in filed):
+        if first > cursor:
+            gaps.append((cursor, first - timedelta(days=1)))
+        cursor = max(cursor, last + timedelta(days=1))
+    if cursor <= end:
+        gaps.append((cursor, end))
+    return gaps
+
+
 class RemittanceService:
     """Filing a sales-tax return: the period's net tax leaves tax payable for the bank."""
 
@@ -72,21 +95,25 @@ class RemittanceService:
         today = clock.today(tz)
         if data.period_end >= today:
             raise AppError(
-                "a return can only cover days that have ended",
-                status_code=422,
-                code="invalid_period",
+                "a return can only cover days that have ended", status_code=422, code="period_open"
             )
         filed_on = data.filed_on or today
         if filed_on > today:
             raise AppError(
                 "the filing date can't be in the future", status_code=422, code="invalid_filed_on"
             )
+        if filed_on <= data.period_end:
+            raise AppError(
+                "a return is filed after its period ends", status_code=422, code="invalid_filed_on"
+            )
 
         async def run(cmd: Command) -> RemittanceOut:
             await self.db.execute(
                 select(Business.id).where(Business.id == self.biz).with_for_update()
             )
-            filed = await self.post_return(data, filed_on=filed_on, occurred_at=clock.now())
+            # a backdated sale waits on these, so it sees this return and books its tax now
+            await ledger.lock_books(self.db, self.biz, ("tax", "itc", "bank"))
+            filed = await self._file(await self._spans(data), data, filed_on)
             cmd.record("tax.remit", entity_type="business", entity_id=self.biz)
             return filed
 
@@ -100,21 +127,79 @@ class RemittanceService:
             request=data,
         )
 
+    async def _spans(self, data: RemittanceIn) -> list[RemittanceIn]:
+        """A period partly filed by returns inside it files only the days they leave."""
+        if data.family is None:
+            return [data]
+        start, end = data.period_start, data.period_end
+        inside = _covering(await self.filed_returns(), start, end, data.family)
+        if not inside or any(r.period_start < start or r.period_end > end for r in inside):
+            return [data]
+        gaps = _gaps(start, end, inside)
+        if not gaps:
+            return [data]
+        return [data.model_copy(update={"period_start": a, "period_end": b}) for a, b in gaps]
+
+    async def _file(
+        self, spans: list[RemittanceIn], data: RemittanceIn, filed_on: date
+    ) -> RemittanceOut:
+        """One return per span, its credits claimed against the earliest spans first."""
+        if len(spans) == 1:
+            return await self.post_return(spans[0], filed_on=filed_on, occurred_at=clock.now())
+        tz = zone((await self._business()).timezone)
+        federal: list[int] = []
+        for span in spans:
+            lo, hi = period_bounds(span.period_start, span.period_end, tz)
+            owed = await self._owed(lo, hi, "federal") if data.family == "federal" else {}
+            federal.append(max(sum(owed.values()), 0))
+        if data.itc_cents > sum(federal):
+            raise AppError(
+                "input tax credits can't be more than the GST/HST collected",
+                status_code=422,
+                code="invalid_itc",
+            )
+        left = data.itc_cents
+        filed: list[RemittanceOut] = []
+        for span, collected in zip(spans, federal, strict=True):
+            itc = min(left, collected)
+            left -= itc
+            filed.append(
+                await self.post_return(
+                    span.model_copy(update={"itc_cents": itc}),
+                    filed_on=filed_on,
+                    occurred_at=clock.now(),
+                )
+            )
+        by_code: dict[str, int] = {}
+        for one in filed:
+            for code, cents in one.by_code.items():
+                by_code[code] = by_code.get(code, 0) + cents
+        return RemittanceOut(
+            period_start=filed[0].period_start,
+            period_end=filed[-1].period_end,
+            family=data.family,
+            by_code=by_code,
+            itc_cents=data.itc_cents,
+            total_cents=sum(one.total_cents for one in filed),
+            confirmation=data.confirmation,
+            filed_on=filed_on,
+        )
+
     async def post_return(
         self, data: RemittanceIn, *, filed_on: date, occurred_at: datetime
     ) -> RemittanceOut:
-        """Post one return's journal: the period's tax leaves tax payable for the bank."""
+        """Post one return's journal: the net tax moves between tax payable and the bank."""
         tz = zone((await self._business()).timezone)
         lo, hi = period_bounds(data.period_start, data.period_end, tz)
         family = data.family
         if await self._overlaps(data.period_start, data.period_end, family):
-            raise Conflict("this period overlaps a return that was already filed")
+            raise Conflict(
+                "this period overlaps a return that was already filed", code="return_filed"
+            )
         owed = await self._owed(lo, hi, family)
         total = sum(owed.values())
-        if total < 0:
-            raise Conflict("more tax was refunded than collected in this period")
         federal = sum(owed.get(code, 0) for code in FAMILY_CODES["federal"])
-        if data.itc_cents > federal:
+        if data.itc_cents > max(federal, 0):
             raise AppError(
                 "input tax credits can't be more than the GST/HST collected",
                 status_code=422,
@@ -268,17 +353,33 @@ class RemittanceService:
                 return "filed"
             return "open" if end >= today else "due"
 
-        provincial_cents = sum(owed.get(c, 0) for c in FAMILY_CODES["provincial"])
+        federal = await status("federal")
         provincial = await status("provincial")
+        federal_cents, taxable_cents = (
+            await self._unfiled(start, end, "federal", returns, tz)
+            if federal != "filed" and _covering(returns, start, end, "federal")
+            else (
+                sum(owed.get(c, 0) for c in FAMILY_CODES["federal"]),
+                await self.reports.taxable_sales(lo, hi),
+            )
+        )
+        provincial_cents, provincial_taxable_cents = (
+            await self._unfiled(start, end, "provincial", returns, tz)
+            if provincial != "filed" and _covering(returns, start, end, "provincial")
+            else (
+                sum(owed.get(c, 0) for c in FAMILY_CODES["provincial"]),
+                await self.reports.provincial_base(lo, hi),
+            )
+        )
         return FilingPeriod(
             start=start,
             end=end,
             due=due_date(end, frequency),
-            federal_cents=sum(owed.get(c, 0) for c in FAMILY_CODES["federal"]),
+            federal_cents=federal_cents,
             provincial_cents=provincial_cents,
-            taxable_cents=await self.reports.taxable_sales(lo, hi),
-            provincial_taxable_cents=await self.reports.provincial_base(lo, hi),
-            federal_status=await status("federal"),
+            taxable_cents=taxable_cents,
+            provincial_taxable_cents=provincial_taxable_cents,
+            federal_status=federal,
             provincial_status="none"
             if provincial_cents == 0 and provincial != "filed"
             else provincial,
@@ -289,21 +390,29 @@ class RemittanceService:
         self, start: date, end: date, family: TaxFamily, filed: list[FiledReturn], tz: ZoneInfo
     ) -> bool:
         """A period is filed once its returns leave no day with this family's tax unfiled."""
-        spans = sorted(
-            (max(r.period_start, start), min(r.period_end, end))
-            for r in filed
-            if r.family in (None, family) and r.period_start <= end and start <= r.period_end
-        )
-        if not spans:
+        covering = _covering(filed, start, end, family)
+        if not covering:
             return False
-        cursor = start
-        for first, last in [*spans, (end + timedelta(days=1), end)]:
-            if first > cursor:
-                lo, hi = period_bounds(cursor, first - timedelta(days=1), tz)
-                if sum((await self._owed(lo, hi, family)).values()) > 0:
-                    return False
-            cursor = max(cursor, last + timedelta(days=1))
+        for first, last in _gaps(start, end, covering):
+            lo, hi = period_bounds(first, last, tz)
+            if sum((await self._owed(lo, hi, family)).values()) > 0:
+                return False
         return True
+
+    async def _unfiled(
+        self, start: date, end: date, family: TaxFamily, filed: list[FiledReturn], tz: ZoneInfo
+    ) -> tuple[int, int]:
+        """The family's tax and taxed sales on the days of a period its returns leave unfiled."""
+        tax = sales = 0
+        for first, last in _gaps(start, end, _covering(filed, start, end, family)):
+            lo, hi = period_bounds(first, last, tz)
+            tax += sum((await self._owed(lo, hi, family)).values())
+            sales += await (
+                self.reports.taxable_sales(lo, hi)
+                if family == "federal"
+                else self.reports.provincial_base(lo, hi)
+            )
+        return tax, sales
 
     async def _owed(self, lo: datetime, hi: datetime, family: str | None) -> dict[str, int]:
         stmt = (

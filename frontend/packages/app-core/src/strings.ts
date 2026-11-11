@@ -105,6 +105,8 @@ interface Strings {
         readonly seatLimit: string;
         readonly planActive: string;
         readonly planNotManaged: string;
+        readonly returnFiled: string;
+        readonly periodOpen: string;
         readonly giftCardNotFound: string;
         readonly giftCardUnusable: (status: string) => string;
         readonly giftCardShort: (balance: string) => string;
@@ -3877,7 +3879,6 @@ interface Strings {
         readonly history: string;
         readonly noHistory: string;
         readonly notRegistered: (threshold: string) => string;
-        readonly recordTitle: (period: string) => string;
         readonly whichReturn: string;
         readonly familyFor: (code: string) => string;
         readonly worksheet: string;

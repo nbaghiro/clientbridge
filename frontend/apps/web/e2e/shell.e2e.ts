@@ -32,7 +32,7 @@ const PAYMENTS_TABS = {
     "gift-cards": strings.entitlements.colItem,
     refunds: strings.refunds.colMethod,
     "staff-pay": strings.earnings.colMember,
-    tax: strings.remittances.recordFiled,
+    tax: strings.remittances.owed,
     payouts: strings.payouts.colRef,
     reports: strings.reports.monthlyNet,
 };
@@ -767,7 +767,10 @@ test("owner: payments desk, records and their dialogs", async ({ page }) => {
         await expect(main.getByText(strings.reports.taxableSales)).toBeVisible();
         await openAndClose(page, strings.reports.bookkeeperPack);
         await navigate(page, "/payments/tax");
-        await openAndClose(page, strings.remittances.recordFiled);
+        // Record shows only while a period has ended unfiled, which depends on the seed's date
+        await expect(
+            main.getByRole("button", { name: strings.remittances.downloadCsv, exact: true }),
+        ).toBeVisible();
     });
 
     await walk.step("payouts and staff pay", async () => {

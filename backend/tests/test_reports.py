@@ -255,20 +255,20 @@ async def test_gst_hst_period_bounds_use_business_timezone(
     tz = ZoneInfo(
         (await db.execute(select(Business.timezone).where(Business.id == BIZ))).scalar_one()
     )
-    # 23:00 on the last day of Q2 in the business tz is still Q2 locally, but next-day UTC.
-    issued_at = datetime(2026, 6, 30, 23, 0, tzinfo=tz).astimezone(UTC)
-    q2, q3 = "start=2026-04-01&end=2026-06-30", "start=2026-07-01&end=2026-09-30"
-    q2_before = (await as_owner.get(f"/v1/reports/gst-hst?{q2}")).json()
+    # 23:00 on Q3's last local day is next-day UTC; Q3 is unfiled at FROZEN, so its tax stays
+    issued_at = datetime(2026, 9, 30, 23, 0, tzinfo=tz).astimezone(UTC)
+    q3, q4 = "start=2026-07-01&end=2026-09-30", "start=2026-10-01&end=2026-12-31"
     q3_before = (await as_owner.get(f"/v1/reports/gst-hst?{q3}")).json()
+    q4_before = (await as_owner.get(f"/v1/reports/gst-hst?{q4}")).json()
     await _add_invoice(
         db, number=9610, issued_at=issued_at, subtotal=10000, tax={"GST": 500, "PST": 700}
     )
-    q2_after = (await as_owner.get(f"/v1/reports/gst-hst?{q2}")).json()
     q3_after = (await as_owner.get(f"/v1/reports/gst-hst?{q3}")).json()
+    q4_after = (await as_owner.get(f"/v1/reports/gst-hst?{q4}")).json()
 
-    assert q2_after["tax_collected_cents"] - q2_before["tax_collected_cents"] == 500
-    assert q2_after["pst_cents"] - q2_before["pst_cents"] == 700
-    assert q3_after["tax_collected_cents"] == q3_before["tax_collected_cents"]
+    assert q3_after["tax_collected_cents"] - q3_before["tax_collected_cents"] == 500
+    assert q3_after["pst_cents"] - q3_before["pst_cents"] == 700
+    assert q4_after["tax_collected_cents"] == q4_before["tax_collected_cents"]
 
 
 async def test_t4a_sums_earnings_paid_in_year(

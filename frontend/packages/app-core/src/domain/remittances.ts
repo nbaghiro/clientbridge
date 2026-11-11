@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from "react";
 
 import { type Load, useAsyncAction, useLoad, useRemote } from "../hooks";
 import { strings } from "../strings";
-import { type ApiLike, type Attempt, attemptKey } from "../api";
+import { type ApiLike, type Attempt, attemptKey, failedCode, failureMessage } from "../api";
 import {
     addDays,
     dateKey,
@@ -13,7 +13,7 @@ import {
     parseDateKey,
     useBusinessZone,
 } from "../datetime";
-import { parseCents, BUSINESS_CURRENCY } from "../format";
+import { formatList, parseCents, BUSINESS_CURRENCY } from "../format";
 import type { Intent } from "../ui";
 import { taxName } from "./printing";
 
@@ -75,8 +75,16 @@ export interface FilingPeriod {
     provincialTaxableCents: number;
     federalStatus: FilingStatus;
     provincialStatus: FilingStatus | "none";
-    federalReturn: FiledReturn | null;
-    provincialReturn: FiledReturn | null;
+    // the returns that start in the period; one covering both taxes counts as federal
+    federalReturns: FiledReturn[];
+    provincialReturns: FiledReturn[];
+    federalPaidCents: number;
+    provincialPaidCents: number;
+    federalConfirmations: string[];
+    provincialConfirmations: string[];
+    // the days each return still has to cover, which is the whole period until one is filed
+    federalSpan: string;
+    provincialSpan: string;
 }
 
 const day = (key: string, zone: string): Date => parseDateKey(key, zone) ?? new Date(NaN);
@@ -92,28 +100,63 @@ function periodTitle(row: FilingPeriodRow, frequency: string, zone: string): str
     return strings.remittances.quarter(Math.floor((month - 1) / 3) + 1, year);
 }
 
+const shiftKey = (key: string, days: number, zone: string): string =>
+    dateKey(addDays(day(key, zone), days, zone), zone);
+
+function spanOf(start: string, end: string, zone: string): string {
+    return strings.remittances.span(filingDay(start, zone), formatDate(day(end, zone), zone));
+}
+
+function unfiledSpan(row: FilingPeriodRow, family: TaxFamily, zone: string): string {
+    const covered = row.returns
+        .filter(
+            (r) =>
+                (r.family === family || r.family === null) &&
+                r.period_start <= row.end &&
+                row.start <= r.period_end,
+        )
+        .map((r) => [
+            r.period_start < row.start ? row.start : r.period_start,
+            r.period_end > row.end ? row.end : r.period_end,
+        ])
+        .sort(([a = ""], [b = ""]) => a.localeCompare(b));
+    const gaps: string[] = [];
+    let cursor = row.start;
+    for (const [first = row.start, last = row.end] of covered) {
+        if (first > cursor) gaps.push(spanOf(cursor, shiftKey(first, -1, zone), zone));
+        const next = shiftKey(last, 1, zone);
+        if (next > cursor) cursor = next;
+    }
+    if (cursor <= row.end) gaps.push(spanOf(cursor, row.end, zone));
+    return gaps.length === 0 ? spanOf(row.start, row.end, zone) : formatList(gaps);
+}
+
+const paid = (returns: FiledReturn[]): number => returns.reduce((n, r) => n + r.paid_cents, 0);
+
+const confirmations = (returns: FiledReturn[]): string[] => [
+    ...new Set(returns.flatMap((r) => (r.confirmation === null ? [] : [r.confirmation]))),
+];
+
 function toPeriod(row: FilingPeriodRow, frequency: string, now: Date, zone: string): FilingPeriod {
     const due = day(row.due, zone);
     const provincialDone = row.provincial_status === "none" || row.provincial_status === "filed";
+    // the server decides when a period has ended, in the business's zone
     const status: FilingStatus =
         row.federal_status === "filed" && provincialDone
             ? "filed"
-            : day(row.end, zone) < now
+            : row.federal_status === "due" || row.provincial_status === "due"
               ? "due"
               : "open";
-    const find = (family: TaxFamily): FiledReturn | null =>
-        row.returns.find((r) => r.family === family) ??
-        row.returns.find((r) => r.family === null) ??
-        null;
+    // a return that runs past the period, from before a frequency change, shows where it starts
+    const own = row.returns.filter((r) => r.period_start >= row.start && r.period_start <= row.end);
+    const federalReturns = own.filter((r) => r.family !== "provincial");
+    const provincialReturns = own.filter((r) => r.family === "provincial");
     return {
         key: row.start,
         start: row.start,
         end: row.end,
         title: periodTitle(row, frequency, zone),
-        span: strings.remittances.span(
-            filingDay(row.start, zone),
-            formatDate(day(row.end, zone), zone),
-        ),
+        span: spanOf(row.start, row.end, zone),
         due,
         daysToDue: daysUntil(due, zone, now),
         status,
@@ -123,8 +166,14 @@ function toPeriod(row: FilingPeriodRow, frequency: string, now: Date, zone: stri
         provincialTaxableCents: row.provincial_taxable_cents,
         federalStatus: row.federal_status,
         provincialStatus: row.provincial_status,
-        federalReturn: row.federal_status === "filed" ? find("federal") : null,
-        provincialReturn: row.provincial_status === "filed" ? find("provincial") : null,
+        federalReturns,
+        provincialReturns,
+        federalPaidCents: paid(federalReturns),
+        provincialPaidCents: paid(provincialReturns),
+        federalConfirmations: confirmations(federalReturns),
+        provincialConfirmations: confirmations(provincialReturns),
+        federalSpan: unfiledSpan(row, "federal", zone),
+        provincialSpan: unfiledSpan(row, "provincial", zone),
     };
 }
 
@@ -139,15 +188,18 @@ export function filingStatusIntent(status: FilingStatus): Intent {
     }
 }
 
+/** When a period's returns were filed, the GST/HST return first. */
+export function filedWhen(p: FilingPeriod, zone: string): string {
+    const filedOn = (p.federalReturns[0] ?? p.provincialReturns[0])?.filed_on;
+    // filed per the server, but with no return row to date it (e.g. recorded before returns)
+    return filedOn === undefined
+        ? strings.remittances.filed
+        : strings.remittances.filedOn(filingDay(filedOn, zone));
+}
+
 /** When a period is due, or was filed. */
 export function filingWhen(p: FilingPeriod, zone: string): string {
-    const filedOn = p.federalReturn?.filed_on ?? p.provincialReturn?.filed_on;
-    if (p.status === "filed") {
-        // filed per the server, but with no return row to date it (e.g. recorded before returns)
-        return filedOn === undefined
-            ? strings.remittances.filed
-            : strings.remittances.filedOn(filingDay(filedOn, zone));
-    }
+    if (p.status === "filed") return filedWhen(p, zone);
     if (p.status === "due" && p.daysToDue < 0)
         return strings.remittances.overdue(formatShortDay(p.due, zone));
     if (p.status === "open") return strings.remittances.dueOn(formatShortDay(p.due, zone));
@@ -157,7 +209,7 @@ export function filingWhen(p: FilingPeriod, zone: string): string {
 export interface TaxFilings {
     load: Load;
     periods: FilingPeriod[];
-    unfiled: FilingPeriod[];
+    federalUnfiled: FilingPeriod[];
     filed: FilingPeriod[];
     federalSetAsideCents: number;
     provincialSetAsideCents: number;
@@ -191,12 +243,20 @@ export function useTaxFilings(api: ApiLike): TaxFilings {
               periods.find((p) => dateKey(p.due, zone) === data.next_due) ??
               null);
     const reminder = nextDue === null ? null : addDays(nextDue.due, -7, zone);
-    const load = useLoad([remote], data !== null && periods.length === 0);
+    // a refresh, or a failed one, keeps the page and any return form open on it on screen
+    const shown = {
+        ...remote,
+        isLoading: remote.isLoading && data === null,
+        error: data === null ? remote.error : null,
+    };
+    const load = useLoad([shown], data !== null && periods.length === 0);
     return {
         load,
         periods,
-        unfiled: periods.filter((p) => p.status !== "filed"),
-        filed: periods.filter((p) => p.status === "filed"),
+        federalUnfiled: periods.filter((p) => p.federalStatus !== "filed"),
+        filed: periods.filter(
+            (p) => p.status === "filed" || p.federalReturns.length + p.provincialReturns.length > 0,
+        ),
         federalSetAsideCents: data?.federal_set_aside_cents ?? 0,
         provincialSetAsideCents: data?.provincial_set_aside_cents ?? 0,
         nextDue,
@@ -244,6 +304,7 @@ export function useFilingForm(
     api: ApiLike,
     period: FilingPeriod | null,
     onDone: (family: TaxFamily) => void,
+    onStale: () => void,
 ): FilingForm {
     const families: TaxFamily[] =
         period === null
@@ -258,6 +319,13 @@ export function useFilingForm(
     const family = families.includes(chosen) ? chosen : (families[0] ?? "federal");
     const [itc, setItcState] = useState("");
     const [confirmation, setConfirmationState] = useState("");
+    // answers typed for one return never carry over to the other, whoever switches it
+    const [answering, setAnswering] = useState(family);
+    if (answering !== family) {
+        setAnswering(family);
+        setItcState("");
+        setConfirmationState("");
+    }
     const zone = useBusinessZone();
     const [filedOn, setFiledOnState] = useState(() => dateKey(new Date(), zone));
     const key = useRef<Attempt | null>(null);
@@ -293,13 +361,15 @@ export function useFilingForm(
             const problem =
                 itc.trim() !== "" && (parseCents(itc, BUSINESS_CURRENCY) ?? -1) < 0
                     ? r.itcInvalid
-                    : itcCents > owedCents
+                    : itcCents > Math.max(owedCents, 0)
                       ? r.itcTooHigh
                       : confirmation.trim() === ""
                         ? family === "federal"
                             ? r.needConfirmation
                             : r.needPstConfirmation
-                        : filedOn === "" || filedOn > dateKey(new Date(), zone)
+                        : filedOn === "" ||
+                            filedOn <= period.end ||
+                            filedOn > dateKey(new Date(), zone)
                           ? r.filedOn
                           : null;
             if (problem !== null) {
@@ -315,15 +385,30 @@ export function useFilingForm(
                 filed_on: filedOn,
             };
             const idempotencyKey = attemptKey(key, body);
-            run(() => api.post("/v1/payments/remittances", body, { idempotencyKey }), {
-                onSuccess: () => {
-                    key.current = null;
-                    setItcState("");
-                    setConfirmationState("");
-                    onDone(family);
+            run(
+                async () => {
+                    try {
+                        await api.post("/v1/payments/remittances", body, { idempotencyKey });
+                    } catch (e) {
+                        if (failedCode(e) === "return_filed") onStale();
+                        throw e;
+                    }
                 },
-                errorMessage: r.filingFailed,
-            });
+                {
+                    onSuccess: () => {
+                        key.current = null;
+                        setItcState("");
+                        setConfirmationState("");
+                        onDone(family);
+                    },
+                    errorMessage: (e) =>
+                        failedCode(e) === "invalid_filed_on"
+                            ? r.filedOn
+                            : failedCode(e) === "invalid_itc"
+                              ? r.itcTooHigh
+                              : failureMessage(e, r.filingFailed),
+                },
+            );
         },
     };
 }
