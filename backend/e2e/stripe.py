@@ -41,6 +41,7 @@ from e2e.stripe_deposits import deposits_evidence_main, deposits_main
 from e2e.stripe_disputes import disputes_main
 from e2e.stripe_evidence import browser_main
 from e2e.stripe_fixtures import setup_main
+from e2e.stripe_intents import intents_main
 from e2e.stripe_onboarding import onboarding_main
 from e2e.stripe_plans import plans_main
 from e2e.stripe_pool import lease_file, pair, pairs
@@ -584,6 +585,7 @@ COMMANDS: dict[str, Callable[[list[str]], int | None]] = {
     "clients": lambda argv: asyncio.run(clients_main(argv)),
     "disputes": lambda argv: asyncio.run(disputes_main(argv)),
     "refunds": lambda argv: asyncio.run(refunds_main(argv)),
+    "intents": lambda argv: asyncio.run(intents_main(argv)),
     "onboarding": lambda argv: asyncio.run(onboarding_main(argv)),
     "reconcile": lambda argv: asyncio.run(reconcile_main(argv)),
     "plan": lambda argv: asyncio.run(plan_main(argv)),

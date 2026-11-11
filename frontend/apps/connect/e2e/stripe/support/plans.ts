@@ -94,12 +94,19 @@ export async function buyPremium(page: Page, interval: "month" | "year"): Promis
     await page.getByRole("button", { name: p.choose(p.premium), exact: true }).click();
     await page.waitForURL(/^https:\/\/checkout\.stripe\.com\//, { timeout: 60_000 });
     const number = page.getByRole("textbox", { name: "Card number" });
+    const choice = page.getByRole("button", { name: "Pay with card" });
     // Checkout shows the card form at once or behind its Card choice, depending on the session
     await expect(async () => {
-        if (!(await number.isVisible()))
-            await page.getByRole("button", { name: "Pay with card" }).dispatchEvent("click");
+        if (await choice.count()) await choice.dispatchEvent("click");
         await expect(number).toBeVisible({ timeout: 2000 });
     }).toPass({ timeout: 60_000 });
+    // Checkout adapts to where the browser is, and the owner pays as a Canadian business in CAD
+    const cad = page.getByRole("button", { name: "CAD", exact: true });
+    if (await cad.isVisible()) await cad.click();
+    const country = page.getByRole("combobox", { name: /Country/ });
+    if (await country.isVisible()) await country.selectOption({ label: "Canada" });
+    const link = page.getByRole("checkbox", { name: /Save my information/ });
+    if ((await link.isVisible()) && (await link.isChecked())) await link.uncheck();
     const email = page.getByRole("textbox", { name: "Email" });
     if ((await email.isVisible()) && (await email.inputValue()) === "")
         await email.fill(runEmail(`plan-${randomUUID().slice(0, 8)}@example.ca`));
@@ -108,7 +115,10 @@ export async function buyPremium(page: Page, interval: "month" | "year"): Promis
     await page.getByRole("textbox", { name: "CVC" }).fill("123");
     await page.getByRole("textbox", { name: "Cardholder name" }).fill("Plan Owner");
     const postal = page.getByRole("textbox", { name: /Postal code|ZIP/ });
-    if (await postal.isVisible()) await postal.fill("V8S 1Z1");
+    if (await postal.isVisible()) {
+        await postal.fill("V8S 1Z1");
+        await expect(postal).toHaveValue("V8S 1Z1");
+    }
     await page.getByTestId("hosted-payment-submit-button").click();
     await page.waitForURL(
         (url) => url.pathname === "/setup/security" && url.searchParams.get("checkout") === "done",

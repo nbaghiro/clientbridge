@@ -20,6 +20,7 @@ import {
     expectLedgerMatchesStripe,
     refundPartUi,
     registerPurchaser,
+    stripeHarness,
     webhookRows,
 } from "./support/disputes";
 import { merchant } from "./support/payouts";
@@ -269,10 +270,23 @@ test("STR-E32 an invoice paid with Klarna from the pay link's method list settle
         await registerPurchaser(client.id);
         const invoiceId = await sentInvoice(owner, client, 2000);
         const url = on("pay", `/i/${await payToken(invoiceId)}`);
+        const proceed = customer.getByRole("button", {
+            name: strings.publicPay.continueToPay,
+            exact: true,
+        });
         await customer.goto(url);
-        await customer
-            .getByRole("button", { name: strings.publicPay.continueToPay, exact: true })
-            .click();
+        await proceed.click();
+        let opened = "";
+        await expect
+            .poll(async () => {
+                opened = (await clientMoney(client.id)).payments[0]?.provider_ref ?? "";
+                return opened;
+            })
+            .toMatch(/^pi_/);
+        // Stripe offers Klarna by the client's country, read from the intent before the browser's
+        await stripeHarness(["intents", "canada", opened]);
+        await customer.reload();
+        await proceed.click();
         await chooseKlarna(customer);
         await customer
             .getByRole("button", {
