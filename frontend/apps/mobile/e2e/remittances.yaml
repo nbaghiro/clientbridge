@@ -96,6 +96,10 @@ onFlowComplete:
 # the CRA number typed for GST/HST doesn't carry over to the PST return
 - assertNotVisible: "CRA-PHONE"
 - takeScreenshot: stale-form
+# the form's header scrolls with it on a phone-height screen
+- scrollUntilVisible:
+      element: "Cancel"
+      direction: UP
 - tapOn: "Cancel"
 # the quarter's GST/HST is filed, so it leaves what is owed and only its PST is left
 - scrollUntilVisible:
