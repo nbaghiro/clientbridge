@@ -4190,6 +4190,8 @@ interface Strings {
         readonly cardCanceled: string;
         readonly payingTitle: string;
         readonly payingBody: (businessName: string) => string;
+        readonly payingPartTitle: string;
+        readonly payingPartBody: (businessName: string) => string;
         readonly paidInFull: string;
         readonly closed: string;
         readonly cardStartError: string;

@@ -109,6 +109,29 @@ it("settles a remote when a reload overtakes its first load", async () => {
     expect(result.current.isLoading).toBe(false);
 });
 
+it("settles a remote when a reload overtakes its first load and fails", async () => {
+    const pending: { resolve: (value: string) => void; reject: (e: Error) => void }[] = [];
+    const { result } = renderHook(() =>
+        useRemote(
+            () =>
+                new Promise<string>((resolve, reject) => {
+                    pending.push({ resolve, reject });
+                }),
+        ),
+    );
+    let reloading = Promise.resolve();
+    act(() => {
+        reloading = result.current.reload();
+    });
+    await act(async () => {
+        pending[0]?.resolve("first");
+        pending[1]?.reject(new Error("offline"));
+        await reloading;
+    });
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.error?.message).toBe("offline");
+});
+
 it("clears a failed first load once a reload answers", async () => {
     const answers: (() => Promise<string>)[] = [
         () => Promise.reject(new Error("offline")),

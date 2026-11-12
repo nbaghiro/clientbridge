@@ -284,14 +284,14 @@ async def _pending_charge(
     await db.flush()
 
 
-async def test_a_part_staff_charged_leaves_the_rest_for_the_link_to_ask(
+async def test_a_part_staff_charged_holds_the_link_until_it_settles(
     api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
     inv_id, token = await _card_ready_invoice(db)
     await _pending_charge(db, inv_id, "pi_staff_part", 3000)
     gateway.confirmed.add("pi_staff_part")
     page = (await api.get(f"/pay/{token}")).json()
-    assert (page["paying"], page["clearing"], page["balance_cents"]) == (False, False, 8000)
+    assert (page["paying"], page["paying_part"], page["balance_cents"]) == (False, True, 8000)
     again = await pay_link_card(api, db, token)
     assert again.status_code == 409
     assert again.json()["error"] == "payment_in_progress"

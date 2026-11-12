@@ -1910,7 +1910,7 @@ class PublicPayService:
         status = (await ledger.invoice_state(self.db, invoice))[0]
         balance = await ledger.invoice_balance(self.db, invoice)
         taken = await self._taken(invoice, business) if status in _OWING else []
-        # a part of the balance staff charged leaves the rest for the client to pay
+        # a part staff charged leaves the rest to pay, but only once it settles with us
         paying = bool(taken) and sum(cents for cents, _ in taken) >= balance
         return PublicInvoice(
             tip_base_cents=sum(
@@ -1931,6 +1931,7 @@ class PublicPayService:
             accepts_card=business.stripe_charges_enabled,
             paying=paying,
             clearing=paying and any(state == "processing" for _, state in taken),
+            paying_part=bool(taken) and not paying,
             contact_phone=contact.phone,
             contact_email=contact.email,
             client_name=client.name if client is not None else None,

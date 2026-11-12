@@ -64,6 +64,7 @@ interface PublicInvoice {
     accepts_card: boolean;
     paying: boolean;
     clearing: boolean;
+    paying_part: boolean;
     contact_phone: string | null;
     contact_email: string | null;
     client_name: string | null;
@@ -253,7 +254,7 @@ function contactActions(invoice: PublicInvoice): ContactAction[] {
     return actions;
 }
 
-type PublicPayStatus = "loading" | "not-found" | "error" | "ready" | "paid";
+type PublicPayStatus = "loading" | "not-found" | "error" | "ready" | "paid" | "paying-part";
 
 interface PublicPayForm {
     status: PublicPayStatus;
@@ -282,7 +283,14 @@ export function usePublicPayForm(pay: PublicPayClient, token: string): PublicPay
 
     // a card payment Stripe took counts as paid before its event settles the invoice with us
     const settled = invoice?.status === "paid" || invoice?.paying === true;
-    const status: PublicPayStatus = load !== "ready" ? load : paid || settled ? "paid" : "ready";
+    const status: PublicPayStatus =
+        load !== "ready"
+            ? load
+            : paid || settled
+              ? "paid"
+              : invoice?.paying_part === true
+                ? "paying-part"
+                : "ready";
 
     const tip = usePayLinkTip(invoice);
     const payCard = (): void => {

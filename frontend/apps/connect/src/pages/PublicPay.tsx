@@ -40,6 +40,16 @@ export function PublicPay() {
         return <PublicStatus kind="notFound" title={pp.notFoundTitle} body={pp.notFoundBody} />;
     if (form.status === "error" || invoice === null) return <PublicStatus kind="error" />;
 
+    // the server refuses a card while a part staff charged settles, so the link asks later
+    if (form.status === "paying-part")
+        return (
+            <PublicDone
+                brand={invoice.brand}
+                title={pp.payingPartTitle}
+                body={pp.payingPartBody(invoice.business_name)}
+            />
+        );
+
     const paid = form.status === "paid";
     // a card Stripe took is paid, as the tab said when it went through; a bank debit still clears
     if (paid && invoice.status !== "paid")

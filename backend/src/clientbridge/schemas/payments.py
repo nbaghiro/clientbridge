@@ -306,6 +306,11 @@ class PublicInvoice(BaseModel):
     clearing: bool = Field(
         default=False, description="One of the payments Stripe took is a bank debit still clearing"
     )
+    paying_part: bool = Field(
+        default=False,
+        description="Stripe took a part of the balance that hasn't settled yet, so the link asks "
+        "for the rest once it does",
+    )
     contact_phone: str | None = Field(
         default=None, description="The business's public phone, for paying when it takes no cards"
     )

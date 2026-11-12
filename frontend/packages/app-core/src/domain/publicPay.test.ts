@@ -40,6 +40,7 @@ function publicInvoice(extra: Partial<PublicInvoice> = {}): PublicInvoice {
         accepts_card: true,
         paying: false,
         clearing: false,
+        paying_part: false,
         contact_phone: null,
         contact_email: null,
         client_name: "Ann",
@@ -294,6 +295,18 @@ describe("a card payment that went through before its event", () => {
         const { result } = renderHook(() => usePublicPayForm(client, "tok"));
         await waitFor(() => {
             expect(result.current.status).toBe("paid");
+        });
+    });
+
+    it("holds the form while a part staff charged settles", async () => {
+        const client = {
+            getPublicInvoice: () =>
+                Promise.resolve(publicInvoice({ status: "sent", paying_part: true })),
+            payCard: () => Promise.reject(new Error("never")),
+        };
+        const { result } = renderHook(() => usePublicPayForm(client, "tok"));
+        await waitFor(() => {
+            expect(result.current.status).toBe("paying-part");
         });
     });
 

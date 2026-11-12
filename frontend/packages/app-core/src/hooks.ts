@@ -164,6 +164,7 @@ export function useRemote<T>(load: () => Promise<T>, key = ""): Remote<T> {
     const [isLoading, setLoading] = useState(true);
     const current = useRef(load);
     const generation = useRef(0);
+    const answered = useRef(false);
     current.current = load;
     const refresh = useCallback(async (): Promise<void> => {
         const request = ++generation.current;
@@ -171,7 +172,10 @@ export function useRemote<T>(load: () => Promise<T>, key = ""): Remote<T> {
         setError(null);
         try {
             const next = await current.current();
-            if (request === generation.current) setData(next);
+            if (request === generation.current) {
+                answered.current = true;
+                setData(next);
+            }
         } catch (e) {
             if (request === generation.current)
                 setError(e instanceof Error ? e : new Error(String(e)));
@@ -184,16 +188,22 @@ export function useRemote<T>(load: () => Promise<T>, key = ""): Remote<T> {
         let next: T;
         try {
             next = await current.current();
-        } catch {
+        } catch (e) {
+            if (request !== generation.current) return;
+            // a failure keeps a shown answer, but one that overtook the first load settles it
+            if (!answered.current) setError(e instanceof Error ? e : new Error(String(e)));
+            setLoading(false);
             return;
         }
         if (request !== generation.current) return;
         // it may have replaced a load still in flight, which then never clears its own state
+        answered.current = true;
         setData(next);
         setError(null);
         setLoading(false);
     }, []);
     useEffect(() => {
+        answered.current = false;
         setData(null);
         refresh().catch(() => undefined);
         return () => {

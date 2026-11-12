@@ -12307,6 +12307,13 @@
         "message": "{businessName} has your payment. This invoice shows as paid once it clears, and a receipt follows.",
         "args": ["businessName"]
     },
+    "publicPay.payingPartTitle": {
+        "message": "A payment is going through"
+    },
+    "publicPay.payingPartBody": {
+        "message": "{businessName} is taking a payment on this invoice. Open this link again in a few minutes to pay what's left.",
+        "args": ["businessName"]
+    },
     "publicPay.paidInFull": {
         "message": "Paid in full",
         "description": "Under the amount at the top of a paid invoice"

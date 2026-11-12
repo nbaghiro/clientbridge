@@ -82,11 +82,10 @@ onFlowComplete:
 - assertTrue: ${output.texts == 1}
 # $20 cash first: the invoice is named once, the phone formatted, the new balance shown
 - tapOn: "Record payment"
-- tapOn: "Cash.*"
+# "Cash.*" would also match the Cash handed over field below the tiles
+- tapOn: "Cash, Paid at the desk"
 - tapOn: "Part of it"
-- tapOn:
-      below: "Part of it"
-      index: 0
+- tapOn: "0\\.00"
 - inputText: "20"
 - runFlow:
       when:

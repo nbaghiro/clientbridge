@@ -11438,6 +11438,12 @@
     "publicPay.payingBody": {
         "message": "[{businessName} ĥåš ýöûŕ þåýɱéñţ. Ţĥîš îñṽöîçé šĥöŵš åš þåîð öñçé îţ çļéåŕš, åñð å ŕéçéîþţ ƒöļļöŵš. one two three four five six]"
     },
+    "publicPay.payingPartTitle": {
+        "message": "[Å þåýɱéñţ îš ĝöîñĝ ţĥŕöûĝĥ one two three]"
+    },
+    "publicPay.payingPartBody": {
+        "message": "[{businessName} îš ţåķîñĝ å þåýɱéñţ öñ ţĥîš îñṽöîçé. Öþéñ ţĥîš ļîñķ åĝåîñ îñ å ƒéŵ ɱîñûţéš ţö þåý ŵĥåţ'š ļéƒţ. one two three four five six]"
+    },
     "publicPay.paidInFull": {
         "message": "[Þåîð îñ ƒûļļ one two]"
     },

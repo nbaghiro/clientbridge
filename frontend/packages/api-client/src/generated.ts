@@ -8694,6 +8694,12 @@ export interface components {
              */
             clearing: boolean;
             /**
+             * Paying Part
+             * @description Stripe took a part of the balance that hasn't settled yet, so the link asks for the rest once it does
+             * @default false
+             */
+            paying_part: boolean;
+            /**
              * Contact Phone
              * @description The business's public phone, for paying when it takes no cards
              */
