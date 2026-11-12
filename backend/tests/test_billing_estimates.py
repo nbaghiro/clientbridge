@@ -1,10 +1,18 @@
+import asyncio
+
 import httpx
-from sqlalchemy import select
+import pytest
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core.db import SessionLocal
+from clientbridge.core.deps import Principal
+from clientbridge.core.errors import Conflict
 from clientbridge.core.ids import new_id
-from clientbridge.models.billing import Estimate
-from tests.conftest import Factory, FakeEmailSender, FakeSmsSender
+from clientbridge.models.billing import Estimate, Line
+from clientbridge.models.platform import Audit
+from clientbridge.services.billing import BillingService
+from tests.conftest import OWNER_USER, Factory, FakeEmailSender, FakeSmsSender
 from tests.helpers import client_id
 
 BIZ = "bz_birchbark"
@@ -70,6 +78,110 @@ async def test_cannot_convert_twice(
     assert (await as_owner.post(f"/v1/estimates/{est['id']}/convert")).status_code == 409
 
 
+async def test_a_converted_estimate_is_no_longer_answered_edited_or_sent(
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
+) -> None:
+    cid = await client_id(db)
+    est = (await as_owner.post("/v1/estimates", json={"client_id": cid, "lines": [_line()]})).json()
+    await as_owner.post(f"/v1/estimates/{est['id']}/send")
+    converted = await as_owner.post(
+        f"/v1/estimates/{est['id']}/convert", headers={"Idempotency-Key": "convert-once"}
+    )
+    assert converted.status_code == 201
+    texts = len(sms.sent)
+    assert texts == 1
+    for path in ("accept", "decline", "send"):
+        res = await as_owner.post(f"/v1/estimates/{est['id']}/{path}")
+        assert res.status_code == 409, path
+    edit = await as_owner.patch(f"/v1/estimates/{est['id']}", json={"notes": "Changed my mind"})
+    assert edit.status_code == 409
+    replay = await as_owner.post(
+        f"/v1/estimates/{est['id']}/convert", headers={"Idempotency-Key": "convert-once"}
+    )
+    assert replay.status_code == 201 and replay.json()["id"] == converted.json()["id"]
+    row = await db.get(Estimate, est["id"])
+    assert row is not None
+    await db.refresh(row)
+    assert (row.status, row.notes) == ("sent", None)
+    assert len(sms.sent) == texts
+
+
+async def test_staff_change_an_answer_until_the_estimate_is_converted(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await client_id(db)
+    est = (await as_owner.post("/v1/estimates", json={"client_id": cid, "lines": [_line()]})).json()
+    await as_owner.post(f"/v1/estimates/{est['id']}/send")
+    declined = await as_owner.post(
+        f"/v1/estimates/{est['id']}/decline", json={"reason": "Too dear"}
+    )
+    assert declined.status_code == 200
+    assert (await as_owner.post(f"/v1/estimates/{est['id']}/decline")).status_code == 409
+    assert (await as_owner.post(f"/v1/estimates/{est['id']}/convert")).status_code == 409
+    accepted = await as_owner.post(f"/v1/estimates/{est['id']}/accept")
+    assert accepted.status_code == 200
+    body = accepted.json()
+    assert (body["status"], body["declined_at"], body["decline_reason"]) == ("accepted", None, None)
+    assert (await as_owner.post(f"/v1/estimates/{est['id']}/accept")).status_code == 409
+    redeclined = (await as_owner.post(f"/v1/estimates/{est['id']}/decline")).json()
+    assert (redeclined["status"], redeclined["accepted_at"]) == ("declined", None)
+    assert (await as_owner.post(f"/v1/estimates/{est['id']}/accept")).status_code == 200
+    assert (await as_owner.post(f"/v1/estimates/{est['id']}/convert")).status_code == 201
+    for path in ("accept", "decline"):
+        assert (await as_owner.post(f"/v1/estimates/{est['id']}/{path}")).status_code == 409
+
+
+async def test_a_conversion_waiting_on_a_decline_is_refused_once_the_decline_lands(
+    db: AsyncSession,
+) -> None:
+    cid = await client_id(db)
+    eid = new_id("estimate")
+    async with SessionLocal() as setup:
+        setup.add(Estimate(id=eid, business_id=BIZ, client_id=cid, status="sent"))
+        await setup.flush()
+        setup.add(
+            Line(
+                id=new_id("line"),
+                business_id=BIZ,
+                estimate_id=eid,
+                description="Install",
+                unit_amount_cents=6000,
+                amount_cents=6000,
+            )
+        )
+        await setup.commit()
+    locked = asyncio.Event()
+    owner = Principal(user_id=OWNER_USER, business_id=BIZ, staff_id="st_owner", role="owner")
+
+    async def decline() -> None:
+        async with SessionLocal() as session:
+            await session.execute(select(Estimate.id).where(Estimate.id == eid).with_for_update())
+            locked.set()
+            await asyncio.sleep(0.2)
+            await session.execute(
+                update(Estimate).where(Estimate.id == eid).values(status="declined")
+            )
+            await session.commit()
+
+    async def convert() -> None:
+        await asyncio.wait_for(locked.wait(), 5)
+        async with SessionLocal() as session:
+            await BillingService(session, owner).convert_estimate(eid, None)
+
+    try:
+        with pytest.raises(Conflict):
+            await asyncio.gather(decline(), convert())
+        async with SessionLocal() as check:
+            row = await check.get_one(Estimate, eid)
+            assert (row.status, row.converted_invoice_id) == ("declined", None)
+    finally:
+        async with SessionLocal() as cleanup:
+            await cleanup.execute(delete(Audit).where(Audit.entity_id == eid))
+            await cleanup.execute(delete(Line).where(Line.estimate_id == eid))
+            await cleanup.execute(delete(Estimate).where(Estimate.id == eid))
+            await cleanup.commit()
+
+
 async def test_cannot_convert_draft(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     cid = await client_id(db)
     est = (await as_owner.post("/v1/estimates", json={"client_id": cid, "lines": [_line()]})).json()
@@ -77,9 +189,7 @@ async def test_cannot_convert_draft(as_owner: httpx.AsyncClient, db: AsyncSessio
     assert res.status_code == 409
 
 
-async def test_decline_estimate(
-    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
-) -> None:
+async def test_decline_estimate(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     cid = await client_id(db)
     est = (await as_owner.post("/v1/estimates", json={"client_id": cid, "lines": [_line()]})).json()
     await as_owner.post(f"/v1/estimates/{est['id']}/send")
@@ -243,9 +353,7 @@ async def test_create_and_send_estimate_needs_an_included_line(
     assert res.status_code == 422
 
 
-async def test_decline_keeps_the_reason(
-    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
-) -> None:
+async def test_decline_keeps_the_reason(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     cid = await client_id(db)
     est = (await as_owner.post("/v1/estimates", json={"client_id": cid, "lines": [_line()]})).json()
     await as_owner.post(f"/v1/estimates/{est['id']}/send")

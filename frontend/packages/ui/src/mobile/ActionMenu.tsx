@@ -5,6 +5,7 @@ import {
     Animated,
     Easing,
     Modal,
+    Platform,
     Pressable,
     StyleSheet,
     Text,
@@ -32,6 +33,22 @@ function fan(count: number, maxRadius: number): { dx: number; dy: number }[] {
     });
 }
 
+const DISMISS_FALLBACK_MS = 1000;
+
+interface Pending {
+    run: (() => void) | null;
+    timer: ReturnType<typeof setTimeout> | null;
+}
+
+// runs a chosen item once, whether the sheet closed, the menu unmounted or the fallback fired first
+function settle(p: Pending): void {
+    if (p.timer !== null) clearTimeout(p.timer);
+    p.timer = null;
+    const run = p.run;
+    p.run = null;
+    run?.();
+}
+
 export function ActionMenu({
     open,
     onClose,
@@ -45,6 +62,13 @@ export function ActionMenu({
 }: NativeProps<ActionMenuProps>) {
     const insets = useSafeAreaInsets();
     const tablet = useTabletLayout();
+    const pending = useRef<Pending>({ run: null, timer: null });
+    useEffect(() => {
+        const p = pending.current;
+        return () => {
+            settle(p);
+        };
+    }, []);
     if (layout === "radial" && anchor !== undefined)
         return (
             <RadialMenu
@@ -55,6 +79,22 @@ export function ActionMenu({
                 anchor={anchor}
             />
         );
+    const choose = (key: string): void => {
+        // iOS drops a sheet presented while this one is still closing, so the choice waits for it
+        if (Platform.OS !== "ios") {
+            onSelect(key);
+            return;
+        }
+        const p = pending.current;
+        p.run = () => {
+            onSelect(key);
+        };
+        // a fallback in case the sheet is never reported dismissed
+        p.timer = setTimeout(() => {
+            settle(p);
+        }, DISMISS_FALLBACK_MS);
+        onClose();
+    };
     return (
         <Modal
             style={style}
@@ -62,6 +102,9 @@ export function ActionMenu({
             transparent
             animationType="fade"
             onRequestClose={onClose}
+            onDismiss={() => {
+                settle(pending.current);
+            }}
         >
             <View style={[styles.root, tablet && styles.centred]}>
                 <Pressable
@@ -91,7 +134,7 @@ export function ActionMenu({
                                 accessibilityLabel={item.label}
                                 accessibilityHint={item.hint}
                                 onPress={() => {
-                                    onSelect(item.key);
+                                    choose(item.key);
                                 }}
                                 style={({ pressed }) => [
                                     layout === "grid" ? styles.tile : styles.row,

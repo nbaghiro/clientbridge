@@ -5,6 +5,9 @@ appId: ${APP_ID}
       element: "Add from catalog"
       direction: DOWN
 - tapOn: "Add from catalog"
+# a long catalog runs past the sheet, so the item is searched for by its first word
+- tapOn: "Search"
+- inputText: ${ITEM.split(" ")[0]}
 - extendedWaitUntil:
       visible: ${ITEM + " · .*"}
       timeout: 60000

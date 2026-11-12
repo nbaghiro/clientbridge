@@ -143,6 +143,62 @@ interface LineRow {
     discount_kind?: string | null;
     discount_value?: number | null;
     discount_reason?: string | null;
+    discount_cents?: number | null;
+    sale_discount_cents?: number | null;
+}
+
+interface DocDiscounts {
+    lineCents: number;
+    docCents: number;
+    reason: string | null | undefined;
+}
+
+/** What a document's counted lines took off, line discounts apart from the document's own. */
+function storedDiscounts(
+    lines: readonly LineRow[],
+    reason: string | null,
+    counted: (line: LineRow) => boolean = () => true,
+): DocDiscounts {
+    const kept = lines.filter(counted);
+    return {
+        lineCents: kept.reduce((sum, l) => sum + (l.discount_cents ?? 0), 0),
+        docCents: kept.reduce((sum, l) => sum + (l.sale_discount_cents ?? 0), 0),
+        reason,
+    };
+}
+
+/** The rows that take a document from its items to its subtotal, shown only when something was taken off. */
+function discountTotals(subtotalCents: number, d: DocDiscounts): DocTotalLine[] {
+    if (d.lineCents + d.docCents <= 0) return [];
+    return [
+        {
+            key: "gross",
+            label: s.itemsTotal,
+            cents: subtotalCents + d.lineCents + d.docCents,
+            kind: "subtotal",
+        },
+        ...(d.lineCents > 0
+            ? [
+                  {
+                      key: "lineDisc",
+                      label: s.lineDiscounts,
+                      cents: d.lineCents,
+                      kind: "credit" as const,
+                  },
+              ]
+            : []),
+        ...(d.docCents > 0
+            ? [
+                  {
+                      key: "docDisc",
+                      label: s.docDiscount,
+                      cents: d.docCents,
+                      kind: "credit" as const,
+                      hint: discountReason(d.reason) ?? undefined,
+                  },
+              ]
+            : []),
+    ];
 }
 
 // a tip's staff_cost contra, less what refunds and lost disputes returned (tip journals excluded)
@@ -198,7 +254,7 @@ ORDER BY e.created_at DESC`;
 export const LINES_SQL = `
 SELECT id, item_id, booking_id, staff_id, description, quantity, unit_amount_cents, amount_cents,
        tax_amount_cents, tax_class, optional, selected, position, discount_kind, discount_value,
-       discount_reason
+       discount_reason, discount_cents, sale_discount_cents
 FROM lines WHERE ? IN (invoice_id, estimate_id) ORDER BY position`;
 
 // Per-code tax is on an issued invoice's journal; a draft's is worked out from its lines.
@@ -672,6 +728,7 @@ function methodLabel(method: string | null): string {
     return s.method[method ?? "other"] ?? s.method.other;
 }
 
+/** Lines at their price before discounts, which the totals then take off below the items. */
 function docLines(lines: readonly LineRow[], pricing: DocPricing): PrintedDocLine[] {
     return lines.map((l, i) => ({
         id: l.id,
@@ -679,7 +736,7 @@ function docLines(lines: readonly LineRow[], pricing: DocPricing): PrintedDocLin
         subject: null,
         quantity: l.quantity,
         unitCents: l.unit_amount_cents,
-        amountCents: l.amount_cents,
+        amountCents: l.amount_cents + (l.discount_cents ?? 0) + (l.sale_discount_cents ?? 0),
         taxCodes: pricing.lines[i]?.codes ?? [],
     }));
 }
@@ -741,6 +798,7 @@ export function useInvoiceRecord(id: string | null, payBase: string): InvoiceRec
     const taxes = draft ? pricing.taxes : issuedTaxes(pricing, journal);
     const balanceCents = row.balance_cents ?? 0;
     const totals: DocTotalLine[] = [
+        ...discountTotals(row.subtotal_cents ?? 0, storedDiscounts(lines, row.discount_reason)),
         { key: "subtotal", label: s.subtotal, cents: row.subtotal_cents ?? 0, kind: "subtotal" },
         ...taxes.map((t): DocTotalLine => ({
             key: t.code,
@@ -1133,13 +1191,15 @@ interface EstimateLineView extends PrintedDocLine {
     note: string | null;
 }
 
-interface EstimateRecord {
+export interface EstimateRecord {
     row: EstimateRow;
     title: string;
     status: string;
     statusLabel: string;
     intent: Intent;
     validLabel: string;
+    // what validLabel answers: its date while open, its outcome once answered, converted or expired
+    validTitle: string;
     lines: EstimateLineView[];
     lineDetail: (line: PrintedDocLine) => string;
     taxes: PrintedDocTax[];
@@ -1149,13 +1209,25 @@ interface EstimateRecord {
     zone: string;
     canEdit: boolean;
     canSend: boolean;
-    canMark: boolean;
+    canAccept: boolean;
+    canDecline: boolean;
     canConvert: boolean;
     // why Convert is hidden while a booked visit bills the estimate's products
     convertNote: string | null;
     canBook: boolean;
     booked: { id: string; when: string } | null;
     rateNote: string;
+}
+
+/** Staff answer a sent estimate or change its answer until it converts; a booked one stays accepted. */
+export function estimateCanAnswer(
+    status: string,
+    row: Pick<EstimateRow, "booking_id">,
+): { accept: boolean; decline: boolean } {
+    return {
+        accept: status === "sent" || status === "declined",
+        decline: status === "sent" || (status === "accepted" && row.booking_id === null),
+    };
 }
 
 /** An accepted estimate is booked once; canceling that visit frees it to be booked again. */
@@ -1185,13 +1257,16 @@ function estimateConvertible(
 export function estimateTotals(
     row: Pick<EstimateRow, "accepted_at" | "subtotal_cents" | "total_cents">,
     pricing: Pick<DocPricing, "taxes" | "subtotalCents" | "totalCents">,
+    discounts: DocDiscounts,
 ): DocTotalLine[] {
     const open = row.accepted_at === null;
+    const subtotalCents = open ? pricing.subtotalCents : (row.subtotal_cents ?? 0);
     return [
+        ...discountTotals(subtotalCents, discounts),
         {
             key: "subtotal",
             label: s.subtotal,
-            cents: open ? pricing.subtotalCents : (row.subtotal_cents ?? 0),
+            cents: subtotalCents,
             kind: "subtotal",
         },
         ...pricing.taxes.map((t): DocTotalLine => ({
@@ -1274,6 +1349,7 @@ export function useEstimateRecord(id: string | null, payBase: string): EstimateR
         statusLabel: view.statusLabel,
         intent: view.intent,
         validLabel: view.validLabel,
+        validTitle: view.status === "draft" || view.status === "sent" ? s.colValid : s.colStatus,
         lines: docLines(lines, pricing).map((l, i) => {
             const src = lines[i];
             const optional = src?.optional === 1;
@@ -1294,12 +1370,13 @@ export function useEstimateRecord(id: string | null, payBase: string): EstimateR
         lineDetail: (line) => lineDetail(line, BUSINESS_CURRENCY),
         zone,
         taxes: pricing.taxes,
-        totals: estimateTotals(row, pricing),
+        totals: estimateTotals(row, pricing, storedDiscounts(lines, row.discount_reason, included)),
         timeline,
         acceptUrl: row.view_token !== null ? estimateLinkUrl(payBase, row.view_token) : null,
         canEdit: view.status === "draft" || view.status === "sent",
         canSend: view.status === "draft",
-        canMark: view.status === "sent",
+        canAccept: estimateCanAnswer(view.status, row).accept,
+        canDecline: estimateCanAnswer(view.status, row).decline,
         canConvert: estimateCanConvert(view.status, row),
         convertNote:
             estimateConvertible(view.status, row) && row.booking_id !== null
@@ -1328,12 +1405,21 @@ interface EstimateActions {
     convert: (rec: EstimateRecord, onDone?: (invoiceId: string) => void) => void;
 }
 
-export function useEstimateActions(api: ApiLike): EstimateActions {
+/** `status` is the estimate's as the replica shows it, so a lost answer clears once its change lands. */
+export function useEstimateActions(api: ApiLike, status: string | null): EstimateActions {
     const { busy, error, setError, run } = useAsyncAction();
     const [notice, setNotice] = useState<string | null>(null);
     const convertKey = useRef<Attempt | null>(null);
     const sendKey = useRef<Attempt | null>(null);
+    // the status a request whose answer was lost leads to
+    const awaited = useRef<string | null>(null);
+    useEffect(() => {
+        if (awaited.current === null || awaited.current !== status) return;
+        awaited.current = null;
+        setError(null);
+    }, [status, error, setError]);
     const act = <T>(
+        lands: string,
         call: () => Promise<T>,
         message: (res: T) => string,
         done?: (res: T) => void,
@@ -1345,7 +1431,12 @@ export function useEstimateActions(api: ApiLike): EstimateActions {
                 setNotice(message(res));
                 done?.(res);
             },
-            { errorMessage: actionFailure },
+            {
+                errorMessage: (e) => {
+                    awaited.current = isConnectionFailure(e) ? lands : null;
+                    return actionFailure(e);
+                },
+            },
         );
     };
     return {
@@ -1360,14 +1451,14 @@ export function useEstimateActions(api: ApiLike): EstimateActions {
             afterReview(
                 {
                     title: strings.previews.title,
-                    confirmLabel:
-                        rec.row.status === "draft" ? s.sendEstimate : strings.previews.sendAgain,
+                    confirmLabel: s.sendEstimate,
                     load: outgoing.estimateSend(api, rec.row.id),
                     document: { kind: "estimate", id: rec.row.id },
                 },
                 () => {
                     const idempotencyKey = attemptKey(sendKey, rec.row.id);
                     act(
+                        "sent",
                         () =>
                             api.post<{ number: number | null }>(
                                 `/v1/estimates/${rec.row.id}/send`,
@@ -1391,6 +1482,7 @@ export function useEstimateActions(api: ApiLike): EstimateActions {
                 },
                 () => {
                     act(
+                        "accepted",
                         () => api.post(`/v1/estimates/${rec.row.id}/accept`, {}),
                         () => s.estimateMarkedAccepted(rec.title),
                     );
@@ -1406,6 +1498,7 @@ export function useEstimateActions(api: ApiLike): EstimateActions {
                 },
                 () => {
                     act(
+                        "declined",
                         () => api.post(`/v1/estimates/${rec.row.id}/decline`, {}),
                         () => s.estimateMarkedDeclined(rec.title),
                     );
@@ -1415,6 +1508,7 @@ export function useEstimateActions(api: ApiLike): EstimateActions {
         convert: (rec, onDone) => {
             const key = attemptKey(convertKey, rec.row.id);
             act(
+                "converted",
                 () =>
                     api.post<{ id: string }>(
                         `/v1/estimates/${rec.row.id}/convert`,
@@ -1437,6 +1531,9 @@ export function printedEstimate(
     fallbackColor: string,
 ): PrintedDoc {
     const r = rec.row;
+    // once answered, converted or expired there is nothing left for the client to accept
+    const open = rec.status === "draft" || rec.status === "sent";
+    const acceptUrl = open ? rec.acceptUrl : null;
     return printedDoc(
         {
             kind: "estimate",
@@ -1459,10 +1556,12 @@ export function printedEstimate(
             taxes: rec.taxes,
             totals: rec.totals,
             headline: { label: p.estimateTotal, cents: r.total_cents ?? 0 },
-            payUrl: rec.acceptUrl,
+            payUrl: acceptUrl,
             instructions: [
-                ...(rec.acceptUrl !== null ? [p.acceptOnline(rec.acceptUrl)] : []),
-                ...(r.valid_until !== null ? [p.acceptBy(longDate(r.valid_until, rec.zone))] : []),
+                ...(acceptUrl !== null ? [p.acceptOnline(acceptUrl)] : []),
+                ...(open && r.valid_until !== null
+                    ? [p.acceptBy(longDate(r.valid_until, rec.zone))]
+                    : []),
             ],
             message: r.notes,
         },
@@ -1671,10 +1770,12 @@ export function useDocComposer(
         setSaved(null);
         keyRef.current = null;
     };
+    // an invoice bills every line, so a line ticked optional before switching kind still counts
+    const optional = (l: DraftLine): boolean => kind === "estimate" && l.optional;
     const gross = lines.map((l) => Math.round(qtyOf(l) * unitOf(l)));
     const lineOff = lines.map((l, i) => discountCents(gross[i] ?? 0, l.discount));
     const bases = gross.map((g, i) => g - (lineOff[i] ?? 0));
-    const counted = lines.map((l) => !isBlank(l) && !l.optional);
+    const counted = lines.map((l) => !isBlank(l) && !optional(l));
     const docBase = bases.reduce((sum, v, i) => sum + (counted[i] === true ? v : 0), 0);
     const docOff = discountCents(docBase, docDiscount);
     const shares = allocate(
@@ -1704,7 +1805,7 @@ export function useDocComposer(
     const filled = lines.filter((l) => !isBlank(l));
     const valid =
         clientId !== "" &&
-        filled.some((l) => !l.optional) &&
+        filled.some((l) => !optional(l)) &&
         !composerLines.some(
             (l) => !isBlank(l) && (l.description.trim() === "" || l.grossCents <= 0),
         );
@@ -1800,37 +1901,11 @@ export function useDocComposer(
 
     const lineDiscountCents = lineOff.reduce((sum, v, i) => sum + (counted[i] === true ? v : 0), 0);
     const totals: DocTotalLine[] = [
-        ...(lineDiscountCents + docOff > 0
-            ? [
-                  {
-                      key: "gross",
-                      label: s.itemsTotal,
-                      cents: pricing.subtotalCents + lineDiscountCents + docOff,
-                      kind: "subtotal" as const,
-                  },
-                  ...(lineDiscountCents > 0
-                      ? [
-                            {
-                                key: "lineDisc",
-                                label: s.lineDiscounts,
-                                cents: lineDiscountCents,
-                                kind: "credit" as const,
-                            },
-                        ]
-                      : []),
-                  ...(docOff > 0
-                      ? [
-                            {
-                                key: "docDisc",
-                                label: s.docDiscount,
-                                cents: docOff,
-                                kind: "credit" as const,
-                                hint: discountReason(docDiscount?.reason) ?? undefined,
-                            },
-                        ]
-                      : []),
-              ]
-            : []),
+        ...discountTotals(pricing.subtotalCents, {
+            lineCents: lineDiscountCents,
+            docCents: docOff,
+            reason: docDiscount?.reason,
+        }),
         { key: "subtotal", label: s.subtotal, cents: pricing.subtotalCents, kind: "subtotal" },
         ...pricing.taxes.map((t): DocTotalLine => ({
             key: t.code,
@@ -1931,7 +2006,7 @@ export function useDocComposer(
         rateNote: rateNote(rates),
         dirty,
         clientError: attempted && clientId === "" ? s.needClient : null,
-        linesError: attempted && !filled.some((l) => !l.optional) ? s.needLine : null,
+        linesError: attempted && !filled.some((l) => !optional(l)) ? s.needLine : null,
         busy: save.busy,
         sending: sendAction.busy,
         error: save.error ?? sendAction.error,
@@ -1956,7 +2031,7 @@ export function useDocComposer(
             const estimate = kind === "estimate";
             const until = addDays(new Date(), TERM_DAYS[terms], zone).toISOString();
             const shown = composerLines.filter(
-                (l) => !isBlank(l) && l.amountCents > 0 && !l.optional,
+                (l) => !isBlank(l) && l.grossCents > 0 && !optional(l),
             );
             const number = draft?.number != null ? String(draft.number) : null;
             return printedDoc(
@@ -1980,7 +2055,7 @@ export function useDocComposer(
                         subject: null,
                         quantity: qtyOf(l),
                         unitCents: unitOf(l),
-                        amountCents: l.amountCents,
+                        amountCents: l.grossCents,
                         taxCodes: l.taxCodes,
                     })),
                     taxes: pricing.taxes,
