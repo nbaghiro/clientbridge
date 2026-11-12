@@ -395,7 +395,7 @@ class RemittanceService:
             return False
         for first, last in _gaps(start, end, covering):
             lo, hi = period_bounds(first, last, tz)
-            if sum((await self._owed(lo, hi, family)).values()) > 0:
+            if sum((await self._owed(lo, hi, family)).values()) != 0:
                 return False
         return True
 

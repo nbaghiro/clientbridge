@@ -51,6 +51,10 @@ onFlowComplete:
 - assertVisible: "\\$5\\.00"
 - assertVisible: "Ready to file"
 - takeScreenshot: return-due
+# the due panel sits below a phone-height screen's fold on Android
+- scrollUntilVisible:
+      element: "Record filed return"
+      direction: DOWN
 - tapOn: "Record filed return"
 - assertVisible: ${output.quarter.title}
 - assertVisible: "GST/HST return"
@@ -82,9 +86,15 @@ onFlowComplete:
 - takeScreenshot: stale-form
 - tapOn: "Cancel"
 # the quarter's GST/HST is filed, so it leaves what is owed and only its PST is left
+- scrollUntilVisible:
+      element: "Owed to the CRA"
+      direction: UP
 - assertVisible: "\\$0\\.00"
 - assertNotVisible: "Ready to file"
 - takeScreenshot: gst-filed
+- scrollUntilVisible:
+      element: "Record filed return"
+      direction: DOWN
 - tapOn: "Record filed return"
 - assertVisible: "Provincial confirmation number"
 - tapOn:
@@ -95,13 +105,18 @@ onFlowComplete:
       element: "Record return"
       direction: DOWN
 - tapOn: "Record return"
-- extendedWaitUntil:
-      visible: "PST return for ${output.quarter.title} recorded as filed\\."
+- scrollUntilVisible:
+      element: "PST return for ${output.quarter.title} recorded as filed\\."
+      direction: UP
       timeout: 30000
-- extendedWaitUntil:
-      visible: ".*CRA-WEB · PST \\$7\\.00 · BC-PHONE"
+# the quarter in progress has nothing to record until it ends; its panel sits just above the history
+- scrollUntilVisible:
+      element: "Filed returns"
+      direction: DOWN
+- assertNotVisible: "Record filed return"
+- scrollUntilVisible:
+      element: ".*CRA-WEB · PST \\$7\\.00 · BC-PHONE"
+      direction: DOWN
       timeout: 30000
 - assertVisible: "\\$4\\.00"
-# the quarter in progress has nothing to record until it ends
-- assertNotVisible: "Record filed return"
 - takeScreenshot: both-filed

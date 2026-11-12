@@ -102,7 +102,10 @@ async def post(
         return existing
     journal_id = new_id("journal")
     at = occurred_at or clock.now()
-    tax_at = at if occurred_at is None else await _tax_booked_at(db, business_id, event, legs, at)
+    moved = (
+        set[str]() if occurred_at is None else await _filed_codes(db, business_id, event, legs, at)
+    )
+    now = clock.now()
     for index, leg in enumerate(legs):
         account = accounts[leg.key]
         on = leg.subject or subject
@@ -124,7 +127,7 @@ async def post(
                 ref=ref,
                 leg=index,
                 meta=meta or {},
-                occurred_at=tax_at if leg.category == "tax" else at,
+                occurred_at=now if leg.category == "tax" and leg.code in moved else at,
                 available_at=available_at,
             )
         )
@@ -132,18 +135,18 @@ async def post(
     return journal_id
 
 
-async def _tax_booked_at(
+async def _filed_codes(
     db: AsyncSession, business_id: str, event: str, legs: Sequence[Leg], at: datetime
-) -> datetime:
-    """Tax dated into days a filed return covers books now, so the next return carries it."""
+) -> set[str]:
+    """The tax codes dated into days a filed return covers, which book now for the next return."""
     codes = {leg.code for leg in legs if leg.category == "tax"}
     if event == "remittance" or not codes:
-        return at
+        return set()
     business = await db.get(Business, business_id)
     tz = zone(business.timezone if business is not None else "UTC")
     day = at.astimezone(tz).date()
     if day >= clock.today(tz):
-        return at
+        return set()
     key = day.isoformat()
     families = await db.execute(
         scoped(Entry, business_id)
@@ -155,10 +158,10 @@ async def _tax_booked_at(
             Entry.meta["end"].astext >= key,
         )
     )
+    moved: set[str] = set()
     for family in families.scalars().all():
-        if family is None or codes.intersection(FAMILY_CODES[family]):
-            return clock.now()
-    return at
+        moved |= codes if family is None else codes.intersection(FAMILY_CODES[family])
+    return moved
 
 
 async def lock_books(db: AsyncSession, business_id: str, categories: Sequence[str]) -> None:

@@ -415,20 +415,24 @@ async def test_tax_dated_into_a_filed_period_goes_on_the_next_return(
     ).scalar_one()
     legs = (
         await db.execute(
-            select(Account.category, Entry.occurred_at)
+            select(Account.category, Account.code, Entry.occurred_at)
             .join(Account, Account.id == Entry.account_id)
             .where(Entry.ref == f"invoice:{renewal}")
         )
     ).all()
-    assert {"tax", "revenue"} <= {category for category, _ in legs}
-    # only the tax moves to the return in progress; the sale stays on its own day
-    for category, at in legs:
-        assert (at.date() > end) == (category == "tax"), category
+    assert {"tax", "revenue"} <= {category for category, _, _ in legs}
+    # only the filed GST moves to the return in progress; the sale and its PST stay on their day
+    for category, code, at in legs:
+        assert (at.date() > end) == (category == "tax" and code == "GST"), (category, code)
     filed_period = next(p for p in after["periods"] if p["start"] == start.isoformat())
     assert filed_period["federal_status"] == "filed"
     assert filed_period["federal_cents"] == filed.json()["by_code"]["GST"]
     assert after["periods"][0]["federal_cents"] == before["periods"][0]["federal_cents"] + 500
-    assert after["periods"][0]["provincial_cents"] == before["periods"][0]["provincial_cents"] + 300
+    assert (
+        filed_period["provincial_cents"]
+        == next(p for p in before["periods"] if p["start"] == start.isoformat())["provincial_cents"]
+        + 300
+    )
     for family in ("federal", "provincial"):
         assert after[f"{family}_set_aside_cents"] == _unfiled(after, family)
 
@@ -439,6 +443,50 @@ async def test_tax_dated_into_a_filed_period_goes_on_the_next_return(
     assert period["provincial_cents"] == filed_period["provincial_cents"] + 200
     for family in ("federal", "provincial"):
         assert last[f"{family}_set_aside_cents"] == _unfiled(last, family)
+
+
+async def test_a_refund_claim_left_after_part_of_a_period_is_filed_stays_due(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    start, end = await _last_period(db)
+    second = add_months(start, 1)
+    at = datetime.combine(start + timedelta(days=5), datetime.min.time(), tzinfo=UTC)
+    await _invoice(db, issued_at=at + timedelta(hours=20), tax={"GST": 1000})
+    await ledger.post(
+        db,
+        BIZ,
+        event="refund",
+        ref="test:refund-after-part",
+        legs=[
+            # more than the seed collects in the rest of the period
+            Leg("business", BIZ, "tax", 1_000_000, "GST"),
+            Leg("business", BIZ, "bank", -1_000_000),
+        ],
+        occurred_at=datetime.combine(second + timedelta(days=5), datetime.min.time(), tzinfo=UTC)
+        + timedelta(hours=20),
+    )
+    await db.commit()
+    month = {
+        "period_start": start.isoformat(),
+        "period_end": (second - timedelta(days=1)).isoformat(),
+        "family": "federal",
+    }
+    part = await as_owner.post("/v1/payments/remittances", json=month, headers=retry_key())
+    assert part.status_code == 201, part.text
+    filings = (await as_owner.get("/v1/payments/remittances")).json()
+    period = next(p for p in filings["periods"] if p["start"] == start.isoformat())
+    # the rest of the period claims tax back, so it is still due rather than filed
+    assert (period["federal_status"], period["federal_cents"] < 0) == ("due", True)
+    assert filings["federal_set_aside_cents"] == _unfiled(filings, "federal")
+
+    whole = {"period_start": start.isoformat(), "period_end": end.isoformat(), "family": "federal"}
+    rest = await as_owner.post("/v1/payments/remittances", json=whole, headers=retry_key())
+    assert rest.status_code == 201, rest.text
+    assert rest.json()["total_cents"] == period["federal_cents"]
+    after = (await as_owner.get("/v1/payments/remittances")).json()
+    period = next(p for p in after["periods"] if p["start"] == start.isoformat())
+    assert period["federal_status"] == "filed"
+    assert after["federal_set_aside_cents"] == _unfiled(after, "federal")
 
 
 async def test_a_partly_filed_period_owes_and_files_only_the_rest(
