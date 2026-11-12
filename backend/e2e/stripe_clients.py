@@ -10,6 +10,7 @@ from typing import cast
 
 import stripe
 from pydantic import BaseModel, ConfigDict, TypeAdapter
+from sqlalchemy import text
 
 from clientbridge.core import clock
 from clientbridge.core.db import SessionLocal, engine
@@ -277,6 +278,58 @@ async def recorded_methods(client_id: str) -> list[dict[str, object]]:
         ]
 
 
+CLIENT_ENTRIES = """
+SELECT e.journal_id, e.amount_cents, a.category, a.owner_type FROM entries e
+JOIN accounts a ON a.id = e.account_id
+WHERE e.journal_id IN (
+    SELECT journal_id FROM entries WHERE source_type = 'payment' AND source_id IN (
+        SELECT id FROM payments WHERE business_id = :business AND client_id = :client))
+"""
+
+# the Payouts screen's Awaiting payout and Fees figures, read as the app's replica reads them
+BOOKS = """
+SELECT
+    (SELECT COALESCE(SUM(balance_cents), 0) FROM accounts WHERE business_id = :business
+        AND owner_type = 'business' AND category = 'stripe' AND currency = 'CAD') AS awaiting,
+    (SELECT COALESCE(SUM(e.amount_cents), 0) FROM entries e JOIN accounts a ON a.id = e.account_id
+        WHERE a.business_id = :business AND a.owner_type = 'business'
+        AND a.category IN ('processing_fee', 'platform_fee') AND a.currency = 'CAD'
+        AND e.occurred_at >= ((now() AT TIME ZONE b.timezone) - interval '30 days')
+            AT TIME ZONE b.timezone) AS fees
+FROM businesses b WHERE b.id = :business
+"""
+
+
+async def recorded_money(client_id: str) -> dict[str, object]:
+    """The client's payments and their journals as the app booked them, and the Payouts figures."""
+    async with engine.connect() as db:
+        await db.execute(text("SET TRANSACTION READ ONLY"))
+        params = {"business": BUSINESS, "client": client_id}
+        payments = (
+            await db.execute(
+                text(
+                    "SELECT kind, status, amount_cents, provider_ref FROM payments "
+                    "WHERE business_id = :business AND client_id = :client ORDER BY created_at, id"
+                ),
+                params,
+            )
+        ).mappings()
+        entries = list((await db.execute(text(CLIENT_ENTRIES), params)).mappings())
+        books = (await db.execute(text(BOOKS), params)).mappings().one()
+    journals: dict[str, int] = {}
+    totals: dict[str, int] = {}
+    for entry in entries:
+        journals[entry["journal_id"]] = journals.get(entry["journal_id"], 0) + entry["amount_cents"]
+        if entry["owner_type"] != "platform":
+            totals[entry["category"]] = totals.get(entry["category"], 0) + entry["amount_cents"]
+    return {
+        "payments": [dict(row) for row in payments],
+        "balanced": all(total == 0 for total in journals.values()),
+        "totals": totals,
+        "books": {"awaiting": int(books["awaiting"]), "fees": int(books["fees"])},
+    }
+
+
 async def detach_method(account: str, fixture: ClientFixture, method_id: str) -> dict[str, object]:
     """Detach a saved method at Stripe behind the app's back, as the Dashboard can."""
     method = await stripe.PaymentMethod.retrieve_async(method_id, stripe_account=account)
@@ -329,6 +382,11 @@ async def client_action(
     fixture = matches[0]
     if action == "methods":
         return await saved_methods(account, fixture)
+    if action == "money":
+        return {
+            "app": await recorded_money(client_id),
+            "stripe": (await saved_methods(account, fixture))["intents"],
+        }
     if action == "wallet":
         return {
             "app": await recorded_methods(client_id),
@@ -401,7 +459,7 @@ async def client_action(
 
 
 async def clients_main(argv: list[str]) -> None:
-    """Register a purchaser, move its test clock, read its wallet or change it at Stripe."""
+    """Register a purchaser, move its clock, read its wallet or money, or change it at Stripe."""
     parser = argparse.ArgumentParser(prog="python -m e2e.stripe clients")
     parser.add_argument(
         "action",
@@ -412,6 +470,7 @@ async def clients_main(argv: list[str]) -> None:
             "decline",
             "evidence",
             "methods",
+            "money",
             "wallet",
             "detach",
             "unauthorized-bank",

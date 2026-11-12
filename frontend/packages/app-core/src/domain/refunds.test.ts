@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { formatDate, zonedDate } from "../datetime";
 import { strings } from "../strings";
-import { disputeView, partLabel, refundState } from "./refunds";
+import { disputeView, leftToRefund, partLabel, refundState } from "./refunds";
 
 const ZONE = "America/Vancouver";
 
@@ -23,12 +23,15 @@ const payment = (amount: number, refunded: number): PaymentRow => ({
     paid_at: "2026-10-01T12:00:00Z",
     created_at: "2026-10-01T12:00:00Z",
     invoice_number: 7,
+    charge_name: null,
     order_number: null,
     booking_id: null,
     gift_code: null,
     package_name: null,
     refunded_cents: refunded,
     fee_cents: 175,
+    dispute_status: null,
+    dispute_respond_by: null,
 });
 
 describe("refunds", () => {
@@ -39,6 +42,24 @@ describe("refunds", () => {
         expect(refundState(payment(5000, 4999))).toBe("partly_refunded");
         expect(refundState(payment(5000, 5000))).toBe("refunded");
         expect(refundState(payment(5000, 6000))).toBe("refunded");
+    });
+
+    it("puts a dispute or bank inquiry ahead of paid, and leaves nothing to refund once lost", () => {
+        const respondBy = "2026-10-20T12:00:00Z";
+        const disputed = (status: string | null, by: string | null = respondBy) => ({
+            ...payment(5000, 1000),
+            dispute_status: status,
+            dispute_respond_by: by,
+        });
+        expect(refundState(disputed(null))).toBe("inquiry");
+        expect(refundState(disputed("needs_response"))).toBe("disputed");
+        expect(refundState(disputed("under_review"))).toBe("disputed");
+        expect(refundState(disputed("lost"))).toBe("dispute_lost");
+        expect(refundState(disputed("won"))).toBe("partly_refunded");
+        expect(refundState(disputed(null, null))).toBe("partly_refunded");
+        expect(leftToRefund(disputed("needs_response"))).toBe(4000);
+        expect(leftToRefund(disputed("lost"))).toBe(0);
+        expect(s.statusLabel.dispute_lost).not.toBe(s.statusLabel.paid);
     });
 
     it("names each ledger part a refund reverses", () => {
@@ -66,6 +87,7 @@ describe("disputeView", () => {
         dispute_reason: "fraudulent",
         dispute_respond_by: respondBy,
         invoice_number: null,
+        charge_name: null,
         order_number: 42,
         gift_code: null,
         package_name: null,
@@ -97,6 +119,18 @@ describe("disputeView", () => {
             s.subject.sale(42),
             "",
         ]);
+    });
+
+    it("names a walk-in sale's client and a membership charge by its plan", () => {
+        expect(disputeView(dispute({ client_name: null }), now, ZONE)).toMatchObject({
+            client: strings.pos.desk.walkIn,
+            subject: s.subject.sale(42),
+        });
+        const membership = dispute({ order_number: null, charge_name: "Monthly Care" });
+        expect(disputeView(membership, now, ZONE)).toMatchObject({
+            client: "Ben",
+            subject: "Monthly Care",
+        });
     });
 
     it("never counts a passed deadline below zero days", () => {
@@ -133,5 +167,19 @@ describe("disputeView", () => {
             intent: "warning",
             deadline: s.reviewNote,
         });
+    });
+
+    it("shows a bank inquiry as open, with its answer-by date and no money held", () => {
+        const view = disputeView(dispute({ dispute_status: "inquiry", fee_cents: 0 }), now, ZONE);
+        expect(view).toMatchObject({
+            open: true,
+            statusLabel: s.disputeStatus.inquiry,
+            intent: "warning",
+            deadline: s.respondBy(formatDate(new Date(respondBy), ZONE), 3),
+            deadlineTone: "danger",
+            note: s.inquiryNote,
+            held: [],
+        });
+        expect(disputeView(dispute(), now, ZONE).note).toBeNull();
     });
 });

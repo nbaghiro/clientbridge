@@ -152,13 +152,11 @@ function PaymentsDesk({ desk }: { desk: ReturnType<typeof useRefundDesk> }) {
                     <div className={PAY_GRID}>
                         <span className="flex min-w-0 items-center gap-3">
                             <Avatar
-                                name={r.payment.client_name ?? r.subject}
+                                name={r.client}
                                 src={photos.client(r.payment.client_id)}
                                 size="sm"
                             />
-                            <span className="truncate font-medium text-ink">
-                                {r.payment.client_name ?? r.subject}
-                            </span>
+                            <span className="truncate font-medium text-ink">{r.client}</span>
                         </span>
                         <span className="truncate text-ink-soft">{r.subject}</span>
                         <span className="truncate text-ink-soft">{r.method}</span>
@@ -254,9 +252,7 @@ function Disputes({ desk }: { desk: DisputeDesk }) {
                 empty={{ message: s.noDisputes, icon: "shield", variant: "card" }}
                 renderRow={(d) => (
                     <div className={DISPUTE_GRID}>
-                        <span className="truncate font-medium text-ink">
-                            {d.row.client_name ?? d.subject}
-                        </span>
+                        <span className="truncate font-medium text-ink">{d.client}</span>
                         <span className="truncate text-ink-soft">{d.subject}</span>
                         <span className="truncate text-ink-soft">{d.reason}</span>
                         <span>
@@ -278,26 +274,20 @@ function Disputes({ desk }: { desk: DisputeDesk }) {
                     }}
                 >
                     <div className="space-y-5">
-                        <Notice
-                            tone={
-                                sel.row.dispute_status === "needs_response"
-                                    ? "danger"
-                                    : sel.row.dispute_status === "won"
-                                      ? "success"
-                                      : "info"
-                            }
-                            banner
-                        >
+                        <Notice tone={sel.deadlineTone} banner>
                             {sel.deadline}
                         </Notice>
+                        {sel.note !== null ? <Notice tone="info">{sel.note}</Notice> : null}
                         <KeyValueList rows={sel.facts} />
-                        <div className="rounded-md border border-line bg-bg px-4 py-3">
-                            <DocTotals
-                                currency={BUSINESS_CURRENCY}
-                                lines={sel.held}
-                                density="compact"
-                            />
-                        </div>
+                        {sel.held.length > 0 ? (
+                            <div className="rounded-md border border-line bg-bg px-4 py-3">
+                                <DocTotals
+                                    currency={BUSINESS_CURRENCY}
+                                    lines={sel.held}
+                                    density="compact"
+                                />
+                            </div>
+                        ) : null}
                         {sel.open ? (
                             <Notice tone="info">{strings.paymentAccount.disputeHelp}</Notice>
                         ) : null}

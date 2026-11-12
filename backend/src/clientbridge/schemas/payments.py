@@ -148,6 +148,7 @@ RefundBlock = Literal[
     "whole_only",
     "payment_disputed",
     "refund_refused",
+    "dispute_lost",
 ]
 
 
@@ -284,6 +285,7 @@ class PublicCredit(Mirror):
     kind: Literal["payment", "deposit"]
     method: PayMethod | None
     amount_cents: int
+    tip_cents: int = Field(description="The tip paid with this payment, on top of the invoice")
     at: datetime | None
 
 

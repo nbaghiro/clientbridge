@@ -27,6 +27,7 @@ from e2e.stripe_clients import (
 )
 from e2e.stripe_context import BUSINESS
 from e2e.stripe_deposits import DepositFixture, validate_deposit_intent
+from e2e.stripe_plans import PlanFixture, clean_plan
 from e2e.stripe_pool import checked, lease_file, pair, pairs
 from e2e.tier import ROOT
 
@@ -139,9 +140,11 @@ class Manifest(BaseModel):
     platform: str
     business: str = Field(pattern=r"^bz_birchbark(_\d{4})?$")
     database: dict[str, object]
+    prepared_at: int | None = None
     fixtures: list[Fixture]
     deposit_fixtures: list[DepositFixture] = []
     client_fixtures: list[ClientFixture] = []
+    plan_fixtures: list[PlanFixture] = []
     cleanup: list[dict[str, object]] = []
 
     @model_validator(mode="after")
@@ -184,7 +187,10 @@ def recovery_credentials(
         if saved["STRIPE_TEST_PLATFORM"] != selected["account_id"]:
             raise ValueError("merchant manifest and CLI profile platform differ")
         env = {name: saved[name] for name in names}
-        env["STRIPE_TEST_SECRET_KEY"] = selected.get("test_mode_api_key", "")
+        # a newer CLI keeps the key in the keychain, as the lane's own credentials allow
+        env["STRIPE_TEST_SECRET_KEY"] = selected.get("test_mode_api_key") or os.environ.get(
+            "STRIPE_TEST_SECRET_KEY", ""
+        )
     elif leased is not None:
         env = pair(leased) | {
             "STRIPE_TEST_SECRET_KEY": os.environ.get("STRIPE_TEST_SECRET_KEY", "")
@@ -296,9 +302,13 @@ async def recover(
                 business=manifest.business,
             )
         )
+    for fixture in manifest.plan_fixtures:
+        plans.extend(await clean_plan(fixture, apply=False))
     if not apply:
         results.extend(plans)
         return results
+    for fixture in manifest.plan_fixtures:
+        results.extend(await clean_plan(fixture))
     for purchaser in manifest.client_fixtures:
         results.extend(
             await clean_client(

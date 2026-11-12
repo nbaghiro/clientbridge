@@ -148,8 +148,10 @@ class Stack:
         *,
         seed_as_of: datetime | None = None,
         native: str | None = None,
+        worker: str = WORKER_SETTINGS,
     ) -> None:
         self.directory = directory
+        self.worker_settings = worker
         self.lease = lease
         self.namespace = lease.namespace
         self.native = native
@@ -315,7 +317,7 @@ class Stack:
                 "--timeout-keep-alive",
                 "120",
             ],
-            "worker": [sys.executable, "-m", "arq", "clientbridge.tasks.worker.WorkerSettings"],
+            "worker": [sys.executable, "-m", "arq", self.worker_settings],
         }.items():
             output = processes.enter_context((self.directory / f"{name}.log").open("wb"))
             process = subprocess.Popen(
@@ -337,8 +339,8 @@ class Stack:
         self.command([sys.executable, "-m", "e2e.sync", "caught-up"], log)
 
     def use_builds(self, log: IO[bytes]) -> None:
-        """Point the browser lane's preview servers at the shared production builds."""
-        for app, path in ensure_builds(log).items():
+        """Point the browser lane's preview servers at this run's copy of the production builds."""
+        for app, path in ensure_builds(log, self.directory / "builds").items():
             self.env[f"E2E_{app.upper()}_BUILD"] = str(path)
 
     def grant_platform_access(self) -> None:
@@ -368,7 +370,7 @@ class Stack:
     def worker_heartbeat(self) -> bool:
         """The liveness probe production runs: `arq --check` reads the worker's heartbeat key."""
         process = subprocess.Popen(
-            [sys.executable, "-m", "arq", "--check", WORKER_SETTINGS],
+            [sys.executable, "-m", "arq", "--check", self.worker_settings],
             cwd=ROOT / "backend",
             env=self.env,
             stdout=subprocess.DEVNULL,

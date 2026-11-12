@@ -106,7 +106,7 @@ function PaymentsList({ desk }: { desk: ReturnType<typeof useRefundDesk> }) {
             {desk.rows.map((r) => (
                 <ListRow
                     key={r.payment.id}
-                    title={r.payment.client_name ?? r.subject}
+                    title={r.client}
                     detail={formatParts([r.subject, r.when])}
                     meta={
                         <View style={styles.meta}>
@@ -166,7 +166,7 @@ function Disputes({ desk }: { desk: DisputeDesk }) {
             {[...desk.open, ...desk.closed].map((d) => (
                 <ListRow
                     key={d.row.id}
-                    title={d.row.client_name ?? d.subject}
+                    title={d.client}
                     detail={formatParts([d.reason, d.subject])}
                     meta={
                         <View style={styles.meta}>
@@ -189,14 +189,18 @@ function Disputes({ desk }: { desk: DisputeDesk }) {
                         desk.select(null);
                     }}
                 >
-                    <Notice
-                        tone={sel.row.dispute_status === "needs_response" ? "danger" : "info"}
-                        banner
-                    >
+                    <Notice tone={sel.deadlineTone} banner>
                         {sel.deadline}
                     </Notice>
+                    {sel.note !== null ? <Notice tone="info">{sel.note}</Notice> : null}
                     <KeyValueList rows={sel.facts} />
-                    <DocTotals currency={BUSINESS_CURRENCY} lines={sel.held} density="compact" />
+                    {sel.held.length > 0 ? (
+                        <DocTotals
+                            currency={BUSINESS_CURRENCY}
+                            lines={sel.held}
+                            density="compact"
+                        />
+                    ) : null}
                     {sel.open ? (
                         <Notice tone="info">{strings.paymentAccount.disputeHelp}</Notice>
                     ) : null}

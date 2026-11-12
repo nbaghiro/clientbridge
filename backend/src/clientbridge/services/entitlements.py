@@ -763,10 +763,11 @@ class SubscriptionService:
         sub = await self._subscription(subscription_id)
         account_id = business.stripe_account_id
         provider_ref = sub.provider_ref
+        if sub.status == "canceled":
+            # a retry after a lost response finds the cancel done, which is what it asked for
+            return _subscription_out(sub)
 
         async def run(cmd: Command) -> SubscriptionOut:
-            if sub.status == "canceled":
-                raise Conflict("subscription is already canceled")
             if provider_ref is not None and account_id is not None:
                 await self.gateway.cancel_subscription(account_id, subscription_id=provider_ref)
             sub.status = "canceled"

@@ -8396,6 +8396,11 @@ export interface components {
             method: ("card" | "etransfer" | "bank_eft" | "cash" | "cheque" | "other") | null;
             /** Amount Cents */
             amount_cents: number;
+            /**
+             * Tip Cents
+             * @description The tip paid with this payment, on top of the invoice
+             */
+            tip_cents: number;
             /** At */
             at: string | null;
         };
@@ -9578,7 +9583,7 @@ export interface components {
              * Blocked
              * @description Why nothing can be refunded, as a code the client renders
              */
-            blocked?: ("not_succeeded" | "already_refunded" | "gift_card_expired" | "gift_card_redeemed" | "package_expired" | "package_used" | "whole_only" | "payment_disputed" | "refund_refused") | null;
+            blocked?: ("not_succeeded" | "already_refunded" | "gift_card_expired" | "gift_card_redeemed" | "package_expired" | "package_used" | "whole_only" | "payment_disputed" | "refund_refused" | "dispute_lost") | null;
             /**
              * By Hand
              * @description Money goes back outside Stripe (cash, cheque, e-Transfer)

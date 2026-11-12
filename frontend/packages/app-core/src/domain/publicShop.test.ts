@@ -3,6 +3,7 @@ import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { strings } from "../strings";
+import type { StripeReturn } from "./checkout";
 import {
     type PublicShop,
     cartSubtotal,
@@ -114,14 +115,17 @@ describe("a placed order survives a reload", () => {
         setItem: (k: string, v: string) => map.set(k, v),
         removeItem: (k: string) => map.delete(k),
     });
+    // the hook loads through the client it is given, so each render must pass the same one
+    const mount = (client: ShopClient, map: Map<string, string>, returned?: StripeReturn) => {
+        const kept = asStorage(map);
+        return renderHook(() => useShopFlow(client, "birchbark", kept, returned));
+    };
 
     async function order(
         placeOrder: ReturnType<typeof vi.fn<Place>>,
         map: Map<string, string>,
     ): Promise<void> {
-        const { result, unmount } = renderHook(() =>
-            useShopFlow(shopClient(placeOrder), "birchbark", asStorage(map)),
-        );
+        const { result, unmount } = mount(shopClient(placeOrder), map);
         await waitFor(() => {
             expect(result.current.status).toBe("ready");
         });
@@ -144,9 +148,7 @@ describe("a placed order survives a reload", () => {
         const lost = vi.fn<Place>().mockRejectedValue(new TypeError("lost response"));
         await order(lost, map);
         const placeOrder = vi.fn<Place>().mockResolvedValue(placed);
-        const { result } = renderHook(() =>
-            useShopFlow(shopClient(placeOrder), "birchbark", asStorage(map)),
-        );
+        const { result } = mount(shopClient(placeOrder), map);
         await waitFor(() => {
             expect(result.current.status).toBe("ready");
         });
@@ -157,13 +159,45 @@ describe("a placed order survives a reload", () => {
             expect(result.current.status).toBe("paying");
         });
         expect(placeOrder.mock.calls[0]?.[2]).toBe(lost.mock.calls[0]?.[2]);
-        const reloaded = renderHook(() =>
-            useShopFlow(shopClient(vi.fn<Place>()), "birchbark", asStorage(map)),
-        );
+        const reloaded = mount(shopClient(vi.fn<Place>()), map);
         await waitFor(() => {
             expect(reloaded.result.current.status).toBe("paying");
         });
         expect(reloaded.result.current.order?.order_id).toBe("ord_1");
+    });
+
+    function returnTo(map: Map<string, string>, returned: StripeReturn) {
+        return mount(shopClient(vi.fn<Place>()), map, returned);
+    }
+
+    it("shows the order paid when Stripe sends the client back from that order's payment", async () => {
+        const map = storage();
+        await order(vi.fn<Place>().mockResolvedValue(placed), map);
+        const back = returnTo(map, { intent: "pi_1", status: "succeeded" });
+        await waitFor(() => {
+            expect(back.result.current.status).toBe("paid");
+        });
+        expect(back.result.current.order?.order_id).toBe("ord_1");
+        expect(JSON.parse(map.get("connect-order:birchbark") ?? "null")).toMatchObject({
+            paid: true,
+        });
+        back.unmount();
+    });
+
+    it("keeps paying when the return is for another intent, and says when it failed", async () => {
+        const map = storage();
+        await order(vi.fn<Place>().mockResolvedValue(placed), map);
+        const other = returnTo(map, { intent: "pi_9", status: "succeeded" });
+        await waitFor(() => {
+            expect(other.result.current.status).toBe("paying");
+        });
+        other.unmount();
+        const failed = returnTo(map, { intent: "pi_1", status: "failed" });
+        await waitFor(() => {
+            expect(failed.result.current.status).toBe("paying");
+        });
+        expect(failed.result.current.error).toBe(strings.checkout.paymentFailed);
+        failed.unmount();
     });
 
     it("starts a new order once the held one would have been released", async () => {
@@ -173,9 +207,7 @@ describe("a placed order survives a reload", () => {
         await order(first, map);
         vi.setSystemTime(Date.now() + 31 * 60 * 1000);
         const placeOrder = vi.fn<Place>().mockResolvedValue({ ...placed, order_id: "ord_2" });
-        const { result } = renderHook(() =>
-            useShopFlow(shopClient(placeOrder), "birchbark", asStorage(map)),
-        );
+        const { result } = mount(shopClient(placeOrder), map);
         await waitFor(() => {
             expect(result.current.status).toBe("ready");
         });

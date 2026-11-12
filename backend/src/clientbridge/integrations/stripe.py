@@ -480,17 +480,15 @@ def address_params(address: PostalAddress) -> dict[str, str]:
     return fields
 
 
-def has_identity_address(account: dict[str, object]) -> bool:
-    identity = _dict(account.get("identity"))
-    business = _dict(_dict(identity.get("business_details")).get("address"))
-    individual = _dict(_dict(identity.get("individual")).get("address"))
-    return bool(business.get("line1") or individual.get("line1"))
+def plan_customer(business_name: str, address: PostalAddress) -> dict[str, object]:
+    """The customer configuration a plan bills through, taxed at the business's own address."""
+    return {
+        "capabilities": {"automatic_indirect_tax": {"requested": True}},
+        # Stripe Tax places a customer by its shipping address before its owner's identity address
+        "shipping": {"name": business_name, "address": address_params(address)},
+    }
 
 
-# Stripe Tax places a customer account by its identity address
-CUSTOMER_CONFIGURATION: dict[str, object] = {
-    "capabilities": {"automatic_indirect_tax": {"requested": True}}
-}
 # a subscription in these states bills or is about to, so a second one would bill twice
 _PAYING = ("active", "trialing", "past_due", "incomplete")
 # a client's manage page waits on this read, so a slow Stripe reads as unknown rather than hang it
@@ -575,12 +573,10 @@ class PaymentGateway(Protocol):
         """Let an account that only pays us take payments too; repeating it changes nothing."""
         ...
 
-    async def add_customer_configuration(self, account_id: str, *, address: PostalAddress) -> None:
-        """Let an account pay for its plan; the address is used only when it has none yet."""
-        ...
-
-    async def update_account_address(self, account_id: str, *, address: PostalAddress) -> None:
-        """Replace the account's business address, which Stripe Tax places its plan by."""
+    async def set_plan_address(
+        self, account_id: str, *, business_name: str, address: PostalAddress
+    ) -> None:
+        """Let an account pay for its plan, taxed at this address; repeating it changes nothing."""
         ...
 
     async def update_account_url(self, account_id: str, *, url: str) -> None:
@@ -737,8 +733,9 @@ class PaymentGateway(Protocol):
         idempotency_key: str,
         payment_method: str | None = None,
         mandate: str | None = None,
+        card_only: bool = False,
     ) -> PaymentIntentResult:
-        """A `mandate` charges a saved PAD account under it; Stripe needs both for acss_debit."""
+        """A `mandate` charges a saved PAD account under it; `card_only` suits a card staff type."""
         ...
 
     async def cancel_payment_intent(self, account_id: str, *, payment_intent_id: str) -> None:
@@ -842,7 +839,7 @@ def _keyed[**P, R](
 
 
 @cache
-def _stripe_http_client() -> stripe.HTTPXClient:
+def stripe_http_client() -> stripe.HTTPXClient:
     return stripe.HTTPXClient(timeout=10.0)
 
 
@@ -852,16 +849,16 @@ def _stripe_client(secret_key: str, api_base: str) -> stripe.StripeClient:
         secret_key,
         stripe_version=STRIPE_API_VERSION,
         base_addresses={"api": api_base},
-        http_client=_stripe_http_client(),
+        http_client=stripe_http_client(),
         max_network_retries=0,
     )
 
 
 async def close_stripe_client() -> None:
-    if _stripe_http_client.cache_info().currsize:
-        await _stripe_http_client().close_async()
+    if stripe_http_client.cache_info().currsize:
+        await stripe_http_client().close_async()
     _stripe_client.cache_clear()
-    _stripe_http_client.cache_clear()
+    stripe_http_client.cache_clear()
     stripe.default_http_client = None
 
 
@@ -881,7 +878,7 @@ class StripeGateway:
         if api_base:
             stripe.api_base = api_base
         stripe.api_version = STRIPE_API_VERSION
-        stripe.default_http_client = _stripe_http_client()
+        stripe.default_http_client = stripe_http_client()
         stripe.max_network_retries = 0
         self.client = _stripe_client(secret_key, stripe.api_base)
         self._webhook_secret = webhook_secret
@@ -917,9 +914,8 @@ class StripeGateway:
             if address is None:
                 raise ValueError("a paying account needs its address for sales tax")
             configuration["customer"] = cast(
-                AccountCreateParamsConfigurationCustomer, CUSTOMER_CONFIGURATION
+                AccountCreateParamsConfigurationCustomer, plan_customer(business_name, address)
             )
-            identity["business_details"] = {"address": address_params(address)}
         params: AccountCreateParams = {
             "display_name": business_name,
             "dashboard": "none",
@@ -949,19 +945,10 @@ class StripeGateway:
         await self.client.v2.core.accounts.update_async(account_id, params)
 
     @_keyed
-    async def add_customer_configuration(self, account_id: str, *, address: PostalAddress) -> None:
-        account = await self.client.v2.core.accounts.retrieve_async(
-            account_id, {"include": ["identity"]}
-        )
-        body: dict[str, object] = {"configuration": {"customer": CUSTOMER_CONFIGURATION}}
-        # an onboarded account already has the address its owner verified
-        if not has_identity_address(account.to_dict()):
-            body["identity"] = {"business_details": {"address": address_params(address)}}
-        await self.client.v2.core.accounts.update_async(account_id, cast(AccountUpdateParams, body))
-
-    @_keyed
-    async def update_account_address(self, account_id: str, *, address: PostalAddress) -> None:
-        body = {"identity": {"business_details": {"address": address_params(address)}}}
+    async def set_plan_address(
+        self, account_id: str, *, business_name: str, address: PostalAddress
+    ) -> None:
+        body = {"configuration": {"customer": plan_customer(business_name, address)}}
         await self.client.v2.core.accounts.update_async(account_id, cast(AccountUpdateParams, body))
 
     @_keyed
@@ -1560,6 +1547,7 @@ class StripeGateway:
         idempotency_key: str,
         payment_method: str | None = None,
         mandate: str | None = None,
+        card_only: bool = False,
     ) -> PaymentIntentResult:
         # a saved payment_method → charge it off-session now; else return a client_secret to confirm
         params: PaymentIntentCreateParams = {
@@ -1574,6 +1562,8 @@ class StripeGateway:
             params.update(payment_method=payment_method, confirm=True, off_session=True)
         if mandate is not None:
             params.update(allowed_payment_method_types=["acss_debit"], mandate=mandate)
+        elif card_only:
+            params.update(allowed_payment_method_types=["card"])
         if customer_id is not None:  # a walk-in sale has no Customer
             params["customer"] = customer_id
         try:

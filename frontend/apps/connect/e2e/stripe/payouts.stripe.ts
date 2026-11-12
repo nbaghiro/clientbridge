@@ -1,5 +1,11 @@
-import { CALENDAR, formatMoney, formatShortDay, strings } from "@clientbridge/app-core/public";
-import { expect, test, type Page } from "@playwright/test";
+import {
+    CALENDAR,
+    dateKey,
+    formatMoney,
+    formatShortDay,
+    strings,
+} from "@clientbridge/app-core/public";
+import { expect, test } from "@playwright/test";
 import { demoId, runPort } from "@clientbridge/config/e2e/run";
 import { select } from "../../../web/e2e/support/db";
 import { navigate, signIn } from "../../../web/e2e/support/session";
@@ -15,7 +21,6 @@ import {
     depositedCents,
     merchant,
     payoutJournals,
-    stripeFrame,
     type PayoutSchedule,
     type StripePayout,
 } from "./support/payouts";
@@ -30,18 +35,8 @@ function webContext(browser: import("@playwright/test").Browser) {
     return browser.newContext({ baseURL: `http://localhost:${String(runPort("WEB_E2E_PORT"))}` });
 }
 
-async function openPayoutsComponent(page: Page) {
-    await page
-        .getByRole("button", { name: strings.paymentAccount.viewPayouts, exact: true })
-        .click();
-    await expect(
-        page.getByRole("region", { name: strings.paymentAccount.payouts, exact: true }),
-    ).toBeVisible();
-}
-
 test.describe("payouts", () => {
     test.describe.configure({ mode: "serial" });
-    let funded: { charge: string; net: number } | null = null;
 
     test("STR-E01 a Connect invoice payment books fees that match Stripe's balance transaction", async ({
         page,
@@ -58,17 +53,16 @@ test.describe("payouts", () => {
             intent.charge,
         );
         expect(charge).toMatchObject({ net: intent.net, fee: intent.fee, status: "available" });
-        funded = { charge: intent.charge, net: intent.net };
     });
 
-    // Opt-in: the shared merchant needs an available balance that covers this run's charge.
+    // Opt-in: `--payout-case` tops the shared merchant's available balance up to the payout float.
     if (process.env.STRIPE_PAYOUT_CASE === "1")
         test("STR-E08 a manual payout shows in transit, is left out of Deposited until Stripe pays it, then reaches Bank deposits", async ({
             browser,
         }, info) => {
             test.setTimeout(900_000);
-            if (funded === null) throw new Error("STR-E01 did not fund the payout");
-            const { net } = funded;
+            // the lane's payout float funds it, so any shard can run it apart from STR-E01
+            const net = 1000;
             const balance = await merchant<{ available: number; pending: number }>("balance");
             await info.attach("balance-before-payout", {
                 body: JSON.stringify({ balance, net }),
@@ -81,15 +75,6 @@ test.describe("payouts", () => {
             ).toBeGreaterThanOrEqual(net);
             const original = await merchant<PayoutSchedule>("schedule");
             expect(original.interval).not.toBe("manual");
-            const earlier = (
-                await merchant<{ payouts: { id: string; arrival_date: number }[] }>("payouts")
-            ).payouts;
-            // Stripe's payouts component hides the schedule and Pay out while a payout is on its way
-            expect(
-                earlier.filter((row) => row.arrival_date * 1000 > Date.now()).map((row) => row.id),
-                "an earlier payout must have arrived before this case can make another",
-            ).toEqual([]);
-            const before = new Set(earlier.map((row) => row.id));
             const context = await webContext(browser);
             try {
                 const page = await context.newPage();
@@ -100,55 +85,11 @@ test.describe("payouts", () => {
                 });
                 const depositedBefore = await depositedCents(page);
 
-                await openPayoutsComponent(page);
-                const component = await stripeFrame(page, /^Update$/);
-                await component.getByRole("button", { name: "Update", exact: true }).click();
-                const scheduleDialog = await stripeFrame(page, /^Save$/);
-                await scheduleDialog.getByRole("radio", { name: /^Manual/ }).check();
-                await scheduleDialog.getByRole("button", { name: "Save", exact: true }).click();
-                await expect
-                    .poll(async () => (await merchant<PayoutSchedule>("schedule")).interval)
-                    .toBe("manual");
-                await (
-                    await stripeFrame(page, /^Done$/, true)
-                )
-                    .getByRole("button", { name: "Done", exact: true })
-                    .click();
-
-                await (
-                    await stripeFrame(page, /^Pay out$/)
-                )
-                    .getByRole("button", { name: "Pay out", exact: true })
-                    .click();
-                const payoutDialog = await stripeFrame(page, /^(Pay out|Confirm|Send)/, true);
-                await info.attach("payout-dialog", {
-                    body: await page.screenshot({ fullPage: true }),
-                    contentType: "image/png",
-                });
-                const amount = payoutDialog.getByRole("textbox").first();
-                if ((await amount.count()) > 0) await amount.fill((net / 100).toFixed(2));
-                await payoutDialog
-                    .getByRole("button", { name: /^(Pay out|Confirm|Send)/ })
-                    .last()
-                    .click();
-                let payoutId = "";
-                await expect(async () => {
-                    const listed = await merchant<{ payouts: { id: string }[] }>("payouts");
-                    const created = listed.payouts.filter((row) => !before.has(row.id));
-                    expect(created).toHaveLength(1);
-                    payoutId = created[0]?.id ?? "";
-                }).toPass({ timeout: 60_000 });
-                const created = await merchant<StripePayout>("payout", payoutId);
+                // by API: Stripe's component hides Pay out until the last test payout's arrival day
+                expect((await merchant<PayoutSchedule>("manual-schedule")).interval).toBe("manual");
+                const created = await merchant<StripePayout>("pay-out", String(net));
                 expect(created).toMatchObject({ amount: net, currency: "cad", automatic: false });
-                await (
-                    await stripeFrame(page, /^(Done|Close)$/, true)
-                )
-                    .getByRole("button", { name: /^(Done|Close)$/ })
-                    .first()
-                    .click();
-                await page
-                    .getByRole("button", { name: strings.paymentAccount.close, exact: true })
-                    .click();
+                const payoutId = created.id;
 
                 await expect
                     .poll(async () => (await payoutJournals(payoutId)).length, { timeout: 120_000 })
@@ -223,7 +164,13 @@ test.describe("payouts", () => {
                 const paidJournal = journals.find(
                     (leg) => leg.ref === `payout:${payoutId}:paid` && leg.category === "bank",
                 )?.journal_id;
-                const deposits = await bankDeposits(page, info, "bank-deposits");
+                const deposits = await bankDeposits(
+                    page,
+                    info,
+                    "bank-deposits",
+                    // the report cuts days in the business's zone, where a midnight-UTC arrival is the day before
+                    dateKey(new Date(paid.arrival_date * 1000), "America/Vancouver"),
+                );
                 const arrival = await select<{ day: string }>`
                     SELECT to_char(available_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day
                     FROM entries WHERE journal_id = ${paidJournal ?? ""} AND business_id = ${demoId("bz_birchbark")}

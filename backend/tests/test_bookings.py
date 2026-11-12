@@ -542,6 +542,7 @@ async def test_collect_deposit_interactive_returns_secret(
     assert res.status_code == 200, res.text
     assert res.json()["client_secret"].startswith("pi_fake")
     assert gateway.charged_methods == []  # nothing charged — awaiting client confirmation
+    assert len(gateway.card_only_intents) == 1  # staff type the card, so no Link or Klarna
     booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
     assert booking.deposit_status == "pending"
 

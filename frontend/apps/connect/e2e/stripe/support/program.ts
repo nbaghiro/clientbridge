@@ -59,7 +59,11 @@ export async function prepareProgram(owner: Page) {
     );
     let program: Scheduled | null = null;
     let refusal = "";
-    for (let week = 3; week < 10 && program === null; week++) {
+    // the seeded calendar fills afternoons by date, so look across weeks and times of day
+    const starts = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12].flatMap((week) =>
+        ["15:00", "10:00", "13:00"].map((time) => ({ week, time })),
+    );
+    for (const { week, time } of starts) {
         const ahead = addDays(new Date(), week * 7, ZONE);
         const weekday = new Date(`${dateKey(ahead, ZONE)}T12:00:00Z`).getUTCDay();
         const monday = dateKey(addDays(ahead, -((weekday + 6) % 7), ZONE), ZONE);
@@ -68,7 +72,7 @@ export async function prepareProgram(owner: Page) {
             data: {
                 item_id: camp.id,
                 staff_id: member.id,
-                starts_at: combineDayAndTime(monday, "15:00", ZONE).toISOString(),
+                starts_at: combineDayAndTime(monday, time, ZONE).toISOString(),
                 byday: ["MO", "TU", "WE"],
                 count: PROGRAM.days,
             },
@@ -79,6 +83,7 @@ export async function prepareProgram(owner: Page) {
         }
         expect(response.status(), await response.text()).toBe(201);
         program = (await response.json()) as Scheduled;
+        break;
     }
     if (program === null) throw new Error(`No free week for the camp: ${refusal}`);
     const booker = onlineBooker("Juniper");

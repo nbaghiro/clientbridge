@@ -1,4 +1,4 @@
-"""Refund an intent the run owns from Stripe's side, as the Dashboard does, or read its charge."""
+"""Refund an intent the run owns from Stripe's side, as the Dashboard does, or read its refunds."""
 
 import argparse
 import json
@@ -9,7 +9,7 @@ from clientbridge.core.db import engine
 from clientbridge.integrations.stripe import close_stripe_client
 from e2e.stripe_context import run_state, validate_context
 from e2e.stripe_disputes import owned_intent
-from e2e.stripe_evidence import charge_evidence
+from e2e.stripe_evidence import charge_events, charge_evidence
 
 
 async def refund_action(action: str, intent_id: str, amount: int | None) -> dict[str, object]:
@@ -22,7 +22,8 @@ async def refund_action(action: str, intent_id: str, amount: int | None) -> dict
         await stripe.Refund.create_async(
             payment_intent=intent_id, amount=amount, stripe_account=account
         )
-    return await charge_evidence(account, charge_id)
+    evidence = await charge_evidence(account, charge_id)
+    return {**evidence, "events": await charge_events(account, charge_id, "refund.*")}
 
 
 async def refunds_main(argv: list[str]) -> None:

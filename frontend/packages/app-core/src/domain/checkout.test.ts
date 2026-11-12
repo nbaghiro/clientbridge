@@ -8,11 +8,14 @@ import { BusinessZoneContext, formatDate, parseTimestamp } from "../datetime";
 import { formatPhone } from "../format";
 import { strings } from "../strings";
 import {
+    cardConfirmFailure,
     createPublicPaymentSetupClient,
     paymentErrorMessage,
     refusedConfirm,
     useAddPaymentMethod,
     useCheckout,
+    returnedPaid,
+    stripeReturn,
 } from "./checkout";
 
 const replica: { phone: string | null; banks: { id: string; mandate_status: string }[] } = {
@@ -273,5 +276,57 @@ describe("useAddPaymentMethod bank links", () => {
         rerender();
         expect(result.current.bankLink).toBeNull();
         replica.banks = [];
+    });
+});
+
+describe("Stripe's return from a redirect payment", () => {
+    it("reads the intent and whether it went through, and nothing on a plain visit", () => {
+        expect(stripeReturn("?payment_intent=pi_1&redirect_status=succeeded")).toEqual({
+            intent: "pi_1",
+            status: "succeeded",
+        });
+        expect(stripeReturn("?payment_intent=pi_1&redirect_status=processing")?.status).toBe(
+            "processing",
+        );
+        expect(
+            stripeReturn("?payment_intent=pi_1&redirect_status=requires_payment_method"),
+        ).toEqual({ intent: "pi_1", status: "failed" });
+        expect(stripeReturn("?redirect_status=succeeded")).toBeNull();
+        expect(stripeReturn("")).toBeNull();
+    });
+
+    it("counts a paid return only for the intent a stored client secret belongs to", () => {
+        const paid = { intent: "pi_1", status: "succeeded" } as const;
+        expect(returnedPaid(paid)).toBe(true);
+        expect(returnedPaid(paid, "pi_1_secret_abc")).toBe(true);
+        expect(returnedPaid(paid, "pi_2_secret_abc")).toBe(false);
+        expect(returnedPaid({ intent: "pi_1", status: "failed" })).toBe(false);
+        expect(returnedPaid(null)).toBe(false);
+    });
+});
+
+describe("a card confirm", () => {
+    const failed = strings.checkout.paymentFailed;
+
+    it("counts a payment that went through or is on its way", () => {
+        expect(cardConfirmFailure("payment", { paymentIntent: { status: "succeeded" } })).toBe(
+            null,
+        );
+        expect(cardConfirmFailure("payment", { paymentIntent: { status: "processing" } })).toBe(
+            null,
+        );
+    });
+
+    it("says the payment failed when the confirm settles with no answer", () => {
+        expect(cardConfirmFailure("payment", undefined)).toBe(failed);
+        expect(cardConfirmFailure("payment", {})).toBe(failed);
+        expect(
+            cardConfirmFailure("payment", { paymentIntent: { status: "requires_payment_method" } }),
+        ).toBe(failed);
+    });
+
+    it("needs a setup intent back before a saved card counts", () => {
+        expect(cardConfirmFailure("setup", { setupIntent: { status: "succeeded" } })).toBe(null);
+        expect(cardConfirmFailure("setup", {})).toBe(strings.checkout.saveError);
     });
 });

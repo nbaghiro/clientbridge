@@ -1422,6 +1422,7 @@ class BookingService:
                 idempotency_key=idempotency_key,
                 # a card form staff closed gives way to this attempt instead of blocking it
                 supersede=pm_ref is None,
+                card_only=True,
             )
             cmd.record("booking.deposit", entity_type="booking", entity_id=booking.id)
             return DepositOut(

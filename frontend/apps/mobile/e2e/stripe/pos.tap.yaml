@@ -1,0 +1,134 @@
+appId: ${APP_ID}
+name: NATIVE-PAY-03 On a phone, Tap to Pay on Stripe's simulated reader takes a sale once a declined card and a tap canceled at the reader leave it open, and Stripe and the books hold the one charge
+---
+# a number outside 555-01xx, which is set aside for fiction and never texted
+- evalScript: ${output.phone = "250" + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000))}
+- evalScript: ${output.name = "Sloane Avery"}
+- evalScript: ${output.batch = String(1000 + Math.floor(Math.random() * 9000))}
+- runScript:
+      file: ../helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/clients
+          BODY: "${JSON.stringify({ name: output.name, phone: output.phone })}"
+- evalScript: ${output.client = output.response.id}
+# the lane files the client before the sale gives it a Stripe customer, so cleanup owns its charges
+- runScript:
+      file: ../helpers/control.js
+      env:
+          ACTION: purchaser
+          PAYLOAD: ${output.client}
+- runScript:
+      file: ../helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/items
+          BODY: "${JSON.stringify({ kind: 'product', name: 'Cedar balm ' + output.batch, price_cents: 2000, tax_class: 'exempt' })}"
+# Stripe's simulated reader declines an amount ending in 05 cents
+- runScript:
+      file: ../helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/items
+          BODY: "${JSON.stringify({ kind: 'product', name: 'Cedar oil ' + output.batch, price_cents: 2005, tax_class: 'exempt' })}"
+- launchApp:
+      permissions:
+          notifications: allow
+- runFlow: ../helpers/allow-location.yaml
+- runFlow: ../helpers/owner.yaml
+- scrollUntilVisible:
+      element: "View payments"
+      direction: DOWN
+- tapOn: "View payments"
+- tapOn: "Sales"
+- tapOn: "Search"
+- inputText: ${output.batch}
+- hideKeyboard
+- scrollUntilVisible:
+      element: ${"Cedar oil " + output.batch + ".*"}
+      direction: DOWN
+      timeout: 60000
+- tapOn: ${"Cedar oil " + output.batch + ".*"}
+- tapOn: "Charge \\$20.05"
+- tapOn: "Walk-in.*"
+- tapOn: "Search clients"
+- inputText: ${output.phone}
+- extendedWaitUntil:
+      visible: ${".*" + output.name + ".*"}
+      timeout: 60000
+- tapOn: ${".*" + output.name + ".*"}
+- tapOn: "Charge \\$20.05"
+- assertVisible: "Take payment"
+- tapOn: "Collect \\$20.05"
+- extendedWaitUntil:
+      visible: "Tap to Simulate Payment"
+      timeout: 60000
+- takeScreenshot: pos-tap-reader
+- tapOn: "Tap to Simulate Payment"
+- runFlow: ../helpers/allow-location.yaml
+- extendedWaitUntil:
+      visible: "Tap to Pay needs attention"
+      timeout: 60000
+- takeScreenshot: pos-tap-declined
+# the declined sale stays open: its checkout is canceled and cash pays it
+- tapOn: "Cancel payment"
+- extendedWaitUntil:
+      visible: "Take payment"
+      timeout: 30000
+- tapOn: "Cash.*"
+- tapOn: "Exact"
+- tapOn: "Charge \\$20.05"
+- extendedWaitUntil:
+      visible: "Payment received"
+      timeout: 30000
+- assertVisible: ".*\\$20.05 by cash.*"
+- tapOn: "No receipt"
+- tapOn: "New sale"
+- scrollUntilVisible:
+      element: ${"Cedar balm " + output.batch + ".*"}
+      direction: DOWN
+      timeout: 60000
+- tapOn: ${"Cedar balm " + output.batch + ".*"}
+- tapOn: "Charge \\$20.00"
+- tapOn: "Walk-in.*"
+- tapOn: "Search clients"
+- inputText: ${output.phone}
+- extendedWaitUntil:
+      visible: ${".*" + output.name + ".*"}
+      timeout: 60000
+- tapOn: ${".*" + output.name + ".*"}
+- tapOn: "Charge \\$20.00"
+- tapOn: "Collect \\$20.00"
+- extendedWaitUntil:
+      visible: "Tap to Simulate Payment"
+      timeout: 60000
+# the reader's own close button, at the foot of its sheet, stops the tap midway
+- tapOn:
+      point: "50%,91%"
+- extendedWaitUntil:
+      visible: "Tap to Pay needs attention"
+      timeout: 60000
+- takeScreenshot: pos-tap-canceled
+- tapOn: "Cancel payment"
+- extendedWaitUntil:
+      visible: "Take payment"
+      timeout: 30000
+- tapOn: "Collect \\$20.00"
+- extendedWaitUntil:
+      visible: "Tap to Simulate Payment"
+      timeout: 60000
+- tapOn: "Tap to Simulate Payment"
+- extendedWaitUntil:
+      visible: "Payment received"
+      timeout: 90000
+- assertVisible: ".*\\$20.00 by card.*"
+- takeScreenshot: pos-tap-paid
+- runScript:
+      file: ../helpers/stripe-money.js
+      env:
+          CLIENT: ${output.client}
+          PAYMENTS: "payment:canceled:2005,payment:succeeded:2005,payment:canceled:2000,payment:succeeded:2000"
+# Stripe holds the one card-present charge; the declined and the closed taps were canceled there too
+- assertTrue: ${output.intents === "card_present:succeeded:2000,card_present:canceled:2000,card_present:canceled:2005"}
+- assertTrue: ${output.balanced}
+- assertTrue: ${output.revenue === -4005}

@@ -15,6 +15,60 @@ import {
     newIdempotencyKey,
 } from "../api";
 
+/** What Stripe said when it sent the payer back from a redirect, such as 3D Secure or Klarna. */
+export interface StripeReturn {
+    intent: string;
+    status: "succeeded" | "processing" | "failed";
+}
+
+/** The query parameters Stripe adds to a return URL, which a page drops once it has read them. */
+export const STRIPE_RETURN_PARAMS = [
+    "payment_intent",
+    "payment_intent_client_secret",
+    "setup_intent",
+    "setup_intent_client_secret",
+    "redirect_status",
+] as const;
+
+/** Stripe's answer on a page a card form redirected back to, else null. */
+export function stripeReturn(search: string): StripeReturn | null {
+    const query = new URLSearchParams(search);
+    const intent = query.get("payment_intent") ?? "";
+    const status = query.get("redirect_status") ?? "";
+    if (intent === "" || status === "") return null;
+    return {
+        intent,
+        status: status === "succeeded" || status === "processing" ? status : "failed",
+    };
+}
+
+/** Whether Stripe sent the payer back paid or paying; a client secret narrows it to its intent. */
+export function returnedPaid(returned: StripeReturn | null, clientSecret?: string | null): boolean {
+    if (returned === null || returned.status === "failed") return false;
+    return clientSecret == null || clientSecret.startsWith(`${returned.intent}_secret`);
+}
+
+/** What Stripe's card form answered to a confirm, on either kind of intent. */
+export interface CardConfirmResult {
+    error?:
+        | { message?: string | undefined; payment_intent?: { status: string } | undefined }
+        | undefined;
+    paymentIntent?: { status: string } | undefined;
+    setupIntent?: { status: string } | undefined;
+}
+
+/** What to tell the payer after a confirm Stripe didn't refuse, or null when it went through. */
+export function cardConfirmFailure(
+    mode: "payment" | "setup",
+    result: CardConfirmResult | undefined,
+): string | null {
+    const failed = mode === "payment" ? strings.checkout.paymentFailed : strings.checkout.saveError;
+    // a confirm can settle with no intent at all, as when Stripe's own check doesn't clear
+    if (mode === "setup") return result?.setupIntent === undefined ? failed : null;
+    const status = result?.paymentIntent?.status;
+    return status === "succeeded" || status === "processing" ? null : failed;
+}
+
 /** The payment-method choice that means "enter a new card" rather than charge a saved one. */
 export const NEW_CARD = "";
 

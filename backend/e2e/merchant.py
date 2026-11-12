@@ -51,6 +51,50 @@ async def balance() -> dict[str, object]:
     return {"available": cad(found.available), "pending": cad(found.pending)}
 
 
+# a whole run's refunds and lost disputes (about $90 by STR-E08) draw on it before STR-E08 pays out
+PAYOUT_FLOAT_CENTS = 30000
+
+
+async def fund() -> dict[str, object]:
+    """Top the available balance up to the payout float with a charge that skips pending."""
+    funded = 0
+    # the balance gains each charge's net, so a charge for the shortfall can land short of the float
+    for _ in range(3):
+        before = await balance()
+        available = before["available"]
+        if not isinstance(available, int):
+            raise ValueError("balance has no available amount")
+        short = PAYOUT_FLOAT_CENTS - available
+        if short <= 0:
+            return {"funded_cents": funded, **before}
+        # a margin for the fee, and never under Stripe's 50-cent minimum charge
+        amount = max(short + short // 20 + 50, 100)
+        intent = await stripe.PaymentIntent.create_async(
+            amount=amount,
+            currency="cad",
+            payment_method="pm_card_bypassPending",
+            automatic_payment_methods={"enabled": True, "allow_redirects": "never"},
+            confirm=True,
+            metadata={"clientbridge_qa": "payout-float"},
+            stripe_account=guard(),
+        )
+        if intent.livemode or intent.status != "succeeded":
+            raise ValueError(f"the payout float charge did not succeed: {intent.status}")
+        funded += amount
+        await _landed(available)
+    raise ValueError("the payout float charges never brought the balance up to the float")
+
+
+async def _landed(before: int) -> None:
+    for _ in range(30):
+        available = (await balance())["available"]
+        if isinstance(available, int) and available > before:
+            return
+        # Stripe's balance shows the charge a few seconds after it succeeds
+        await asyncio.sleep(2)
+    raise ValueError("the payout float charge never reached the available balance")
+
+
 async def charge(charge_id: str) -> dict[str, object]:
     account = guard()
     found = await stripe.Charge.retrieve_async(
@@ -62,6 +106,7 @@ async def charge(charge_id: str) -> dict[str, object]:
     return {
         "id": found.id,
         "amount": found.amount,
+        "method": _dict(found.to_dict().get("payment_method_details")).get("type"),
         "balance_transaction": transaction.id,
         "net": transaction.net,
         "fee": transaction.fee,
@@ -113,6 +158,30 @@ async def restore_schedule(interval: str) -> dict[str, object]:
         account, settings={"payouts": {"schedule": {"interval": interval}}}
     )
     return await schedule()
+
+
+async def manual_schedule() -> dict[str, object]:
+    account = await validate_context()
+    await stripe.Account.modify_async(
+        account, settings={"payouts": {"schedule": {"interval": "manual"}}}
+    )
+    return await schedule()
+
+
+async def pay_out(amount: str) -> dict[str, object]:
+    """A manual payout by API, since Stripe's component hides Pay out until the last one lands."""
+    account = await validate_context()
+    if not amount.isdigit() or int(amount) <= 0:
+        raise ValueError("a payout needs a positive amount in cents")
+    created = await stripe.Payout.create_async(
+        amount=int(amount),
+        currency="cad",
+        metadata={"clientbridge_qa": "payout-case"},
+        stripe_account=account,
+    )
+    if created.livemode:
+        raise ValueError("live payouts are forbidden")
+    return await payout(created.id)
 
 
 async def account() -> dict[str, object]:
@@ -202,8 +271,11 @@ COMMANDS: dict[str, Callable[[argparse.Namespace], Awaitable[dict[str, object]]]
     "payout": lambda args: payout(args.id),
     "payouts": lambda _: payouts(),
     "balance": lambda _: balance(),
+    "fund": lambda _: fund(),
     "schedule": lambda _: schedule(),
     "restore-schedule": lambda args: restore_schedule(args.id),
+    "manual-schedule": lambda _: manual_schedule(),
+    "pay-out": lambda args: pay_out(args.id),
     "mirror": lambda args: mirror(args.id),
 }
 

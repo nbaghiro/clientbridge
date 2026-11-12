@@ -4,16 +4,14 @@ import {
     type WalletMethod,
     canConsume,
     canManagePayments,
-    cancelSubscription,
     usePackageConsumption,
-    isCancelable,
     packageStatusIntent,
     packageBalance,
     sessionsRemaining,
     entitlementStatusLabel,
     subscriptionStatusIntent,
     subscriptionTiming,
-    useAsyncAction,
+    useSubscriptionCancel,
     useClientPackages,
     useClientSubscriptions,
     strings,
@@ -246,7 +244,7 @@ function ManagedWallet({ clientId }: { clientId: string }) {
 
 function SubscriptionLine({ sub }: { sub: SubscriptionRow }) {
     const timing = subscriptionTiming(sub, useBusinessZone());
-    const { busy, error, run } = useAsyncAction();
+    const { cancelable, cancel: cancelNow, busy, error } = useSubscriptionCancel(api, sub);
     const cancel = (): void => {
         confirm({
             title: strings.clients.cancelSubscriptionTitle,
@@ -256,10 +254,7 @@ function SubscriptionLine({ sub }: { sub: SubscriptionRow }) {
             destructive: true,
         })
             .then((ok) => {
-                if (ok)
-                    run(() => cancelSubscription(api, sub.id), {
-                        errorMessage: strings.clients.cancelSubscriptionError,
-                    });
+                if (ok) cancelNow();
             })
             .catch(() => undefined);
     };
@@ -276,7 +271,7 @@ function SubscriptionLine({ sub }: { sub: SubscriptionRow }) {
                     />
                 }
                 trailing={
-                    isCancelable(sub.status) ? (
+                    cancelable ? (
                         <Button variant="outline" size="sm" busy={busy} onPress={cancel}>
                             {strings.common.cancel}
                         </Button>

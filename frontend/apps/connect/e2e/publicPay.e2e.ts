@@ -17,7 +17,7 @@ test("a client opens an invoice and sees how to pay it", async ({ page }) => {
     await page.goto(on("pay", `/i/${links.invoice}`));
     await expect(page.getByRole("heading", { level: 1 })).toContainText("#");
     await expect(
-        page.getByRole("heading", { name: new RegExp(`^(${pay.cardLabel}|${pay.offlineTitle})$`) }),
+        page.getByRole("heading", { name: new RegExp(`^(${pay.payTitle}|${pay.offlineTitle})$`) }),
     ).toBeVisible();
     expect(errors).toEqual([]);
 });
@@ -68,7 +68,9 @@ test("a paid or voided invoice says so at the top and asks for nothing", async (
         await page.goto(on("pay", `/i/${invoice.pay_token}`));
         await expect(page.getByText(status, { exact: true })).toBeVisible();
         await expect(page.getByText(due)).toHaveCount(0);
-        await expect(page.getByRole("button", { name: pay.payByCard, exact: true })).toHaveCount(0);
+        await expect(
+            page.getByRole("button", { name: pay.continueToPay, exact: true }),
+        ).toHaveCount(0);
     }
     expect(errors).toEqual([]);
 });

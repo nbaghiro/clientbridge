@@ -58,10 +58,16 @@ export interface ChargeEvidence {
 }
 
 export function stripeDispute(
-    action: "show" | "escalate" | "lose",
+    action: "show" | "escalate" | "lose" | "win" | "close",
     intentId: string,
-): Promise<ChargeEvidence> {
-    return stripeHarness<ChargeEvidence>(["disputes", action, intentId]);
+): Promise<ChargeEvidence & { events: { id: string; type: string }[] }> {
+    return stripeHarness(["disputes", action, intentId]);
+}
+
+/** The app's record of each Stripe event, by id: every one should be processed once. */
+export function webhookRows(ids: string[]) {
+    return select<{ id: string; event: string; status: string }>`
+        SELECT id, event, status FROM webhooks WHERE id = ANY(${ids}::text[]) ORDER BY id`;
 }
 
 export async function registerPurchaser(clientId: string, clocked = false): Promise<string> {
@@ -181,20 +187,42 @@ export async function refundPartUi(
 export async function expectRefundBlocked(
     page: Page,
     fixture: { client: ClientFixture; paymentId: string },
+    blocked: "payment_disputed" | "dispute_lost" = "payment_disputed",
 ): Promise<void> {
     const panel = await openRefund(page, fixture);
-    await expect(
-        panel.getByText(strings.refunds.blocked.payment_disputed, { exact: true }),
-    ).toBeVisible({ timeout: 60_000 });
+    await expect(panel.getByText(strings.refunds.blocked[blocked], { exact: true })).toBeVisible({
+        timeout: 60_000,
+    });
     await expect(
         panel.getByRole("button", { name: strings.refunds.part, exact: true }),
+    ).toHaveCount(0);
+}
+
+export async function expectRefundOpen(
+    page: Page,
+    fixture: { client: ClientFixture; paymentId: string },
+): Promise<void> {
+    const preview = await page.request.get(
+        `${bookingApi()}/v1/payments/${fixture.paymentId}/refund-preview`,
+        { headers: { Origin: new URL(page.url()).origin } },
+    );
+    expect(preview.status(), await preview.text()).toBe(200);
+    expect(await preview.json()).toMatchObject({ blocked: null });
+    // an open panel keeps the preview it loaded, so the page is loaded afresh
+    await page.reload();
+    const panel = await openRefund(page, fixture);
+    await expect(
+        panel.getByRole("button", { name: strings.refunds.part, exact: true }),
+    ).toBeVisible({ timeout: 60_000 });
+    await expect(
+        panel.getByText(strings.refunds.blocked.payment_disputed, { exact: true }),
     ).toHaveCount(0);
 }
 
 export async function expectDisputeListed(
     page: Page,
     client: ClientFixture,
-    status: "lost" | "needs_response",
+    status: "lost" | "needs_response" | "won",
 ): Promise<void> {
     await navigate(page, "/payments/refunds");
     // the tab's name carries the open count after the word, as in "Disputes · 2 open"

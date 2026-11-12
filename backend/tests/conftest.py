@@ -433,9 +433,8 @@ class FakePaymentGateway:
         self.created_urls: list[str | None] = []
         self.configurations: dict[str, set[AccountConfiguration]] = {}
         self.merchant_added: list[str] = []
-        self.account_addresses: list[tuple[str, PostalAddress]] = []
         self.account_urls: list[tuple[str, str]] = []
-        self.customer_added: list[tuple[str, PostalAddress]] = []
+        self.plan_addresses: list[tuple[str, str, PostalAddress]] = []
         self.checkouts: list[PlanCheckout] = []
         self.checkout_keys: dict[str, str] = {}
         self.portal_sessions: list[str] = []
@@ -486,6 +485,7 @@ class FakePaymentGateway:
         self.payout_transaction_calls: list[tuple[str, str, str | None]] = []
         self.transaction_calls: list[tuple[str, int | None, str | None]] = []
         self.mandated_charges: list[tuple[str | None, str]] = []
+        self.card_only_intents: list[str] = []  # intents staff type a card into: no Link or Klarna
         self.pending_fees: set[str] = set()
         self.charges: dict[str, tuple[int, int]] = {}  # intent id -> (amount, application fee)
         self.payouts: dict[str, list[dict[str, object]]] = {}
@@ -526,12 +526,11 @@ class FakePaymentGateway:
         self.merchant_added.append(account_id)
         self.configurations.setdefault(account_id, set()).add("merchant")
 
-    async def add_customer_configuration(self, account_id: str, *, address: PostalAddress) -> None:
-        self.customer_added.append((account_id, address))
+    async def set_plan_address(
+        self, account_id: str, *, business_name: str, address: PostalAddress
+    ) -> None:
+        self.plan_addresses.append((account_id, business_name, address))
         self.configurations.setdefault(account_id, set()).add("customer")
-
-    async def update_account_address(self, account_id: str, *, address: PostalAddress) -> None:
-        self.account_addresses.append((account_id, address))
 
     async def update_account_url(self, account_id: str, *, url: str) -> None:
         self.account_urls.append((account_id, url))
@@ -849,6 +848,7 @@ class FakePaymentGateway:
         idempotency_key: str,
         payment_method: str | None = None,
         mandate: str | None = None,
+        card_only: bool = False,
     ) -> PaymentIntentResult:
         if mandate is not None:
             self.mandated_charges.append((payment_method, mandate))
@@ -865,6 +865,8 @@ class FakePaymentGateway:
         result = PaymentIntentResult(id=pid, client_secret=f"{pid}_secret")
         self._intents[idempotency_key] = result
         self.charges[pid] = (amount_cents, application_fee_cents)
+        if card_only:
+            self.card_only_intents.append(pid)
         return result
 
     async def payment_intent_status(self, account_id: str, payment_intent_id: str) -> str | None:

@@ -80,6 +80,17 @@ async def test_staff_can_ring_and_checkout(as_staff: httpx.AsyncClient, db: Asyn
     assert res.json()["client_secret"]
 
 
+async def test_a_card_typed_at_the_desk_is_taken_as_a_card_only(
+    as_staff: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    order = (await as_staff.post("/v1/orders", json={"lines": [LATTE]})).json()
+    res = await as_staff.post(f"/v1/orders/{order['id']}/pay", json={}, headers=retry_key())
+    assert res.status_code == 200, res.text
+    payment = await db.get(Payment, res.json()["payment_id"])
+    assert payment is not None and gateway.card_only_intents == [payment.provider_ref]
+
+
 async def test_checkout_and_webhook_settles_order(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:

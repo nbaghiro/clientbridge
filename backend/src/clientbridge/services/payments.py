@@ -739,8 +739,8 @@ class PaymentService:
             raise Conflict("a refund can't be refunded")
         if payment.status != "succeeded":
             raise RefundBlocked("only a succeeded payment can be refunded", "not_succeeded")
-        if _disputed(payment):
-            raise RefundBlocked(DISPUTED, "payment_disputed")
+        if (block := _dispute_block(payment)) is not None:
+            raise RefundBlocked(DISPUTED, block)
         by_hand = refunded_by_hand(payment)
         if not by_hand and (business.stripe_account_id is None or payment.provider_ref is None):
             raise Conflict("payment has no connected charge to refund")
@@ -754,8 +754,8 @@ class PaymentService:
                 .execution_options(populate_existing=True)
             )
             # a dispute may have opened since the first read; it is current under the lock
-            if _disputed(payment):
-                raise RefundBlocked(DISPUTED, "payment_disputed")
+            if (block := _dispute_block(payment)) is not None:
+                raise RefundBlocked(DISPUTED, block)
             pending = (
                 await self.db.execute(
                     scoped(Payment, self.biz)
@@ -858,13 +858,15 @@ class PaymentService:
         if payment.kind == "refund":
             raise Conflict("a refund can't be refunded")
         refunded = await _refunded_cents(self.db, payment)
-        left = max(0, payment.amount_cents - refunded)
+        # a lost dispute already sent the payment back to the client's bank
+        lost = payment.dispute_status == "lost"
+        left = 0 if lost else max(0, payment.amount_cents - refunded)
         whole_only = False
         blocked: RefundBlock | None = None
         if payment.status != "succeeded":
             blocked = "not_succeeded"
-        elif _disputed(payment):
-            blocked = "payment_disputed"
+        elif (block := _dispute_block(payment)) is not None:
+            blocked = block
         elif await _bank_refused(self.db, payment):
             blocked = "refund_refused"
         elif left <= 0:
@@ -1013,7 +1015,7 @@ async def invoice_credits(db: AsyncSession, invoice: Invoice) -> list[PublicCred
     """What has paid the invoice down: each payment and applied deposit, oldest first."""
     rows = await db.execute(
         scoped(Entry, invoice.business_id)
-        .add_columns(Payment.method)
+        .add_columns(Payment.method, Payment.tip_cents)
         .join(Account, Account.id == Entry.account_id)
         .outerjoin(Payment, (Entry.source_type == "payment") & (Payment.id == Entry.source_id))
         .where(
@@ -1030,9 +1032,10 @@ async def invoice_credits(db: AsyncSession, invoice: Invoice) -> list[PublicCred
             kind="deposit" if entry.event == "application" else "payment",
             method=method,
             amount_cents=-entry.amount_cents,
+            tip_cents=(tip or 0) if entry.event == "payment" else 0,
             at=entry.occurred_at,
         )
-        for entry, method in rows.tuples().all()
+        for entry, method, tip in rows.tuples().all()
     ]
 
 
@@ -1718,6 +1721,7 @@ async def open_booking_deposit(
     payment_method: str | None = None,
     idempotency_key: str | None = None,
     supersede: bool = False,
+    card_only: bool = False,
 ) -> tuple[Payment, str]:
     """Open a deposit PaymentIntent and pending Payment for a booking; the caller commits."""
     customer_id = await ensure_customer(db, gateway, account_id, client)
@@ -1737,6 +1741,7 @@ async def open_booking_deposit(
         idempotency_key=f"deposit_{booking.id}_{attempt}",
         payment_method=payment_method,
         mandate=await pad_mandate(db, gateway, account_id, business_id, payment_method),
+        card_only=card_only,
     )
     existing = (
         await db.execute(select(Payment).where(Payment.provider_ref == intent.id))
@@ -1810,6 +1815,7 @@ async def open_entitlement_payment(
         idempotency_key=f"{entitlement_kind}_{idempotency_key or entitlement_id}",
         payment_method=payment_method,
         mandate=await pad_mandate(db, gateway, account_id, business_id, payment_method),
+        card_only=True,  # sold by staff, who type the card in
     )
     existing = (
         await db.execute(select(Payment).where(Payment.provider_ref == intent.id))
@@ -1849,6 +1855,7 @@ async def open_order_card_payment(
     idempotency_key: str | None = None,
     tip: TipTerms | None = None,
     due: int | None = None,
+    card_only: bool = False,
 ) -> tuple[Payment, str]:
     """Open a card PaymentIntent for a sale; the caller commits."""
     await assert_parent_stock(db, business_id, "order", order.id)
@@ -1872,6 +1879,7 @@ async def open_order_card_payment(
         idempotency_key=f"order_card_{order.id}_{attempt}",
         payment_method=payment_method,
         mandate=await pad_mandate(db, gateway, account_id, business_id, payment_method),
+        card_only=card_only,
     )
     existing = (
         await db.execute(select(Payment).where(Payment.provider_ref == intent.id))
@@ -2064,12 +2072,8 @@ async def next_credit_note(db: AsyncSession, payment: Payment) -> str:
             )
         )
     )
-    if payment.invoice_id is not None:
-        same = Payment.invoice_id == payment.invoice_id
-    elif payment.order_id is not None:
-        same = Payment.order_id == payment.order_id
-    else:
-        same = Payment.parent_payment_id == payment.id
+    # counted by the number itself: an unnumbered document falls back to the id, which others share
+    same = Payment.credit_note.startswith(f"CN-{document}-", autoescape=True)
     issued = (
         await db.execute(
             scoped(Payment, payment.business_id)
@@ -2081,7 +2085,7 @@ async def next_credit_note(db: AsyncSession, payment: Payment) -> str:
             .where(same, Payment.kind == "refund", Payment.credit_note.is_not(None))
         )
     ).scalar_one()
-    return credit_note_number(await _credit_document(db, payment), int(issued) + 1)
+    return credit_note_number(document, int(issued) + 1)
 
 
 async def process_stripe_event(
@@ -2555,6 +2559,12 @@ def _disputed(payment: Payment) -> bool:
     return payment.dispute_status in ("needs_response", "under_review", "lost")
 
 
+def _dispute_block(payment: Payment) -> RefundBlock | None:
+    if payment.dispute_status == "lost":
+        return "dispute_lost"
+    return "payment_disputed" if _disputed(payment) else None
+
+
 def _inquiry(data: dict[str, object]) -> bool:
     status = data.get("status")
     return isinstance(status, str) and status.startswith("warning_")
@@ -2565,6 +2575,11 @@ async def _close_dispute(
 ) -> None:
     payment = await _disputed_payment(db, data, account)
     if payment is None:
+        return
+    if _inquiry(data):
+        if payment.dispute_status is None:  # a closed inquiry no longer waits on the business
+            payment.dispute_respond_by = None
+            await db.flush()
         return
     await _record_dispute(db, data, account)
     if payment.dispute_status is not None:
@@ -3468,6 +3483,10 @@ async def _record_payment_method(
     if client is None:
         return
     pm_id = str(data.get("id"))
+    # the attach event and the bank's setup can record the same method at once
+    await db.execute(
+        select(func.pg_advisory_xact_lock(func.hashtextextended(f"method:{biz}:{pm_id}", 0)))
+    )
     seen = (
         await db.execute(scoped(PaymentMethod, biz).where(PaymentMethod.provider_ref == pm_id))
     ).scalar_one_or_none()

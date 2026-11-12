@@ -78,6 +78,7 @@ export interface InvoiceRow {
     client_name: string | null;
     client_phone: string | null;
     number: number | null;
+    charge_name: string | null;
     status: string;
     subtotal_cents: number | null;
     tax_total_cents: number | null;
@@ -209,9 +210,16 @@ function netTipSql(where: string): string {
           AND ${where}), 0)`;
 }
 
+/** What an issued invoice with no number charged for: a membership period names its plan. */
+export function chargeNameSql(invoice: string): string {
+    return `(SELECT cl.description FROM lines cl WHERE cl.invoice_id = ${invoice}.id
+        AND ${invoice}.number IS NULL AND ${invoice}.status <> 'draft'
+        ORDER BY cl.position LIMIT 1)`;
+}
+
 const INVOICE_SELECT = `
 SELECT i.id, i.client_id, c.name AS client_name, c.phone AS client_phone,
-       i.number, ${invoiceStatusSql("i")} AS status,
+       i.number, ${chargeNameSql("i")} AS charge_name, ${invoiceStatusSql("i")} AS status,
        i.subtotal_cents, i.tax_total_cents, i.total_cents,
        CASE WHEN i.status = 'draft' THEN i.total_cents
             ELSE COALESCE(${subjectNetSql("receivable", "invoice", "i.id")}, 0) END AS balance_cents,
@@ -592,7 +600,7 @@ export function listRow(row: InvoiceRow, zone: string, now: Date = new Date()): 
         status,
         statusLabel: s.statusLabel[status],
         intent: invoiceIntent(status),
-        number: row.number === null ? s.dash : s.number(row.number),
+        number: row.number === null ? (row.charge_name ?? s.dash) : s.number(row.number),
         issuedLabel: row.issued_at === null ? s.dash : shortDate(row.issued_at, zone),
         dueLabel: dueLabel(row, status, now, zone),
         late: daysOverdue(row, zone, now) > 0,

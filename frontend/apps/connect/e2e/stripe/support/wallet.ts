@@ -1,11 +1,19 @@
 import { randomUUID } from "node:crypto";
 import { formatMoney, strings } from "@clientbridge/app-core/public";
-import { expect, type Frame, type Locator, type Page } from "@playwright/test";
+import { expect, type Frame, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { openInvoice, paymentDrawer } from "../../../../web/e2e/support/billing";
 import { bookingApi } from "../../../../web/e2e/support/bookings";
 import { type ClientFixture, openWallet } from "../../../../web/e2e/support/clients";
 import { select } from "../../../../web/e2e/support/db";
-import { type ChargeEvidence, stripeHarness } from "./disputes";
+import { type ChargeEvidence, registerPurchaser, stripeHarness } from "./disputes";
+import {
+    cardFrame,
+    checkoutDiagnostics,
+    enterStripeCard,
+    payToken,
+    submitStripeCard,
+} from "./provider";
+import { on } from "../../support/hosts";
 
 export interface WalletEvidence {
     customer: string;
@@ -105,7 +113,7 @@ export async function chargeSavedMethod(
     invoiceId: string,
     last4: string,
     cents: number,
-): Promise<{ charge: InvoiceCharge; summary: string }> {
+): Promise<{ charge: InvoiceCharge; summary: string; key: string; body: unknown }> {
     const r = strings.billing.rec;
     await openInvoice(page, { id: invoiceId, name: client.name, phone: client.phone });
     await page.getByRole("button", { name: strings.billing.recordPayment, exact: true }).click();
@@ -130,7 +138,12 @@ export async function chargeSavedMethod(
     ).toBeVisible({ timeout: 60_000 });
     const summary = await drawer.innerText();
     await drawer.getByRole("button", { name: strings.common.done, exact: true }).click();
-    return { charge: (await response.json()) as InvoiceCharge, summary };
+    return {
+        charge: (await response.json()) as InvoiceCharge,
+        summary,
+        key: (await response.request().headerValue("Idempotency-Key")) ?? "",
+        body: response.request().postDataJSON(),
+    };
 }
 
 export interface SetupLink {
@@ -219,4 +232,27 @@ export async function createSetupLink(
     await expect(wallet.getByText(made.url, { exact: true })).toBeVisible();
     await wallet.getByRole("button", { name: strings.common.done, exact: true }).click();
     return made;
+}
+
+/** Files the client as a purchaser, then it pays a new $20 invoice on its pay link by card. */
+export async function payInvoiceByLink(
+    owner: Page,
+    customer: Page,
+    client: ClientFixture,
+    card: string,
+    info: TestInfo,
+): Promise<string> {
+    await registerPurchaser(client.id);
+    const invoiceId = await sentInvoice(owner, client, 2000);
+    await customer.goto(on("pay", `/i/${await payToken(invoiceId)}`));
+    await customer
+        .getByRole("button", { name: strings.publicPay.continueToPay, exact: true })
+        .click();
+    await enterStripeCard(await cardFrame(customer), card);
+    await submitStripeCard(customer, info);
+    await expect(
+        customer.getByRole("heading", { name: strings.publicPay.paidTitle }),
+    ).toBeVisible();
+    await checkoutDiagnostics(customer, info);
+    return invoiceId;
 }

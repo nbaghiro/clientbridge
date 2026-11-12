@@ -49,7 +49,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 4. Book online | Business page and website embed | [CB-28](https://linear.app/clientbridgeca/issue/CB-28) | Partly automated |
 | 5. Sell at the desk and online | Desk sales and receipts | [CB-29](https://linear.app/clientbridgeca/issue/CB-29) | Partly automated |
 | 5. Sell at the desk and online | Card payments at the desk | [CB-30](https://linear.app/clientbridgeca/issue/CB-30) | Partly automated |
-| 5. Sell at the desk and online | Tap to Pay | [CB-31](https://linear.app/clientbridgeca/issue/CB-31) | Manual |
+| 5. Sell at the desk and online | Tap to Pay | [CB-31](https://linear.app/clientbridgeca/issue/CB-31) | Partly automated |
 | 5. Sell at the desk and online | Tips and discounts | [CB-32](https://linear.app/clientbridgeca/issue/CB-32) | Partly automated |
 | 5. Sell at the desk and online | Saved cards and bank accounts | [CB-12](https://linear.app/clientbridgeca/issue/CB-12) | Partly automated |
 | 5. Sell at the desk and online | Online shop orders and pickup | [CB-41](https://linear.app/clientbridgeca/issue/CB-41) | Automated |
@@ -400,12 +400,9 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 * `FLOW-08-B (journeys)`
 * `SYN-E2E-25 (sync)`
 * `OPS-E2E-02 (web)`
-
-**To automate**
-
-* `PLN-E2E-04` in `apps/connect/e2e/stripe/plans.stripe.ts`: Premium monthly Checkout on a test clock, renewal, failed payment to past due to lapsed.
-* `PLN-E2E-05` in `apps/connect/e2e/stripe/plans.stripe.ts`: Yearly plan with the monthly seat item; seat quantity follows invites.
-* `PLN-E2E-06` in `apps/web/e2e/plans.e2e.ts`: Portal return and plan change with a lost response.
+* `PLN-E2E-04 (stripe)`
+* `PLN-E2E-05 (stripe)`
+* `PLN-E2E-06 (stripe)`
 
 **Depends on:** CB-3
 
@@ -946,10 +943,8 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 * `FLOW-06-A (journeys)`
 * `MSG-E2E-14 (journeys)`
 * `FIN-DEPOSIT-10 (stripe)`
-
-**To automate**
-
-* `CLS-E2E-03` in `apps/web/e2e/journeys/entitlements.journey.ts`: Cancel a program enrolment: days cancelled, invoice voided, deposit refunded.
+* `CLS-E2E-03 (journeys)`
+* `FIN-DEPOSIT-15 (stripe)`
 
 **Depends on:** Nothing
 
@@ -1321,11 +1316,8 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 
 * `STR-E05 (stripe)`
 * `STRIPE-BROWSER-02 (stripe), invoice decline`
-
-**To automate**
-
-* `STR-E19` in `apps/connect/e2e/stripe/desk.stripe.ts`: Desk card checkout with 4242 and with a decline, then saved-card charge.
-* `SALE-E2E-15` in `apps/web/e2e/pos.e2e.ts`: Gift card part tender with cash remainder.
+* `STR-E19 (stripe)`
+* `SALE-E2E-15 (web)`
 
 **Depends on:** Nothing
 
@@ -1354,12 +1346,12 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 
 **By hand only**
 
-* All of it: Tap to Pay needs real NFC hardware and the store-signed app.
+* A real tap on NFC hardware with the store-signed app, on iPhone and Android; the case uses Stripe's simulated reader on the iOS simulator.
 * Interac debit on Tap to Pay is not built.
 
 **Automated by**
 
-* No e2e case yet
+* `NATIVE-PAY-03 (stripe-native)`
 
 **Depends on:** Nothing
 
@@ -1620,6 +1612,8 @@ Estimates become invoices, invoices are paid by link, saved card or by hand, and
 * `SCH-E2E-07 (journeys)`
 * `connect: publicPay.e2e.ts › a paid or voided invoice says so at the top and asks for nothing`
 * `NATIVE-BILL-03 (native-ios, native-android)`
+* `STR-E33 (stripe)`
+* `STR-E32 (stripe), Klarna`
 
 **Depends on:** Nothing
 
@@ -1687,10 +1681,7 @@ Estimates become invoices, invoices are paid by link, saved card or by hand, and
 * `FIN-DEPOSIT-04 (stripe)`
 * `FIN-DEPOSIT-10 (stripe)`
 * `STR-E04 (stripe)`
-
-**To automate**
-
-* `FIN-DEPOSIT-14` in `apps/connect/e2e/stripe/deposit.stripe.ts`: Deposit before and after the invoice is issued, and the no-show forfeit.
+* `FIN-DEPOSIT-14 (stripe)`
 
 **Depends on:** Nothing
 
@@ -1795,10 +1786,7 @@ The business sells gift cards, packages and memberships, and each is used, renew
 * `ENT-E2E-03 (web)`
 * `FLOW-07-A (journeys)`
 * `FLOW-07-B (journeys)`
-
-**To automate**
-
-* `ENT-E2E-07` in `apps/web/e2e/entitlements.e2e.ts`: Expiry boundary before and after the sweep for a package and a gift card.
+* `ENT-E2E-07 (web)`
 
 **Depends on:** Nothing
 
@@ -1836,10 +1824,7 @@ The business sells gift cards, packages and memberships, and each is used, renew
 **Automated by**
 
 * `STR-E07 (stripe)`
-
-**To automate**
-
-* `ENT-E2E-08` in `apps/connect/e2e/stripe/memberships.stripe.ts`: Cancel and resell, lost cancel response, covered visit.
+* `ENT-E2E-08 (stripe)`
 
 **Depends on:** Nothing
 
@@ -1890,6 +1875,7 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 * `STR-E23 (stripe)`
 * `PAY-E2E-02 (web)`
 * `NATIVE-REF-01 (native-ios, native-android)`
+* `NATIVE-PAY-04 (stripe-native)`
 
 **Depends on:** Nothing
 
@@ -1912,7 +1898,7 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 3. Lose a dispute on a part-used gift card.
    **Expect:** only what it still holds is taken back; the rest is a loss.
 4. Win a dispute.
-   **Expect:** funds and fee reversed; the document stays paid.
+   **Expect:** the funds come back and the dispute fee stays as Stripe keeps it; the document stays paid.
 5. Try to refund a payment under dispute.
    **Expect:** refused.
 
@@ -1927,10 +1913,7 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 * `STR-E02 (stripe)`
 * `STR-E03 (stripe)`
 * `STR-E04 (stripe)`
-
-**To automate**
-
-* `STR-E24` in `apps/connect/e2e/stripe/disputes.stripe.ts`: A won dispute reverses funds and fee.
+* `STR-E24 (stripe)`
 
 **Depends on:** Nothing
 
@@ -2040,11 +2023,9 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 * `FLOW-10-A (journeys)`
 * `web: payouts.e2e.ts › payout contents paginate and clear when switching to a manual payout`
 * `web: payouts.e2e.ts › payout history reaches older pages and returns to the newest page`
-
-**To automate**
-
-* `STR-E25` in `apps/connect/e2e/stripe/reconciliation.stripe.ts`: Withheld webhook replayed once and reconciled.
-* `STR-E08` in `apps/connect/e2e/stripe/payouts.stripe.ts`: A manual payout shows in transit, stays out of Deposited until Stripe pays it, then reaches Bank deposits. It is written but runs only with `STRIPE_PAYOUT_CASE=1`, because the shared merchant needs an available balance that covers the run's charge; the Stripe lane should fund that balance so the case runs every time.
+* `STR-E25 (stripe)`
+* `STR-E08 (stripe)`
+* `NATIVE-PAY-04 (stripe-native)`
 
 **Depends on:** Nothing
 

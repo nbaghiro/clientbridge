@@ -13,6 +13,7 @@ import {
     discountFrom,
     discountLabel,
     nextPickupStatus,
+    paidWith,
     pickupOrder,
     previewDiscount,
     issuedSale,
@@ -291,12 +292,16 @@ describe("sale discounts, tips and status", () => {
         expect(saleNumber(42)).toBe("S-42");
         expect(saleNumber(1044)).toBe("S-1044");
         expect(saleNumber(null)).toBe("");
-        expect(saleStatus({ status: "paid", refunded_cents: 0 })).toBe("paid");
-        expect(saleStatus({ status: "paid", refunded_cents: 1 })).toBe("partly_refunded");
-        expect(saleStatus({ status: "refunded", refunded_cents: 4800 })).toBe("refunded");
-        expect(saleStatus({ status: "void", refunded_cents: 0 })).toBe("void");
-        expect(saleStatus({ status: "open", refunded_cents: 0 })).toBe("open");
-        expect(saleStatus({ status: "unknown", refunded_cents: 0 })).toBe("open");
+        const sale = (status: string, refunded_cents = 0, dispute_lost = 0) =>
+            saleStatus({ status, refunded_cents, dispute_lost });
+        expect(sale("paid")).toBe("paid");
+        expect(sale("paid", 1)).toBe("partly_refunded");
+        expect(sale("refunded", 4800)).toBe("refunded");
+        expect(sale("refunded", 0, 1)).toBe("dispute_lost");
+        expect(sale("paid", 1, 1)).toBe("dispute_lost");
+        expect(sale("void")).toBe("void");
+        expect(sale("open")).toBe("open");
+        expect(sale("unknown")).toBe("open");
     });
 });
 
@@ -619,5 +624,18 @@ describe("useDiscountEditor", () => {
         expect(renderHook(() => useDiscountEditor(null, 5000, false)).result.current.preview).toBe(
             null,
         );
+    });
+});
+
+describe("the paid ticket's method", () => {
+    const d = strings.pos.desk;
+
+    it("names the method, never the option's label, and the saved card by name", () => {
+        expect(paidWith(false, "card", null)).toBe(d.paidByCard);
+        expect(paidWith(false, "tap", null)).toBe(d.paidByCard);
+        expect(paidWith(false, "cash", null)).toBe(d.paidByCash);
+        expect(paidWith(false, "saved", "Visa ···· 4242")).toBe("Visa ···· 4242");
+        expect(paidWith(true, "cash", null)).toBe(d.paidByGiftCard);
+        expect(paidWith(false, "card", null)).not.toBe(d.methodCard);
     });
 });

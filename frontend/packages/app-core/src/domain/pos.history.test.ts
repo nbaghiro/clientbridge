@@ -22,7 +22,9 @@ const sale = (id: string, total: number, tip: number, refunded: number) => ({
     tip_cents: tip,
     refunded_cents: refunded,
     discount_cents: 0,
-    method: "cash",
+    gift_card_cents: 0,
+    dispute_lost: 0,
+    methods: "cash",
     summary: null,
     item_count: 1,
 });

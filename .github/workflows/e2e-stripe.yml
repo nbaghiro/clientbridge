@@ -151,7 +151,7 @@ jobs:
           sudo update-ca-certificates
       - uses: ./.github/actions/stripe-cli
       - name: run this shard of the Stripe browser lane on the leased pair
-        run: make test-stripe-browser STRIPE_BROWSER_ARGS="--credentials environment --pair $PAIR --shard $SHARD"
+        run: make test-stripe-browser STRIPE_BROWSER_ARGS="--credentials environment --pair $PAIR --shard $SHARD --payout-case"
       - name: recover run-owned Stripe objects after incomplete cleanup
         if: always()
         working-directory: backend

@@ -11,6 +11,7 @@ from sqlalchemy import text
 
 from clientbridge.core.db import engine
 from clientbridge.integrations.stripe import (
+    PAYMENT_EVENTS,
     close_stripe_client,
 )
 from e2e.stripe_cleanup import unlocked
@@ -329,3 +330,16 @@ async def read_charge(account: str, charge_id: str) -> dict[str, object]:
         "transactions": sorted(transactions, key=lambda row: str(row["id"])),
         "net_cents": sum(int(cast(int, row["net"])) for row in transactions),
     }
+
+
+async def charge_events(account: str, charge_id: str, kind: str) -> list[dict[str, str]]:
+    """The events of a kind Stripe sent the app about a charge's disputes or refunds."""
+    charge = await stripe.Charge.retrieve_async(charge_id, stripe_account=account)
+    listed = await stripe.Event.list_async(
+        type=kind, created={"gte": charge.created}, stripe_account=account
+    )
+    return [
+        {"id": event.id, "type": event.type}
+        async for event in listed.auto_paging_iter()
+        if event.type in PAYMENT_EVENTS and event.data.object.to_dict().get("charge") == charge_id
+    ]

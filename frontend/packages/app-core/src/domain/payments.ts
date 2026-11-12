@@ -92,12 +92,13 @@ export function isMandate(card: SavedCardRow): boolean {
 
 /** "Visa ···· 4242" for a card, "Bank account ···· 6789" for a PAD mandate. */
 export function savedCardLabel(card: SavedCardRow): string {
-    const noun = isMandate(card)
-        ? strings.payments.bankAccountNoun
-        : card.brand
-          ? card.brand.charAt(0).toUpperCase() + card.brand.slice(1)
-          : strings.payments.cardNoun;
+    const noun = isMandate(card) ? strings.payments.bankAccountNoun : cardNoun(card.brand);
     return card.last4 !== null ? strings.payments.savedCardLabel(noun, card.last4) : noun;
+}
+
+/** Stripe's brand as the wallet writes it, "mastercard" as "Mastercard"; a card with none is "Card". */
+export function cardNoun(brand: string | null): string {
+    return brand ? brand.charAt(0).toUpperCase() + brand.slice(1) : strings.payments.cardNoun;
 }
 
 /** A card, or a bank account with an active mandate. */

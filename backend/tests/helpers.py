@@ -503,8 +503,9 @@ async def delete_bookings(session: AsyncSession, booking_ids: list[str]) -> None
     """Remove committed bookings with everything they wrote: slots, audits and deliveries."""
     slots = list(await session.scalars(select(Booking.slot_id).where(Booking.id.in_(booking_ids))))
     for booking_id in booking_ids:
+        # every notice kind about the booking, such as booking-created: for a new request
         await session.execute(
-            delete(Delivery).where(Delivery.key.startswith(f"booking:{booking_id}:"))
+            delete(Delivery).where(Delivery.key.contains(f":{booking_id}:", autoescape=True))
         )
     await session.execute(delete(Audit).where(Audit.entity_id.in_(booking_ids)))
     await session.execute(delete(Booking).where(Booking.id.in_(booking_ids)))

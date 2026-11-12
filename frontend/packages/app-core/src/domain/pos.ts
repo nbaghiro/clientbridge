@@ -16,6 +16,8 @@ import {
 } from "../datetime";
 import {
     formatAmountInput,
+    formatCredit,
+    formatList,
     formatMoney,
     formatNumber,
     formatParts,
@@ -51,7 +53,7 @@ import { TEXTS_STOPPED_SQL } from "./broadcasts";
 import type { IconName } from "../icons";
 import { type ItemRow, ITEMS_SQL, sellableItems, stockState } from "./catalog";
 import { type Checkout, NEW_CARD, useCheckout } from "./checkout";
-import { orderStatusSql } from "./ledger";
+import { giftCardAppliedSql, orderStatusSql } from "./ledger";
 import { canManagePayments, type SavedCardRow, savedCardLabel } from "./payments";
 import { discountReason, saleNumber } from "./printing";
 import { staffName, staffNameSql } from "./staff";
@@ -730,7 +732,7 @@ export function useDiscountEditor(
 }
 
 type SalePhase = "cart" | "pay" | "paid";
-export type SalePayMethod = "tap" | "saved" | "card" | "cash";
+type SalePayMethod = "tap" | "saved" | "card" | "cash";
 type TipSplitMode = "byService" | "one";
 type ReceiptOutcome = "texted" | "skipped";
 
@@ -998,8 +1000,8 @@ export interface SaleTicket {
     canInvoice: boolean;
     sendAsInvoice: () => void;
     invoiced: string | null;
-    // the whole sale was settled by gift card, so no other method took money
-    paidByGiftCard: boolean;
+    // how the paid ticket was settled, as the receipt sentence names it
+    paidWith: string;
     paidCents: number;
     changeGiven: number | null;
     hold: (note?: string) => void;
@@ -1007,6 +1009,17 @@ export interface SaleTicket {
     resume: (order: OrderOut, items: readonly ItemRow[]) => void;
     newSale: () => void;
     clear: () => void;
+}
+
+/** How a paid ticket names its method in a sentence: the card on file, card, cash or gift card. */
+export function paidWith(
+    byGiftCard: boolean,
+    method: SalePayMethod,
+    savedCard: string | null,
+): string {
+    if (byGiftCard) return d.paidByGiftCard;
+    if (method === "saved" && savedCard !== null) return savedCard;
+    return method === "cash" ? d.paidByCash : d.paidByCard;
 }
 
 /** How a ticket line reads: who did it, its discount as a tag, and the price after it. */
@@ -1498,7 +1511,11 @@ export function useSale(
         paidCents,
         changeGiven,
         visitId: lines.find((l) => l.bookingId !== null)?.bookingId ?? null,
-        paidByGiftCard: phase === "paid" && giftPaid,
+        paidWith: paidWith(
+            phase === "paid" && giftPaid,
+            method,
+            saved === null ? null : savedCardLabel(saved),
+        ),
         canInvoice:
             canManagePayments(opts.role ?? null) &&
             clientId !== null &&
@@ -2068,7 +2085,10 @@ export function useFrontDeskBoard(
     };
 }
 
-type SaleStatus = "open" | "paid" | "partly_refunded" | "refunded" | "void";
+type SaleStatus = "open" | "paid" | "partly_refunded" | "refunded" | "dispute_lost" | "void";
+
+const DISPUTE_LOST_SQL = `EXISTS (SELECT 1 FROM payments p WHERE p.order_id = o.id
+          AND p.kind = 'payment' AND p.dispute_status = 'lost')`;
 
 export const SALES_SQL = `
 SELECT o.id, o.number, o.client_id, c.name AS client_name, o.source, o.pickup_status, o.created_at,
@@ -2079,10 +2099,10 @@ SELECT o.id, o.number, o.client_id, c.name AS client_name, o.source, o.pickup_st
                  WHERE p.order_id = o.id AND p.kind = 'refund' AND p.status = 'succeeded'), 0) AS refunded_cents,
        COALESCE((SELECT SUM(l.discount_cents + l.sale_discount_cents) FROM lines l
                  WHERE l.order_id = o.id), 0) AS discount_cents,
-       COALESCE((SELECT p.method FROM payments p WHERE p.order_id = o.id AND p.kind = 'payment'
-                   AND p.status = 'succeeded' ORDER BY p.paid_at DESC LIMIT 1),
-                (SELECT 'gift_card' FROM entries e WHERE e.event = 'redemption'
-                   AND e.source_type = 'order' AND e.source_id = o.id LIMIT 1)) AS method,
+       ${giftCardAppliedSql("o.id")} AS gift_card_cents,
+       ${DISPUTE_LOST_SQL} AS dispute_lost,
+       (SELECT GROUP_CONCAT(DISTINCT p.method) FROM payments p WHERE p.order_id = o.id
+          AND p.kind = 'payment' AND p.status = 'succeeded') AS methods,
        (SELECT GROUP_CONCAT(CASE WHEN l.quantity > 1 THEN CAST(l.quantity AS INTEGER) || ' × ' || l.description
                                  ELSE l.description END, ', ')
           FROM lines l WHERE l.order_id = o.id) AS summary,
@@ -2105,7 +2125,9 @@ interface SaleRow {
     tip_cents: number;
     refunded_cents: number;
     discount_cents: number;
-    method: string | null;
+    gift_card_cents: number;
+    dispute_lost: number;
+    methods: string | null;
     summary: string | null;
     item_count: number | null;
 }
@@ -2142,11 +2164,33 @@ function saleStatusIntent(status: SaleStatus): Intent {
     }
 }
 
-export function saleStatus(row: { status: string; refunded_cents: number }): SaleStatus {
+export function saleStatus(row: {
+    status: string;
+    refunded_cents: number;
+    dispute_lost: number;
+}): SaleStatus {
+    // the bank took a lost dispute's money back, which is not a refund the business gave
+    if (row.dispute_lost) return "dispute_lost";
     if (row.status === "paid" && row.refunded_cents > 0) return "partly_refunded";
     return row.status === "paid" || row.status === "refunded" || row.status === "void"
         ? row.status
         : "open";
+}
+
+/** Every way a sale was paid, gift card first, so a split sale names each tender. */
+function saleTenders(
+    row: Pick<SaleRow, "gift_card_cents" | "methods">,
+    status: SaleStatus,
+): string {
+    const method = strings.publicReceipt.method;
+    const tenders = [
+        // a gift card that paid part of a sale still open hasn't settled it
+        ...(row.gift_card_cents > 0 && status !== "open" ? [d.giftCardPaid] : []),
+        ...(row.methods === null ? [] : row.methods.split(",")).map(
+            (m) => method[m] ?? method.other,
+        ),
+    ];
+    return tenders.length === 0 ? d.notPaid : formatList(tenders, "unit");
 }
 
 function saleSummary(row: SaleRow): SaleSummary {
@@ -2167,14 +2211,7 @@ function saleSummary(row: SaleRow): SaleSummary {
         statusLabel: d.status[status],
         intent: saleStatusIntent(status),
         source: row.source === "online" ? "online" : "desk",
-        methodLabel:
-            // a gift card that paid part of a sale still open hasn't settled it
-            row.method === null || (row.method === "gift_card" && status === "open")
-                ? d.notPaid
-                : row.method === "gift_card"
-                  ? d.giftCardPaid
-                  : (strings.publicReceipt.method[row.method] ??
-                    strings.publicReceipt.method.other),
+        methodLabel: saleTenders(row, status),
     };
 }
 
@@ -2303,6 +2340,21 @@ SELECT p.id, p.kind, p.method, p.amount_cents, p.tip_cents, p.tip_split, p.statu
 FROM payments p WHERE p.order_id = ? AND p.status IN ('succeeded', 'pending')
 ORDER BY p.paid_at`;
 
+// each gift card journal on a sale: a redemption that paid it, or a refund or void putting it back
+export const SALE_GIFT_CARDS_SQL = `
+SELECT e.journal_id AS id, e.event, SUM(e.amount_cents) AS cents, MIN(e.occurred_at) AS at
+FROM entries e JOIN accounts a ON a.id = e.account_id
+WHERE a.category = 'gift_card' AND e.source_type = 'order' AND e.source_id = ?
+GROUP BY e.journal_id, e.event
+ORDER BY at`;
+
+interface SaleGiftCardRow {
+    id: string;
+    event: string;
+    cents: number;
+    at: string;
+}
+
 // a sale's tax is posted on the journal of each payment and gift card redemption that settled it
 const SALE_TAX_BY_CODE_SQL = `
 SELECT a.code AS code, -SUM(e.amount_cents) AS cents
@@ -2318,7 +2370,7 @@ SELECT o.id, o.number, o.client_id, c.name AS client_name, c.phone AS client_pho
        o.staff_id, o.note,
        o.discount_kind, o.discount_value, o.discount_reason,
        o.receipt_phone, o.receipt_sent_at, o.ready_at, o.picked_up_at, o.pickup_from, o.pickup_to,
-       ${orderStatusSql("o")} AS status
+       ${orderStatusSql("o")} AS status, ${DISPUTE_LOST_SQL} AS dispute_lost
 FROM orders o LEFT JOIN clients c ON c.id = o.client_id WHERE o.id = ?`;
 
 interface SaleRecordRow {
@@ -2345,6 +2397,7 @@ interface SaleRecordRow {
     pickup_from: string | null;
     pickup_to: string | null;
     status: string;
+    dispute_lost: number;
 }
 
 interface SaleLineRow {
@@ -2420,6 +2473,7 @@ interface SaleDetail {
         label: string;
         detail: string;
         cents: number;
+        amount: string;
         refund: boolean;
         icon: IconName;
     }[];
@@ -2446,6 +2500,7 @@ export function useSaleDetail(
     const record = useQuery<SaleRecordRow>(SALE_RECORD_SQL, [id ?? ""]);
     const lineRows = useQuery<SaleLineRow>(SALE_LINES_SQL, [id ?? ""]);
     const payRows = useQuery<SalePaymentRow>(SALE_PAYMENTS_SQL, [id ?? ""]);
+    const giftRows = useQuery<SaleGiftCardRow>(SALE_GIFT_CARDS_SQL, [id ?? ""]);
     const row = record.data[0] ?? null;
     const detail = useMemo((): SaleDetail | null => {
         if (row === null) return null;
@@ -2475,7 +2530,11 @@ export function useSaleDetail(
             row.discount_value,
             row.discount_reason,
         );
-        const status = saleStatus({ status: row.status, refunded_cents: refunded });
+        const status = saleStatus({
+            status: row.status,
+            refunded_cents: refunded,
+            dispute_lost: row.dispute_lost,
+        });
         const soldOn = dateKey(parseTimestamp(row.created_at), zone);
         const priced =
             status === "open"
@@ -2572,19 +2631,37 @@ export function useSaleDetail(
                       window: pickupWindow(row.pickup_from, row.pickup_to, zone, now),
                   }
                 : null,
-            payments: pays.map((p) => ({
-                id: p.id,
-                label:
-                    p.kind === "refund"
-                        ? p.credit_note === null
-                            ? d.refunded(formatMoney(p.amount_cents, BUSINESS_CURRENCY))
-                            : d.creditNote(p.credit_note)
-                        : (method[p.method] ?? method.other),
-                detail: p.paid_at === null ? "" : relativeDayTime(parseTimestamp(p.paid_at), zone),
-                cents: p.kind === "refund" ? -p.amount_cents : p.amount_cents,
-                refund: p.kind === "refund",
-                icon: paymentIcon(p.kind, p.method),
-            })),
+            payments: [
+                ...pays.map((p) => ({
+                    id: p.id,
+                    label:
+                        p.kind === "refund"
+                            ? p.credit_note === null
+                                ? d.refunded(formatMoney(p.amount_cents, BUSINESS_CURRENCY))
+                                : d.creditNote(p.credit_note)
+                            : (method[p.method] ?? method.other),
+                    at: p.paid_at,
+                    cents: p.kind === "refund" ? -p.amount_cents : p.amount_cents,
+                    refund: p.kind === "refund",
+                    icon: paymentIcon(p.kind, p.method),
+                })),
+                ...giftRows.data.map((g) => ({
+                    id: g.id,
+                    label: g.cents < 0 ? d.giftCardReturned : d.giftCardPaid,
+                    at: g.at,
+                    cents: g.cents,
+                    refund: g.cents < 0,
+                    icon: g.cents < 0 ? ("refresh" as const) : ("tag" as const),
+                })),
+            ]
+                .sort((a, b) => (a.at ?? "").localeCompare(b.at ?? ""))
+                .map(({ at, ...p }) => ({
+                    ...p,
+                    detail: at === null ? "" : relativeDayTime(parseTimestamp(at), zone),
+                    amount: p.refund
+                        ? formatCredit(p.cents, BUSINESS_CURRENCY)
+                        : formatMoney(p.cents, BUSINESS_CURRENCY),
+                })),
             tipShares: splits.map((s) => {
                 const who = staffOf(s.staff_id);
                 return {
@@ -2602,6 +2679,7 @@ export function useSaleDetail(
         row,
         lineRows.data,
         payRows.data,
+        giftRows.data,
         rates,
         registered,
         province,
@@ -2610,7 +2688,7 @@ export function useSaleDetail(
         role,
         staffRows,
     ]);
-    return { load: useReplicaLoad([record, lineRows, payRows], row === null), detail };
+    return { load: useReplicaLoad([record, lineRows, payRows, giftRows], row === null), detail };
 }
 
 interface SaleActions {
@@ -2729,23 +2807,21 @@ export function useSaleActions(
                 );
                 return;
             }
-            if (key === "void") {
-                ask(
-                    {
-                        title: d.voidTitle(detail.number),
-                        message: d.voidBody,
-                        confirmLabel: d.voidSale,
-                        destructive: true,
-                    },
-                    () => {
-                        go(
-                            key,
-                            () => api.post(`/v1/orders/${detail.id}/void`, {}),
-                            d.voidDone(detail.number),
-                        );
-                    },
-                );
-            }
+            ask(
+                {
+                    title: d.voidTitle(detail.number),
+                    message: d.voidBody,
+                    confirmLabel: d.voidSale,
+                    destructive: true,
+                },
+                () => {
+                    go(
+                        key,
+                        () => api.post(`/v1/orders/${detail.id}/void`, {}),
+                        d.voidDone(detail.number),
+                    );
+                },
+            );
         },
         busyKey: busy ? busyKey : null,
         done,

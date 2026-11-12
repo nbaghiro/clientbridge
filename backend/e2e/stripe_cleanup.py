@@ -8,10 +8,34 @@ from typing import Literal
 
 import stripe
 
-EVIDENCE: dict[Literal["lose", "escalate"], str] = {
+# a refund that failed for one of these leaves Stripe refusing any later refund to the card
+CARD_REFUSALS = ("expired_or_canceled_card", "lost_or_stolen_card")
+
+type Verdict = Literal["lose", "win", "escalate", "close"]
+
+# Stripe's sandbox evidence values; winning evidence on an inquiry closes it without escalating
+EVIDENCE: dict[Verdict, str] = {
     "lose": "losing_evidence",
+    "win": "winning_evidence",
     "escalate": "escalate_inquiry_evidence",
+    "close": "winning_evidence",
 }
+INQUIRY: tuple[Verdict, ...] = ("escalate", "close")
+# the statuses a dispute may already be in when its verdict is asked for again
+PENDING: dict[Verdict, tuple[str, ...]] = {
+    "lose": ("under_review", "won", "lost"),
+    "win": ("under_review", "won", "lost"),
+    "escalate": (),
+    "close": ("warning_under_review", "warning_closed"),
+}
+
+
+def decided(action: Verdict, status: str) -> bool:
+    if action == "escalate":
+        return not status.startswith("warning_")
+    if action == "close":
+        return status == "warning_closed"
+    return status in ("won", "lost")
 
 
 async def unlocked[T](request: Callable[[], Awaitable[T]]) -> T:
@@ -29,12 +53,12 @@ async def unlocked[T](request: Callable[[], Awaitable[T]]) -> T:
 
 
 async def submit_evidence(
-    account: str, dispute: stripe.Dispute, action: Literal["lose", "escalate"], run: str
+    account: str, dispute: stripe.Dispute, action: Verdict, run: str
 ) -> stripe.Dispute:
-    """Stripe's sandbox evidence values decide a test dispute: lose it, or escalate an inquiry."""
+    """Stripe's sandbox evidence values decide a test dispute or inquiry."""
     if dispute.livemode:
         raise ValueError("live dispute evidence is forbidden")
-    ready = "warning_needs_response" if action == "escalate" else "needs_response"
+    ready = "warning_needs_response" if action in INQUIRY else "needs_response"
     if dispute.status == ready:
         dispute_id = dispute.id
         # the same key retries safely while Stripe still holds the dispute
@@ -47,14 +71,10 @@ async def submit_evidence(
                 idempotency_key=f"browser:{run}:{dispute_id}:{action}",
             )
         )
-    elif action == "escalate" or dispute.status not in ("under_review", "won", "lost"):
+    elif dispute.status not in PENDING[action]:
         raise ValueError(f"cannot {action} a dispute that is {dispute.status}")
     deadline = time.monotonic() + 120
-    while (
-        dispute.status.startswith("warning_")
-        if action == "escalate"
-        else dispute.status not in ("won", "lost")
-    ):
+    while not decided(action, dispute.status):
         if time.monotonic() > deadline:
             raise TimeoutError("the sandbox dispute did not settle")
         await asyncio.sleep(2)
@@ -82,10 +102,10 @@ async def settle_disputes(
     return sum(dispute.amount for dispute in disputes if dispute.status == "lost")
 
 
-async def settled(account: str, refund: stripe.Refund, *, bank: bool) -> stripe.Refund:
-    """A bank debit's refund goes back through the bank, so Stripe holds it pending briefly."""
+async def settled(account: str, refund: stripe.Refund, *, slow: bool) -> stripe.Refund:
+    """Bank debit and Klarna refunds go back through them, so Stripe holds them pending briefly."""
     deadline = time.monotonic() + 300
-    while bank and refund.status == "pending" and time.monotonic() < deadline:
+    while slow and refund.status == "pending" and time.monotonic() < deadline:
         await asyncio.sleep(5)
         refund = await stripe.Refund.retrieve_async(refund.id, stripe_account=account)
     return refund
@@ -106,7 +126,8 @@ async def cleanup_intent(
         charge = await stripe.Charge.retrieve_async(intent.latest_charge, stripe_account=account)
         if charge.livemode or charge.payment_intent != intent.id or charge.amount != intent.amount:
             raise ValueError("charge does not match the owned intent")
-        bank = (charge.to_dict().get("payment_method_details") or {}).get("type") == "acss_debit"
+        method = (charge.to_dict().get("payment_method_details") or {}).get("type")
+        slow = method in ("acss_debit", "klarna")
         lost = 0
         if charge.to_dict().get("disputed"):
             lost = await settle_disputes(account, charge.id, metadata, apply=apply)
@@ -115,12 +136,14 @@ async def cleanup_intent(
         refunds = await stripe.Refund.list_async(charge=charge.id, stripe_account=account)
         refunded = 0
         bank_failed = False
+        card_refuses = False
         async for listed in refunds.auto_paging_iter():
-            refund = await settled(account, listed, bank=bank)
+            refund = await settled(account, listed, slow=slow)
             if refund.status == "succeeded":
                 refunded += refund.amount
             elif refund.status == "failed":
                 bank_failed = True
+                card_refuses |= refund.failure_reason in CARD_REFUSALS
             elif refund.status != "canceled":
                 raise ValueError("owned charge has an unsettled refund; retry after settlement")
         remaining = charge.amount - charge.amount_refunded - lost
@@ -134,6 +157,9 @@ async def cleanup_intent(
             return {"intent": intent.id, "status": "already_refunded"}
         if remaining < 0 or refunded != charge.amount_refunded:
             raise ValueError("charge and settled refunds disagree")
+        if card_refuses:
+            # Stripe refuses another refund to a card that failed one, so the charge stays
+            return {"intent": intent.id, "status": "refund_refused", "amount_cents": remaining}
         if not apply:
             return {
                 "intent": intent.id,
@@ -154,7 +180,7 @@ async def cleanup_intent(
             if bank_failed:
                 return {"intent": intent.id, "status": "refund_refused", "amount_cents": remaining}
             raise
-        refund = await settled(account, refund, bank=bank)
+        refund = await settled(account, refund, slow=slow)
         if refund.status != "succeeded":
             raise ValueError("owned refund is not settled; cleanup needs retry")
         return {"intent": intent.id, "refund": refund.id, "status": refund.status}

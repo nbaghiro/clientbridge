@@ -36,6 +36,7 @@ import { PrintModal } from "../components/PublicDocument";
 import { PublicPage } from "../components/PublicPage";
 import { PublicStatus } from "../components/PublicStatus";
 import { config } from "../config";
+import { useStripeReturn } from "../stripeReturn";
 
 const manage = createManageBookingClient(config.apiUrl);
 const receipts = createPublicReceiptClient(config.apiUrl);
@@ -69,7 +70,7 @@ function VisitReceipt({ token }: { token: string }) {
 /** The link in every confirmation and reminder: see the visit, move it or cancel it within the cut-offs. */
 export function PublicManage() {
     const { token = "" } = useParams<{ token: string }>();
-    const mg = useManageBooking(manage, token);
+    const mg = useManageBooking(manage, token, useStripeReturn());
     const v = mg.booking;
     const done = mg.mode === "moved" || mg.mode === "canceled";
     if (mg.status === "loading") return <PublicStatus kind="loading" />;
