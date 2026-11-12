@@ -14,6 +14,7 @@ import {
     listRow,
     priceDoc,
     documentRates,
+    estimateCanAnswer,
     estimateCanBook,
     estimateCanConvert,
     estimateTotals,
@@ -363,8 +364,9 @@ describe("estimateTotals", () => {
         [{ amountCents: 10_000, taxClass: "standard", included: true }],
         docRates(ON, true),
     );
+    const none = { lineCents: 0, docCents: 0, reason: null };
     const cents = (row: Parameters<typeof estimateTotals>[0]): number[] =>
-        estimateTotals(row, pricing).map((t) => t.cents);
+        estimateTotals(row, pricing, none).map((t) => t.cents);
 
     it("totals an open estimate from today's pricing, not the amounts stored when it was sent", () => {
         const sent = { accepted_at: null, subtotal_cents: 10_000, total_cents: 10_000 };
@@ -378,6 +380,23 @@ describe("estimateTotals", () => {
             total_cents: 11_300,
         };
         expect(cents(accepted)).toEqual([10_000, 1300, 11_300]);
+    });
+
+    it("shows the items and each discount above the subtotal they lead to", () => {
+        const sent = { accepted_at: null, subtotal_cents: 10_000, total_cents: 11_300 };
+        const totals = estimateTotals(sent, pricing, {
+            lineCents: 500,
+            docCents: 1000,
+            reason: "Loyalty",
+        });
+        expect(totals.map((t) => [t.key, t.cents, t.hint])).toEqual([
+            ["gross", 11_500, undefined],
+            ["lineDisc", 500, undefined],
+            ["docDisc", 1000, "Loyalty"],
+            ["subtotal", 10_000, undefined],
+            ["HST", 1300, undefined],
+            ["total", 11_300, undefined],
+        ]);
     });
 });
 
@@ -399,6 +418,31 @@ describe("estimateCanConvert", () => {
     it("hides Convert for a draft, declined or expired estimate", () => {
         for (const status of ["draft", "declined", "expired"])
             expect(estimateCanConvert(status, open)).toBe(false);
+    });
+});
+
+describe("estimateCanAnswer", () => {
+    const free = { booking_id: null };
+
+    it("lets staff answer a sent estimate either way", () => {
+        expect(estimateCanAnswer("sent", free)).toEqual({ accept: true, decline: true });
+    });
+
+    it("lets staff change an answer to the other one", () => {
+        expect(estimateCanAnswer("declined", free)).toEqual({ accept: true, decline: false });
+        expect(estimateCanAnswer("accepted", free)).toEqual({ accept: false, decline: true });
+    });
+
+    it("keeps a booked estimate accepted", () => {
+        expect(estimateCanAnswer("accepted", { booking_id: "bk_1" })).toEqual({
+            accept: false,
+            decline: false,
+        });
+    });
+
+    it("offers no answer for a draft, an expired or a converted estimate", () => {
+        for (const status of ["draft", "expired", "converted"])
+            expect(estimateCanAnswer(status, free)).toEqual({ accept: false, decline: false });
     });
 });
 

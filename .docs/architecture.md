@@ -320,12 +320,16 @@ a one-to-one visit by its minutes times the quantity).
 subtotal/tax/total fixed at issue, `pay_token`, `overdue_notified_at`; what is owed is the invoice's
 receivable in the ledger, and partial/paid/refunded/overdue and the paid time are read from it, through
 `ledger.invoice_status_expr()` on the server and `invoiceStatusSql` on the device), `estimates`
-(accept/decline/convert → invoice; a sent estimate past `valid_until` reads as expired; an accepted,
-unconverted estimate can be booked, its chosen product lines joining the visit as `addons` at the quoted
-unit price, through `estimate_id` on `POST /v1/bookings`, owner or admin only; the booking keeps
-`bookings.estimate_id`, and while a live (not canceled, not deleted) booking holds the estimate a second
-one is refused with 409 `estimate_booked`, and converting it to an invoice with 409 `estimate_on_visit`, since
-its products are billed on the visit), `orders`
+(accept/decline/convert → invoice; a sent estimate past `valid_until` reads as expired and a converted
+one reads as converted, neither stored; its client answers a sent estimate once from the link, and a late
+answer is refused with 409 `estimate_answered`; staff answer a sent one, or switch an accepted or declined
+one to the other answer, until it is converted, and the latest answer clears the other's time and reason; an
+accepted, unconverted estimate can be booked, its chosen product lines joining the visit as `addons` at the
+quoted unit price, through `estimate_id` on `POST /v1/bookings`, owner or admin only, while the visit's
+service is charged at its catalog price and the estimate's document discount stays on the estimate; the
+booking keeps `bookings.estimate_id`, and while a live (not canceled, not deleted) booking holds the
+estimate a second one is refused with 409 `estimate_booked`, declining it is refused, and converting it to an
+invoice is refused with 409 `estimate_on_visit`, since its products are billed on the visit), `orders`
 (POS/Terminal sale; stored status open/void, paid/refunded read from the ledger the same way),
 `lines` (three nullable foreign keys `estimate_id`/`invoice_id`/`order_id` with a CHECK that exactly one
 is set; `item_id`/`booking_id`, `tax_amount_cents`).

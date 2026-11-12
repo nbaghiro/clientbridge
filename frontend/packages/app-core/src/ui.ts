@@ -825,6 +825,7 @@ export interface ActionMenuProps {
     onClose: () => void;
     title?: string | undefined;
     items: readonly ActionMenuItem[];
+    // on iOS a list or grid menu calls onClose first, then this once its sheet has closed
     onSelect: (key: string) => void;
     // "grid" draws large tiles (two across on web, three on mobile); "radial" is a mobile fan.
     layout?: "list" | "grid" | "radial" | undefined;

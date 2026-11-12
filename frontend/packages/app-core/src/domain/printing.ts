@@ -216,7 +216,10 @@ export function printedDoc(
         instructions: src.instructions ?? [],
         message: src.message ?? null,
         footer: s.thanks,
-        labels: PRINT_LABELS,
+        labels:
+            src.kind === "estimate"
+                ? { ...PRINT_LABELS, howToPay: s.howToAccept, scanToPay: s.scanToAccept }
+                : PRINT_LABELS,
     };
 }
 

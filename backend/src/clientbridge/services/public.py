@@ -2011,7 +2011,7 @@ async def estimate_tax(
 ) -> tuple[datetime, TaxResult]:
     """A quote still open is priced live; anything else shows the tax stored on its lines."""
     status = estimate_status(estimate, local_today(business))
-    if status == "sent" and estimate.converted_invoice_id is None:
+    if status == "sent":
         now = clock.now()
         return now, await tax_breakdown(db, estimate.business_id, lines, now)
     if status == "expired" and estimate.valid_until is not None:
@@ -2129,7 +2129,7 @@ class PublicEstimateService:
     def _assert_open(estimate: Estimate, business: Business) -> None:
         status = estimate_status(estimate, local_today(business))
         if status != "sent":
-            raise Conflict(f"this estimate is already {status}")
+            raise Conflict(f"this estimate is already {status}", code="estimate_answered")
 
     async def _lines(self, estimate: Estimate) -> list[Line]:
         return await fetch_lines(self.db, estimate.business_id, "estimate", estimate.id)

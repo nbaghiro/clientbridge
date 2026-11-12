@@ -1,12 +1,19 @@
+import asyncio
 from datetime import UTC, datetime, timedelta
 
 import httpx
-from sqlalchemy import select, update
+import pytest
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
-from clientbridge.models.billing import Estimate, Line
+from clientbridge.core.db import SessionLocal
+from clientbridge.core.errors import Conflict
+from clientbridge.core.ids import new_id
+from clientbridge.models.billing import Estimate, Invoice, Line
 from clientbridge.models.business import Business
+from clientbridge.schemas.billing import PublicEstimateAccept
+from clientbridge.services.public import PublicEstimateService
 from tests.conftest import BIZ, FakeEmailSender
 from tests.helpers import client_id, ok
 
@@ -212,6 +219,86 @@ async def test_answered_estimate_cannot_be_answered_again(
     ok(await as_owner.post(f"/estimate/{est['view_token']}/accept", json={}))
     again = await as_owner.post(f"/estimate/{est['view_token']}/decline", json={})
     assert again.status_code == 409
+
+
+async def test_a_converted_estimate_reads_converted_and_refuses_a_late_answer(
+    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+) -> None:
+    await _owner_email(db)
+    est = await _sent_estimate(as_owner, db)
+    invoice = ok(await as_owner.post(f"/v1/estimates/{est['id']}/convert"), 201).json()
+    token = est["view_token"]
+    page = ok(await as_owner.get(f"/estimate/{token}")).json()
+    assert page["status"] == "converted"
+    lines = page["lines"]
+    for answer, body in (
+        ("accept", {"line_ids": [lines[1]["id"]]}),
+        ("decline", {"reason": "Found someone cheaper"}),
+    ):
+        late = await as_owner.post(f"/estimate/{token}/{answer}", json=body)
+        assert late.status_code == 409 and late.json()["error"] == "estimate_answered"
+    quote = await as_owner.get(f"/estimate/{token}", params={"line_ids": [lines[1]["id"]]})
+    assert quote.status_code == 409 and quote.json()["error"] == "estimate_answered"
+    row = await db.get(Estimate, est["id"])
+    assert row is not None
+    await db.refresh(row)
+    assert (row.status, row.converted_invoice_id, row.decline_reason) == (
+        "sent",
+        invoice["id"],
+        None,
+    )
+    assert email.sent == []
+
+
+async def test_a_client_accepting_while_the_estimate_converts_is_refused_once_it_lands(
+    db: AsyncSession,
+) -> None:
+    cid = await client_id(db)
+    eid, iid, token = new_id("estimate"), new_id("invoice"), new_id("estimate")
+    async with SessionLocal() as setup:
+        setup.add(Invoice(id=iid, business_id=BIZ, client_id=cid, status="draft"))
+        setup.add(Estimate(id=eid, business_id=BIZ, client_id=cid, status="sent", view_token=token))
+        await setup.flush()
+        setup.add(
+            Line(
+                id=new_id("line"),
+                business_id=BIZ,
+                estimate_id=eid,
+                description="Install",
+                unit_amount_cents=6000,
+                amount_cents=6000,
+            )
+        )
+        await setup.commit()
+    locked = asyncio.Event()
+
+    async def convert() -> None:
+        async with SessionLocal() as session:
+            await session.execute(select(Estimate.id).where(Estimate.id == eid).with_for_update())
+            locked.set()
+            await asyncio.sleep(0.2)
+            await session.execute(
+                update(Estimate).where(Estimate.id == eid).values(converted_invoice_id=iid)
+            )
+            await session.commit()
+
+    async def accept() -> None:
+        await asyncio.wait_for(locked.wait(), 5)
+        async with SessionLocal() as session:
+            await PublicEstimateService(session).accept(token, PublicEstimateAccept())
+
+    try:
+        with pytest.raises(Conflict) as refused:
+            await asyncio.gather(convert(), accept())
+        assert refused.value.code == "estimate_answered"
+        async with SessionLocal() as check:
+            assert (await check.get_one(Estimate, eid)).status == "sent"
+    finally:
+        async with SessionLocal() as cleanup:
+            await cleanup.execute(delete(Line).where(Line.estimate_id == eid))
+            await cleanup.execute(delete(Estimate).where(Estimate.id == eid))
+            await cleanup.execute(delete(Invoice).where(Invoice.id == iid))
+            await cleanup.commit()
 
 
 async def test_expired_estimate_cannot_be_accepted(
