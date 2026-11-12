@@ -1,4 +1,4 @@
-// A new tax-registered Ontario business with one client and three services, so the flow can move its province freely.
+// A new tax-registered business, in Ontario unless PROVINCE names another, with one client and three services, so the flow can move its province freely.
 if (
     typeof AUTH_ADMIN_URL === "undefined" ||
     typeof AUTH_URL === "undefined" ||
@@ -42,7 +42,7 @@ function call(method, path, body, business) {
 var business = call("POST", "/v1/onboarding", {
     name: "Tax Check Studio",
     slug: "tax-" + stamp + "-" + E2E_NAMESPACE,
-    province: "ON",
+    province: typeof PROVINCE === "undefined" ? "ON" : PROVINCE,
     subject: null,
 }).id;
 call(

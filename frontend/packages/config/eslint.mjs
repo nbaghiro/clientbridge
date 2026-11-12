@@ -46,6 +46,7 @@ const MAESTRO_GLOBALS = {
         "TICK",
         "CLIENT",
         "DEFAULT",
+        "PROVINCE",
     ]),
     output: "writable",
 };

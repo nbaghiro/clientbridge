@@ -64,7 +64,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 8. Refunds and the books | Refunds and credit notes | [CB-42](https://linear.app/clientbridgeca/issue/CB-42) | Automated |
 | 8. Refunds and the books | Disputes and chargebacks | [CB-43](https://linear.app/clientbridgeca/issue/CB-43) | Partly automated |
 | 8. Refunds and the books | Bookkeeper reports and exports | [CB-45](https://linear.app/clientbridgeca/issue/CB-45) | Partly automated |
-| 8. Refunds and the books | GST/HST returns | [CB-46](https://linear.app/clientbridgeca/issue/CB-46) | Partly automated |
+| 8. Refunds and the books | GST/HST returns | [CB-46](https://linear.app/clientbridgeca/issue/CB-46) | Automated |
 | 8. Refunds and the books | Payouts and fee reconciliation | [CB-47](https://linear.app/clientbridgeca/issue/CB-47) | Partly automated |
 | 8. Refunds and the books | Staff pay and T4A | [CB-48](https://linear.app/clientbridgeca/issue/CB-48) | Partly automated |
 | 9. Talk to clients | Inbox: two-way texting | [CB-49](https://linear.app/clientbridgeca/issue/CB-49) | Partly automated |
@@ -1972,33 +1972,31 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 ### GST/HST returns (CB-46)
 
 **Covers:** Payments > Tax returns on web and mobile
-**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234 with a completed quarter
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234 with a completed quarter. The seed records every return whose due date has passed, so locally seed the core businesses at noon on this quarter's first day, the filings lane's anchor (`cd backend && uv run python -m scripts.seed_demo --core --as-of 2026-10-01T12:00:00-07:00` for the October quarter), and run `make seed-core` afterwards. On staging, set Birchbark to file monthly in Setup > Sales tax so last month is the completed period, and set it back to quarterly afterwards.
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator.
+* **Local:** `make up migrate`, the core seed above, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator.
 * **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
 
 **QA steps**
 
-1. Download the quarter's GST/HST report on web (the worksheet and CSV are web only) and record the return.
-   **Expect:** tax set aside drops by the amount filed.
-2. Record the same period again.
-   **Expect:** refused.
-3. Record an unfinished period.
-   **Expect:** refused.
-4. Record both federal and provincial returns.
-   **Expect:** each clears its own tax.
+1. Download the completed period's GST/HST CSV on web (the CSV is web only; the worksheet shows on both), then record its GST/HST return with input tax credits and a confirmation number.
+   **Expect:** tax set aside, on Tax returns and on Today, drops by the GST/HST collected, the period leaves what is owed to the CRA, its GST/HST return shows in the history, and its PST stays due.
+2. Record the same period again from a second tab or phone that opened the form before the first recorded it, and through the API for the whole period, a day range inside it and a range that overlaps it.
+   **Expect:** refused with a message that the return was already recorded; the page refreshes and nothing posts.
+3. Try to record the period in progress.
+   **Expect:** neither web nor phone offers it before the period ends; through the API it is refused as not over yet, and so is a filing date inside the period.
+4. Record the PST return, and through the API a PST return for part of a period followed by the rest of it.
+   **Expect:** each return clears only its own tax; the part leaves the rest of the period due, and the worksheet covers only those days; the history shows the period's GST/HST and PST payments, the PST as one total, with every confirmation number.
 
-**Done when:** Tax set aside always equals what is still owed.
+**Done when:** Tax set aside always equals what is still owed, including tax dated into a period after its return was recorded, which lands in the period in progress while the sale keeps its day; a period with more refunded than collected files as a refund claim.
 
 **Automated by**
 
 * `FIN-RETURN-03 (filings)`
-
-**To automate**
-
-* `FIN-RETURN-13` in `apps/web/e2e/remittances.filing.ts`: Overlap and partial-range rejection matrix.
+* `FIN-RETURN-13 (filings)`
+* `NATIVE-RETURN-01 (native-ios, native-android)`
 
 **Depends on:** Nothing
 
