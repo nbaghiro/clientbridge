@@ -93,12 +93,48 @@ async def run_sources(account: str, state: dict[str, object]) -> set[str]:
     return sources
 
 
+class RunGateway(StripeGateway):
+    """The shared merchant holds every run's money, so the run's own window opens at its prepare."""
+
+    def __init__(self, opened: int) -> None:
+        settings = get_settings()
+        super().__init__(settings.stripe_secret_key, settings.stripe_webhook_secret, "CA")
+        self.opened = opened
+
+    async def balance_transactions(
+        self,
+        account_id: str,
+        *,
+        since: int | None = None,
+        source: str | None = None,
+        kind: str | None = None,
+    ) -> list[dict[str, object]]:
+        if source is None:
+            since = max(since or self.opened, self.opened)
+        return await super().balance_transactions(account_id, since=since, source=source, kind=kind)
+
+
+async def prepared_at() -> int:
+    """When prepare opened the run's business, from the first reconcile cursor it wrote."""
+    async with engine.connect() as db:
+        await db.execute(text("SET TRANSACTION READ ONLY"))
+        opened = await db.scalar(
+            text(
+                "SELECT (changes->>'created')::bigint FROM audits WHERE business_id = :business "
+                "AND entity_type = 'business' AND action = 'ledger.reconciled' ORDER BY id LIMIT 1"
+            ),
+            {"business": BUSINESS},
+        )
+    if not isinstance(opened, int):
+        raise ValueError("the run's business has no reconcile cursor from prepare")
+    return opened
+
+
 async def reconcile_run() -> dict[str, object]:
     """Reconcile the run's business with the job's own code, then judge only the run's sources."""
     account = await validate_context()
     _, state = run_state(account)
-    settings = get_settings()
-    gateway = StripeGateway(settings.stripe_secret_key, settings.stripe_webhook_secret, "CA")
+    gateway = RunGateway(await prepared_at())
     async with SessionLocal() as db:
         business = await db.get(Business, BUSINESS)
         if business is None or business.stripe_account_id != account:

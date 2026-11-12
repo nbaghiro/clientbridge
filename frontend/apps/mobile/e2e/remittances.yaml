@@ -60,9 +60,21 @@ onFlowComplete:
 - assertVisible: "GST/HST return"
 - tapOn: "0.00"
 - inputText: "1.00"
+# the number pad covers the fields below on Android, and Back would close the form
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - pressKey: Enter
+- scrollUntilVisible:
+      element: "CRA confirmation number"
+      direction: DOWN
 - tapOn:
       below: "CRA confirmation number"
 - inputText: "CRA-PHONE"
+- scrollUntilVisible:
+      element: "Taxable sales \\(line 101\\)"
+      direction: UP
 - tapOn: "Taxable sales \\(line 101\\)"
 - assertVisible: "\\$4\\.00"
 # another device records the GST/HST return while this form is open
