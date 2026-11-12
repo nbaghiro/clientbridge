@@ -311,6 +311,55 @@ export async function applyPercentDiscount(scope: Locator, percent: string): Pro
     await scope.getByRole("button", { name: strings.pos.desk.applyDiscount, exact: true }).click();
 }
 
+export async function applyAmountDiscount(
+    scope: Locator,
+    amount: string,
+    reason: string,
+): Promise<void> {
+    await scope.getByRole("button", { name: strings.pos.desk.amount, exact: true }).click();
+    await scope
+        .getByRole("textbox", { name: strings.pos.desk.amountOff, exact: true })
+        .fill(amount);
+    await scope
+        .getByRole("textbox", { name: strings.pos.desk.otherReason, exact: true })
+        .fill(reason);
+    await scope.getByRole("button", { name: strings.pos.desk.applyDiscount, exact: true }).click();
+}
+
+/** Sends the open estimate from its record, past the review of the text. */
+export async function sendEstimate(
+    page: Page,
+    id: string,
+): Promise<DocumentRecord & { view_token: string }> {
+    await page.getByRole("button", { name: strings.billing.sendEstimate, exact: true }).click();
+    const review = page.getByRole("dialog").filter({
+        has: page.getByRole("heading", { name: strings.previews.title, exact: true }),
+    });
+    const sent = page.waitForResponse(
+        (r) => r.url().endsWith(`/estimates/${id}/send`) && r.request().method() === "POST",
+    );
+    await review.getByRole("button", { name: strings.billing.sendEstimate, exact: true }).click();
+    const response = await sent;
+    expect(response.status(), await response.text()).toBe(200);
+    return (await response.json()) as DocumentRecord & { view_token: string };
+}
+
+/** Converts the open estimate from its record and returns the draft invoice. */
+export async function convertEstimate(page: Page, id: string): Promise<DocumentRecord> {
+    await page.getByRole("button", { name: strings.billing.convert, exact: true }).click();
+    const converting = page.waitForResponse(
+        (r) => r.url().endsWith(`/estimates/${id}/convert`) && r.request().method() === "POST",
+    );
+    await page
+        .getByRole("dialog")
+        .last()
+        .getByRole("button", { name: strings.billing.convert, exact: true })
+        .click();
+    const response = await converting;
+    expect(response.status(), await response.text()).toBe(201);
+    return (await response.json()) as DocumentRecord;
+}
+
 export async function saveDocument(
     page: Page,
     editor: Locator,

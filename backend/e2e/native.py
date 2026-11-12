@@ -496,6 +496,7 @@ def run_native(
                 "/bank": authorized_bank,
                 "/notes": lambda body: e2e_action("notes", [body.decode()]),
                 "/client-photo": lambda body: e2e_action("client-photo", body.decode().split()),
+                "/tax-quarter": lambda body: e2e_action("tax-quarter", [body.decode()]),
             },
             stack.directory / "control.log",
         ) as control,

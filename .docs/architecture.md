@@ -320,12 +320,16 @@ a one-to-one visit by its minutes times the quantity).
 subtotal/tax/total fixed at issue, `pay_token`, `overdue_notified_at`; what is owed is the invoice's
 receivable in the ledger, and partial/paid/refunded/overdue and the paid time are read from it, through
 `ledger.invoice_status_expr()` on the server and `invoiceStatusSql` on the device), `estimates`
-(accept/decline/convert → invoice; a sent estimate past `valid_until` reads as expired; an accepted,
-unconverted estimate can be booked, its chosen product lines joining the visit as `addons` at the quoted
-unit price, through `estimate_id` on `POST /v1/bookings`, owner or admin only; the booking keeps
-`bookings.estimate_id`, and while a live (not canceled, not deleted) booking holds the estimate a second
-one is refused with 409 `estimate_booked`, and converting it to an invoice with 409 `estimate_on_visit`, since
-its products are billed on the visit), `orders`
+(accept/decline/convert → invoice; a sent estimate past `valid_until` reads as expired and a converted
+one reads as converted, neither stored; its client answers a sent estimate once from the link, and a late
+answer is refused with 409 `estimate_answered`; staff answer a sent one, or switch an accepted or declined
+one to the other answer, until it is converted, and the latest answer clears the other's time and reason; an
+accepted, unconverted estimate can be booked, its chosen product lines joining the visit as `addons` at the
+quoted unit price, through `estimate_id` on `POST /v1/bookings`, owner or admin only, while the visit's
+service is charged at its catalog price and the estimate's document discount stays on the estimate; the
+booking keeps `bookings.estimate_id`, and while a live (not canceled, not deleted) booking holds the
+estimate a second one is refused with 409 `estimate_booked`, declining it is refused, and converting it to an
+invoice is refused with 409 `estimate_on_visit`, since its products are billed on the visit), `orders`
 (POS/Terminal sale; stored status open/void, paid/refunded read from the ledger the same way),
 `lines` (three nullable foreign keys `estimate_id`/`invoice_id`/`order_id` with a CHECK that exactly one
 is set; `item_id`/`booking_id`, `tax_amount_cents`).
@@ -704,7 +708,7 @@ What posts, and where:
 | Gift card redeemed                       | `entitlements.redeem_gift_card`                                                                                          | gift card liability + / revenue −                                                                                                                                                                                                  |
 | Package session used                     | `entitlements.consume_session`                                                                                           | deferred + / revenue − (the last session takes the remainder)                                                                                                                                                                      |
 | Gift card or package expired             | `entitlements.run_expiry_sweeps` (`ledger.post_breakage`)                                                                | gift card liability or deferred + / revenue − (breakage on the unused balance)                                                                                                                                                     |
-| Tax return filed                         | `POST /v1/payments/remittances` (`remittances`)                                                                          | tax(code) + per code owed for the period / itc − for the credits claimed / bank − for the rest ; the period and `itc_cents` are in the journal's `meta`                                                                              |
+| Tax return filed                         | `POST /v1/payments/remittances` (`remittances`)                                                                          | tax(code) + per code owed for the period / itc − for the credits claimed / bank − for the rest ; the period and `itc_cents` are in the journal's `meta`; more refunded than collected files as a claim (bank +); a period partly filed by returns inside it files each day range they leave as its own return, the credits against the earliest first; a later journal dated into days a return covers keeps its day except for the tax legs a filed return covers, which are dated when it posts so the next return carries them (`ledger._filed_codes`)                                                                              |
 | Deposit forfeited                        | no-show in `bookings` (or settlement after it)                                                                           | deposit + / revenue − ; a refund or lost dispute takes the forfeit back first                                                                                                                                                      |
 | Deposit applied                          | invoice sent with the booking on a line, or the deposit settling after that (`bookings.apply_deposit`)                   | deposit + / client receivable − ; a void, a refund or a lost dispute of the deposit reverses it                                                                                                                                    |
 | Staff earning accrued / approved / paid  | `earnings` (document fully paid, package cover, `/v1/earnings/approve`, `/v1/earnings/pay`)                              | staff cost + / payable(pending) − ; pending → approved ; approved → bank, the run and the last day of work in the pay's `meta`                                                                                                     |

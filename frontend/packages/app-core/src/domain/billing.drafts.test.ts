@@ -87,3 +87,25 @@ it("keeps a visit's booking and staff on its lines when only the message is edit
         ],
     });
 });
+
+it("counts a line ticked optional on an estimate once the document is switched to an invoice", () => {
+    const api: ApiLike = {
+        get: <T>() => Promise.resolve({} as T),
+        getText: () => Promise.resolve(""),
+        post: <T>() => Promise.resolve({} as T),
+        patch: <T>() => Promise.resolve({} as T),
+        delete: <T>() => Promise.resolve({} as T),
+    };
+    const draft = docDraft(row, [
+        visitLine({ booking_id: null, item_id: null }),
+        visitLine({ id: "ln_extra", booking_id: null, item_id: null, optional: 1, position: 1 }),
+    ]);
+    const wrapper = ({ children }: { children: ReactNode }) =>
+        createElement(BusinessZoneContext.Provider, { value: "America/Vancouver" }, children);
+    const total = (kind: "invoice" | "estimate"): number | undefined =>
+        renderHook(() => useDocComposer(api, kind, draft), { wrapper }).result.current.totals.find(
+            (t) => t.key === "total",
+        )?.cents;
+    expect(total("estimate")).toBe(9000);
+    expect(total("invoice")).toBe(18000);
+});

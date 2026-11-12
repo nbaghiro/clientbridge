@@ -1,4 +1,4 @@
-import { formatMoney, formatPhone, strings } from "@clientbridge/app-core/public";
+import { formatCredit, formatMoney, formatPhone, strings } from "@clientbridge/app-core/public";
 import { expect, type Locator, type Page } from "@playwright/test";
 import {
     billingAction,
@@ -8,8 +8,10 @@ import {
     recordPayment,
     openInvoice,
     recordCash,
+    applyAmountDiscount,
     applyPercentDiscount,
     composeDocument,
+    convertEstimate,
     createDocumentClient,
     documentEvidence,
     documentTexts,
@@ -19,17 +21,26 @@ import {
     registerForTax,
     saveDocument,
     sendDocument,
+    sendEstimate,
     taxLegs,
     type DocumentClient,
     type DocumentRecord,
 } from "./support/billing";
 import { businessEvidence, newBusiness, patchBusiness, type NewBusiness } from "./support/business";
+import {
+    cancelOwnedBooking,
+    chooseFreeBookingTime,
+    createBookingFixture,
+} from "./support/bookings";
+import { select } from "./support/db";
+import { textedLinks } from "./support/messaging";
 import { payCash, ringCash, stockProduct } from "./support/pos";
+import { apiCall } from "./support/visit";
 import { paymentEvidence, receiptMessages } from "./support/evidence";
 import { textsTo } from "./support/auth";
 import { deliveredTexts } from "./support/messaging";
 import { reports } from "./support/reports";
-import { navigate, signIn, test } from "./support/session";
+import { customerContext, navigate, signIn, test } from "./support/session";
 import { randomUUID } from "node:crypto";
 import { demoId, runUrl } from "@clientbridge/config/e2e/run";
 
@@ -624,6 +635,356 @@ test.describe(() => {
                 .filter((entry) => entry.event === "application")
                 .map((entry) => [entry.category, entry.amount_cents]),
         ).toEqual([["receivable", -deposit]]);
+    });
+
+    test("BILL-DOC-22 a declined estimate can't be converted, and a client answering after conversion is refused", async ({
+        page,
+        browser,
+    }, testInfo) => {
+        const pe = strings.publicEstimate;
+        const money = (cents: number): string => formatMoney(cents, "CAD");
+        await signIn(page);
+        const line = {
+            description: "Spring de-shedding package",
+            quantity: 1,
+            unit_amount_cents: 8000,
+        };
+        const decliner = await createDocumentClient(page);
+        const late = await createDocumentClient(page);
+        const send = (client: DocumentClient) =>
+            apiCall<DocumentRecord>(
+                page,
+                "POST",
+                "/v1/estimates",
+                { client_id: client.id, lines: [line], send: true },
+                201,
+            );
+        const declined = await send(decliner);
+        const unanswered = await send(late);
+        const [declineLink] = await textedLinks(page.request, decliner.phone, "/e/");
+        const [lateLink] = await textedLinks(page.request, late.phone, "/e/");
+        const context = await customerContext(browser);
+        try {
+            const customer = await context.newPage();
+            await customer.goto(declineLink?.href ?? "");
+            await customer.getByRole("button", { name: pe.decline, exact: true }).click();
+            await customer
+                .getByRole("textbox", { name: pe.declineReason, exact: true })
+                .fill("We'll wait until spring");
+            await customer.getByRole("button", { name: pe.sendDecline, exact: true }).click();
+            await expect(customer.getByRole("heading", { name: pe.declinedTitle })).toBeVisible();
+
+            const record = await openDocument(page, decliner, "estimate", declined.id);
+            await expect(record.getByText("We'll wait until spring").first()).toBeVisible();
+            await expect(
+                record.getByRole("button", { name: strings.billing.convert, exact: true }),
+            ).toHaveCount(0);
+            // the client may still phone to say yes, so staff can change the answer
+            await expect(
+                record.getByRole("button", { name: strings.billing.markAccepted, exact: true }),
+            ).toBeVisible();
+            await apiCall(page, "POST", `/v1/estimates/${declined.id}/convert`, {}, 409);
+
+            // the client opened the link before the business converted the estimate
+            const stale = await context.newPage();
+            await stale.goto(lateLink?.href ?? "");
+            const accept = stale.getByRole("button", { name: pe.acceptFor(money(8960)) });
+            await expect(accept).toBeVisible();
+            await openDocument(page, late, "estimate", unanswered.id);
+            const invoice = await convertEstimate(page, unanswered.id);
+            await accept.click();
+            await expect(stale.getByRole("heading", { name: pe.convertedTitle })).toBeVisible();
+            await expect(stale.getByText(strings.api.estimateAnswered)).toHaveCount(0);
+            await expect(stale.getByRole("button", { name: pe.decline })).toHaveCount(0);
+            await expect(
+                stale.getByRole("button", { name: new RegExp(`^${pe.acceptFor("")}`) }),
+            ).toHaveCount(0);
+
+            expect((await documentEvidence("estimate", declined.id)).document).toMatchObject({
+                status: "declined",
+                converted_invoice_id: null,
+            });
+            const answered = await documentEvidence("estimate", unanswered.id);
+            expect(answered.document).toMatchObject({
+                status: "sent",
+                converted_invoice_id: invoice.id,
+                decline_reason: null,
+            });
+            expect((await documentEvidence("invoice", invoice.id)).document).toMatchObject({
+                status: "draft",
+                total_cents: 8960,
+            });
+            expect(
+                await select<{
+                    id: string;
+                }>`SELECT id FROM invoices WHERE client_id = ${decliner.id}`,
+            ).toEqual([]);
+            await testInfo.attach("answers", {
+                body: JSON.stringify({ declined, answered }),
+                contentType: "application/json",
+            });
+        } finally {
+            await context.close();
+        }
+    });
+
+    test("BILL-DOC-25 an estimate with mixed tax classes and capped fixed discounts totals to the hand calculation, and its invoice keeps those totals", async ({
+        page,
+        browser,
+    }, testInfo) => {
+        const money = (cents: number): string => formatMoney(cents, "CAD");
+        await signIn(page);
+        const client = await createDocumentClient(page);
+        const editor = await composeDocument(page, client, "estimate");
+        await fillDocumentLine(page, editor, 0, "Camera install labour", "2", "65.00", "standard");
+        await editor
+            .getByRole("button", { name: strings.billing.addCustomLine, exact: true })
+            .click();
+        await fillDocumentLine(page, editor, 1, "Monitoring setup", "1", "50.00", "federal_only");
+        await editor
+            .getByRole("button", { name: strings.billing.addCustomLine, exact: true })
+            .click();
+        await fillDocumentLine(page, editor, 2, "Insurance paperwork", "1", "25.00", "exempt");
+        await editor
+            .getByRole("button", { name: strings.billing.addDiscount, exact: true })
+            .nth(2)
+            .click();
+        // the line can't lose more than its $25, so $40 is refused and the whole $25 goes
+        const lineDiscount = page.getByRole("region", {
+            name: strings.billing.lineDiscount("Insurance paperwork"),
+            exact: true,
+        });
+        await applyAmountDiscount(lineDiscount, "40.00", "Paperwork on the house");
+        await expect(
+            lineDiscount.getByText(strings.pos.desk.discountTooBig(money(2500)), { exact: true }),
+        ).toBeVisible();
+        await lineDiscount
+            .getByRole("textbox", { name: strings.pos.desk.amountOff, exact: true })
+            .fill("25.00");
+        await lineDiscount
+            .getByRole("button", { name: strings.pos.desk.applyDiscount, exact: true })
+            .click();
+        await editor
+            .getByRole("button", { name: strings.billing.discountTitle, exact: true })
+            .last()
+            .click();
+        await applyAmountDiscount(
+            page.getByRole("region", { name: strings.billing.discountTitle, exact: true }),
+            "30.00",
+            "Matched a competitor's quote",
+        );
+        // $30 shared by value: labour $108.33 + GST $5.42 + PST $7.58, setup $41.67 + GST $2.08
+        await expectDocumentTotal(editor, 16508);
+        const draft = await saveDocument(page, editor, "estimate");
+        expect(draft).toMatchObject({
+            subtotal_cents: 15000,
+            tax_total_cents: 1508,
+            total_cents: 16508,
+        });
+        const figures = (evidence: {
+            lines: {
+                amount_cents: number;
+                discount_cents: number;
+                sale_discount_cents: number;
+                tax_amount_cents: number;
+            }[];
+        }) =>
+            evidence.lines.map((l) => [
+                l.amount_cents,
+                l.discount_cents,
+                l.sale_discount_cents,
+                l.tax_amount_cents,
+            ]);
+        const expected = [
+            [10833, 0, 2167, 1300],
+            [4167, 0, 833, 208],
+            [0, 2500, 0, 0],
+        ];
+        expect(figures(await documentEvidence("estimate", draft.id))).toEqual(expected);
+        await editor.getByRole("button", { name: strings.common.close, exact: true }).click();
+
+        const record = await openDocument(page, client, "estimate", draft.id);
+        const pane = record.getByRole("article");
+        await expect(pane.getByText(strings.billing.lineDiscounts, { exact: true })).toBeVisible();
+        await expect(pane.getByText(formatCredit(2500, "CAD"), { exact: true })).toBeVisible();
+        await expect(pane.getByText("Matched a competitor's quote")).toBeVisible();
+        await expect(pane.getByText(money(20500), { exact: true })).toBeVisible();
+        // the lines read at their price, so they add up to the items before each discount
+        await expect(
+            pane.getByRole("row").filter({ hasText: "Camera install labour" }),
+        ).toContainText(money(13000));
+        const sent = await sendEstimate(page, draft.id);
+        expect(sent.total_cents).toBe(16508);
+
+        const context = await customerContext(browser);
+        try {
+            const customer = await context.newPage();
+            const [link] = await textedLinks(page.request, client.phone, "/e/");
+            await customer.goto(link?.href ?? "");
+            const accept = customer.getByRole("button", {
+                name: strings.publicEstimate.acceptFor(money(16508)),
+                exact: true,
+            });
+            await expect(accept).toBeVisible();
+            await accept.click();
+            await expect(
+                customer.getByRole("heading", { name: strings.publicEstimate.acceptedTitle }),
+            ).toBeVisible();
+        } finally {
+            await context.close();
+        }
+        expect((await documentEvidence("estimate", draft.id)).document).toMatchObject({
+            status: "accepted",
+            subtotal_cents: 15000,
+            tax_total_cents: 1508,
+            total_cents: 16508,
+        });
+
+        await openDocument(page, client, "estimate", draft.id);
+        const invoice = await convertEstimate(page, draft.id);
+        expect(invoice).toMatchObject({
+            status: "draft",
+            subtotal_cents: 15000,
+            tax_total_cents: 1508,
+            total_cents: 16508,
+        });
+        const converted = await documentEvidence("invoice", invoice.id);
+        expect(figures(converted)).toEqual(expected);
+        const invoiceRecord = await openDocument(page, client, "invoice", invoice.id);
+        await expectDocumentTotal(invoiceRecord, 16508);
+        await expect(
+            invoiceRecord.getByRole("article").getByText("Matched a competitor's quote"),
+        ).toBeVisible();
+        await testInfo.attach("estimate-and-invoice", {
+            body: JSON.stringify({ draft, invoice, lines: converted.lines }),
+            contentType: "application/json",
+        });
+    });
+
+    test("BILL-DOC-26 the job is booked from an accepted estimate once, with its service and products", async ({
+        page,
+    }, testInfo) => {
+        await signIn(page);
+        const fixture = await createBookingFixture(page);
+        const product = await stockProduct(page, {
+            name: `Paw balm for ${fixture.clientName}`,
+            prefix: "BALM",
+            priceCents: 1800,
+            taxClass: "standard",
+            stock: 6,
+        });
+        const estimate = await apiCall<DocumentRecord>(
+            page,
+            "POST",
+            "/v1/estimates",
+            {
+                client_id: fixture.clientId,
+                lines: [
+                    {
+                        description: fixture.itemName,
+                        quantity: 1,
+                        unit_amount_cents: 1000,
+                        item_id: fixture.itemId,
+                    },
+                    {
+                        description: product.name,
+                        quantity: 2,
+                        unit_amount_cents: 1800,
+                        item_id: product.id,
+                    },
+                ],
+                send: true,
+            },
+            201,
+        );
+        await apiCall(page, "POST", `/v1/estimates/${estimate.id}/accept`, {}, 200);
+        const client = {
+            id: fixture.clientId,
+            name: fixture.clientName,
+            phone: fixture.clientPhone,
+        };
+        const record = await openDocument(page, client, "estimate", estimate.id);
+        const book = record.getByRole("button", {
+            name: strings.billing.bookVisit("pet"),
+            exact: true,
+        });
+        await book.click();
+        const form = page.getByRole("form", { name: strings.bookings.composerTitle });
+        await expect(
+            form.getByRole("combobox", { name: strings.bookings.composerService }),
+        ).toHaveValue(fixture.itemName);
+        await expect(
+            form.getByText(strings.bookings.composerFromEstimate(estimate.number ?? 0)),
+        ).toBeVisible();
+        await expect(form.getByText(`2 × ${product.name}`)).toBeVisible();
+        const staff = form.getByRole("group", { name: strings.bookings.composerWith, exact: true });
+        const first = fixture.staffName.split(" ")[0] ?? fixture.staffName;
+        await staff
+            .getByRole("button", { name: first, exact: true })
+            .or(
+                staff.getByRole("button", {
+                    name: `${first} ${strings.bookings.busy}`,
+                    exact: true,
+                }),
+            )
+            .click();
+        await form.getByRole("switch", { name: strings.bookings.composerConfirm }).uncheck();
+        await chooseFreeBookingTime(page, fixture);
+        const created = page.waitForResponse(
+            (r) => new URL(r.url()).pathname === "/v1/bookings" && r.request().method() === "POST",
+        );
+        await page
+            .getByRole("button", { name: strings.bookings.composerBook, exact: true })
+            .click();
+        const response = await created;
+        expect(response.status(), await response.text()).toBe(201);
+        const booking = (await response.json()) as {
+            id: string;
+            estimate_id: string;
+            starts_at: string;
+        };
+        expect(booking.estimate_id).toBe(estimate.id);
+        expect(
+            await select<{ item_id: string; quantity: number; unit_amount_cents: number }>`
+                SELECT item_id, quantity::float AS quantity, unit_amount_cents FROM addons
+                WHERE booking_id = ${booking.id}`,
+        ).toEqual([{ item_id: product.id, quantity: 2, unit_amount_cents: 1800 }]);
+
+        const booked = await openDocument(page, client, "estimate", estimate.id);
+        await expect(booked.getByText(strings.billing.convertOnVisit, { exact: true })).toBeVisible(
+            {
+                timeout: 30_000,
+            },
+        );
+        await expect(
+            booked.getByRole("button", { name: strings.billing.bookVisit("pet"), exact: true }),
+        ).toHaveCount(0);
+        await expect(
+            booked.getByRole("button", { name: strings.billing.convert, exact: true }),
+        ).toHaveCount(0);
+        const again = await page.request.post(`${runUrl("VITE_API_URL")}/v1/bookings`, {
+            headers: { Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() },
+            data: {
+                client_id: fixture.clientId,
+                item_id: fixture.itemId,
+                staff_id: fixture.staffId,
+                starts_at: new Date(Date.parse(booking.starts_at) + 86_400_000).toISOString(),
+                estimate_id: estimate.id,
+                notify: false,
+            },
+        });
+        expect(again.status()).toBe(409);
+        expect(((await again.json()) as { error: string }).error).toBe("estimate_booked");
+
+        // a canceled visit frees the estimate to be booked again
+        await cancelOwnedBooking(page, booking.id);
+        await expect(
+            booked.getByRole("button", { name: strings.billing.bookVisit("pet"), exact: true }),
+        ).toBeVisible({ timeout: 30_000 });
+        await testInfo.attach("booking", {
+            body: JSON.stringify({ estimate, booking }),
+            contentType: "application/json",
+        });
     });
 });
 

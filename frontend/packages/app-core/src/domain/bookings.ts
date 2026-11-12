@@ -2163,7 +2163,12 @@ export function useNextVisit(bookingId: string | null): NextVisit | null {
 }
 
 export const ESTIMATE_BOOKING_SQL = `
-SELECT e.client_id, e.number FROM estimates e
+SELECT e.client_id, e.number,
+       (SELECT l.item_id FROM lines l JOIN items i ON i.id = l.item_id
+        WHERE l.estimate_id = e.id AND i.kind IN ('service', 'class') AND i.active = 1
+          AND (COALESCE(l.optional, 0) = 0 OR l.selected = 1)
+        ORDER BY l.position, l.id LIMIT 1) AS item_id
+FROM estimates e
 WHERE e.id = ? AND e.status = 'accepted' AND e.converted_invoice_id IS NULL
   AND NOT EXISTS (
     SELECT 1 FROM bookings b
@@ -2390,8 +2395,10 @@ export function useBookingComposer(
     const [subjectId, setSubjectId] = useState("");
     const estimateId = slot?.estimateId ?? "";
     const estimate =
-        useQuery<{ client_id: string; number: number | null }>(ESTIMATE_BOOKING_SQL, [estimateId])
-            .data[0] ?? null;
+        useQuery<{ client_id: string; number: number | null; item_id: string | null }>(
+            ESTIMATE_BOOKING_SQL,
+            [estimateId],
+        ).data[0] ?? null;
     const products = useQuery<{ id: string; description: string; quantity: number }>(
         ESTIMATE_PRODUCTS_SQL,
         [estimateId],
@@ -2510,6 +2517,13 @@ export function useBookingComposer(
                 : (allSubjects.find((p) => p.client_id === estimate.client_id)?.id ?? ""),
         );
     }, [estimate, kind, allSubjects]);
+    const estimateItem = estimate?.item_id ?? null;
+    const bookable = services.some((i) => i.id === estimateItem);
+    useEffect(() => {
+        if (estimateItem === null || !bookable) return;
+        // the catalog may arrive after the estimate, and a service already chosen stays
+        setItemId((current) => (current === "" ? estimateItem : current));
+    }, [estimateItem, bookable, slot]);
     const offered = idList(item?.staff_ids ?? null);
     const offering = board.actors.filter((a) => offers(offered, a.id));
     const fallback = (

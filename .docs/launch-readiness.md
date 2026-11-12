@@ -53,7 +53,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 5. Sell at the desk and online | Tips and discounts | [CB-32](https://linear.app/clientbridgeca/issue/CB-32) | Partly automated |
 | 5. Sell at the desk and online | Saved cards and bank accounts | [CB-12](https://linear.app/clientbridgeca/issue/CB-12) | Partly automated |
 | 5. Sell at the desk and online | Online shop orders and pickup | [CB-41](https://linear.app/clientbridgeca/issue/CB-41) | Automated |
-| 6. Invoice and get paid | Estimates to invoices | [CB-33](https://linear.app/clientbridgeca/issue/CB-33) | Partly automated |
+| 6. Invoice and get paid | Estimates to invoices | [CB-33](https://linear.app/clientbridgeca/issue/CB-33) | Automated |
 | 6. Invoice and get paid | Invoices and payment links | [CB-34](https://linear.app/clientbridgeca/issue/CB-34) | Automated |
 | 6. Invoice and get paid | Printed and shared documents | [CB-36](https://linear.app/clientbridgeca/issue/CB-36) | Manual |
 | 6. Invoice and get paid | Deposits applied to the bill | [CB-37](https://linear.app/clientbridgeca/issue/CB-37) | Partly automated |
@@ -64,7 +64,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 8. Refunds and the books | Refunds and credit notes | [CB-42](https://linear.app/clientbridgeca/issue/CB-42) | Automated |
 | 8. Refunds and the books | Disputes and chargebacks | [CB-43](https://linear.app/clientbridgeca/issue/CB-43) | Partly automated |
 | 8. Refunds and the books | Bookkeeper reports and exports | [CB-45](https://linear.app/clientbridgeca/issue/CB-45) | Partly automated |
-| 8. Refunds and the books | GST/HST returns | [CB-46](https://linear.app/clientbridgeca/issue/CB-46) | Partly automated |
+| 8. Refunds and the books | GST/HST returns | [CB-46](https://linear.app/clientbridgeca/issue/CB-46) | Automated |
 | 8. Refunds and the books | Payouts and fee reconciliation | [CB-47](https://linear.app/clientbridgeca/issue/CB-47) | Partly automated |
 | 8. Refunds and the books | Staff pay and T4A | [CB-48](https://linear.app/clientbridgeca/issue/CB-48) | Partly automated |
 | 9. Talk to clients | Inbox: two-way texting | [CB-49](https://linear.app/clientbridgeca/issue/CB-49) | Partly automated |
@@ -1526,19 +1526,21 @@ Estimates become invoices, invoices are paid by link, saved card or by hand, and
 **QA steps**
 
 1. Write an estimate on a phone with an optional line and send it.
-   **Expect:** the preview shows the text; the client gets it.
+   **Expect:** the optional line stays out of the total; the preview shows the text; the client gets it once.
 2. As the client, tick the optional line and accept.
    **Expect:** the same discounted total is accepted.
 3. Convert it.
-   **Expect:** one draft invoice with the accepted lines, discount and tax.
+   **Expect:** one draft invoice with the accepted lines, discount and tax; the estimate and the invoice both show the discount.
 4. Decline another estimate.
-   **Expect:** it cannot be converted.
+   **Expect:** it cannot be converted, and staff can still mark it accepted if the client changes their mind.
 5. Lose the send response.
    **Expect:** the estimate reads unconfirmed, then sent, and texts once.
 6. Book the job from the accepted estimate.
-   **Expect:** the booking links to it and the estimate books once.
+   **Expect:** the booking starts with the estimate's service and products, links to it, and the estimate books once.
 7. Open the send preview, then cancel.
-   **Expect:** the preview shows word for word the text the client gets, and cancelling sends nothing.
+   **Expect:** the preview shows word for word the text the client gets, apart from the link's code, which is made when it is sent; cancelling sends nothing.
+8. Convert an estimate the client hasn't answered, then answer it from the link that was open.
+   **Expect:** the answer is refused, and the page says the estimate is now an invoice.
 
 **Done when:** A quote becomes a bill without retyping anything.
 
@@ -1546,15 +1548,14 @@ Estimates become invoices, invoices are paid by link, saved card or by hand, and
 
 * `BILL-DOC-02 (web)`
 * `BILL-DOC-20 (web)`
+* `BILL-DOC-22 (web)`
+* `BILL-DOC-25 (web)`
+* `BILL-DOC-26 (web)`
 * `DOC-E2E-06 (connect)`
 * `FLOW-02-A (journeys)`
+* `NATIVE-BILL-02 (native-ios, native-android)`
 * `connect: publicEstimate.e2e.ts › a client reads an estimate and a receipt`
 * `mobile: billing.yaml (walk, unregistered)`
-
-**To automate**
-
-* `BILL-DOC-22` in `apps/web/e2e/billing.e2e.ts`: Decline refuses conversion; late public answer after conversion.
-* `BILL-DOC-25` in `apps/web/e2e/billing.e2e.ts`: An estimate with mixed tax classes and a capped fixed discount totals to the hand calculation, and the invoice it converts to keeps those totals.
 
 **Depends on:** Nothing
 
@@ -1971,33 +1972,31 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 ### GST/HST returns (CB-46)
 
 **Covers:** Payments > Tax returns on web and mobile
-**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234 with a completed quarter
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234 with a completed quarter. The seed records every return whose due date has passed, so locally seed the core businesses at noon on this quarter's first day, the filings lane's anchor (`cd backend && uv run python -m scripts.seed_demo --core --as-of 2026-10-01T12:00:00-07:00` for the October quarter), and run `make seed-core` afterwards. On staging, set Birchbark to file monthly in Setup > Sales tax so last month is the completed period, and set it back to quarterly afterwards.
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator.
+* **Local:** `make up migrate`, the core seed above, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator.
 * **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
 
 **QA steps**
 
-1. Download the quarter's GST/HST report on web (the worksheet and CSV are web only) and record the return.
-   **Expect:** tax set aside drops by the amount filed.
-2. Record the same period again.
-   **Expect:** refused.
-3. Record an unfinished period.
-   **Expect:** refused.
-4. Record both federal and provincial returns.
-   **Expect:** each clears its own tax.
+1. Download the completed period's GST/HST CSV on web (the CSV is web only; the worksheet shows on both), then record its GST/HST return with input tax credits and a confirmation number.
+   **Expect:** tax set aside, on Tax returns and on Today, drops by the GST/HST collected, the period leaves what is owed to the CRA, its GST/HST return shows in the history, and its PST stays due.
+2. Record the same period again from a second tab or phone that opened the form before the first recorded it, and through the API for the whole period, a day range inside it and a range that overlaps it.
+   **Expect:** refused with a message that the return was already recorded; the page refreshes and nothing posts.
+3. Try to record the period in progress.
+   **Expect:** neither web nor phone offers it before the period ends; through the API it is refused as not over yet, and so is a filing date inside the period.
+4. Record the PST return, and through the API a PST return for part of a period followed by the rest of it.
+   **Expect:** each return clears only its own tax; the part leaves the rest of the period due, and the worksheet covers only those days; the history shows the period's GST/HST and PST payments, the PST as one total, with every confirmation number.
 
-**Done when:** Tax set aside always equals what is still owed.
+**Done when:** Tax set aside always equals what is still owed, including tax dated into a period after its return was recorded, which lands in the period in progress while the sale keeps its day; a period with more refunded than collected files as a refund claim.
 
 **Automated by**
 
 * `FIN-RETURN-03 (filings)`
-
-**To automate**
-
-* `FIN-RETURN-13` in `apps/web/e2e/remittances.filing.ts`: Overlap and partial-range rejection matrix.
+* `FIN-RETURN-13 (filings)`
+* `NATIVE-RETURN-01 (native-ios, native-android)`
 
 **Depends on:** Nothing
 
@@ -2724,8 +2723,10 @@ Not tracked in Linear. These are pulled in by demand once the launch tickets pas
   today), suspending or offboarding a business through `businesses.status`.
 - **Feature depth:** membership pause, trial and plan change, package sessions used automatically on
   booking, a cancellation policy with a late-cancel fee, configurable reminders, Google and iCal calendar
-  sync, per-staff and travel buffers, conditional form fields, countersigning and a drawn signature, and paying
-  one sale with a gift card and a second method (split tender).
+  sync, per-staff and travel buffers, conditional form fields, countersigning and a drawn signature, paying
+  one sale with a gift card and a second method (split tender), and a visit booked from an estimate keeping
+  the estimate's quoted service price and document discount (today only its products keep their quoted
+  price).
 - **Scheduling depth:** recurrences generated on a rolling window with an identity per occurrence and
   skipped dates; slots that keep their local wall time and are re-anchored when a zone's rules change; class
   timetables booked as sessions with a capacity per series; and the rest of the hours model (split days,

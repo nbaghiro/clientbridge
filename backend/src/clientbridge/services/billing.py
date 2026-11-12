@@ -264,13 +264,11 @@ class BillingService:
     async def update_estimate(self, estimate_id: str, data: EstimateUpdate) -> EstimateOut:
         self._assert_admin()
         estimate = await self._estimate(estimate_id)
-        if estimate.status not in ("draft", "sent"):
-            raise Conflict("only a draft or sent estimate can be edited")
+        _assert_editable(estimate)
 
         async def run(cmd: Command) -> EstimateOut:
             await self._lock(estimate)
-            if estimate.status not in ("draft", "sent"):
-                raise Conflict("only a draft or sent estimate can be edited")
+            _assert_editable(estimate)
             if data.notes is not None:
                 estimate.notes = data.notes
             if data.valid_until is not None:
@@ -299,13 +297,13 @@ class BillingService:
         self._assert_admin()
         estimate = await self._estimate(estimate_id)
         status = estimate_status(estimate, await self._today())
-        if status in ("accepted", "declined", "expired"):
+        if status not in ("draft", "sent"):
             raise Conflict(f"a {status} estimate can't be sent")
 
         async def run(cmd: Command) -> EstimateOut:
             await self._lock(estimate)
             locked = estimate_status(estimate, await self._today())
-            if locked in ("accepted", "declined", "expired"):
+            if locked not in ("draft", "sent"):
                 raise Conflict(f"a {locked} estimate can't be sent")
             if estimate.status == "draft":
                 await self._issue_estimate(estimate, cmd)
@@ -348,7 +346,8 @@ class BillingService:
     async def convert_estimate(self, estimate_id: str, idempotency_key: str | None) -> InvoiceOut:
         self._assert_admin()
         estimate = await self._estimate(estimate_id)
-        if estimate_status(estimate, await self._today()) not in ("sent", "accepted"):
+        # a converted estimate passes, so a retried conversion replays its invoice
+        if estimate_status(estimate, await self._today()) not in ("sent", "accepted", "converted"):
             raise Conflict("only a sent or accepted estimate can be converted")
         client = await self._client(estimate.client_id)
 
@@ -357,6 +356,9 @@ class BillingService:
             invoiced, booked = await hold_estimate(self.db, self.biz, estimate.id)
             if invoiced is not None:
                 raise Conflict("this estimate was already converted")
+            await self.db.refresh(estimate)
+            if estimate_status(estimate, await self._today()) not in ("sent", "accepted"):
+                raise Conflict("only a sent or accepted estimate can be converted")
             if booked is not None:
                 raise Conflict(
                     "the estimate's products are billed on its booked visit; "
@@ -414,18 +416,29 @@ class BillingService:
         self._assert_admin()
         estimate = await self._estimate(estimate_id)
         current = estimate_status(estimate, await self._today())
-        if current not in ("sent", "accepted", "declined"):
+        if not _answerable(current, status):
             raise Conflict(f"a {current} estimate can't be {status}")
 
         async def run(cmd: Command) -> EstimateOut:
+            await self._lock(estimate)
+            locked = estimate_status(estimate, await self._today())
+            if not _answerable(locked, status):
+                raise Conflict(f"a {locked} estimate can't be {status}")
+            if status == "declined":
+                _, booked = await hold_estimate(self.db, self.biz, estimate.id)
+                if booked is not None:
+                    raise Conflict("an estimate with a booked visit can't be declined")
             estimate.status = status
             if status == "accepted":
                 # accepted at today's prices and rates, as the client's own acceptance is
                 await self._apply_totals(estimate, await self._repriced("estimate", estimate))
                 estimate.accepted_at = clock.now()
+                estimate.declined_at = None
+                estimate.decline_reason = None
             elif status == "declined":
                 estimate.declined_at = clock.now()
                 estimate.decline_reason = reason
+                estimate.accepted_at = None
             await self.db.flush()
             cmd.record(f"estimate.{status}", entity_type="estimate", entity_id=estimate.id)
             key = delivery_key("estimate", estimate.id, each=True)
@@ -830,6 +843,18 @@ async def void_enrolment_invoice(db: AsyncSession, first: Booking, cmd: Command)
     return True
 
 
+def _assert_editable(estimate: Estimate) -> None:
+    if estimate.converted_invoice_id is not None:
+        raise Conflict("a converted estimate can't be edited")
+    if estimate.status not in ("draft", "sent"):
+        raise Conflict("only a draft or sent estimate can be edited")
+
+
+def _answerable(current: str, status: EstimateStatus) -> bool:
+    """The client's link answers once; staff may also change an answer until it is converted."""
+    return current == "sent" or (current in ("accepted", "declined") and current != status)
+
+
 def _tax_class(value: str) -> TaxClass:
     return (
         "federal_only" if value == "federal_only" else "exempt" if value == "exempt" else "standard"
@@ -837,7 +862,9 @@ def _tax_class(value: str) -> TaxClass:
 
 
 def estimate_status(estimate: Estimate, today: date) -> str:
-    """A sent estimate past its business-local `valid_until` reads as expired; nothing stores it."""
+    """Converted, or expired once sent past its business-local `valid_until`; neither is stored."""
+    if estimate.converted_invoice_id is not None:
+        return "converted"
     if estimate.status == "sent" and estimate.valid_until is not None:
         return "expired" if estimate.valid_until < today else "sent"
     return estimate.status

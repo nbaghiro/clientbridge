@@ -204,7 +204,10 @@ class RemittanceOut(BaseModel):
     family: TaxFamily | None
     by_code: dict[str, int]
     itc_cents: int
-    total_cents: int = Field(description="What was paid: the tax owed less input tax credits")
+    total_cents: int = Field(
+        description="What was paid: the tax owed less input tax credits; negative when more tax "
+        "was refunded than collected, so the return claims it back"
+    )
     confirmation: str | None
     filed_on: date
 
@@ -225,10 +228,20 @@ class FilingPeriod(BaseModel):
     start: date
     end: date
     due: date
-    federal_cents: int = Field(description="GST/HST booked in the period, before credits")
-    provincial_cents: int = Field(description="PST/QST booked in the period")
-    taxable_cents: int = Field(description="Sales before tax booked in the period (line 101)")
-    provincial_taxable_cents: int = Field(description="Sales that carried PST/QST")
+    federal_cents: int = Field(
+        description="GST/HST booked in the period, before credits; once part of it is filed, "
+        "only the days still to file"
+    )
+    provincial_cents: int = Field(
+        description="PST/QST booked in the period; once part of it is filed, only the days "
+        "still to file"
+    )
+    taxable_cents: int = Field(
+        description="Sales before tax booked on the same days as federal_cents (line 101)"
+    )
+    provincial_taxable_cents: int = Field(
+        description="Sales that carried PST/QST on the same days as provincial_cents"
+    )
     federal_status: Literal["open", "due", "filed"]
     provincial_status: Literal["open", "due", "filed", "none"]
     returns: list[FiledReturn]

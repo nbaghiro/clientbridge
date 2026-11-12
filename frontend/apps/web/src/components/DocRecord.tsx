@@ -318,7 +318,7 @@ function PaymentLine({
 /** An estimate over the current page; converting it opens the new invoice in its place. */
 export function EstimatePanel({ id, onClose }: { id: string; onClose: () => void }) {
     const rec = useEstimateRecord(id, config.payUrl);
-    const act = useEstimateActions(api);
+    const act = useEstimateActions(api, rec?.status ?? null);
     const kind = useSubjectKind();
     const openLink = useOpenLink();
     const letterhead = useLetterhead(apiBaseUrl);
@@ -387,27 +387,27 @@ export function EstimatePanel({ id, onClose }: { id: string; onClose: () => void
                                         {s.edit}
                                     </Button>
                                 ) : null}
-                                {rec.canMark ? (
-                                    <>
-                                        <Button
-                                            variant="quiet"
-                                            busy={act.busy}
-                                            onPress={() => {
-                                                act.decline(rec);
-                                            }}
-                                        >
-                                            {s.markDeclined}
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            busy={act.busy}
-                                            onPress={() => {
-                                                act.accept(rec);
-                                            }}
-                                        >
-                                            {s.markAccepted}
-                                        </Button>
-                                    </>
+                                {rec.canDecline ? (
+                                    <Button
+                                        variant="quiet"
+                                        busy={act.busy}
+                                        onPress={() => {
+                                            act.decline(rec);
+                                        }}
+                                    >
+                                        {s.markDeclined}
+                                    </Button>
+                                ) : null}
+                                {rec.canAccept ? (
+                                    <Button
+                                        variant="outline"
+                                        busy={act.busy}
+                                        onPress={() => {
+                                            act.accept(rec);
+                                        }}
+                                    >
+                                        {s.markAccepted}
+                                    </Button>
                                 ) : null}
                                 {rec.canSend ? (
                                     <Button
@@ -457,7 +457,7 @@ export function EstimatePanel({ id, onClose }: { id: string; onClose: () => void
                                     label: s.total,
                                     value: formatMoney(rec.row.total_cents, BUSINESS_CURRENCY),
                                 },
-                                { label: s.colValid, value: rec.validLabel },
+                                { label: rec.validTitle, value: rec.validLabel },
                             ]}
                         />
                         {rec.booked !== null ? (

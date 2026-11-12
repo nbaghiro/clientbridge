@@ -8,7 +8,7 @@ import json
 import os
 import sys
 from collections.abc import Callable
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, time, timedelta
 from pathlib import Path
 from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
@@ -25,7 +25,7 @@ from scripts.demo_context import (
     run_email,
     run_id,
 )
-from sqlalchemy import select, text, update
+from sqlalchemy import func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
@@ -33,6 +33,7 @@ from clientbridge.core.config import get_settings
 from clientbridge.core.db import SessionLocal, engine
 from clientbridge.core.ids import new_id
 from clientbridge.core.locale import SOURCE_LOCALE
+from clientbridge.core.zones import zone
 from clientbridge.integrations.expo import get_push_sender
 from clientbridge.integrations.resend import get_email_sender
 from clientbridge.integrations.stripe import PlanSubscription, SubscribedItem
@@ -43,9 +44,12 @@ from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client, Subject
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Recurrence, Slot
+from clientbridge.services import ledger
 from clientbridge.services.billing import sweep_overdue
 from clientbridge.services.notifications import Notifier, inbound_message_alert_text
 from clientbridge.services.plans import PLAN_PRICES, apply_plan_subscription
+from clientbridge.services.reports import add_months, period_of
+from clientbridge.services.tax import TaxResult
 
 
 async def stand_in(business_id: str, status: str) -> dict[str, object]:
@@ -538,6 +542,47 @@ def client_photo_main(argv: list[str]) -> None:
     print(json.dumps(asyncio.run(client_photo(args.client_id, args.file_id, args.upload_url))))
 
 
+async def tax_quarter(business_id: str) -> Row:
+    """Bill a GST and PST sale into the business's last quarter, so it has a return to file."""
+    async with SessionLocal() as db:
+        business = await db.get(Business, business_id)
+        client = await db.scalar(select(Client.id).where(Client.business_id == business_id))
+        if business is None or client is None:
+            raise SystemExit(f"{business_id} needs a client before it can bill a quarter")
+        tz = zone(business.timezone)
+        current, _ = period_of(clock.today(tz), "quarterly")
+        start, end = period_of(add_months(current, -1), "quarterly")
+        tax = {"GST": 500, "PST": 700}
+        last = await db.scalar(
+            select(func.max(Invoice.number)).where(Invoice.business_id == business_id)
+        )
+        invoice = Invoice(
+            id=new_id("invoice"),
+            business_id=business_id,
+            client_id=client,
+            number=(last or 0) + 1,
+            status="sent",
+            currency="CAD",
+            subtotal_cents=10000,
+            tax_total_cents=1200,
+            total_cents=11200,
+            issued_at=datetime.combine(start + timedelta(days=20), time(12), tzinfo=tz),
+        )
+        db.add(invoice)
+        await db.flush()
+        await ledger.post_invoice(db, invoice, TaxResult(10000, 1200, 11200, tax, []))
+        await db.commit()
+    await engine.dispose()
+    return {"start": start.isoformat(), "end": end.isoformat()}
+
+
+def tax_quarter_main(argv: list[str]) -> None:
+    parser = argparse.ArgumentParser(prog="python -m e2e.actions tax-quarter")
+    parser.add_argument("business_id")
+    args = parser.parse_args(argv)
+    print(json.dumps(asyncio.run(tax_quarter(args.business_id))))
+
+
 # no money or saved cards, so a merge is not blocked; no demo name list has it, so it is unique
 DUPLICATE = "Robin Ashgrove"
 
@@ -794,6 +839,7 @@ COMMANDS: dict[str, Callable[[list[str]], None]] = {
     "notes": notes_main,
     "client-photo": client_photo_main,
     "web-fixtures": web_fixtures_main,
+    "tax-quarter": tax_quarter_main,
 }
 
 

@@ -69,7 +69,7 @@ export function PublicEstimate() {
                                 {longDate(est.issued_at, est.timezone)}
                             </dd>
                         </div>
-                        {est.valid_until !== null ? (
+                        {open && est.valid_until !== null ? (
                             <div>
                                 <dt className="text-xs text-muted">
                                     {strings.printing.validUntil}
@@ -85,20 +85,28 @@ export function PublicEstimate() {
         >
             <main className="mx-auto max-w-3xl px-4 sm:px-6">
                 <article className="overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
-                    {page.status === "accepted" || page.status === "declined" ? (
+                    {page.status === "accepted" ||
+                    page.status === "converted" ||
+                    page.status === "declined" ? (
                         <section className="flex flex-col items-center border-b border-line-soft px-6 py-10 text-center">
                             <Icon
-                                name={page.status === "accepted" ? "check" : "x"}
+                                name={page.status === "declined" ? "x" : "check"}
                                 size={32}
                                 className="text-ink-soft"
                             />
                             <h1 className="mt-4 font-display text-xl font-bold text-ink">
-                                {page.status === "accepted" ? pe.acceptedTitle : pe.declinedTitle}
+                                {page.status === "accepted"
+                                    ? pe.acceptedTitle
+                                    : page.status === "converted"
+                                      ? pe.convertedTitle
+                                      : pe.declinedTitle}
                             </h1>
                             <p className="mt-1 max-w-sm text-sm text-ink-soft">
                                 {page.status === "accepted"
                                     ? pe.acceptedBody(biz)
-                                    : pe.declinedBody(biz)}
+                                    : page.status === "converted"
+                                      ? pe.convertedBody(biz)
+                                      : pe.declinedBody(biz)}
                             </p>
                         </section>
                     ) : null}
@@ -138,21 +146,24 @@ export function PublicEstimate() {
                                         key={l.id}
                                         className="flex items-start justify-between gap-4 py-3 text-sm"
                                     >
-                                        <div className="flex min-w-0 gap-3">
+                                        <div className="min-w-0">
                                             {l.optional && open ? (
                                                 <Checkbox
                                                     label={l.description}
-                                                    hideLabel
+                                                    className="font-medium"
                                                     value={page.picked.has(l.id)}
                                                     onChange={() => {
                                                         page.toggle(l.id);
                                                     }}
                                                 />
-                                            ) : null}
-                                            <div className="min-w-0">
+                                            ) : (
                                                 <p className="font-medium text-ink">
                                                     {l.description}
                                                 </p>
+                                            )}
+                                            <div
+                                                className={l.optional && open ? "pl-6" : undefined}
+                                            >
                                                 <p className="mt-0.5 text-xs text-muted">
                                                     {formatParts([
                                                         l.optional ? pe.optional : null,
@@ -166,9 +177,11 @@ export function PublicEstimate() {
                                                         taxList(l.tax_codes.map(taxName)),
                                                     ])}
                                                 </p>
-                                                {l.optional && open ? (
+                                                {l.optional && (open || l.selected) ? (
                                                     <p className="text-xs text-muted">
-                                                        {pe.optionalNote}
+                                                        {(open ? page.picked.has(l.id) : l.selected)
+                                                            ? pe.optionalAdded
+                                                            : pe.optionalNote}
                                                     </p>
                                                 ) : null}
                                             </div>

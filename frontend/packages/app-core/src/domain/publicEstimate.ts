@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { formatMoney } from "../format";
 import { useAsyncAction, useRemote } from "../hooks";
@@ -7,7 +7,7 @@ import type { DocTotalLine, PrintedDoc } from "../ui";
 import { discountReason, docReference, longDate, printedDoc } from "./printing";
 import { type PublicDocLine, type PublicDocTax, publicDocLines, publicDocTaxes } from "./publicPay";
 import { type PublicBrand, usePublicResource } from "./publicResource";
-import { failureMessage, refusal } from "../api";
+import { failedCode, failureMessage, refusal } from "../api";
 
 interface PublicEstimateLine extends PublicDocLine {
     id: string;
@@ -81,7 +81,7 @@ export function createPublicEstimateClient(baseUrl: string): PublicEstimateClien
 }
 
 type EstimatePageStatus =
-    "loading" | "not-found" | "error" | "open" | "accepted" | "declined" | "expired";
+    "loading" | "not-found" | "error" | "open" | "accepted" | "converted" | "declined" | "expired";
 
 interface PublicEstimatePage {
     status: EstimatePageStatus;
@@ -114,12 +114,23 @@ export function usePublicEstimatePage(
     const { busy, error, run } = useAsyncAction();
     const pe = strings.publicEstimate;
 
+    // answered, expired or converted since the page loaded: show where it stands instead
+    const answered = (send: () => Promise<PublicEstimate>): Promise<PublicEstimate> =>
+        send().catch((e: unknown) => {
+            if (failedCode(e) !== "estimate_answered") throw e;
+            return client.getEstimate(token);
+        });
     const choosing = data?.status === "sent";
     const choice = choosing ? [...picked].sort() : [];
     const quoted = useRemote<PublicEstimate | null>(
         () => (choice.length > 0 ? client.quote(token, choice) : Promise.resolve(null)),
         `${token}|${choice.join(",")}`,
     );
+    const stale = failedCode(quoted.error) === "estimate_answered";
+    useEffect(() => {
+        if (!stale) return;
+        client.getEstimate(token).then(setData, () => undefined);
+    }, [stale, client, token, setData]);
     const answers = (q: PublicEstimate): boolean =>
         q.lines.every((l) => !l.optional || l.selected === choice.includes(l.id));
     const quote =
@@ -164,15 +175,17 @@ export function usePublicEstimatePage(
     const status: EstimatePageStatus =
         load !== "ready"
             ? load
-            : data?.status === "accepted" || data?.status === "converted"
+            : data?.status === "accepted"
               ? "accepted"
-              : data?.status === "declined"
-                ? "declined"
-                : data?.status === "expired"
-                  ? "expired"
-                  : data?.status === "sent"
-                    ? "open"
-                    : "not-found";
+              : data?.status === "converted"
+                ? "converted"
+                : data?.status === "declined"
+                  ? "declined"
+                  : data?.status === "expired"
+                    ? "expired"
+                    : data?.status === "sent"
+                      ? "open"
+                      : "not-found";
 
     return {
         status,
@@ -194,7 +207,8 @@ export function usePublicEstimatePage(
         reason,
         setReason,
         busy: busy || (quoting && quoted.error === null),
-        error: quoting && quoted.error !== null ? pe.quoteError : error,
+        error:
+            quoting && quoted.error !== null ? failureMessage(quoted.error, pe.quoteError) : error,
         accept: () => {
             if (quote === null) {
                 quoted.refresh().catch(() => undefined);
@@ -202,7 +216,7 @@ export function usePublicEstimatePage(
             }
             run(
                 async () => {
-                    setData(await client.accept(token, choice, quote.total_cents));
+                    setData(await answered(() => client.accept(token, choice, quote.total_cents)));
                 },
                 { errorMessage: (e) => failureMessage(e, pe.answerError) },
             );
@@ -211,11 +225,13 @@ export function usePublicEstimatePage(
             run(
                 async () => {
                     setData(
-                        await client.decline(token, reason.trim() === "" ? null : reason.trim()),
+                        await answered(() =>
+                            client.decline(token, reason.trim() === "" ? null : reason.trim()),
+                        ),
                     );
                     setDeclining(false);
                 },
-                { errorMessage: pe.answerError },
+                { errorMessage: (e) => failureMessage(e, pe.answerError) },
             );
         },
         printed: (fallbackColor) => {
@@ -242,7 +258,7 @@ export function usePublicEstimatePage(
                     totals,
                     headline: { label: pr.estimateTotal, cents: totalCents },
                     instructions:
-                        data.valid_until !== null
+                        data.status === "sent" && data.valid_until !== null
                             ? [pr.acceptBy(longDate(data.valid_until, data.timezone))]
                             : [],
                     message: data.notes,

@@ -3,6 +3,7 @@ import {
     type TaxFamily,
     type TaxFilings,
     filingStatusIntent,
+    filedWhen,
     filingWhen,
     formatMoney,
     formatShortDay,
@@ -47,7 +48,9 @@ export function Remittances() {
     const t = useTaxFilings(api);
     const openLink = useOpenLink();
     const due = t.nextDue;
-    const [recording, setRecording] = useState<FilingPeriod | null>(null);
+    const [recordingKey, setRecordingKey] = useState<string | null>(null);
+    // the open form follows the period as a refresh brings it up to date
+    const recording = t.periods.find((p) => p.key === recordingKey) ?? null;
     const [flash, setFlash] = useState<string | null>(null);
 
     return (
@@ -104,7 +107,7 @@ export function Remittances() {
                                 {formatMoney(t.federalSetAsideCents, BUSINESS_CURRENCY)}
                             </Text>
                             <Text style={styles.heroHint}>{s.owedHint}</Text>
-                            {t.unfiled.map((p) => (
+                            {t.federalUnfiled.map((p) => (
                                 <View key={p.key} style={styles.line}>
                                     <View style={styles.lineMain}>
                                         <Text style={styles.lineTitle}>{p.title}</Text>
@@ -140,15 +143,17 @@ export function Remittances() {
                                 <Text style={styles.dueBody}>
                                     {formatParts([due.title, due.span])}
                                 </Text>
-                                <Button
-                                    full
-                                    onPress={() => {
-                                        setFlash(null);
-                                        setRecording(due);
-                                    }}
-                                >
-                                    {s.recordFiled}
-                                </Button>
+                                {due.status === "due" ? (
+                                    <Button
+                                        full
+                                        onPress={() => {
+                                            setFlash(null);
+                                            setRecordingKey(due.key);
+                                        }}
+                                    >
+                                        {s.recordFiled}
+                                    </Button>
+                                ) : null}
                                 {t.reminderOn !== null ? (
                                     <Text style={ui.note}>
                                         {s.reminder(formatShortDay(t.reminderOn, zone))}
@@ -164,17 +169,25 @@ export function Remittances() {
                                 t.filed.map((p) => (
                                     <ListRow
                                         key={p.key}
-                                        icon="checkCircle"
-                                        intent="success"
+                                        icon={p.status === "filed" ? "checkCircle" : "clock"}
+                                        intent={p.status === "filed" ? "success" : "warning"}
                                         title={p.title}
                                         detail={formatParts([
-                                            filingWhen(p, zone),
-                                            p.federalReturn?.confirmation,
+                                            filedWhen(p, zone),
+                                            ...p.federalConfirmations,
+                                            t.provincialLabel !== null &&
+                                            p.provincialReturns.length > 0
+                                                ? strings.common.labelValue(
+                                                      t.provincialLabel,
+                                                      formatMoney(
+                                                          p.provincialPaidCents,
+                                                          BUSINESS_CURRENCY,
+                                                      ),
+                                                  )
+                                                : null,
+                                            ...p.provincialConfirmations,
                                         ])}
-                                        meta={formatMoney(
-                                            p.federalReturn?.paid_cents ?? 0,
-                                            BUSINESS_CURRENCY,
-                                        )}
+                                        meta={formatMoney(p.federalPaidCents, BUSINESS_CURRENCY)}
                                     />
                                 ))
                             )}
@@ -187,10 +200,11 @@ export function Remittances() {
                     period={recording}
                     t={t}
                     onClose={() => {
-                        setRecording(null);
+                        setRecordingKey(null);
                     }}
+                    onStale={t.refresh}
                     onDone={(family) => {
-                        setRecording(null);
+                        setRecordingKey(null);
                         setFlash(
                             s.recorded(
                                 recording.title,
@@ -214,22 +228,27 @@ function RecordReturn({
     t,
     onClose,
     onDone,
+    onStale,
 }: {
     period: FilingPeriod;
     t: TaxFilings;
     onClose: () => void;
     onDone: (family: TaxFamily) => void;
+    onStale: () => void;
 }) {
     const zone = useBusinessZone();
-    const form = useFilingForm(api, period, onDone);
+    const form = useFilingForm(api, period, onDone, onStale);
     const federal = form.family === "federal";
     const code = federal ? t.federalLabel : (t.provincialLabel ?? "");
     return (
         <Modal open size="xl" onClose={onClose}>
             <ScrollView contentContainerStyle={styles.sheet}>
-                <SheetHeader title={s.recordTitle(period.title)} onClose={onClose} />
+                <SheetHeader title={s.recordFiled} subtitle={period.title} onClose={onClose} />
                 <Text style={ui.note}>
-                    {formatParts([period.span, s.dueOn(formatShortDay(period.due, zone))])}
+                    {formatParts([
+                        federal ? period.federalSpan : period.provincialSpan,
+                        s.dueOn(formatShortDay(period.due, zone)),
+                    ])}
                 </Text>
                 {form.families.length === 0 ? (
                     <Notice tone="success">{s.nothingToFile}</Notice>

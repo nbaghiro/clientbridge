@@ -246,7 +246,7 @@ export function InvoicePanel({ id, onClose }: { id: string; onClose: () => void 
 /** An estimate over the current screen; converting it opens the new invoice in its place. */
 export function EstimatePanel({ id, onClose }: { id: string; onClose: () => void }) {
     const rec = useEstimateRecord(id, payUrl);
-    const act = useEstimateActions(api);
+    const act = useEstimateActions(api, rec?.status ?? null);
     const letterhead = useLetterhead(apiBaseUrl);
     const kind = useSubjectKind();
     const openLink = useOpenLink();
@@ -255,12 +255,10 @@ export function EstimatePanel({ id, onClose }: { id: string; onClose: () => void
     const menu = [
         { key: "pdf", label: s.pdf, icon: "receipt" as const },
         ...(rec.canEdit ? [{ key: "edit", label: s.edit, icon: "edit" as const }] : []),
-        ...(rec.canMark
-            ? [
-                  { key: "accept", label: s.markAccepted, icon: "check" as const },
-                  { key: "decline", label: s.markDeclined, icon: "x" as const },
-              ]
+        ...(rec.canAccept
+            ? [{ key: "accept", label: s.markAccepted, icon: "check" as const }]
             : []),
+        ...(rec.canDecline ? [{ key: "decline", label: s.markDeclined, icon: "x" as const }] : []),
         ...(rec.canBook
             ? [{ key: "book", label: s.bookVisit(kindWord(kind)), icon: "calendar" as const }]
             : []),
@@ -348,7 +346,7 @@ export function EstimatePanel({ id, onClose }: { id: string; onClose: () => void
                             label: s.total,
                             value: formatMoney(rec.row.total_cents, BUSINESS_CURRENCY),
                         },
-                        { label: s.colValid, value: rec.validLabel },
+                        { label: rec.validTitle, value: rec.validLabel },
                     ]}
                 />
                 {rec.booked !== null ? (

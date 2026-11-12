@@ -267,7 +267,7 @@ function DocForm({ kind, draft, clientId, onClose }: DocFormProps) {
                                             });
                                         }}
                                     />
-                                    {kind === "estimate" ? (
+                                    {current === "estimate" ? (
                                         <Checkbox
                                             label={s.optional}
                                             value={l.optional}
@@ -375,11 +375,11 @@ function DocForm({ kind, draft, clientId, onClose }: DocFormProps) {
 
                         <View style={styles.section}>
                             <Text style={styles.label}>
-                                {kind === "estimate" ? s.validFor : s.dueTerms}
+                                {current === "estimate" ? s.validFor : s.dueTerms}
                             </Text>
                             <Choice<DocTerms>
                                 layout="segmented"
-                                label={kind === "estimate" ? s.validFor : s.dueTerms}
+                                label={current === "estimate" ? s.validFor : s.dueTerms}
                                 options={form.termOptions}
                                 value={form.terms}
                                 onChange={form.setTerms}

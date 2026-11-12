@@ -11,14 +11,22 @@ from clientbridge.core import clock
 from clientbridge.core.errors import Conflict, UnsupportedCurrency
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
+from clientbridge.core.zones import zone
 from clientbridge.integrations.stripe import ChargeFees
 from clientbridge.models.billing import Invoice, Line, Order
+from clientbridge.models.business import Business
 from clientbridge.models.catalog import GiftCard, Item, Package
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking
 from clientbridge.services.lines import allocate, fetch_lines
-from clientbridge.services.tax import TaxResult, issued_tax, tax_for_amount, tax_within
+from clientbridge.services.tax import (
+    FAMILY_CODES,
+    TaxResult,
+    issued_tax,
+    tax_for_amount,
+    tax_within,
+)
 
 type AccountKey = tuple[str, str, str, str]
 type _Id = InstrumentedAttribute[str] | str
@@ -94,6 +102,10 @@ async def post(
         return existing
     journal_id = new_id("journal")
     at = occurred_at or clock.now()
+    moved = (
+        set[str]() if occurred_at is None else await _filed_codes(db, business_id, event, legs, at)
+    )
+    now = clock.now()
     for index, leg in enumerate(legs):
         account = accounts[leg.key]
         on = leg.subject or subject
@@ -115,12 +127,60 @@ async def post(
                 ref=ref,
                 leg=index,
                 meta=meta or {},
-                occurred_at=at,
+                occurred_at=now if leg.category == "tax" and leg.code in moved else at,
                 available_at=available_at,
             )
         )
     await db.flush()
     return journal_id
+
+
+async def _filed_codes(
+    db: AsyncSession, business_id: str, event: str, legs: Sequence[Leg], at: datetime
+) -> set[str]:
+    """The tax codes dated into days a filed return covers, which book now for the next return."""
+    codes = {leg.code for leg in legs if leg.category == "tax"}
+    if event == "remittance" or not codes:
+        return set()
+    business = await db.get(Business, business_id)
+    tz = zone(business.timezone if business is not None else "UTC")
+    day = at.astimezone(tz).date()
+    if day >= clock.today(tz):
+        return set()
+    key = day.isoformat()
+    families = await db.execute(
+        scoped(Entry, business_id)
+        .with_only_columns(Entry.meta["family"].astext)
+        .where(
+            Entry.event == "remittance",
+            Entry.leg == 0,
+            Entry.meta["start"].astext <= key,
+            Entry.meta["end"].astext >= key,
+        )
+    )
+    moved: set[str] = set()
+    for family in families.scalars().all():
+        moved |= codes if family is None else codes.intersection(FAMILY_CODES[family])
+    return moved
+
+
+async def lock_books(db: AsyncSession, business_id: str, categories: Sequence[str]) -> None:
+    """Lock the business's own accounts in these categories, in the order every post locks them."""
+    held: dict[tuple[str, str, AccountKey], Account] = db.info.setdefault(_LOCKED, {})
+    rows = await db.execute(
+        scoped(Account, business_id)
+        .where(
+            Account.owner_type == "business",
+            Account.owner_id == business_id,
+            Account.category.in_(categories),
+        )
+        .order_by(Account.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    for account in rows.scalars().all():
+        key = (account.owner_type, account.owner_id, account.category, account.code)
+        held[(business_id, account.currency, key)] = account
 
 
 async def reverse(

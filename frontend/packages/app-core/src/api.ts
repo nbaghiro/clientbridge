@@ -98,6 +98,7 @@ const FAILURES: Record<string, (detail: FailureDetail) => string> = {
     estimate_booked: () => strings.api.estimateBooked,
     estimate_on_visit: () => strings.api.estimateOnVisit,
     estimate_changed: () => strings.api.estimateChanged,
+    estimate_answered: () => strings.api.estimateAnswered,
     invoice_changed: () => strings.api.invoiceChanged,
     deposit_not_due: () => strings.api.depositNotDue,
     booking_closed: () => strings.api.bookingClosed,
@@ -173,6 +174,8 @@ const FAILURES: Record<string, (detail: FailureDetail) => string> = {
     invoice_has_payments: () => strings.api.invoiceHasPayments,
     file_type_unsupported: () => strings.api.fileTypeUnsupported,
     file_too_large: () => strings.api.fileTooLarge,
+    return_filed: () => strings.api.returnFiled,
+    period_open: () => strings.api.periodOpen,
 };
 
 /** The catalog message for a failure the server named, else the action's own message. */

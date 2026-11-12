@@ -1,0 +1,122 @@
+appId: ${APP_ID}
+name: NATIVE-RETURN-01 A stale GST/HST form says the return is already recorded, the PST return clears its own tax, and a quarter in progress can't be recorded
+onFlowComplete:
+    - runFlow: helpers/restore-owner.yaml
+---
+- runScript:
+      file: helpers/tax-business.js
+      env:
+          PROVINCE: BC
+- runScript: helpers/tax-quarter.js
+- launchApp:
+      # the default "all" pulls the whole APK over adb to read its manifest, which can stall for minutes
+      permissions:
+          notifications: allow
+- extendedWaitUntil:
+      visible: "Today|Sign in"
+      timeout: 60000
+- runFlow:
+      when:
+          visible: "Today"
+      commands:
+          - tapOn: "Setup"
+          - scrollUntilVisible:
+                element: "Sign out"
+                direction: DOWN
+          - tapOn: "Sign out"
+          - extendedWaitUntil:
+                visible: "Sign in"
+                timeout: 30000
+- tapOn: "you@business.ca"
+- inputText: ${output.tax.email}
+- tapOn: "••••••••"
+- eraseText
+- inputText: ${output.tax.password}
+- runFlow: helpers/sign-in.yaml
+- runFlow: helpers/decline-save-password.yaml
+- extendedWaitUntil:
+      visible: "Today"
+      timeout: 60000
+- tapOn: "Setup"
+- tapOn: "Payments"
+- swipe:
+      from:
+          text: "Refunds"
+      direction: LEFT
+- tapOn: "Tax returns"
+- extendedWaitUntil:
+      visible: "Owed to the CRA"
+      timeout: 60000
+# last quarter's $100 sale carried $5.00 GST and $7.00 PST
+- assertVisible: "\\$5\\.00"
+- assertVisible: "Ready to file"
+- takeScreenshot: return-due
+# the due panel sits below a phone-height screen's fold on Android
+- scrollUntilVisible:
+      element: "Record filed return"
+      direction: DOWN
+- tapOn: "Record filed return"
+- assertVisible: ${output.quarter.title}
+- assertVisible: "GST/HST return"
+- tapOn: "0.00"
+- inputText: "1.00"
+- tapOn:
+      below: "CRA confirmation number"
+- inputText: "CRA-PHONE"
+- tapOn: "Taxable sales \\(line 101\\)"
+- assertVisible: "\\$4\\.00"
+# another device records the GST/HST return while this form is open
+- runScript:
+      file: helpers/tax-business-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/payments/remittances
+          KEY: "${'gst-' + output.quarter.start + '-' + E2E_NAMESPACE}"
+          BODY: "${JSON.stringify({ period_start: output.quarter.start, period_end: output.quarter.end, family: 'federal', itc_cents: 100, confirmation: 'CRA-WEB' })}"
+- scrollUntilVisible:
+      element: "Record return"
+      direction: DOWN
+- tapOn: "Record return"
+- extendedWaitUntil:
+      visible: "A return for this period was already recorded\\. The page now shows what's left to file\\."
+      timeout: 30000
+- assertVisible: "Provincial confirmation number"
+# the CRA number typed for GST/HST doesn't carry over to the PST return
+- assertNotVisible: "CRA-PHONE"
+- takeScreenshot: stale-form
+- tapOn: "Cancel"
+# the quarter's GST/HST is filed, so it leaves what is owed and only its PST is left
+- scrollUntilVisible:
+      element: "Owed to the CRA"
+      direction: UP
+- assertVisible: "\\$0\\.00"
+- assertNotVisible: "Ready to file"
+- takeScreenshot: gst-filed
+- scrollUntilVisible:
+      element: "Record filed return"
+      direction: DOWN
+- tapOn: "Record filed return"
+- assertVisible: "Provincial confirmation number"
+- tapOn:
+      below: "Provincial confirmation number"
+- inputText: "BC-PHONE"
+- tapOn: "Sales that carried it"
+- scrollUntilVisible:
+      element: "Record return"
+      direction: DOWN
+- tapOn: "Record return"
+- scrollUntilVisible:
+      element: "PST return for ${output.quarter.title} recorded as filed\\."
+      direction: UP
+      timeout: 30000
+# the quarter in progress has nothing to record until it ends; its panel sits just above the history
+- scrollUntilVisible:
+      element: "Filed returns"
+      direction: DOWN
+- assertNotVisible: "Record filed return"
+- scrollUntilVisible:
+      element: ".*CRA-WEB · PST \\$7\\.00 · BC-PHONE"
+      direction: DOWN
+      timeout: 30000
+- assertVisible: "\\$4\\.00"
+- takeScreenshot: both-filed

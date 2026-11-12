@@ -200,7 +200,7 @@ export interface FilingEvidence {
 }
 
 /** The seeded business's last completed quarter in Vancouver, its raw tax legs and filings. */
-export async function filingEvidence(): Promise<FilingEvidence> {
+export async function filingEvidence(businessKey = "bz_birchbark"): Promise<FilingEvidence> {
     const zone = "America/Vancouver";
     const [period] = await select<{
         start: string;
@@ -225,7 +225,7 @@ export async function filingEvidence(): Promise<FilingEvidence> {
     if (Date.parse(seeded) !== Date.parse(period.anchor))
         throw new Error("requires the first seed at noon Vancouver on this quarter's first day");
     const { start, end, lo, hi } = period;
-    const business = demoId("bz_birchbark");
+    const business = demoId(businessKey);
     return {
         start,
         end,
