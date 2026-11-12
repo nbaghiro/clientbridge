@@ -1352,11 +1352,13 @@
         "message": "The invoice updates when the bank debit clears, which takes a few business days."
     },
     "billing.rec.donePaid": {
-        "message": "Invoice {n} is paid in full.",
+        "message": "{n} is paid in full.",
+        "description": "{n} names the invoice, e.g. Invoice #1042",
         "args": ["n"]
     },
     "billing.rec.donePartial": {
-        "message": "Invoice {n} has {left} left to pay.",
+        "message": "{n} has {left} left to pay.",
+        "description": "{n} names the invoice, e.g. Invoice #1042",
         "args": ["n", "left"]
     },
     "billing.rec.receiptSent": {
@@ -4017,6 +4019,9 @@
     },
     "bookings.visitInvoiced": {
         "message": "This visit has an invoice."
+    },
+    "bookings.openInvoice": {
+        "message": "Open invoice"
     },
     "bookings.close": {
         "message": "Close"
@@ -12307,6 +12312,31 @@
     "publicPay.paidBody": {
         "message": "Your payment to {businessName} is complete. A receipt will follow from the business.",
         "args": ["businessName"]
+    },
+    "publicPay.cardCanceled": {
+        "message": "This card form closed before the payment went through, perhaps from another window. Check the amount and pay again."
+    },
+    "publicPay.payingTitle": {
+        "message": "Your payment is going through"
+    },
+    "publicPay.payingBody": {
+        "message": "{businessName} has your payment. This invoice shows as paid once it clears, and a receipt follows.",
+        "args": ["businessName"]
+    },
+    "publicPay.payingPartTitle": {
+        "message": "A payment is going through"
+    },
+    "publicPay.payingPartBody": {
+        "message": "{businessName} is taking a payment on this invoice. Open this link again in a few minutes to pay what's left.",
+        "args": ["businessName"]
+    },
+    "publicPay.paidInFull": {
+        "message": "Paid in full",
+        "description": "Under the amount at the top of a paid invoice"
+    },
+    "publicPay.closed": {
+        "message": "Closed",
+        "description": "Under the amount at the top of a voided or refunded invoice"
     },
     "publicPay.cardStartError": {
         "message": "We couldn't start the card payment. Please try again."

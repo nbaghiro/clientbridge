@@ -8682,6 +8682,24 @@ export interface components {
             /** Accepts Card */
             accepts_card: boolean;
             /**
+             * Paying
+             * @description Stripe took payments covering the balance that haven't settled with us yet
+             * @default false
+             */
+            paying: boolean;
+            /**
+             * Clearing
+             * @description One of the payments Stripe took is a bank debit still clearing
+             * @default false
+             */
+            clearing: boolean;
+            /**
+             * Paying Part
+             * @description Stripe took a part of the balance that hasn't settled yet, so the link asks for the rest once it does
+             * @default false
+             */
+            paying_part: boolean;
+            /**
              * Contact Phone
              * @description The business's public phone, for paying when it takes no cards
              */

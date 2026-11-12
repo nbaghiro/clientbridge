@@ -37,7 +37,7 @@ from clientbridge.models.catalog import GiftCard, Item, Subscription
 from clientbridge.models.clients import Client
 from clientbridge.models.documents import Contract, FormResponse, Signature
 from clientbridge.models.messaging import Message, Thread
-from clientbridge.models.payments import Payment
+from clientbridge.models.payments import Payment, PayMethod
 from clientbridge.models.platform import Device, DevicePlatform
 from clientbridge.models.reviews import ReviewRequest
 from clientbridge.models.scheduling import Booking, Slot
@@ -537,8 +537,28 @@ def estimate_declined_message(locale: str, number: int | None, reason: str | Non
     return Notice(subject, body, _view(message(locale, "email.kind.estimate"), subject, body))
 
 
-def payment_failed_message(locale: str, amount: str, business_name: str) -> str:
+def payment_failed_message(locale: str, amount: str, business_name: str, link: str = "") -> str:
+    if link:
+        return message(
+            locale, "payment_failed.body_link", amount=amount, business=business_name, link=link
+        )
     return message(locale, "payment_failed.body", amount=amount, business=business_name)
+
+
+def payment_method_name(locale: str, method: PayMethod) -> str:
+    match method:
+        case "card":
+            return message(locale, "payment_method.card")
+        case "etransfer":
+            return message(locale, "payment_method.etransfer")
+        case "bank_eft":
+            return message(locale, "payment_method.bank_eft")
+        case "cash":
+            return message(locale, "payment_method.cash")
+        case "cheque":
+            return message(locale, "payment_method.cheque")
+        case "other":
+            return message(locale, "payment_method.other")
 
 
 def refund_message(locale: str, amount: str, business_name: str, credit_note: str | None) -> str:
@@ -875,7 +895,10 @@ class Notifier:
             return
         locale = locale_for(business=business)
         amount = format_money(locale, payment.amount_cents, payment.currency)
-        itemised = await self._itemised(db, locale, payment)
+        itemised = (
+            *await self._itemised(db, locale, payment),
+            *await self._invoice_settlement(db, locale, payment),
+        )
         order = await db.get(Order, payment.order_id) if payment.order_id else None
         online = order is not None and order.source == "online"
         status = order_link(order.status_token) if online and order and order.status_token else None
@@ -1094,7 +1117,10 @@ class Notifier:
             return
         locale = locale_for(business=business)
         amount = format_money(locale, payment.amount_cents, payment.currency)
-        notice = payment_failed_message(locale, amount, business.name)
+        invoice = await db.get(Invoice, payment.invoice_id) if payment.invoice_id else None
+        owing = invoice is not None and await ledger.invoice_balance(db, invoice) > 0
+        link = pay_link(invoice.pay_token) if owing and invoice and invoice.pay_token else ""
+        notice = payment_failed_message(locale, amount, business.name, link)
         await self._to_client(db, payment.client_id, notice)
 
     async def on_payment_disputed(self, db: AsyncSession, payment_id: str) -> None:
@@ -1456,6 +1482,21 @@ class Notifier:
             locale_for(business=business), business.name, contract.name, link
         )
         await self._to_client(db, signature.client_id, notice)
+
+    async def _invoice_settlement(
+        self, db: AsyncSession, locale: str, payment: Payment
+    ) -> tuple[str, ...]:
+        """How an invoice payment was made, and what the invoice still owes after it."""
+        invoice = await db.get(Invoice, payment.invoice_id) if payment.invoice_id else None
+        if invoice is None:
+            return ()
+        method = payment_method_name(locale, payment.method)
+        lines = [message(locale, "receipt.paid_by", method=method)]
+        balance = await ledger.invoice_balance(db, invoice)
+        if balance > 0:
+            amount = format_money(locale, balance, payment.currency)
+            lines.append(message(locale, "receipt.balance", amount=amount))
+        return tuple(lines)
 
     async def _itemised(self, db: AsyncSession, locale: str, payment: Payment) -> tuple[str, ...]:
         parent: tuple[LineParent, str] | None = (

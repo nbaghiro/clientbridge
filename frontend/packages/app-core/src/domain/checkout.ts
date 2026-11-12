@@ -51,6 +51,14 @@ export function paymentErrorMessage(e: unknown, fallback: string): string {
     return failedStatus(e) === 503 ? strings.payments.notConfigured : failureMessage(e, fallback);
 }
 
+/** A confirm Stripe refused, by its intent's status after: paid from elsewhere, closed, or failed. */
+export function refusedConfirm(status: string | null | undefined): "paid" | "canceled" | "failed" {
+    // the web SDK reports "succeeded", the native one "Succeeded"
+    const state = status?.toLowerCase();
+    if (state === "succeeded" || state === "processing") return "paid";
+    return state === "canceled" ? "canceled" : "failed";
+}
+
 /** One idempotency key per attempt, kept across retries so a double-submit can't double-charge. */
 export function useCheckout(
     onDone: () => void,

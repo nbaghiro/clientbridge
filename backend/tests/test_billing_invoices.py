@@ -6,7 +6,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice
 from clientbridge.models.business import Business
 from tests.conftest import Factory, FakeSmsSender
-from tests.helpers import client_id, key, ok
+from tests.helpers import client_id, key, ok, sent_invoice
 
 BIZ = "bz_birchbark"
 
@@ -178,6 +178,38 @@ async def test_cannot_send_void_invoice(as_owner: httpx.AsyncClient, db: AsyncSe
     await as_owner.post(f"/v1/invoices/{inv['id']}/void")
     res = await as_owner.post(f"/v1/invoices/{inv['id']}/send")
     assert res.status_code == 409
+
+
+async def test_a_paid_invoice_is_not_sent_again(
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
+) -> None:
+    cid = await client_id(db, phone="+16045550323")
+    inv = await sent_invoice(db, client=cid, total=3000, pay_token="pt_paid_again")
+    paid = {"method": "cash", "amount_cents": 3000, "send_receipt": False}
+    assert (
+        await as_owner.post(f"/v1/invoices/{inv}/payments", json=paid, headers=key())
+    ).status_code == 201
+    assert (await as_owner.get(f"/v1/previews/invoices/{inv}/send")).status_code == 409
+    assert (await as_owner.post(f"/v1/invoices/{inv}/send", headers=key())).status_code == 409
+    assert [m for m in sms.sent if m.to == "+16045550323"] == []
+
+
+async def test_a_retried_send_replays_after_the_invoice_is_paid(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await client_id(db, phone="+16045550324")
+    inv = await sent_invoice(db, client=cid, total=3000, pay_token="pt_paid_replay")
+    send = key()
+    first = await as_owner.post(f"/v1/invoices/{inv}/send", headers=send)
+    assert first.status_code == 200, first.text
+    paid = {"method": "cash", "amount_cents": 3000, "send_receipt": False}
+    assert (
+        await as_owner.post(f"/v1/invoices/{inv}/payments", json=paid, headers=key())
+    ).status_code == 201
+    replayed = await as_owner.post(f"/v1/invoices/{inv}/send", headers=send)
+    assert replayed.status_code == 200, replayed.text
+    assert replayed.json() == first.json()
+    assert (await as_owner.post(f"/v1/invoices/{inv}/send", headers=key())).status_code == 409
 
 
 async def test_foreign_invoice_404_by_scoping(

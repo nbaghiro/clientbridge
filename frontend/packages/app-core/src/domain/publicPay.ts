@@ -62,6 +62,9 @@ interface PublicInvoice {
     balance_cents: number;
     status: string;
     accepts_card: boolean;
+    paying: boolean;
+    clearing: boolean;
+    paying_part: boolean;
     contact_phone: string | null;
     contact_email: string | null;
     client_name: string | null;
@@ -251,7 +254,7 @@ function contactActions(invoice: PublicInvoice): ContactAction[] {
     return actions;
 }
 
-type PublicPayStatus = "loading" | "not-found" | "error" | "ready" | "paid";
+type PublicPayStatus = "loading" | "not-found" | "error" | "ready" | "paid" | "paying-part";
 
 interface PublicPayForm {
     status: PublicPayStatus;
@@ -265,6 +268,7 @@ interface PublicPayForm {
     payCard: () => void;
     tip: PayLinkTip;
     markPaid: () => void;
+    cardCanceled: () => void;
     cancelCard: () => void;
     busy: boolean;
     error: string | null;
@@ -277,8 +281,16 @@ export function usePublicPayForm(pay: PublicPayClient, token: string): PublicPay
     const [paid, setPaid] = useState(false);
     const { busy, error, setError, run } = useAsyncAction();
 
+    // a card payment Stripe took counts as paid before its event settles the invoice with us
+    const settled = invoice?.status === "paid" || invoice?.paying === true;
     const status: PublicPayStatus =
-        load !== "ready" ? load : paid || invoice?.status === "paid" ? "paid" : "ready";
+        load !== "ready"
+            ? load
+            : paid || settled
+              ? "paid"
+              : invoice?.paying_part === true
+                ? "paying-part"
+                : "ready";
 
     const tip = usePayLinkTip(invoice);
     const payCard = (): void => {
@@ -290,7 +302,8 @@ export function usePublicPayForm(pay: PublicPayClient, token: string): PublicPay
             {
                 errorMessage: (e) => {
                     // the server charges only the balance this page showed, so show the new one
-                    if (failedCode(e) === "invoice_changed") retry();
+                    const code = failedCode(e);
+                    if (code === "invoice_changed" || code === "payment_in_progress") retry();
                     return failureMessage(e, strings.publicPay.cardStartError);
                 },
             },
@@ -314,6 +327,11 @@ export function usePublicPayForm(pay: PublicPayClient, token: string): PublicPay
         tip,
         cancelCard: () => {
             setCard(null);
+        },
+        cardCanceled: () => {
+            setCard(null);
+            setError(strings.publicPay.cardCanceled);
+            retry();
         },
         markPaid: () => {
             setPaid(true);

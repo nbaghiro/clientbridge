@@ -114,7 +114,7 @@ export async function stripeInvoice(request: APIRequestContext) {
     });
     expect(response.status(), "invoice prerequisite creation failed").toBe(201);
     const invoice = (await response.json()) as { id: string; pay_token: string };
-    return registerStripeInvoice(request, invoice);
+    return { ...(await registerStripeInvoice(request, invoice)), phone: provider.phone };
 }
 
 export async function registerStripeInvoice(
@@ -142,11 +142,9 @@ export async function openStripeInvoice(page: Page, request: APIRequestContext) 
     return openRegisteredStripeInvoice(page, invoice, on("pay", `/i/${invoice.pay_token}`));
 }
 
-export async function openRegisteredStripeInvoice(
-    page: Page,
-    invoice: { id: string; pay_token: string; account: string },
-    url: string,
-) {
+export async function openRegisteredStripeInvoice<
+    T extends { id: string; pay_token: string; account: string },
+>(page: Page, invoice: T, url: string) {
     await page.goto(url);
     await expect(page.getByText("Grooming consultation", { exact: true })).toBeVisible();
     // The product starts with no tip. Assert the real public-card request preserves that choice.
@@ -430,7 +428,7 @@ export async function submitStripeCard(page: Page, info: TestInfo, cents = 2000)
 export async function settledStripeInvoice(
     page: Page,
     request: APIRequestContext,
-    invoice: Awaited<ReturnType<typeof stripeInvoice>>,
+    invoice: Awaited<ReturnType<typeof registerStripeInvoice>>,
     info: TestInfo,
     events: string[] = ["payment_intent.succeeded"],
     charge: { amountCents: number; tipCents: number } = { amountCents: 2000, tipCents: 0 },
@@ -521,7 +519,7 @@ export async function settledStripeInvoice(
 
 export async function unpaidStripeInvoice(
     request: APIRequestContext,
-    invoice: Awaited<ReturnType<typeof stripeInvoice>>,
+    invoice: Awaited<ReturnType<typeof registerStripeInvoice>>,
 ): Promise<StripeBrowserEvidence> {
     const response = await request.get(`${documentApi}/pay/${invoice.pay_token}`);
     expect(response.status()).toBe(200);

@@ -1242,10 +1242,10 @@
         "message": "[Ţĥé îñṽöîçé ûþðåţéš ŵĥéñ ţĥé ƀåñķ ðéƀîţ çļéåŕš, ŵĥîçĥ ţåķéš å ƒéŵ ƀûšîñéšš ðåýš. one two three four five]"
     },
     "billing.rec.donePaid": {
-        "message": "[Îñṽöîçé {n} îš þåîð îñ ƒûļļ. one two]"
+        "message": "[{n} îš þåîð îñ ƒûļļ. one two]"
     },
     "billing.rec.donePartial": {
-        "message": "[Îñṽöîçé {n} ĥåš {left} ļéƒţ ţö þåý. one two]"
+        "message": "[{n} ĥåš {left} ļéƒţ ţö þåý. one two]"
     },
     "billing.rec.receiptSent": {
         "message": "[Ŕéçéîþţ šéñţ ţö {phone}. one two]"
@@ -3688,6 +3688,9 @@
     },
     "bookings.visitInvoiced": {
         "message": "[Ţĥîš ṽîšîţ ĥåš åñ îñṽöîçé. one two three]"
+    },
+    "bookings.openInvoice": {
+        "message": "[Öþéñ îñṽöîçé one two]"
     },
     "bookings.close": {
         "message": "[Çļöšé one]"
@@ -11437,6 +11440,27 @@
     },
     "publicPay.paidBody": {
         "message": "[Ýöûŕ þåýɱéñţ ţö {businessName} îš çöɱþļéţé. Å ŕéçéîþţ ŵîļļ ƒöļļöŵ ƒŕöɱ ţĥé ƀûšîñéšš. one two three four five]"
+    },
+    "publicPay.cardCanceled": {
+        "message": "[Ţĥîš çåŕð ƒöŕɱ çļöšéð ƀéƒöŕé ţĥé þåýɱéñţ ŵéñţ ţĥŕöûĝĥ, þéŕĥåþš ƒŕöɱ åñöţĥéŕ ŵîñðöŵ. Çĥéçķ ţĥé åɱöûñţ åñð þåý åĝåîñ. one two three four five six seven]"
+    },
+    "publicPay.payingTitle": {
+        "message": "[Ýöûŕ þåýɱéñţ îš ĝöîñĝ ţĥŕöûĝĥ one two three]"
+    },
+    "publicPay.payingBody": {
+        "message": "[{businessName} ĥåš ýöûŕ þåýɱéñţ. Ţĥîš îñṽöîçé šĥöŵš åš þåîð öñçé îţ çļéåŕš, åñð å ŕéçéîþţ ƒöļļöŵš. one two three four five six]"
+    },
+    "publicPay.payingPartTitle": {
+        "message": "[Å þåýɱéñţ îš ĝöîñĝ ţĥŕöûĝĥ one two three]"
+    },
+    "publicPay.payingPartBody": {
+        "message": "[{businessName} îš ţåķîñĝ å þåýɱéñţ öñ ţĥîš îñṽöîçé. Öþéñ ţĥîš ļîñķ åĝåîñ îñ å ƒéŵ ɱîñûţéš ţö þåý ŵĥåţ'š ļéƒţ. one two three four five six]"
+    },
+    "publicPay.paidInFull": {
+        "message": "[Þåîð îñ ƒûļļ one two]"
+    },
+    "publicPay.closed": {
+        "message": "[Çļöšéð one]"
     },
     "publicPay.cardStartError": {
         "message": "[Ŵé çöûļðñ'ţ šţåŕţ ţĥé çåŕð þåýɱéñţ. Þļéåšé ţŕý åĝåîñ. one two three four]"

@@ -226,6 +226,14 @@ An intent that nobody will finish is cancelled rather than left confirmable, so 
 - The pay link sends the balance its page shows, and `POST /pay/{token}/card` refuses a different live
   balance, or an invoice that was paid or voided meanwhile, with 409 `invoice_changed`; the page then
   reloads. The response carries the amount the card will be charged, which labels the card form.
+- Until Stripe's `payment_intent.succeeded` settles a payment with us (it can wait a minute for its
+  fees), `GET /pay/{token}` reports `paying` when pending payments Stripe took cover the balance, so the
+  page stays paid on reload, and `clearing` when one of them is a bank debit still clearing, which the
+  page says is going through rather than paid. A part of the balance staff charged reports
+  `paying_part`, and the page says a payment is going through and to open the link again to pay what's
+  left. While any payment Stripe took is pending, `POST /pay/{token}/card` answers 409
+  `payment_in_progress`. A tab whose attempt another tab replaced says so and reloads instead of
+  showing Stripe's error.
 - A card payment that settles after its invoice was voided, or after the invoice was paid another way
   so it no longer owes that much, is booked and then refunded in full with our platform fee returned
   (reason `unapplied_payment`). The refund puts back only the receivable the payment credited.

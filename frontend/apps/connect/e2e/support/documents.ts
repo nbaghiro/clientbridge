@@ -82,16 +82,14 @@ export async function documentProvider(request: APIRequestContext) {
         "X-Business-Id": demoId("bz_birchbark"),
     };
     const name = demoPerson(randomUUID());
+    const phone = freshPhone();
     const clientResponse = await request.post(`${documentApi}/v1/clients`, {
         headers: { ...headers, "Idempotency-Key": randomUUID() },
-        data: {
-            name,
-            phone: freshPhone(),
-        },
+        data: { name, phone },
     });
     expect(clientResponse.status(), await clientResponse.text()).toBe(201);
     const client = (await clientResponse.json()) as { id: string };
-    return { headers, name, clientId: client.id };
+    return { headers, name, phone, clientId: client.id };
 }
 
 export async function issueForm(request: APIRequestContext) {

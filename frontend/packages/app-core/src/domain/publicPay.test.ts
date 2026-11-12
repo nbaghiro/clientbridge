@@ -38,6 +38,9 @@ function publicInvoice(extra: Partial<PublicInvoice> = {}): PublicInvoice {
         balance_cents: 3748,
         status: "partial",
         accepts_card: true,
+        paying: false,
+        clearing: false,
+        paying_part: false,
         contact_phone: null,
         contact_email: null,
         client_name: "Ann",
@@ -279,6 +282,91 @@ describe("starting a card payment", () => {
         });
         expect(sent).toEqual([[3748, 0]]);
         expect(loads).toEqual([3748, 1000]);
+    });
+});
+
+describe("a card payment that went through before its event", () => {
+    it("reads as paid while the invoice still shows its balance", async () => {
+        const client = {
+            getPublicInvoice: () =>
+                Promise.resolve(publicInvoice({ status: "sent", paying: true })),
+            payCard: () => Promise.reject(new Error("never")),
+        };
+        const { result } = renderHook(() => usePublicPayForm(client, "tok"));
+        await waitFor(() => {
+            expect(result.current.status).toBe("paid");
+        });
+    });
+
+    it("holds the form while a part staff charged settles", async () => {
+        const client = {
+            getPublicInvoice: () =>
+                Promise.resolve(publicInvoice({ status: "sent", paying_part: true })),
+            payCard: () => Promise.reject(new Error("never")),
+        };
+        const { result } = renderHook(() => usePublicPayForm(client, "tok"));
+        await waitFor(() => {
+            expect(result.current.status).toBe("paying-part");
+        });
+    });
+
+    it("reloads to the paid page when the server says a payment is already going through", async () => {
+        let paying = false;
+        const client = {
+            getPublicInvoice: () => Promise.resolve(publicInvoice({ status: "sent", paying })),
+            payCard: () => {
+                paying = true;
+                return Promise.reject(
+                    Object.assign(new Error("409"), { status: 409, code: "payment_in_progress" }),
+                );
+            },
+        };
+        const { result } = renderHook(() => usePublicPayForm(client, "tok"));
+        await waitFor(() => {
+            expect(result.current.status).toBe("ready");
+        });
+        act(() => {
+            result.current.payCard();
+        });
+        await waitFor(() => {
+            expect(result.current.status).toBe("paid");
+        });
+    });
+});
+
+describe("a card form Stripe closed before it went through", () => {
+    it("closes the form, says so and reloads the invoice", async () => {
+        let loads = 0;
+        const client = {
+            getPublicInvoice: () => {
+                loads += 1;
+                return Promise.resolve(publicInvoice());
+            },
+            payCard: () =>
+                Promise.resolve({
+                    client_secret: "pi_1_secret",
+                    stripe_account_id: "acct_1",
+                    amount_cents: 3748,
+                }),
+        };
+        const { result } = renderHook(() => usePublicPayForm(client, "tok"));
+        await waitFor(() => {
+            expect(result.current.status).toBe("ready");
+        });
+        act(() => {
+            result.current.payCard();
+        });
+        await waitFor(() => {
+            expect(result.current.card).not.toBeNull();
+        });
+        act(() => {
+            result.current.cardCanceled();
+        });
+        expect(result.current.card).toBeNull();
+        expect(result.current.error).toBe(pp.cardCanceled);
+        await waitFor(() => {
+            expect(loads).toBe(2);
+        });
     });
 });
 

@@ -25,7 +25,7 @@ from scripts.demo_context import (
     run_email,
     run_id,
 )
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
@@ -34,7 +34,10 @@ from clientbridge.core.db import SessionLocal, engine
 from clientbridge.core.ids import new_id
 from clientbridge.core.locale import SOURCE_LOCALE
 from clientbridge.core.zones import zone
+from clientbridge.integrations.expo import get_push_sender
+from clientbridge.integrations.resend import get_email_sender
 from clientbridge.integrations.stripe import PlanSubscription, SubscribedItem
+from clientbridge.integrations.twilio import get_sms_sender
 from clientbridge.models.billing import Invoice
 from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import Item
@@ -42,7 +45,8 @@ from clientbridge.models.clients import Client, Subject
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Recurrence, Slot
 from clientbridge.services import ledger
-from clientbridge.services.notifications import inbound_message_alert_text
+from clientbridge.services.billing import sweep_overdue
+from clientbridge.services.notifications import Notifier, inbound_message_alert_text
 from clientbridge.services.plans import PLAN_PRICES, apply_plan_subscription
 from clientbridge.services.reports import add_months, period_of
 from clientbridge.services.tax import TaxResult
@@ -188,6 +192,64 @@ async def payment_account(state: str) -> dict[str, object]:
         }
         await db.commit()
         return {"business": business_id, "state": state}
+
+
+async def overdue_sweep(invoice_id: str) -> dict[str, object]:
+    """The 7 a.m. overdue sweep for one invoice of the run's business, and no other test's."""
+    business_id = run_id(FIXTURE_BUSINESS)
+    if business_id == FIXTURE_BUSINESS:
+        raise RuntimeError("only a run's own business")
+    notifier = Notifier(get_email_sender(), get_sms_sender(), get_push_sender())
+    async with SessionLocal() as db:
+        swept = await sweep_overdue(db, notifier, business_id, clock.now(), invoice_id=invoice_id)
+        return {"swept": swept}
+
+
+async def card_attempt(invoice_id: str, state: str) -> dict[str, object]:
+    """A client's card payment the lane's absent Stripe would hold open, or close it again."""
+    business_id = run_id(FIXTURE_BUSINESS)
+    if business_id == FIXTURE_BUSINESS or get_settings().stripe_secret_key:
+        raise RuntimeError("only a run's own business on a lane without Stripe keys")
+    async with SessionLocal() as db:
+        invoice = await db.get(Invoice, invoice_id)
+        if invoice is None or invoice.business_id != business_id:
+            raise RuntimeError("the invoice isn't the run's")
+        if state == "open":
+            db.add(
+                Payment(
+                    id=new_id("payment"),
+                    business_id=business_id,
+                    client_id=invoice.client_id,
+                    kind="payment",
+                    invoice_id=invoice.id,
+                    amount_cents=invoice.total_cents,
+                    currency=invoice.currency,
+                    method="card",
+                    provider="stripe",
+                    provider_ref=f"pi_lane_{invoice.id}",
+                    status="pending",
+                )
+            )
+        else:
+            await db.execute(
+                update(Payment)
+                .where(Payment.invoice_id == invoice.id, Payment.status == "pending")
+                .values(status="failed")
+            )
+        await db.commit()
+        return {"invoice": invoice.id, "state": state}
+
+
+def billing_main(argv: list[str]) -> None:
+    parser = argparse.ArgumentParser(prog="python -m e2e.actions billing")
+    parser.add_argument("action", choices=("overdue-sweep", "card-open", "card-close"))
+    parser.add_argument("invoice_id")
+    args = parser.parse_args(argv)
+    if args.action == "overdue-sweep":
+        print(json.dumps(asyncio.run(overdue_sweep(args.invoice_id))))
+    else:
+        state = "open" if args.action == "card-open" else "close"
+        print(json.dumps(asyncio.run(card_attempt(args.invoice_id, state))))
 
 
 def payment_account_main(argv: list[str]) -> None:
@@ -771,6 +833,7 @@ COMMANDS: dict[str, Callable[[list[str]], None]] = {
     "trial-clock": lambda argv: asyncio.run(trial_clock_main(argv)),
     "native-push": native_push_main,
     "payment-account": payment_account_main,
+    "billing": billing_main,
     "outreach": lambda argv: asyncio.run(outreach_main(argv)),
     "files": lambda argv: asyncio.run(files_main(argv)),
     "notes": notes_main,

@@ -1309,6 +1309,7 @@ interface Strings {
         readonly invoiceVisit: string;
         readonly invoiceVisitError: string;
         readonly visitInvoiced: string;
+        readonly openInvoice: string;
         readonly close: string;
         readonly railInProgress: string;
         readonly railUpNext: string;
@@ -4190,6 +4191,13 @@ interface Strings {
         readonly closedTitle: string;
         readonly closedBody: (businessName: string) => string;
         readonly paidBody: (businessName: string) => string;
+        readonly cardCanceled: string;
+        readonly payingTitle: string;
+        readonly payingBody: (businessName: string) => string;
+        readonly payingPartTitle: string;
+        readonly payingPartBody: (businessName: string) => string;
+        readonly paidInFull: string;
+        readonly closed: string;
         readonly cardStartError: string;
         readonly credit: (method: string, when: string) => string;
         readonly refundedOn: (note: string, when: string) => string;

@@ -265,6 +265,27 @@ msgstr ""
 msgid "payment_failed.body"
 msgstr ""
 
+msgid "payment_failed.body_link"
+msgstr ""
+
+msgid "payment_method.bank_eft"
+msgstr ""
+
+msgid "payment_method.card"
+msgstr ""
+
+msgid "payment_method.cash"
+msgstr ""
+
+msgid "payment_method.cheque"
+msgstr ""
+
+msgid "payment_method.etransfer"
+msgstr ""
+
+msgid "payment_method.other"
+msgstr ""
+
 msgid "pickup.body"
 msgstr ""
 
@@ -297,10 +318,16 @@ msgstr ""
 msgid "plans.team"
 msgstr ""
 
+msgid "receipt.balance"
+msgstr ""
+
 msgid "receipt.body"
 msgstr ""
 
 msgid "receipt.line"
+msgstr ""
+
+msgid "receipt.paid_by"
 msgstr ""
 
 msgid "receipt.push"

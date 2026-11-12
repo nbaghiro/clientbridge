@@ -389,7 +389,12 @@ function Addons({ event }: { event: ScheduleEvent }) {
                     </Button>
                 </View>
             ) : addons.invoiceId !== null ? (
-                <Text style={styles.hint}>{s.visitInvoiced}</Text>
+                <View style={styles.invoice}>
+                    <Text style={styles.invoiced}>{s.visitInvoiced}</Text>
+                    <Button size="sm" variant="link" onPress={addons.openInvoice}>
+                        {s.openInvoice}
+                    </Button>
+                </View>
             ) : null}
             {addons.error !== null ? <Notice tone="danger">{addons.error}</Notice> : null}
         </DetailSection>
@@ -1423,7 +1428,8 @@ const styles = StyleSheet.create({
         fontVariant: ["tabular-nums"],
     },
     hint: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 12, marginTop: 6 },
-    invoice: { marginTop: 8, flexDirection: "row" },
+    invoiced: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 12 },
+    invoice: { marginTop: 8, flexDirection: "row", alignItems: "center", gap: 8 },
     ask: { flex: 1, gap: 8 },
     askTitle: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 15, fontWeight: "700" },
     askRow: { flexDirection: "row", gap: 8 },

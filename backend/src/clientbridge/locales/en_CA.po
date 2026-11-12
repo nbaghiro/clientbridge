@@ -277,6 +277,27 @@ msgstr "{business} asks you to authorize pre-authorized debits from your bank ac
 msgid "payment_failed.body"
 msgstr "Your payment of {amount} to {business} failed. Please try again."
 
+msgid "payment_failed.body_link"
+msgstr "Your payment of {amount} to {business} failed. Try again: {link}"
+
+msgid "payment_method.bank_eft"
+msgstr "bank debit"
+
+msgid "payment_method.card"
+msgstr "card"
+
+msgid "payment_method.cash"
+msgstr "cash"
+
+msgid "payment_method.cheque"
+msgstr "cheque"
+
+msgid "payment_method.etransfer"
+msgstr "e-Transfer"
+
+msgid "payment_method.other"
+msgstr "another method"
+
 msgid "pickup.body"
 msgstr "Collect your order at {business}. We'll let you know when it's ready."
 
@@ -309,11 +330,17 @@ msgstr "Clientbridge staff seat"
 msgid "plans.team"
 msgstr "Clientbridge Team"
 
+msgid "receipt.balance"
+msgstr "Balance due  {amount}"
+
 msgid "receipt.body"
 msgstr "Thank you! Your payment of {amount} to {business} was received."
 
 msgid "receipt.line"
 msgstr "{item} x{quantity}  {amount}"
+
+msgid "receipt.paid_by"
+msgstr "Paid by {method}"
 
 msgid "receipt.push"
 msgstr "Payment received: {amount}"

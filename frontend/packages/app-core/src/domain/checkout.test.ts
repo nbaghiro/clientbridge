@@ -10,6 +10,7 @@ import { strings } from "../strings";
 import {
     createPublicPaymentSetupClient,
     paymentErrorMessage,
+    refusedConfirm,
     useAddPaymentMethod,
     useCheckout,
 } from "./checkout";
@@ -68,6 +69,18 @@ describe("createPublicPaymentSetupClient", () => {
         } finally {
             vi.unstubAllGlobals();
         }
+    });
+});
+
+describe("refusedConfirm", () => {
+    it("reads a refused confirm by the intent's status on web and native", () => {
+        expect(refusedConfirm("succeeded")).toBe("paid");
+        expect(refusedConfirm("Processing")).toBe("paid");
+        expect(refusedConfirm("canceled")).toBe("canceled");
+        expect(refusedConfirm("Canceled")).toBe("canceled");
+        expect(refusedConfirm("requires_payment_method")).toBe("failed");
+        expect(refusedConfirm(undefined)).toBe("failed");
+        expect(refusedConfirm(null)).toBe("failed");
     });
 });
 

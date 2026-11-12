@@ -47,7 +47,11 @@ test("STR-E06 one invoice in two tabs: a decline in the first, then both pay, an
 
     await enterStripeCard(firstCard, "4242424242424242");
     await submitStripeCard(first, info);
-    await expect(first.getByRole("alert")).toBeVisible();
+    // the second tab replaced this attempt, so the first says so and offers a fresh one
+    await expect(first.getByText(strings.publicPay.cardCanceled, { exact: true })).toBeVisible();
+    await expect(
+        first.getByRole("button", { name: strings.publicPay.payByCard, exact: true }),
+    ).toBeVisible();
     await expect(first.getByRole("heading", { name: strings.publicPay.paidTitle })).toHaveCount(0);
     const refused = await stripeEvidence(invoice.id);
     expect(refused.stripe[0]).toMatchObject({ id: firstIntent, status: "canceled" });

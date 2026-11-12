@@ -1,5 +1,6 @@
 import {
     activeLocale,
+    refusedConfirm,
     strings,
     useAsyncAction,
     type CardFormProps,
@@ -84,6 +85,7 @@ function ConfirmForm({
     submitLabel,
     busyLabel,
     onDone,
+    onCanceled,
     onCancel,
     defaultValue,
     className,
@@ -117,10 +119,13 @@ function ConfirmForm({
                               redirect: "if_required",
                           });
                 if (result.error) {
-                    // paid from another tab or device: the payment went through, so it's done
-                    const taken = result.error.payment_intent?.status;
-                    if (taken === "succeeded" || taken === "processing") {
+                    const outcome = refusedConfirm(result.error.payment_intent?.status);
+                    if (outcome === "paid") {
                         onDone();
+                        return;
+                    }
+                    if (outcome === "canceled" && onCanceled !== undefined) {
+                        onCanceled();
                         return;
                     }
                     setError(result.error.message ?? failed);

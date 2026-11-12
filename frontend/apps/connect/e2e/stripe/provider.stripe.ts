@@ -17,7 +17,9 @@ import {
     unpaidStripeInvoice,
 } from "./support/provider";
 import { signIn } from "../../../web/e2e/support/session";
-import { expectPaid, openInvoice } from "../../../web/e2e/support/billing";
+import { expectPaid, openInvoice, recordPayment } from "../../../web/e2e/support/billing";
+import { createClient } from "../../../web/e2e/support/clients";
+import { deliveredTexts } from "../../../web/e2e/support/messaging";
 import {
     controlStripeRelay,
     issueStripeInvoice,
@@ -27,7 +29,10 @@ import {
 import { documentApi, documentProvider } from "../support/documents";
 import { on } from "../support/hosts";
 import { freshPhone } from "../../../web/e2e/support/auth";
-import { receiptMessages } from "../../../web/e2e/support/evidence";
+import { paymentEvidence, receiptMessages } from "../../../web/e2e/support/evidence";
+import { registerPurchaser } from "./support/disputes";
+import { saveCardUi } from "./support/memberships";
+import { chargeSavedMethod, sentInvoice } from "./support/wallet";
 import { demoId, runPort } from "@clientbridge/config/e2e/run";
 
 const authenticatedCard = "4000000000003220";
@@ -67,6 +72,13 @@ test("STRIPE-BROWSER-02 declined card stays unpaid then corrected card settles t
             }),
         ]);
     }).toPass({ timeout: 30_000 });
+    // one payment-failed text, with the way back to pay
+    const failedTexts = async () =>
+        (await deliveredTexts(request, invoice.phone))
+            .map((text) => text.text)
+            .filter((text) => text.includes(" failed. Try again: "));
+    await expect.poll(failedTexts, { timeout: 60_000 }).toHaveLength(1);
+    expect((await failedTexts())[0]).toContain(`/i/${invoice.pay_token}`);
     const failed = await unpaidStripeInvoice(request, invoice);
     await info.attach("committed-decline", {
         body: JSON.stringify(failed),
@@ -80,6 +92,7 @@ test("STRIPE-BROWSER-02 declined card stays unpaid then corrected card settles t
     ]);
     expect(paid.payments[0]?.id).toBe(failed.payments[0]?.id);
     expect(paid.stripe[0]?.id).toBe(failed.stripe[0]?.id);
+    expect(await failedTexts()).toHaveLength(1);
 });
 
 test(
@@ -297,18 +310,44 @@ test("STRIPE-BROWSER-06 held genuine settlement leaves durable invoice unpaid un
                     .getByText(strings.billing.statusLabel.paid, { exact: true }),
             ).toHaveCount(0);
         }
+        // a payment going through can't be voided out from under the client
+        await owner.getByRole("button", { name: strings.billing.void, exact: true }).click();
+        const refused = owner.waitForResponse(
+            (response) =>
+                response.url().endsWith(`/invoices/${fixture.invoice.id}/void`) &&
+                response.request().method() === "POST",
+        );
+        await owner
+            .getByRole("dialog")
+            .last()
+            .getByRole("button", { name: strings.billing.void, exact: true })
+            .click();
+        expect((await refused).status()).toBe(409);
+        await expect(owner.getByText(strings.api.paymentInProgress, { exact: true })).toBeVisible();
         await checkoutDiagnostics(customer, info);
+        // Stripe took the card, so a reload stays paid while the books wait for the event
         await customer.reload();
         await expect(
-            customer.getByRole("button", { name: strings.publicPay.payByCard, exact: true }),
+            customer.getByRole("heading", { name: strings.publicPay.paidTitle }),
         ).toBeVisible();
         await expect(
-            customer.getByRole("heading", { name: strings.publicPay.paidTitle }),
+            customer.getByRole("button", { name: strings.publicPay.payByCard, exact: true }),
         ).toHaveCount(0);
         const publicState = await customer.request.get(
             `${documentApi}/pay/${fixture.invoice.pay_token}`,
         );
-        expect(await publicState.json()).toMatchObject({ status: "sent", balance_cents: 2000 });
+        expect(await publicState.json()).toMatchObject({
+            status: "sent",
+            balance_cents: 2000,
+            paying: true,
+            clearing: false,
+        });
+        const again = await customer.request.post(
+            `${documentApi}/pay/${fixture.invoice.pay_token}/card`,
+            { data: { balance_cents: 2000, tip_cents: 0 } },
+        );
+        expect(again.status()).toBe(409);
+        expect(await again.json()).toMatchObject({ error: "payment_in_progress" });
         const reloaded = await stripeEvidence(fixture.invoice.id);
         expect(reloaded.payments).toEqual(held.payments);
         expect(reloaded.entries).toEqual([]);
@@ -322,8 +361,8 @@ test("STRIPE-BROWSER-06 held genuine settlement leaves durable invoice unpaid un
         expect(await stripeReceiptEvidence(fixture.invoice.id)).toEqual({ receipts: [] });
         await info.attach("held-genuine-settlement", {
             body: JSON.stringify({
-                optimisticCustomerPaid: true,
-                canonicalReloadPaid: false,
+                customerPaid: true,
+                reloadPaid: true,
                 evidence: held,
                 relay: await controlStripeRelay(owner, "status"),
             }),
@@ -363,6 +402,63 @@ test("STRIPE-BROWSER-06 held genuine settlement leaves durable invoice unpaid un
         await customerContext.close();
         await replicaContext.close();
         await ownerContext.close();
+    }
+});
+
+test("STR-E21 cash pays part of an invoice and its saved card, charged from Record payment, pays the rest", async ({
+    browser,
+}) => {
+    test.setTimeout(600_000);
+    const context = await browser.newContext({
+        baseURL: `http://localhost:${String(runPort("WEB_E2E_PORT"))}`,
+    });
+    try {
+        const owner = await context.newPage();
+        await signIn(owner);
+        const client = await createClient(owner);
+        await registerPurchaser(client.id);
+        await saveCardUi(owner, client);
+        const invoiceId = await sentInvoice(owner, client, 5000);
+        await openInvoice(owner, { id: invoiceId, name: client.name, phone: client.phone });
+        const cash = await recordPayment(owner, "cash", "$20.00", "20.00");
+        expect(cash).toContain(formatMoney(3000, "CAD"));
+        await expect(
+            owner
+                .getByRole("dialog")
+                .getByText(strings.billing.statusLabel.partial, { exact: true })
+                .first(),
+        ).toBeVisible();
+        const { charge, summary } = await chargeSavedMethod(owner, client, invoiceId, "4242", 3000);
+        expect(charge).toMatchObject({ status: "pending", balance_cents: 3000 });
+        expect(summary).toContain(strings.billing.rec.cardTitle);
+        await expect
+            .poll(
+                async () =>
+                    (await paymentEvidence(invoiceId)).payments
+                        .map((p) => [p.method, p.status, p.amount_cents])
+                        .sort(),
+                { timeout: 120_000 },
+            )
+            .toEqual([
+                ["card", "succeeded", 3000],
+                ["cash", "succeeded", 2000],
+            ]);
+        await openInvoice(owner, { id: invoiceId, name: client.name, phone: client.phone });
+        await expectPaid(owner);
+        await expect
+            .poll(async () => (await receiptMessages(owner.request, client.phone)).length, {
+                timeout: 120_000,
+            })
+            .toBe(2);
+        const receipts = (await deliveredTexts(owner.request, client.phone))
+            .map((text) => text.text)
+            .filter((text) => text.includes("was received"));
+        expect(receipts).toEqual([
+            expect.stringMatching(/\nPaid by cash\nBalance due {2}\$30\.00$/),
+            expect.stringMatching(/\nPaid by card$/),
+        ]);
+    } finally {
+        await context.close();
     }
 });
 

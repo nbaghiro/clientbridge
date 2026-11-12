@@ -18,7 +18,7 @@ from clientbridge.models.clients import Client
 from clientbridge.models.documents import Contract, Form, Signature
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.schemas.previews import OutgoingPreview, OutgoingText
-from clientbridge.services.billing import peek_number
+from clientbridge.services.billing import assert_sendable, peek_number
 from clientbridge.services.notifications import (
     Notifier,
     contract_sent_message,
@@ -56,8 +56,7 @@ class PreviewService:
     async def invoice_send(self, invoice_id: str) -> OutgoingPreview:
         self._assert_admin()
         invoice = await self._owned(Invoice, invoice_id)
-        if invoice.status == "void":
-            raise Conflict("a void invoice can't be sent")
+        await assert_sendable(self.db, invoice)
 
         async def run() -> None:
             if invoice.status == "draft":

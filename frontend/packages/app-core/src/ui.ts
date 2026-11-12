@@ -482,6 +482,8 @@ export interface CardFormProps {
     submitLabel: string;
     busyLabel: string;
     onDone: () => void;
+    // Stripe closed this payment before it went through: replaced from another tab, expired or voided.
+    onCanceled?: (() => void) | undefined;
     // With onCancel the form sits in a frame with a cancel action; without, it is the bare public form.
     onCancel?: (() => void) | undefined;
     // The payer's details already known, filled in so they aren't asked for twice.

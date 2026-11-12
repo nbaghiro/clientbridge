@@ -128,6 +128,18 @@ async def test_partial_refunds_unwind_revenue_and_tax_pro_rata(
     assert await _refunds(db, pay_id) == 3
 
 
+async def test_a_refunded_invoice_is_not_sent_again(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    inv_id, pay_id = await _paid_invoice(as_owner, db)
+    refund = await as_owner.post(f"/v1/payments/{pay_id}/refund", json={}, headers=retry_key())
+    assert refund.status_code == 200, refund.text
+    assert await _status(db, inv_id) == "refunded"
+    assert (await as_owner.get(f"/v1/previews/invoices/{inv_id}/send")).status_code == 409
+    sent = await as_owner.post(f"/v1/invoices/{inv_id}/send", headers=retry_key())
+    assert sent.status_code == 409, sent.text
+
+
 async def test_uneven_partial_refunds_clear_every_cent_of_tax(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:

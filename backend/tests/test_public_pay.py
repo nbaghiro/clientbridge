@@ -4,6 +4,7 @@ import httpx
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.errors import TooManyRequests
 from clientbridge.core.ids import new_id
 from clientbridge.core.ratelimit import RateLimiter, public_pay_rate_limit
@@ -236,6 +237,105 @@ async def test_card_attempt_refused_while_the_payer_already_confirmed(
     res = await pay_link_card(api, db, token, tip_cents=500)
     assert res.status_code == 409
     assert [s for s, _, _ in await _card_rows(db, inv_id)] == ["pending"]
+
+
+async def test_a_card_payment_stripe_took_reads_as_paying_until_its_event_settles(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    inv_id, token = await _card_ready_invoice(db)
+    assert (await api.get(f"/pay/{token}")).json()["paying"] is False
+    await pay_link_card(api, db, token)
+    live = (await _card_rows(db, inv_id))[0][1]
+    assert live is not None
+    gateway.confirmed.add(live)
+    page = (await api.get(f"/pay/{token}")).json()
+    assert (page["paying"], page["clearing"], page["status"], page["balance_cents"]) == (
+        True,
+        False,
+        "sent",
+        8000,
+    )
+    again = await pay_link_card(api, db, token)
+    assert again.status_code == 409
+    assert again.json()["error"] == "payment_in_progress"
+    assert [s for s, _, _ in await _card_rows(db, inv_id)] == ["pending"]
+
+
+async def _pending_charge(
+    db: AsyncSession, inv_id: str, ref: str, cents: int, method: str = "card"
+) -> None:
+    invoice = await db.get(Invoice, inv_id)
+    assert invoice is not None
+    db.add(
+        Payment(
+            id=new_id("payment"),
+            business_id=BIZ,
+            client_id=invoice.client_id,
+            kind="payment",
+            invoice_id=inv_id,
+            amount_cents=cents,
+            currency="CAD",
+            method=method,
+            provider="stripe",
+            provider_ref=ref,
+            status="pending",
+        )
+    )
+    await db.flush()
+
+
+async def test_a_part_staff_charged_holds_the_link_until_it_settles(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    inv_id, token = await _card_ready_invoice(db)
+    await _pending_charge(db, inv_id, "pi_staff_part", 3000)
+    gateway.confirmed.add("pi_staff_part")
+    page = (await api.get(f"/pay/{token}")).json()
+    assert (page["paying"], page["paying_part"], page["balance_cents"]) == (False, True, 8000)
+    again = await pay_link_card(api, db, token)
+    assert again.status_code == 409
+    assert again.json()["error"] == "payment_in_progress"
+
+
+async def test_a_bank_debit_clearing_for_the_whole_balance_reads_as_clearing(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    inv_id, token = await _card_ready_invoice(db)
+    await db.execute(
+        update(Invoice).where(Invoice.id == inv_id).values(overdue_notified_at=clock.now())
+    )
+    await _pending_charge(db, inv_id, "pi_pad_whole", 8000, method="bank_eft")
+    gateway.intent_statuses["pi_pad_whole"] = "processing"
+    page = (await api.get(f"/pay/{token}")).json()
+    assert (page["status"], page["paying"], page["clearing"]) == ("overdue", True, True)
+
+
+async def test_an_attempt_stripe_closed_is_not_paying(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    inv_id, token = await _card_ready_invoice(db)
+    await _pending_charge(db, inv_id, "pi_closed", 8000)
+    gateway.intent_statuses["pi_closed"] = "canceled"
+    page = (await api.get(f"/pay/{token}")).json()
+    assert (page["paying"], page["clearing"]) == (False, False)
+    assert gateway.status_reads == ["pi_closed"]
+
+
+async def test_a_paid_invoice_never_asks_stripe_whether_it_is_paying(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    inv_id, token = await _card_ready_invoice(db)
+    await ledger.post(
+        db,
+        BIZ,
+        event="payment",
+        ref=f"test:paid:{inv_id}",
+        legs=[Leg("business", BIZ, "bank", 8000), Leg("client", "cl_x", "receivable", -8000)],
+        subject=("invoice", inv_id),
+    )
+    page = (await api.get(f"/pay/{token}")).json()
+    assert (page["status"], page["paying"]) == ("paid", False)
+    assert gateway.status_reads == []
 
 
 async def test_card_payment_is_refused_when_the_balance_changed_since_the_page_loaded(

@@ -1,7 +1,7 @@
 import { isManager } from "./auth";
 import { useBusinessQuery as useQuery } from "../hooks";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
@@ -10,6 +10,7 @@ import {
     blankToNull,
     formatMoney,
     formatMoneyShort,
+    formatPhone,
     parseCents,
     BUSINESS_CURRENCY,
 } from "../format";
@@ -246,7 +247,13 @@ export function usePaymentRecorder(api: ApiLike, target: RecordTarget): PaymentR
         keyRef.current = null;
     };
 
-    const balanceCents = target.balanceCents;
+    // the server's balance after a payment, until the replica reaches it
+    const [recorded, setRecorded] = useState<number | null>(null);
+    useEffect(() => {
+        setRecorded(null);
+    }, [target.balanceCents]);
+    const balanceCents =
+        recorded === null ? target.balanceCents : Math.min(recorded, target.balanceCents);
     const parsed = amountMode === "full" ? balanceCents : parseCents(amount, BUSINESS_CURRENCY);
     const validAmount = parsed !== null && parsed > 0;
     const amountCents = validAmount ? parsed : 0;
@@ -315,6 +322,7 @@ export function usePaymentRecorder(api: ApiLike, target: RecordTarget): PaymentR
                     );
                     return;
                 }
+                setRecorded(res.balance_cents);
                 const lines = [
                     res.balance_cents === 0
                         ? r.donePaid(target.label)
@@ -326,7 +334,7 @@ export function usePaymentRecorder(api: ApiLike, target: RecordTarget): PaymentR
                 if (changeCents > 0)
                     lines.push(r.giveChange(formatMoney(changeCents, BUSINESS_CURRENCY)));
                 if (body.send_receipt && target.clientPhone !== null)
-                    lines.push(r.receiptSent(target.clientPhone));
+                    lines.push(r.receiptSent(formatPhone(target.clientPhone)));
                 setDone({ title: r.doneTitle, lines, paidInFull: res.balance_cents === 0 });
             },
             { errorMessage: (e) => failureMessage(e, r.error) },
@@ -368,7 +376,7 @@ export function usePaymentRecorder(api: ApiLike, target: RecordTarget): PaymentR
         setNote,
         sendReceipt,
         setSendReceipt,
-        receiptTo: target.clientPhone,
+        receiptTo: target.clientPhone === null ? null : formatPhone(target.clientPhone),
         amountCents,
         afterCents,
         resultLabel: afterCents === 0 ? r.resultPaid : r.resultPartial,
