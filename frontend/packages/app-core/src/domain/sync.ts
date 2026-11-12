@@ -483,6 +483,26 @@ function sessionFailure(
           : action;
 }
 
+let joinedId: string | null = null;
+const joinedListeners = new Set<() => void>();
+
+const subscribeJoined = (listener: () => void): (() => void) => {
+    joinedListeners.add(listener);
+    return () => {
+        joinedListeners.delete(listener);
+    };
+};
+
+/** Holds the team the viewer just joined, for the business picker to open once it syncs. */
+export function holdJoinedBusiness(businessId: string | null): void {
+    joinedId = businessId;
+    for (const listener of joinedListeners) listener();
+}
+
+export function useJoinedBusiness(): string | null {
+    return useSyncExternalStore(subscribeJoined, () => joinedId);
+}
+
 export function useReplicaSession(options: ReplicaSessionOptions) {
     const [db, setDb] = useState<CommonPowerSyncDatabase | null>(null);
     const [loading, setLoading] = useState(true);
@@ -494,6 +514,8 @@ export function useReplicaSession(options: ReplicaSessionOptions) {
         async (action: "load" | "discard" | "reauthenticate"): Promise<void> => {
             const current = ++generation.current;
             let cancelled = false;
+            // a join belongs to the account that made it, so leaving the session drops it
+            if (action !== "load") holdJoinedBusiness(null);
             setDb(null);
             setLoading(true);
             setFailed(null);
@@ -543,6 +565,7 @@ export function useReplicaSession(options: ReplicaSessionOptions) {
     useEffect(() => {
         options.subscribe(() => {
             const current = ++generation.current;
+            holdJoinedBusiness(null);
             setDb(null);
             setLoading(true);
             setFailed(null);

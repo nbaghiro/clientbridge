@@ -6782,6 +6782,15 @@
     "business.chooseBusiness": {
         "message": "[Çĥööšé å ƀûšîñéšš ţö çöñţîñûé one two three]"
     },
+    "business.switchBusiness": {
+        "message": "[Šŵîţçĥ ƀûšîñéšš one two]"
+    },
+    "business.chooseTitle": {
+        "message": "[Ŵĥîçĥ ƀûšîñéšš? one two]"
+    },
+    "business.chooseBody": {
+        "message": "[Ýöû'ŕé öñ ɱöŕé ţĥåñ öñé ţéåɱ. Öþéñ öñé ñöŵ; ýöû çåñ šŵîţçĥ åţ åñý ţîɱé. one two three four five]"
+    },
     "business.switchError": {
         "message": "[Çöûļð ñöţ šŵîţçĥ ƀûšîñéššéš. Ţŕý åĝåîñ. one two three]"
     },
@@ -7895,6 +7904,12 @@
     "staff.team.alreadyMember": {
         "message": "[{email} îš åļŕéåðý öñ ţĥé ţéåɱ. one two]"
     },
+    "staff.team.alreadyInvited": {
+        "message": "[{email} åļŕéåðý ĥåš åñ îñṽîţé. Ŕéšéñð îţ ƒŕöɱ Þéñðîñĝ îñṽîţéš. one two three four]"
+    },
+    "staff.team.sentSoFar": {
+        "message": "[{n,plural,one{Îñṽîţé šéñţ ţö {emails}.} other{Îñṽîţéš šéñţ ţö {emails}.}} Ţĥé åððŕéššéš ļéƒţ ƀéļöŵ ŵéŕéñ'ţ šéñţ. one two three four five]"
+    },
     "staff.team.inviteError": {
         "message": "[Ŵé çöûļðñ'ţ šéñð ţĥåţ îñṽîţé. Çĥéçķ ýöûŕ çöññéçţîöñ åñð ţŕý åĝåîñ. one two three four five]"
     },
@@ -7929,7 +7944,7 @@
         "message": "[Ţîţļé one]"
     },
     "staff.team.titleHint": {
-        "message": "[Šĥöŵñ ûñðéŕ ţĥéîŕ ñåɱé öñ ţĥé çåļéñðåŕ åñð ţĥé ƀööķîñĝ þåĝé one two three four]"
+        "message": "[Šĥöŵñ ŵîţĥ ţĥéîŕ ñåɱé ŵĥéñ çļîéñţš þîçķ ŵĥö ţö ƀööķ öñļîñé one two three four]"
     },
     "staff.team.titlePlaceholder": {
         "message": "[é.ĝ. Šéñîöŕ Ĝŕööɱéŕ one two]"
@@ -11752,9 +11767,6 @@
     },
     "publicBooking.anyone": {
         "message": "[Åñýöñé åṽåîļåƀļé one two]"
-    },
-    "publicBooking.anyoneHint": {
-        "message": "[Ṁöšţ öþéñ ţîɱéš one two]"
     },
     "publicBooking.date": {
         "message": "[Đåţé one]"

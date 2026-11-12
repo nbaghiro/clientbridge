@@ -1156,14 +1156,15 @@ export function usePublicBookingFlow(
             {
                 id: ANY_STAFF,
                 name: s.anyone,
-                title: s.anyoneHint,
+                // a member's title, shown with their name; anyone needs no second line
+                hint: undefined as string | undefined,
                 color: null as string | null,
                 media: undefined as OptionMedia | undefined,
             },
             ...staffFor.map((x) => ({
                 id: x.id,
                 name: x.name ?? "",
-                title: x.title ?? "",
+                hint: x.title?.trim() ? x.title : undefined,
                 color: x.color,
                 media: x.photo_url ? personMedia(x.name ?? "", x.color, x.photo_url) : undefined,
             })),

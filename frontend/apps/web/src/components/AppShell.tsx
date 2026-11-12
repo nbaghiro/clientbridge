@@ -6,6 +6,7 @@ import {
     DESTINATION_TARGET,
     type SyncNotice,
     strings,
+    useBusinessSwitch,
     useNotifications,
     usePeoplePhotos,
     usePlanNotice,
@@ -23,6 +24,7 @@ import {
     Icon,
     IconButton,
     Notice,
+    Select,
     SyncBanner,
     setStripeAccount,
 } from "@clientbridge/ui";
@@ -222,6 +224,7 @@ function ShellBody({
 }) {
     const photos = usePeoplePhotos();
     const openLink = useOpenLink();
+    const picker = useBusinessSwitch();
     const n = strings.navigation;
     return (
         <div className="flex h-screen bg-bg text-ink">
@@ -246,10 +249,26 @@ function ShellBody({
                         <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">
                             {nav.setup.businessName}
                         </span>
-                        <span className="text-muted">
-                            <Icon name="chevronDown" size={15} />
-                        </span>
+                        {picker === null ? (
+                            <span className="text-muted">
+                                <Icon name="chevronDown" size={15} />
+                            </span>
+                        ) : null}
                     </NavLink>
+                    {picker !== null ? (
+                        <div className="mt-2 px-2">
+                            <Select
+                                placeholder={strings.business.switchBusiness}
+                                size="sm"
+                                width="full"
+                                options={picker.options.filter((o) => o.key !== picker.selectedId)}
+                                value=""
+                                onChange={picker.choose}
+                                disabled={picker.busy}
+                                error={picker.error}
+                            />
+                        </div>
+                    ) : null}
                 </div>
 
                 <div className="space-y-2 px-3">

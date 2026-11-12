@@ -632,6 +632,34 @@ async def expiry_main(argv: list[str]) -> None:
         await engine.dispose()
 
 
+async def invite_age(seconds: int, ids: list[str]) -> Row:
+    namespace = _run_namespace(*ids)
+    async with SessionLocal() as db:
+        _confine(db, namespace, with_loader_criteria(Staff, Staff.id.in_(ids)))
+        invites = list((await db.execute(select(Staff).with_for_update())).scalars())
+        if len(invites) != len(ids) or any(
+            row.status != "invited" or not _fresh(row.created_at) for row in invites
+        ):
+            raise RuntimeError("only open invites this case sent")
+        invited_at = clock.now() - timedelta(seconds=seconds)
+        for row in invites:
+            row.invited_at = invited_at
+        await db.commit()
+    return {"invited_at": invited_at.isoformat()}
+
+
+async def invite_age_main(argv: list[str]) -> None:
+    """Date invites a case sent `seconds` back, so their links lapse as a week-old one would."""
+    parser = argparse.ArgumentParser(prog="python -m e2e.actions invite-age")
+    parser.add_argument("seconds", type=int)
+    parser.add_argument("ids", nargs="+")
+    args = parser.parse_args(argv)
+    try:
+        print(json.dumps(await invite_age(args.seconds, list(args.ids))))
+    finally:
+        await engine.dispose()
+
+
 # no money or saved cards, so a merge is not blocked; no demo name list has it, so it is unique
 
 
@@ -934,6 +962,7 @@ COMMANDS: dict[str, Callable[[list[str]], None]] = {
     "web-fixtures": web_fixtures_main,
     "tax-quarter": tax_quarter_main,
     "expiry": lambda argv: asyncio.run(expiry_main(argv)),
+    "invite-age": lambda argv: asyncio.run(invite_age_main(argv)),
 }
 
 

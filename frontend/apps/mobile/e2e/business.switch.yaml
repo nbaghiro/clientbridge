@@ -1,0 +1,90 @@
+appId: ${APP_ID}
+name: NATIVE-TEAM-02 An owner who joins another team picks a business at sign-in and switches between both from Setup
+onFlowComplete:
+    - runScript:
+          file: helpers/team.js
+          env:
+              ACTION: remove
+              STAFF_ID: ${output.joined}
+    # an invite that was never accepted holds a seat and blocks the next invite to the address
+    - runScript:
+          file: helpers/team.js
+          env:
+              ACTION: revoke
+              PREFIX: ${"owner+" + E2E_NAMESPACE + "@northlight"}
+    - runFlow: helpers/restore-owner.yaml
+---
+- evalScript: ${output.other = "owner+" + E2E_NAMESPACE + "@northlight.example"}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/staff/invites
+          BODY: "${JSON.stringify({ email: output.other, role: 'staff' })}"
+- runScript:
+      file: helpers/client-api.js
+      env:
+          LOGIN: ${output.other}
+          METHOD: POST
+          PATH: /v1/staff/invites/accept
+          BODY: "${JSON.stringify({ token: output.response.invite_token })}"
+- evalScript: ${output.joined = output.response.staff_id}
+- runFlow: helpers/owner.yaml
+- tapOn: "Setup"
+- scrollUntilVisible:
+      element: "Sign out"
+      direction: DOWN
+- tapOn: "Sign out"
+- extendedWaitUntil:
+      visible: "Sign in"
+      timeout: 30000
+- tapOn: "you@business.ca"
+- inputText: ${output.other}
+- tapOn: "••••••••"
+- eraseText
+- inputText: "demo1234"
+- runFlow: helpers/sign-in.yaml
+- runFlow: helpers/decline-save-password.yaml
+- extendedWaitUntil:
+      visible: "Which business\\?"
+      timeout: 60000
+- takeScreenshot: choose-business
+# the field's label comes first, then the picker it names
+- tapOn:
+      text: "Business"
+      index: 1
+- tapOn: "Birchbark Pet Studio"
+- extendedWaitUntil:
+      visible: "Good .*, Erik"
+      timeout: 90000
+- assertNotVisible: "Booked today.*"
+# each business shows only its own clients: Northlight's Rajesh isn't in Birchbark, nor Birchbark's Amélie in Northlight
+- tapOn: "Clients"
+- tapOn: "Search name, phone or pet"
+- inputText: "Rajesh"
+- extendedWaitUntil:
+      visible: "No clients match your search."
+      timeout: 30000
+# the keyboard covers the tab bar; Enter puts it away where iOS's hideKeyboard can't
+- pressKey: Enter
+# Setup opens from Today, not the tab bar
+- tapOn: "Today"
+- tapOn: "Setup"
+- assertNotVisible: "Sales tax"
+- takeScreenshot: setup-switcher
+# two businesses show as chips on Setup
+- tapOn: "Northlight Security"
+- extendedWaitUntil:
+      visible: "Booked today.*"
+      timeout: 90000
+- takeScreenshot: northlight-today
+- tapOn: "Clients"
+# the placeholder names what the business books, an address at Northlight
+- tapOn: "Search name, phone.*"
+- inputText: "Amélie"
+- extendedWaitUntil:
+      visible: "No clients match your search."
+      timeout: 30000
+# back on Today with the keyboard away, where completion signs out from Setup
+- pressKey: Enter
+- tapOn: "Today"

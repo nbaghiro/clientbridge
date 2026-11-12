@@ -7,12 +7,19 @@ import { useBusinessQuery as useQuery } from "../hooks";
 import { useEffect, useRef, useState } from "react";
 
 import { formatShortDay, formatTime, parseTimestamp, useBusinessZone, utcSql } from "../datetime";
-import { formatMoney, formatNumber, formatParts, parseNumber, BUSINESS_CURRENCY } from "../format";
+import {
+    formatList,
+    formatMoney,
+    formatNumber,
+    formatParts,
+    parseNumber,
+    BUSINESS_CURRENCY,
+} from "../format";
 
 import { type Load, useAsyncAction, useRemote } from "../hooks";
 import type { Fact, Intent, OccurrenceRow, SelectOption } from "../ui";
 import type { Viewer } from "./auth";
-import { useReplicaLoad } from "./sync";
+import { holdJoinedBusiness, useReplicaLoad } from "./sync";
 import { strings } from "../strings";
 import {
     type ApiLike,
@@ -541,22 +548,46 @@ export interface InviteTeammatesForm {
     error: string | null;
     busy: boolean;
     sent: Invite[];
+    // every address was tried, so the dialog shows what went out (and any refusal) instead of the form
+    done: boolean;
+    // what went out before a failure stopped the rest, while the form stays open to retry them
+    sentSoFar: string | null;
     submit: () => void;
     reset: () => void;
 }
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/** Several emails at once, each invited with the same role. */
+function inviteRefusal(e: unknown, email: string): string | null {
+    const t = strings.staff.team;
+    switch (failedCode(e)) {
+        case "already_invited":
+            return t.alreadyInvited(email);
+        case "already_member":
+            return t.alreadyMember(email);
+        default:
+            return null;
+    }
+}
+
+/** Several emails at once, each invited with the same role; each opening starts empty, as staff. */
 export function useInviteTeammatesForm(
     api: ApiLike,
-    existing: readonly string[],
+    team: Pick<TeamView, "members" | "invites">,
 ): InviteTeammatesForm {
     const t = strings.staff.team;
     const [emails, setEmails] = useState("");
     const [role, setRole] = useState<MemberRole>("staff");
     const [sent, setSent] = useState<Invite[]>([]);
+    const [done, setDone] = useState(false);
     const { busy, error, setError, run } = useAsyncAction();
+    const taken = (email: string): string | null => {
+        if (team.members.some((m) => m.email?.toLowerCase() === email))
+            return t.alreadyMember(email);
+        if (team.invites.some((i) => i.email.toLowerCase() === email))
+            return t.alreadyInvited(email);
+        return null;
+    };
     return {
         emails,
         setEmails: (v) => {
@@ -568,6 +599,11 @@ export function useInviteTeammatesForm(
         error,
         busy,
         sent,
+        done,
+        sentSoFar:
+            !done && sent.length > 0
+                ? t.sentSoFar(sent.length, formatList(sent.map((i) => i.email)))
+                : null,
         submit: () => {
             const list = [
                 ...new Set(
@@ -586,23 +622,41 @@ export function useInviteTeammatesForm(
                 setError(t.emailInvalid(bad));
                 return;
             }
-            const dupe = list.find((e) => existing.includes(e));
-            if (dupe !== undefined) {
-                setError(t.alreadyMember(dupe));
+            const refusal = list.map(taken).find((m) => m !== null);
+            if (refusal !== undefined) {
+                setError(refusal);
                 return;
             }
             run(
                 async () => {
-                    const made: Invite[] = [];
-                    for (const email of list) made.push(await inviteStaff(api, { email, role }));
-                    setSent(made);
+                    setDone(false);
+                    let firstRefusal: string | null = null;
+                    for (const [at, email] of list.entries()) {
+                        try {
+                            const made = await inviteStaff(api, { email, role });
+                            setSent((before) => [...before, made]);
+                        } catch (e) {
+                            const refused = inviteRefusal(e, email);
+                            if (refused === null) {
+                                // the ones before it hold their invites, so it and the rest stay to retry
+                                setEmails(list.slice(at).join(" "));
+                                throw e;
+                            }
+                            firstRefusal ??= refused;
+                        }
+                    }
                     setEmails("");
+                    setDone(true);
+                    if (firstRefusal !== null) setError(firstRefusal);
                 },
                 { errorMessage: (e) => failureMessage(e, t.inviteError) },
             );
         },
         reset: () => {
             setSent([]);
+            setDone(false);
+            setEmails("");
+            setRole("staff");
             setError(null);
         },
     };
@@ -694,12 +748,8 @@ interface AcceptInvite {
     accept: () => void;
 }
 
-/** Shows who invited whom, then joins the signed-in user to that team. */
-export function useAcceptInvite(
-    api: ApiLike,
-    token: string,
-    onJoined: (businessId: string) => void,
-): AcceptInvite {
+/** Shows who invited whom, joins the signed-in user to that team, then has it opened once it syncs. */
+export function useAcceptInvite(api: ApiLike, token: string, onJoined: () => void): AcceptInvite {
     const [preview, setPreview] = useState<InvitePreview | null>(null);
     const [problem, setProblem] = useState<InviteProblem | null>(token ? null : "invalid");
     const { busy, error, run } = useAsyncAction();
@@ -726,7 +776,9 @@ export function useAcceptInvite(
                             "/v1/staff/invites/accept",
                             { token },
                         );
-                        onJoined(joined.business_id);
+                        // a member of another business would otherwise stay on that one
+                        holdJoinedBusiness(joined.business_id);
+                        onJoined();
                     } catch (e) {
                         const known = INVITE_PROBLEMS[failedCode(e) ?? ""];
                         if (!known) throw e;

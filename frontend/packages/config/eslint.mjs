@@ -48,6 +48,9 @@ const MAESTRO_GLOBALS = {
         "DEFAULT",
         "PROVINCE",
         "PAYMENTS",
+        "LOGIN",
+        "PREFIX",
+        "STAFF_ID",
     ]),
     output: "writable",
 };

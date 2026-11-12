@@ -1,4 +1,4 @@
-// Changes a client as another device would: METHOD on PATH with BODY (and KEY as its retry key), signed in as the owner.
+// Changes a client as another device would: METHOD on PATH with BODY (and KEY as its retry key), signed in as the owner or LOGIN.
 if (typeof API_URL === "undefined" || typeof AUTH_URL === "undefined")
     throw new Error("API_URL or AUTH_URL is not set: run the flows through the native lane");
 var flow = json(http.get(AUTH_URL + "/self-service/login/api").body);
@@ -7,7 +7,10 @@ var session = json(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
             method: "password",
-            identifier: "hannah+" + E2E_NAMESPACE + "@birchbark.example",
+            identifier:
+                typeof LOGIN === "undefined"
+                    ? "hannah+" + E2E_NAMESPACE + "@birchbark.example"
+                    : LOGIN,
             password: "demo1234",
         }),
     }).body,

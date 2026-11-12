@@ -341,3 +341,19 @@ test("a business with nothing bookable online says so", async ({ page }) => {
         page.getByRole("heading", { name: strings.publicBooking.stepService }),
     ).toHaveCount(0);
 });
+
+test("TEAM-E2E-04 each member's title shows with their name where a client picks who to book", async ({
+    page,
+}) => {
+    const b = strings.publicBooking;
+    await page.goto(`/${links.slug}`);
+    await page.getByRole("button", { name: /^Full Groom — Large Dog/ }).click();
+    await page.getByRole("button", { name: b.continue }).first().click();
+    const who = page.getByRole("group", { name: b.with });
+    await expect(who.getByRole("button", { name: b.anyone, exact: true })).toBeVisible();
+    for (const [name, title] of [
+        ["Diego Ramirez", "Senior Groomer"],
+        ["Priya Patel", "Bather & Front Desk"],
+    ])
+        await expect(who.getByRole("button", { name: `${name} ${title}` })).toBeVisible();
+});

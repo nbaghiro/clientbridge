@@ -473,7 +473,7 @@ export async function raceTimePicker(
     );
     await page
         .getByRole("group", { name: b.with, exact: true })
-        .getByRole("button", { name: fixture.staffName, exact: true })
+        .locator(`button[data-value="${fixture.staffId}"]`)
         .click();
     let days = (
         (await (await staffDays).json()) as {

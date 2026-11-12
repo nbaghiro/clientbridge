@@ -1,0 +1,64 @@
+appId: ${APP_ID}
+name: NATIVE-TEAM-03 An admin downgraded to staff from another device loses the finance screens without signing out
+onFlowComplete:
+    - runScript:
+          file: helpers/client-api.js
+          env:
+              METHOD: PATCH
+              PATH: ${"/v1/staff/st_admin_" + E2E_NAMESPACE}
+              BODY: '{"role": "admin"}'
+    - runFlow: helpers/restore-owner.yaml
+---
+- runFlow: helpers/owner.yaml
+- tapOn: "Setup"
+- scrollUntilVisible:
+      element: "Sign out"
+      direction: DOWN
+- tapOn: "Sign out"
+- extendedWaitUntil:
+      visible: "Sign in"
+      timeout: 30000
+- tapOn: "you@business.ca"
+- inputText: ${"admin+" + E2E_NAMESPACE + "@birchbark.example"}
+- tapOn: "••••••••"
+- eraseText
+- inputText: "demo1234"
+- runFlow: helpers/sign-in.yaml
+- runFlow: helpers/decline-save-password.yaml
+- extendedWaitUntil:
+      visible: "Booked today.*"
+      timeout: 90000
+- tapOn: "Setup"
+- tapOn: "Payments"
+- extendedWaitUntil:
+      visible: "Invoices"
+      timeout: 30000
+- takeScreenshot: admin-payments
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: PATCH
+          PATH: ${"/v1/staff/st_admin_" + E2E_NAMESPACE}
+          BODY: '{"role": "staff"}'
+- extendedWaitUntil:
+      notVisible: "Invoices"
+      timeout: 90000
+- assertVisible: "Sales"
+- assertVisible: "My pay"
+- assertNotVisible: "Sign in"
+- takeScreenshot: staff-payments
+# signed out here, before completion restores the role and the app redraws for it
+- repeat:
+      times: 3
+      while:
+          visible: "Back"
+      commands:
+          - tapOn: "Back|Go back|Navigate up"
+- tapOn: "Setup"
+- scrollUntilVisible:
+      element: "Sign out"
+      direction: DOWN
+- tapOn: "Sign out"
+- extendedWaitUntil:
+      visible: "Sign in"
+      timeout: 30000

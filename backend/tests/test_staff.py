@@ -1,21 +1,36 @@
 """Staff invites — owner/admin create + email; invitee accepts → active staff."""
 
+import asyncio
+from dataclasses import replace
 from datetime import timedelta
 from uuid import uuid4
 
 import httpx
 import pytest
-from sqlalchemy import select, text
+from sqlalchemy import delete, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
-from clientbridge.core.errors import TooManyRequests
+from clientbridge.core.db import SessionLocal
+from clientbridge.core.deps import Principal
+from clientbridge.core.errors import Conflict, TooManyRequests
+from clientbridge.core.ids import new_id
 from clientbridge.core.ratelimit import RateLimiter, public_invite_rate_limit
 from clientbridge.integrations.identity import Identity
 from clientbridge.main import app
-from clientbridge.models.business import Business
+from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.platform import Audit
-from tests.conftest import Factory, FakeEmailSender, FakeIdentityProvider, session_token
+from clientbridge.services.plans import INVITE_TTL
+from clientbridge.services.staff import StaffService
+from tests.conftest import (
+    OWNER_USER,
+    Factory,
+    FakeEmailSender,
+    FakeIdentityProvider,
+    FakePaymentGateway,
+    identity_for,
+    session_token,
+)
 
 BIZ = "bz_birchbark"
 _CANCEL = {"future": "cancel"}
@@ -180,14 +195,121 @@ async def test_double_accept_409(
 async def test_accept_by_a_current_member_409(
     as_owner: httpx.AsyncClient, db: AsyncSession, identities: FakeIdentityProvider
 ) -> None:
-    inv = await _invite(as_owner, "diego@birchbark.example")
-    diego = await session_token(identities, db, "us_diego")
+    # a member who verified a second address can still be sent an invite to it
+    inv = await _invite(as_owner, "diego.alt@test.ca")
+    diego = await db.get_one(User, "us_diego")
+    identity = identity_for(diego)
+    second = replace(identity, verified_emails=identity.verified_emails | {"diego.alt@test.ca"})
     res = await as_owner.post(
         "/v1/staff/invites/accept",
         json={"token": inv["invite_token"]},
-        headers={"X-Session-Token": diego, "X-Business-Id": ""},
+        headers={"X-Session-Token": identities.issue(second), "X-Business-Id": ""},
     )
     assert res.status_code == 409 and res.json()["error"] == "already_member"
+
+
+async def test_an_invite_keeps_the_address_normalized(
+    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+) -> None:
+    inv = await _invite(as_owner, "\t Mixed.Case@Test.CA \n")
+    assert inv["email"] == "mixed.case@test.ca"
+    assert email.sent[-1].to == "mixed.case@test.ca"
+    stored = await db.scalar(select(Staff.invite_email).where(Staff.id == inv["id"]))
+    assert stored == "mixed.case@test.ca"
+
+
+async def test_an_address_with_an_invite_is_refused_a_second_one(
+    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+) -> None:
+    first = await _invite(as_owner, "Twice@test.ca")
+    sent = len(email.sent)
+    for address in ("twice@test.ca", "  Twice@TEST.ca ", "\ttwice@test.ca\n"):
+        res = await as_owner.post("/v1/staff/invites", json={"email": address, "role": "admin"})
+        assert res.status_code == 409 and res.json()["error"] == "already_invited", res.text
+    assert len(email.sent) == sent
+    rows = await db.scalar(text("SELECT count(*) FROM staff WHERE invite_email = 'twice@test.ca'"))
+    assert rows == 1
+    team = (await as_owner.get("/v1/staff/team")).json()
+    assert [i["role"] for i in team["invites"] if i["id"] == first["id"]] == ["staff"]
+
+
+async def test_an_expired_invite_is_resent_rather_than_sent_again(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    inv = await _invite(as_owner, "lapsed@test.ca")
+    await db.execute(
+        text("UPDATE staff SET invited_at = :at WHERE id = :i"),
+        {"at": clock.now() - INVITE_TTL - timedelta(days=1), "i": inv["id"]},
+    )
+    res = await as_owner.post("/v1/staff/invites", json={"email": "lapsed@test.ca"})
+    assert res.status_code == 409 and res.json()["error"] == "already_invited"
+    assert (await as_owner.post(f"/v1/staff/invites/{inv['id']}/resend")).status_code == 200
+
+
+async def test_a_current_member_is_refused_an_invite(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    for address in ("Diego@Birchbark.example", "\tdiego@birchbark.example "):
+        res = await as_owner.post("/v1/staff/invites", json={"email": address})
+        assert res.status_code == 409 and res.json()["error"] == "already_member", res.text
+    rows = await db.scalar(
+        text("SELECT count(*) FROM staff WHERE invite_email = 'diego@birchbark.example'")
+    )
+    assert rows == 0
+
+
+async def test_another_business_can_invite_a_member_or_an_invited_address(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    factory: Factory,
+    identities: FakeIdentityProvider,
+) -> None:
+    await _invite(as_owner, "shared@test.ca")
+    other = await factory.business()
+    owner = await factory.user()
+    await factory.staff(business=other, user=owner, role="owner")
+    token = await session_token(identities, db, owner.id)
+    as_owner.headers.update({"X-Session-Token": token, "X-Business-Id": other.id})
+    for address in ("shared@test.ca", "diego@birchbark.example"):
+        res = await as_owner.post("/v1/staff/invites", json={"email": address})
+        assert res.status_code == 201, res.text
+
+
+async def test_a_revoked_or_accepted_address_can_be_invited_again(
+    as_owner: httpx.AsyncClient, identities: FakeIdentityProvider
+) -> None:
+    revoked = await _invite(as_owner, "again@test.ca")
+    assert (await as_owner.post(f"/v1/staff/invites/{revoked['id']}/revoke")).status_code == 204
+    await _invite(as_owner, "again@test.ca")
+    assert (await as_owner.post("/v1/staff/st_priya/remove", json=_CANCEL)).status_code == 200
+    await _invite(as_owner, "priya@birchbark.example")
+
+
+async def test_simultaneous_invites_to_one_address_make_one_invite(
+    db: AsyncSession, gateway: FakePaymentGateway, email: FakeEmailSender
+) -> None:
+    owner = Principal(user_id=OWNER_USER, business_id=BIZ, staff_id="st_owner", role="owner")
+    address = f"race-{uuid4().hex[:8]}@test.ca"
+
+    async def send() -> str:
+        async with SessionLocal() as session:
+            out = await StaffService(session).create_invite(
+                owner, email_sender=email, gateway=gateway, email=address, role="staff"
+            )
+            return out.id
+
+    try:
+        results = await asyncio.gather(send(), send(), return_exceptions=True)
+        made = [r for r in results if isinstance(r, str)]
+        refused = [r for r in results if isinstance(r, Conflict)]
+        assert len(made) == 1 and len(refused) == 1, results
+        assert refused[0].code == "already_invited"
+    finally:
+        async with SessionLocal() as cleanup:
+            ids = select(Staff.id).where(Staff.invite_email == address)
+            await cleanup.execute(delete(Audit).where(Audit.entity_id.in_(ids)))
+            await cleanup.execute(delete(Staff).where(Staff.invite_email == address))
+            await cleanup.commit()
 
 
 async def test_a_removed_member_rejoins_through_a_new_invite(
@@ -522,3 +644,43 @@ async def test_preview_is_rate_limited(api: httpx.AsyncClient) -> None:
     url = "/v1/staff/invites/preview"
     assert (await api.post(url, json={"token": "probe"})).status_code == 404
     assert (await api.post(url, json={"token": "probe"})).status_code == 429
+
+
+async def test_simultaneous_accepts_of_one_link_join_once(
+    db: AsyncSession, gateway: FakePaymentGateway, email: FakeEmailSender
+) -> None:
+    owner = Principal(user_id=OWNER_USER, business_id=BIZ, staff_id="st_owner", role="owner")
+    address = f"accept-{uuid4().hex[:8]}@test.ca"
+    user = User(id=new_id("user"), identity_id=str(uuid4()), email=address, name="Twice")
+    async with SessionLocal() as setup:
+        invite = await StaffService(setup).create_invite(
+            owner, email_sender=email, gateway=gateway, email=address, role="staff"
+        )
+        setup.add(user)
+        await setup.commit()
+    identity = replace(identity_for(user), verified_emails=frozenset({address}))
+
+    async def accept() -> str:
+        async with SessionLocal() as session:
+            joined = await StaffService(session).accept_invite(
+                await session.get_one(User, user.id), identity, invite.invite_token
+            )
+            return joined.staff_id
+
+    try:
+        results = await asyncio.gather(accept(), accept(), return_exceptions=True)
+        assert [r for r in results if isinstance(r, str)] == [invite.id], results
+        assert [r.code for r in results if isinstance(r, Conflict)] == ["already_member"]
+        async with SessionLocal() as check:
+            accepts = await check.scalar(
+                select(func.count())
+                .select_from(Audit)
+                .where(Audit.entity_id == invite.id, Audit.action == "staff.accept")
+            )
+            assert accepts == 1
+    finally:
+        async with SessionLocal() as cleanup:
+            await cleanup.execute(delete(Audit).where(Audit.entity_id == invite.id))
+            await cleanup.execute(delete(Staff).where(Staff.id == invite.id))
+            await cleanup.execute(delete(User).where(User.id == user.id))
+            await cleanup.commit()

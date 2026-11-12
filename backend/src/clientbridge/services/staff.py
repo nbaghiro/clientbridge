@@ -2,12 +2,14 @@
 
 import logging
 import secrets
+import string
 from collections import Counter
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import InstrumentedAttribute
 
 from clientbridge.core import clock
 from clientbridge.core.command import Command, run_command
@@ -98,6 +100,13 @@ def _fit_rate_unit(staff: Staff, data: StaffPayUpdate) -> None:
 _log = logging.getLogger(__name__)
 
 
+def _normalized(column: InstrumentedAttribute[str]) -> ColumnElement[str]:
+    """`normalize_email` in SQL: ASCII whitespace trimmed and only ASCII letters lowercased."""
+    return func.translate(
+        func.btrim(column, string.whitespace), string.ascii_uppercase, string.ascii_lowercase
+    )
+
+
 class StaffService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
@@ -140,9 +149,11 @@ class StaffService:
         idempotency_key: str | None = None,
     ) -> InviteOut:
         assert_role(principal, "owner", "admin", message="only an owner or admin can invite")
+        address = normalize_email(email)
 
         async def run(cmd: Command) -> InviteOut:
             business = await self._locked_business(principal.business_id)
+            await self._assert_invitable(principal.business_id, address)
             seats = await plans.assert_seat_free(self.db, business, clock.now())
             raw = secrets.token_urlsafe(24)
             staff = Staff(
@@ -150,7 +161,7 @@ class StaffService:
                 business_id=principal.business_id,
                 role=role,
                 status="invited",
-                invite_email=email,
+                invite_email=address,
                 invite_token=hash_token(raw),
                 invited_at=clock.now(),
                 invited_by=principal.user_id,
@@ -161,11 +172,11 @@ class StaffService:
             await plans.sync_seats(gateway, business, seats)
             billed.append(True)
             await email_sender.send(
-                business_email(business, email, self._invite_notice(raw, business))
+                business_email(business, address, self._invite_notice(raw, business))
             )
             cmd.record("staff.invite", entity_type="staff", entity_id=staff.id)
             return InviteOut(
-                id=staff.id, email=email, role=role, status=staff.status, invite_token=raw
+                id=staff.id, email=address, role=role, status=staff.status, invite_token=raw
             )
 
         billed: list[bool] = []
@@ -177,7 +188,7 @@ class StaffService:
                 run=run,
                 response_model=InviteOut,
                 idempotency_key=idempotency_key,
-                request={"email": email, "role": role},
+                request={"email": address, "role": role},
             )
         except Exception:
             # the invite rolled back after its seat was billed, so bill the seats that remain
@@ -185,9 +196,35 @@ class StaffService:
                 await self.release_seat(principal.business_id, gateway)
             raise
 
+    async def _assert_invitable(self, business_id: str, address: str) -> None:
+        """One invite or membership per normalized address; the caller holds the business lock."""
+        invited = await self.db.scalar(
+            scoped(Staff, business_id)
+            .with_only_columns(Staff.id)
+            .where(Staff.status == "invited", Staff.invite_email == address)
+            .limit(1)
+        )
+        if invited is not None:
+            raise Conflict(
+                "this address already has an invite; resend it instead", code="already_invited"
+            )
+        member = await self.db.scalar(
+            scoped(Staff, business_id)
+            .with_only_columns(Staff.id)
+            .join(User, User.id == Staff.user_id)
+            .where(Staff.status == "active", _normalized(User.email) == address)
+            .limit(1)
+        )
+        if member is not None:
+            raise Conflict("this address is already on the team", code="already_member")
+
     async def _pending(self, token: str) -> Staff:
         staff = (
-            await self.db.execute(select(Staff).where(Staff.invite_token == hash_token(token)))
+            await self.db.execute(
+                select(Staff)
+                .where(Staff.invite_token == hash_token(token))
+                .execution_options(populate_existing=True)
+            )
         ).scalar_one_or_none()
         if staff is None:
             raise NotFound("this invite link isn't valid", code="invite_invalid")
@@ -217,13 +254,19 @@ class StaffService:
             raise Forbidden(
                 "this invite was sent to a different email address", code="invite_email_mismatch"
             )
+        # taken before the reads below, so a second accept of the link waits and finds it used
+        business = await self._locked_business(staff.business_id)
         member = (
-            await self.db.execute(scoped(Staff, staff.business_id).where(Staff.user_id == user.id))
+            await self.db.execute(
+                scoped(Staff, staff.business_id)
+                .where(Staff.user_id == user.id)
+                .execution_options(populate_existing=True)
+            )
         ).scalar_one_or_none()
         if member is not None and member.status == "active":
             raise Conflict("you're already on this team", code="already_member")
+        staff = await self._pending(token)
         # the plan may have changed since the invite went out
-        business = await self._locked_business(staff.business_id)
         await plans.assert_seat_free(self.db, business, clock.now(), member=staff.id)
         if member is not None:
             member.role, member.status = staff.role, "active"

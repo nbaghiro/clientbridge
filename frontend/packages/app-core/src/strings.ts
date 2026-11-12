@@ -2493,6 +2493,9 @@ interface Strings {
     readonly business: {
         readonly selectBusiness: string;
         readonly chooseBusiness: string;
+        readonly switchBusiness: string;
+        readonly chooseTitle: string;
+        readonly chooseBody: string;
         readonly switchError: string;
         readonly subtitle: string;
         readonly profileTitle: string;
@@ -2896,6 +2899,8 @@ interface Strings {
             readonly emailRequired: string;
             readonly emailInvalid: (email: string) => string;
             readonly alreadyMember: (email: string) => string;
+            readonly alreadyInvited: (email: string) => string;
+            readonly sentSoFar: (n: number, emails: string) => string;
             readonly inviteError: string;
             readonly actionError: string;
             readonly email: string;
@@ -4304,7 +4309,6 @@ interface Strings {
         readonly chooseServiceHint: string;
         readonly with: string;
         readonly anyone: string;
-        readonly anyoneHint: string;
         readonly date: string;
         readonly prevWeek: string;
         readonly nextWeek: string;
