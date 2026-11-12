@@ -447,13 +447,28 @@ function toNote(r: NoteDbRow, viewerStaffId: string | null): ClientNote {
 export const CLIENT_TEXTS_STOPPED_SQL = `
 SELECT created_at FROM (${TEXTS_STOPPED_SQL}) WHERE client_id = ? LIMIT 1`;
 
+export const NUMBER_REPLY_SQL = `
+SELECT status, created_at FROM consents
+WHERE phone = ? AND source = 'reply'
+ORDER BY created_at DESC, id DESC LIMIT 1`;
+
+function stoppedNote(createdAt: string, zone: string): string {
+    return s.record.textsStopped(formatDate(parseTimestamp(createdAt), zone));
+}
+
 /** "Texts stopped" with the day the client's number replied STOP, or null. */
 function useTextsStopped(clientId: string): string | null {
     const zone = useBusinessZone();
     const stop = useQuery<{ created_at: string }>(CLIENT_TEXTS_STOPPED_SQL, [clientId]).data[0];
-    return stop === undefined
-        ? null
-        : s.record.textsStopped(formatDate(parseTimestamp(stop.created_at), zone));
+    return stop === undefined ? null : stoppedNote(stop.created_at, zone);
+}
+
+/** The same for a number as typed, so a new or changed phone shows its own STOP. */
+function useNumberStopped(number: string | null): string | null {
+    const zone = useBusinessZone();
+    const reply = useQuery<{ status: string; created_at: string }>(NUMBER_REPLY_SQL, [number ?? ""])
+        .data[0];
+    return reply?.status === "withdrawn" ? stoppedNote(reply.created_at, zone) : null;
 }
 
 export const CLIENT_METHODS_SQL = `
@@ -574,6 +589,7 @@ export interface ClientDetail {
     methods: SavedCardRow[];
     plans: ClientPlan[];
     textsStopped: string | null;
+    offersDeclined: string | null;
 }
 
 interface EarlierVisits {
@@ -616,7 +632,12 @@ export function useClientRecord(
     const methods = useQuery<SavedCardRow>(CLIENT_METHODS_SQL, [id]);
     const plans = useQuery<PlanDbRow>(CLIENT_PLANS_SQL, [id, id]);
     const textsStopped = useTextsStopped(id);
+    const consent = useQuery<ConsentDbRow>(CLIENT_CONSENT_SQL, [id]).data[0];
     const zone = useBusinessZone();
+    const offersDeclined =
+        consent?.status === "withdrawn" && textsStopped === null
+            ? s.record.offersDeclined(formatDate(parseTimestamp(consent.created_at), zone))
+            : null;
     const row = client.data[0];
     const replica = useReplicaLoad([client, visits, subjects, notes], row === undefined);
     // a record opened as soon as it was created reaches the replica a moment later
@@ -648,9 +669,11 @@ export function useClientRecord(
             methods: methods.data,
             plans: plans.data.map((p) => toPlan(p, zone)),
             textsStopped,
+            offersDeclined,
         };
     }, [
         textsStopped,
+        offersDeclined,
         zone,
         row,
         visits.data,
@@ -722,10 +745,36 @@ function validateDraft(d: ClientDraft): DraftErrors {
 }
 
 export const CLIENT_CONSENT_SQL = `
-SELECT cn.status, cn.created_at, ${staffNameSql("st")} AS recorded_by_name
+SELECT cn.status, cn.source, cn.created_at, cn.expires_at, ${staffNameSql("st")} AS recorded_by_name
 FROM consents cn LEFT JOIN staff st ON st.user_id = cn.recorded_by
 WHERE cn.client_id = ?
-ORDER BY cn.created_at DESC LIMIT 1`;
+ORDER BY cn.created_at DESC, cn.id DESC LIMIT 1`;
+
+interface ConsentDbRow {
+    status: string;
+    source: string;
+    created_at: string;
+    expires_at: string | null;
+    recorded_by_name: string | null;
+}
+
+function consentNote(row: ConsentDbRow | undefined, zone: string): string | null {
+    if (row === undefined) return null;
+    const when = formatDate(parseTimestamp(row.created_at), zone);
+    const who = row.recorded_by_name ?? s.history.teammate;
+    const inPerson = row.source === "in_person";
+    if (row.status === "granted")
+        return inPerson
+            ? s.edit.consentRecorded(when, who)
+            : s.edit.consentAgreedBy(row.source, when);
+    if (row.status === "withdrawn")
+        return inPerson
+            ? s.edit.consentDeclined(when, who)
+            : s.edit.consentDeclinedBy(row.source, when);
+    if (row.expires_at === null) return null;
+    const expires = parseTimestamp(row.expires_at);
+    return expires <= new Date() ? null : s.edit.consentImplied(formatDate(expires, zone));
+}
 
 export interface ClientEditor {
     mode: "add" | "edit";
@@ -738,6 +787,7 @@ export interface ClientEditor {
     dirty: boolean;
     consentNote: string | null;
     textsStopped: string | null;
+    consentLocked: boolean;
     archivedNote: string | null;
     busy: boolean;
     error: string | null;
@@ -774,21 +824,22 @@ export function useClientEditor(
     const client = directory.find((c) => c.id === clientId) ?? null;
     const zone = useBusinessZone();
     const kind = useSubjectKind();
-    const consentRow = useQuery<{
-        status: string;
-        created_at: string;
-        recorded_by_name: string | null;
-    }>(CLIENT_CONSENT_SQL, [clientId ?? ""]).data[0];
-    const agreed = consentRow !== undefined && consentRow.status !== "withdrawn";
-    const textsStopped = useTextsStopped(clientId ?? "");
+    const consentRow = useQuery<ConsentDbRow>(CLIENT_CONSENT_SQL, [clientId ?? ""]).data[0];
+    // implied consent lapses, so only an express yes shows as agreed
+    const agreed = consentRow?.status === "granted";
     // an edited record keeps only the fields touched, so a field synced in meanwhile shows through
     const synced = useSyncedDraft(client === null ? null : contactOf(client));
     const [added, setAdded] = useState<ClientDraft>(EMPTY_DRAFT);
     const [consent, setConsent] = useState<boolean | null>(null);
+    const contact = { ...added, ...(synced.values ?? {}) };
+    const textsStopped = useNumberStopped(normalizePhone(contact.phone));
+    // only a START from the number lifts its STOP, so staff can't turn texts back on
+    const consentLocked = textsStopped !== null;
+    // a choice made before the STOP landed must not resurface once it lifts
+    if (consentLocked && consent !== null) setConsent(null);
     const draft: ClientDraft = {
-        ...added,
-        ...(synced.values ?? {}),
-        consent: consent ?? agreed,
+        ...contact,
+        consent: consentLocked ? false : (consent ?? agreed),
     };
     const [tried, setTried] = useState(false);
     const [ignored, setIgnored] = useState(false);
@@ -797,13 +848,15 @@ export function useClientEditor(
     const lifecycle = useClientLifecycle(api, client?.id ?? null);
     const attempt = useRef<Attempt | null>(null);
     const set = <K extends keyof ClientDraft>(key: K, value: ClientDraft[K]): void => {
-        if (key === "consent") setConsent(value as boolean);
-        else if (client !== null && CONTACT_FIELDS.includes(key))
+        if (key === "consent") {
+            // iOS's Switch still fires while disabled
+            if (!consentLocked) setConsent(value as boolean);
+        } else if (client !== null && CONTACT_FIELDS.includes(key))
             synced.set(key as keyof ContactFields, value as ContactFields[keyof ContactFields]);
         else setAdded((d) => ({ ...d, [key]: value }));
         setError(null);
     };
-    const consentChanged = consent !== null && consent !== agreed;
+    const consentChanged = !consentLocked && consent !== null && consent !== agreed;
     const contactChanged =
         client === null || synced.changes.name !== undefined || synced.changes.phone !== undefined;
     const found = contactChanged ? findDuplicates(draft, directory, clientId) : [];
@@ -899,14 +952,9 @@ export function useClientEditor(
             setIgnored(true);
         },
         dirty,
-        consentNote:
-            consentRow !== undefined && agreed
-                ? s.edit.consentRecorded(
-                      formatDate(parseTimestamp(consentRow.created_at), zone),
-                      consentRow.recorded_by_name ?? s.history.teammate,
-                  )
-                : null,
+        consentNote: consentNote(consentRow, zone),
         textsStopped,
+        consentLocked,
         archivedNote:
             client?.archived === true
                 ? client.archivedAt === null

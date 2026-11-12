@@ -3,10 +3,12 @@ import io
 from collections.abc import Collection, Sequence
 from datetime import datetime
 
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.deps import Principal, assert_role
+from clientbridge.core.errors import Conflict
 from clientbridge.core.ids import new_id
 from clientbridge.core.locale import locale_for, message
 from clientbridge.core.phones import e164
@@ -19,7 +21,7 @@ from clientbridge.schemas.consents import ConsentExport
 async def record_consent(
     db: AsyncSession,
     business_id: str,
-    client_id: str,
+    client_id: str | None,
     *,
     status: ConsentStatus,
     source: ConsentSource,
@@ -59,7 +61,8 @@ async def latest_consents(
     )
     latest: dict[str, Consent] = {}
     for row in rows:
-        latest.setdefault(row.client_id, row)
+        if row.client_id is not None:
+            latest.setdefault(row.client_id, row)
     return latest
 
 
@@ -75,10 +78,20 @@ async def set_marketing_consent(
     db: AsyncSession, business_id: str, client_id: str, *, agreed: bool, recorded_by: str | None
 ) -> None:
     """Record an in-person yes or no, only where it changes the current state."""
-    if agreed and await texts_stopped(db, business_id, client_id):
-        return  # only a START from the client's number lifts a STOP
+    phone = await db.scalar(
+        scoped(Client, business_id).with_only_columns(Client.phone).where(Client.id == client_id)
+    )
+    number = e164(phone) if phone else None
+    if agreed and number is not None and await number_stopped(db, business_id, number):
+        raise Conflict(
+            "this client's number replied STOP; only a START from it turns texts back on",
+            code="number_stopped",
+        )
     current = (await latest_consents(db, business_id, [client_id])).get(client_id)
-    if allows_marketing(current) == agreed:
+    # implied consent lapses, so an in-person yes on top of it is still worth recording
+    express = current is not None and current.status == "granted"
+    unchanged = express if agreed else not allows_marketing(current)
+    if unchanged:
         return
     await record_consent(
         db,
@@ -87,6 +100,7 @@ async def set_marketing_consent(
         status="granted" if agreed else "withdrawn",
         source="in_person",
         recorded_by=recorded_by,
+        phone=number,
     )
 
 
@@ -135,14 +149,16 @@ async def texts_stopped(db: AsyncSession, business_id: str, client_id: str) -> b
     return client_id in await stopped_clients(db, business_id, [client_id])
 
 
-async def record_text_reply(db: AsyncSession, client: Client, number: str, *, stop: bool) -> bool:
-    """A STOP or START from the number, filed under its client; True when it changed the number."""
-    if await number_stopped(db, client.business_id, number) == stop:
+async def record_text_reply(
+    db: AsyncSession, business_id: str, client_id: str | None, number: str, *, stop: bool
+) -> bool:
+    """A STOP or START from the number, filed under its client if any; True when it changed."""
+    if await number_stopped(db, business_id, number) == stop:
         return False
     await record_consent(
         db,
-        client.business_id,
-        client.id,
+        business_id,
+        client_id,
         status="withdrawn" if stop else "granted",
         source="reply",
         recorded_by=None,
@@ -175,7 +191,7 @@ class ConsentService:
         self.biz = principal.business_id
 
     async def export(self) -> ConsentExport:
-        """Every consent change on record (CASL record keeping), oldest first per client."""
+        """Every consent change (CASL record keeping), oldest first per client or number."""
         assert_role(
             self.principal, "owner", "admin", message="only an owner or admin can export consent"
         )
@@ -183,9 +199,14 @@ class ConsentService:
             await self.db.execute(
                 scoped(Consent, self.biz)
                 .add_columns(Client.name, Client.phone, User.email)
-                .join(Client, Client.id == Consent.client_id)
+                .outerjoin(Client, Client.id == Consent.client_id)
                 .outerjoin(User, User.id == Consent.recorded_by)
-                .order_by(Client.name, Client.id, Consent.created_at, Consent.id)
+                .order_by(
+                    Client.name,
+                    func.coalesce(Client.id, Consent.phone),
+                    Consent.created_at,
+                    Consent.id,
+                )
             )
         ).all()
         locale = locale_for(
@@ -198,8 +219,8 @@ class ConsentService:
         for consent, name, phone, recorded_by in rows:
             writer.writerow(
                 [
-                    _cell(name),
-                    phone or "",
+                    _cell(name or ""),
+                    consent.phone or phone or "",
                     consent.status,
                     consent.source,
                     consent.created_at.isoformat(),

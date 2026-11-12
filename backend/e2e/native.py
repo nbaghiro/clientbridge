@@ -463,6 +463,9 @@ def run_native(
             check=True,
         ).stdout
 
+    def text_in(body: bytes) -> None:
+        e2e_action("text-in", body.decode().split(" ", 1))
+
     def payment_account(body: bytes) -> None:
         subprocess.run(
             [sys.executable, "-m", "e2e.actions", "payment-account", body.decode()],
@@ -497,6 +500,7 @@ def run_native(
                 "/notes": lambda body: e2e_action("notes", [body.decode()]),
                 "/client-photo": lambda body: e2e_action("client-photo", body.decode().split()),
                 "/tax-quarter": lambda body: e2e_action("tax-quarter", [body.decode()]),
+                "/text-in": text_in,
             },
             stack.directory / "control.log",
         ) as control,

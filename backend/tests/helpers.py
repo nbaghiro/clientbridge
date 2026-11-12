@@ -122,7 +122,7 @@ async def replied_stop(db: AsyncSession, client_id: str) -> None:
     client = await db.get(Client, client_id)
     number = e164(client.phone or "") if client is not None else None
     assert client is not None and number is not None
-    await record_text_reply(db, client, number, stop=True)
+    await record_text_reply(db, client.business_id, client.id, number, stop=True)
 
 
 async def local_hour(db: AsyncSession, hour: int, business_id: str = BIZ) -> datetime:

@@ -211,6 +211,9 @@
     "api.textsStopped": {
         "message": "This client replied STOP, so they can’t be texted. Copy the link and share it another way."
     },
+    "api.numberStopped": {
+        "message": "This number replied STOP. Texts come back on only when it replies START."
+    },
     "api.padUnavailable": {
         "message": "Bank debit isn't turned on for this business yet. Open Getting paid in Setup to see what Stripe needs."
     },
@@ -5654,6 +5657,10 @@
         "message": "Their number replied STOP on {when}. Texts stay off until it replies START.",
         "args": ["when"]
     },
+    "clients.record.offersDeclined": {
+        "message": "Said no to news and offers on {when}.",
+        "args": ["when"]
+    },
     "clients.record.inProgress": {
         "message": "In progress"
     },
@@ -5744,6 +5751,24 @@
     "clients.edit.consentRecorded": {
         "message": "Agreed {when}, recorded by {who}",
         "args": ["when", "who"]
+    },
+    "clients.edit.consentAgreedBy": {
+        "message": "{source, select, form {Agreed on a form on {when}} online_booking {Agreed when booking online on {when}} reply {Agreed by replying START on {when}} other {Agreed on {when}}}",
+        "description": "How a client agreed to news and offers when no teammate recorded it",
+        "args": ["source", "when"]
+    },
+    "clients.edit.consentDeclined": {
+        "message": "Said no {when}, recorded by {who}",
+        "args": ["when", "who"]
+    },
+    "clients.edit.consentDeclinedBy": {
+        "message": "{source, select, form {Said no on a form on {when}} reply {Said no by replying STOP on {when}} other {Said no on {when}}}",
+        "description": "How a client said no to news and offers when no teammate recorded it",
+        "args": ["source", "when"]
+    },
+    "clients.edit.consentImplied": {
+        "message": "Implied by a booking or purchase until {date}. Ask them in person to keep sending offers.",
+        "args": ["date"]
     },
     "clients.edit.nameRequired": {
         "message": "Enter the client's name."

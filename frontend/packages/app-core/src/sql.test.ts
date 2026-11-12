@@ -2400,7 +2400,13 @@ describe("app-core SQL against the replica schema", () => {
             { id: "nt_2", author_staff_id: null, subject_name: "Rex" },
         ]);
         expect(run("CLIENT_CONSENT_SQL", ["cl_ann"])).toEqual([
-            { status: "granted", created_at: TS, recorded_by_name: null },
+            {
+                status: "granted",
+                source: "in_person",
+                created_at: TS,
+                expires_at: null,
+                recorded_by_name: null,
+            },
         ]);
         expect(run("CLIENT_METHODS_SQL", ["cl_ann"]).map((r) => r.id)).toEqual([
             "pm_main",
@@ -2583,14 +2589,46 @@ describe("app-core SQL against the replica schema", () => {
             { created_at: "2026-06-20T08:00:00Z" },
         ]);
         expect(run("CLIENT_TEXTS_STOPPED_SQL", ["cl_ben"])).toEqual([]);
+        // the editor reads the number as typed, newest reply first, whoever holds it
+        expect(run("NUMBER_REPLY_SQL", ["+16045550001"])).toEqual([
+            { status: "withdrawn", created_at: "2026-06-20T08:00:00Z" },
+        ]);
+        expect(run("NUMBER_REPLY_SQL", ["+16045550002"])).toEqual([]);
         scoped("consents", [reply("cns_s3", "cl_ann", "granted", "2026-06-22T08:00:00Z")]);
         expect(run("TEXTS_STOPPED_SQL")).toEqual([]);
         expect(run("CLIENT_TEXTS_STOPPED_SQL", ["cl_ann"])).toEqual([]);
+        expect(pick(run("NUMBER_REPLY_SQL", ["+16045550001"]), "status")).toEqual([
+            { status: "granted" },
+        ]);
         scoped("consents", [reply("cns_s4", "cl_ann", "withdrawn", "2026-06-23T08:00:00Z")]);
         db.run("UPDATE clients SET phone = '+16045550009' WHERE id = 'cl_ann'");
         expect(run("TEXTS_STOPPED_SQL")).toEqual([]);
         db.run("DELETE FROM consents WHERE id IN ('cns_s1', 'cns_s2', 'cns_s3', 'cns_s4')");
         db.run("UPDATE clients SET phone = '+16045550001' WHERE id = 'cl_ann'");
+    });
+
+    it("holds a STOP from a number no client has for whoever takes it, under no client", () => {
+        scoped("consents", [
+            {
+                id: "cns_n1",
+                client_id: null,
+                status: "withdrawn",
+                source: "reply",
+                phone: "+16045550077",
+                created_at: "2026-06-20T08:00:00Z",
+            },
+        ]);
+        expect(run("LATEST_CONSENTS_SQL").filter((r) => r.client_id === null)).toEqual([]);
+        expect(run("NUMBER_REPLY_SQL", ["+16045550077"])).toEqual([
+            { status: "withdrawn", created_at: "2026-06-20T08:00:00Z" },
+        ]);
+        expect(run("TEXTS_STOPPED_SQL").some((r) => r.client_id === "cl_ben")).toBe(false);
+        db.run("UPDATE clients SET phone = '+16045550077' WHERE id = 'cl_ben'");
+        expect(run("CLIENT_TEXTS_STOPPED_SQL", ["cl_ben"])).toEqual([
+            { created_at: "2026-06-20T08:00:00Z" },
+        ]);
+        db.run("UPDATE clients SET phone = NULL WHERE id = 'cl_ben'");
+        db.run("DELETE FROM consents WHERE id = 'cns_n1'");
     });
 
     it("matches a STOP to a client's number by its digits, as the server reads it", () => {

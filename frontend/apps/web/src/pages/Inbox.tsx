@@ -389,14 +389,16 @@ function Thread({
 function Composer({ composer }: { composer: ThreadComposer }) {
     return (
         <div className="space-y-2.5 border-t border-line bg-surface px-5 py-3">
-            <Choice
-                label={s.quickReplies}
-                options={quickReplies()}
-                value={null}
-                onChange={(k) => {
-                    composer.setBody(quickReplies().find((q) => q.key === k)?.text ?? "");
-                }}
-            />
+            {composer.smsBlocked ? null : (
+                <Choice
+                    label={s.quickReplies}
+                    options={quickReplies()}
+                    value={null}
+                    onChange={(k) => {
+                        composer.setBody(quickReplies().find((q) => q.key === k)?.text ?? "");
+                    }}
+                />
+            )}
             <TextField
                 multiline
                 rows={2}

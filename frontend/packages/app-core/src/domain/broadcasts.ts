@@ -23,7 +23,7 @@ const b = strings.broadcasts;
 export const LATEST_CONSENTS_SQL = `
 SELECT k.client_id, k.status, k.source, k.created_at, k.expires_at
 FROM consents k
-WHERE NOT EXISTS (
+WHERE k.client_id IS NOT NULL AND NOT EXISTS (
     SELECT 1 FROM consents n
     WHERE n.client_id = k.client_id
       AND (n.created_at > k.created_at OR (n.created_at = k.created_at AND n.id > k.id))
@@ -533,7 +533,7 @@ interface BroadcastActions {
 /** `save` hands the CSV to the platform: a download on web, the share sheet on a phone. */
 export function useBroadcastActions(
     api: ApiLike,
-    save: (filename: string, content: string) => void,
+    save: (filename: string, content: string) => void | Promise<void>,
 ): BroadcastActions {
     const [exported, setExported] = useState<string | null>(null);
     const { busy, error, run } = useAsyncAction();
@@ -548,7 +548,7 @@ export function useBroadcastActions(
                         "/v1/consents/export",
                         {},
                     );
-                    save(out.filename, out.content);
+                    await save(out.filename, out.content);
                     setExported(out.filename);
                 },
                 { errorMessage: b.actionErrors.exportFailed },

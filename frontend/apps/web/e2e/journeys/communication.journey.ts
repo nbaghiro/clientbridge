@@ -16,7 +16,7 @@ import {
     expectClassState,
     type ClassFixture,
 } from "../support/classes";
-import { openClient, type ClientFixture, clientCommand, editClient } from "../support/clients";
+import { openClient, type ClientFixture, editClient } from "../support/clients";
 import {
     BIRCHBARK_SMS,
     apiBase,
@@ -377,11 +377,15 @@ test("MSG-E2E-15 a STOP holds against the staff toggle until the client replies 
     const editor = await editClient(page, contact);
     const toggle = editor.getByRole("switch", { name: strings.clients.edit.consentLabel });
     await expect(toggle).not.toBeChecked();
-    await toggle.check();
-    const saving = clientCommand(page, `/${contact.id}`, "PATCH");
-    await editor.getByRole("button", { name: strings.clients.edit.save, exact: true }).click();
-    expect((await saving).status()).toBe(200);
-    // only the client's own START lifts a STOP, so the staff toggle records nothing
+    // only the client's own START lifts a STOP, so the staff toggle is locked and the API refuses
+    await expect(toggle).toBeDisabled();
+    const forced = await page.request.patch(`${apiBase()}/v1/clients/${contact.id}`, {
+        data: { marketing_consent: true },
+        headers: headers(page),
+    });
+    expect(forced.status()).toBe(409);
+    expect(await forced.json()).toMatchObject({ error: "number_stopped" });
+    await editor.getByRole("button", { name: strings.common.cancel, exact: true }).click();
     expect(consents((await clientOutreach(contact.id)).consents)).toEqual([["withdrawn", "reply"]]);
 
     await navigate(page, "/inbox");
@@ -400,6 +404,14 @@ test("MSG-E2E-15 a STOP holds against the staff toggle until the client replies 
         ["in", "arrêt"],
     ]);
     await dialog.getByRole("button", { name: s.cancel, exact: true }).click();
+    const quickReply = page.getByRole("button", {
+        name: s.quickReplyOptions[0].label,
+        exact: true,
+    });
+    const stopped = await openInboxThread(page, contact);
+    await expect(stopped.getByText("arrêt", { exact: true })).toHaveCount(1);
+    // a quick reply would only fill a composer that can't send
+    await expect(quickReply).toHaveCount(0);
 
     const start = await postInboundSms(page.request, {
         from: contact.phone,
@@ -411,11 +423,23 @@ test("MSG-E2E-15 a STOP holds against the staff toggle until the client replies 
         ["withdrawn", "reply"],
         ["granted", "reply"],
     ]);
+    const agreed = await editClient(page, contact);
+    await expect(
+        agreed.getByText(
+            strings.clients.edit.consentAgreedBy("reply", formatDate(new Date(), zone)),
+            { exact: true },
+        ),
+    ).toBeVisible({ timeout: 60_000 });
+    await expect(
+        agreed.getByRole("switch", { name: strings.clients.edit.consentLabel }),
+    ).toBeChecked();
+    await agreed.getByRole("button", { name: strings.common.cancel, exact: true }).click();
     const log = await openInboxThread(page, contact);
     await expect(log.getByText("START", { exact: true })).toHaveCount(1);
     await expect(
         page.getByText(s.textsOffTitle(contact.name.split(" ")[0] ?? ""), { exact: true }),
     ).toHaveCount(0, { timeout: 60_000 });
+    await expect(quickReply).toBeVisible();
     const reply = page.getByRole("textbox", { name: s.replyPlaceholder, exact: true });
     await reply.fill("Thanks for coming back. Friday at 10 works.");
     const sent = page.waitForResponse(

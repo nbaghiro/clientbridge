@@ -150,11 +150,9 @@ async def test_a_repeated_stop_or_a_start_from_a_number_never_stopped_records_no
     db: AsyncSession,
 ) -> None:
     cid = await _client_with_phone(db)
-    client = await db.get(Client, cid)
-    assert client is not None
-    assert not await record_text_reply(db, client, PHONE, stop=False)
-    assert await record_text_reply(db, client, PHONE, stop=True)
-    assert not await record_text_reply(db, client, PHONE, stop=True)
+    assert not await record_text_reply(db, BIZ, cid, PHONE, stop=False)
+    assert await record_text_reply(db, BIZ, cid, PHONE, stop=True)
+    assert not await record_text_reply(db, BIZ, cid, PHONE, stop=True)
     replies = await db.scalars(select(Consent.id).where(Consent.client_id == cid))
     assert len(list(replies)) == 1
 

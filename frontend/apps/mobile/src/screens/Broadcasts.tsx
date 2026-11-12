@@ -40,10 +40,11 @@ import {
     DateTimeField,
 } from "@clientbridge/ui";
 import { useState } from "react";
-import { ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Loaded } from "../components/Loaded";
 import { api } from "../lib/api";
+import { shareFile } from "../lib/files";
 
 const c = theme.colors;
 const s = strings.broadcasts;
@@ -54,9 +55,8 @@ const STEPS: Step[] = ["audience", "message", "review"];
 const dateOf = (value: string, zone: string): string =>
     value === "" ? "" : formatDate(parseTimestamp(value), zone);
 
-const shareCsv = (_filename: string, content: string): void => {
-    Share.share({ message: content }).catch(() => undefined);
-};
+const shareCsv = (filename: string, content: string): Promise<void> =>
+    shareFile(content, filename, "text/csv");
 
 export function Broadcasts() {
     const [composing, setComposing] = useState<BroadcastSeed | null>(null);

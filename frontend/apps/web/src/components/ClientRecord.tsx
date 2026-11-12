@@ -415,6 +415,11 @@ export function ClientRecordView({
                     {record.textsStopped}
                 </Notice>
             ) : null}
+            {record.offersDeclined !== null ? (
+                <Notice tone="info" banner>
+                    {record.offersDeclined}
+                </Notice>
+            ) : null}
             <div className="rounded-md border border-line bg-bg px-4 py-3">
                 <RecordFacts record={record} manager={manager} />
             </div>
