@@ -33,7 +33,7 @@ import {
 import { type Checkout, type CheckoutMethod, NEW_CARD, useCheckout } from "./checkout";
 import { clientOption, packageBalance, useClients } from "./clients";
 import { ownedLiabilitySql, sessionsUsedSql } from "./ledger";
-import { checkoutMethods, useSavedCards } from "./payments";
+import { cardNoun, checkoutMethods, useSavedCards } from "./payments";
 import { CLIENT_SUBJECTS_SQL, type SubjectDbRow, kindWord, useSubjectKind } from "./subjects";
 import { useReplicaLoad } from "./sync";
 import { asTaxClass, useTaxSetup } from "./taxes";
@@ -157,14 +157,11 @@ export function subscriptionStatusIntent(status: string): Intent {
 }
 
 /** Live (still-billing) subscriptions can be canceled; a canceled one is terminal. */
-export function isCancelable(status: string): boolean {
+function isCancelable(status: string): boolean {
     return status !== "canceled";
 }
 
-export function cancelSubscription(
-    api: ApiLike,
-    id: string,
-): Promise<{ id: string; status: string }> {
+function cancelSubscription(api: ApiLike, id: string): Promise<{ id: string; status: string }> {
     return api.post<{ id: string; status: string }>(`/v1/subscriptions/${id}/cancel`, {});
 }
 
@@ -175,6 +172,33 @@ function cancelPurchase(api: ApiLike, paymentId: string): Promise<unknown> {
         {},
         { idempotencyKey: newIdempotencyKey() },
     );
+}
+
+interface SubscriptionCancel {
+    cancelable: boolean;
+    cancel: () => void;
+    busy: boolean;
+    error: string | null;
+}
+
+/** Cancelling a membership from the wallet; a failure stops showing once the row syncs canceled. */
+export function useSubscriptionCancel(
+    api: ApiLike,
+    sub: { id: string; status: string },
+): SubscriptionCancel {
+    const { busy, error, run } = useAsyncAction();
+    const cancelable = isCancelable(sub.status);
+    return {
+        cancelable,
+        cancel: () => {
+            run(() => cancelSubscription(api, sub.id), {
+                errorMessage: strings.clients.cancelSubscriptionError,
+            });
+        },
+        busy,
+        // a lost response can leave an error behind a cancel that went through
+        error: cancelable ? error : null,
+    };
 }
 
 interface GiftCardRedeemResult {
@@ -419,10 +443,7 @@ function summarizeEntitlement(r: WalletRow, zone: string): EntitlementSummary {
     if (r.kind === "membership") {
         const card =
             r.method_last4 !== null
-                ? strings.payments.savedCardLabel(
-                      r.method_brand ?? strings.payments.cardNoun,
-                      r.method_last4,
-                  )
+                ? strings.payments.savedCardLabel(cardNoun(r.method_brand), r.method_last4)
                 : null;
         return {
             ...base,

@@ -405,32 +405,10 @@ export async function ringCash(
         given: string;
     },
 ): Promise<Locator> {
-    await navigate(page, "/payments/sales");
-    await page.getByRole("searchbox", { name: d.searchShort, exact: true }).fill(sale.product.sku);
-    const tile = page.getByRole("button", { name: sale.product.name, exact: true });
-    await expect(tile).toContainText(d.inStock(sale.stock), { timeout: 60_000 });
-    await tile.click();
-    for (let count = 1; count < sale.taps; count++)
-        await page
-            .getByRole("button", {
-                name: strings.ui.onTicket(sale.product.name, count),
-                exact: true,
-            })
-            .click();
-    await expect(
-        page.getByRole("button", {
-            name: strings.ui.onTicket(sale.product.name, sale.taps),
-            exact: true,
-        }),
-    ).toBeVisible();
-    const ticket = saleTicket(page);
-    await ticket.getByRole("button").filter({ hasText: d.chooseClient }).click();
-    await ticket
-        .getByRole("searchbox", { name: d.clientSearch, exact: true })
-        .fill(sale.client.name);
-    await ticket.getByRole("button").filter({ hasText: sale.client.name }).click();
-    await expect(ticket).toContainText(sale.client.name);
-    await ticket.getByRole("button", { name: d.charge(sale.charge), exact: true }).click();
+    await ringUp(page, sale);
+    await saleTicket(page)
+        .getByRole("button", { name: d.charge(sale.charge), exact: true })
+        .click();
     const payment = paymentPanel(page);
     await skipTip(payment);
     await choosePaymentMethod(payment, d.methodCash);
@@ -457,4 +435,36 @@ export async function payCash(
         amount_cents: number;
         change_cents: number;
     };
+}
+
+/** Rings units of a product for a client and opens the payment step without choosing a tip. */
+async function ringUp(
+    page: Page,
+    sale: { product: StockedProduct; stock: number; taps: number; client: ClientFixture },
+): Promise<void> {
+    await navigate(page, "/payments/sales");
+    await page.getByRole("searchbox", { name: d.searchShort, exact: true }).fill(sale.product.sku);
+    const tile = page.getByRole("button", { name: sale.product.name, exact: true });
+    await expect(tile).toContainText(d.inStock(sale.stock), { timeout: 60_000 });
+    await tile.click();
+    for (let count = 1; count < sale.taps; count++)
+        await page
+            .getByRole("button", {
+                name: strings.ui.onTicket(sale.product.name, count),
+                exact: true,
+            })
+            .click();
+    await expect(
+        page.getByRole("button", {
+            name: strings.ui.onTicket(sale.product.name, sale.taps),
+            exact: true,
+        }),
+    ).toBeVisible();
+    const ticket = saleTicket(page);
+    await ticket.getByRole("button").filter({ hasText: d.chooseClient }).click();
+    await ticket
+        .getByRole("searchbox", { name: d.clientSearch, exact: true })
+        .fill(sale.client.name);
+    await ticket.getByRole("button").filter({ hasText: sale.client.name }).click();
+    await expect(ticket).toContainText(sale.client.name);
 }

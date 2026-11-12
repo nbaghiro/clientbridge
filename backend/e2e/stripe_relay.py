@@ -26,12 +26,14 @@ from clientbridge.integrations.stripe import (
 from e2e.stripe_clients import client_fixtures, client_tags
 from e2e.stripe_context import guard, identity, state_path, tags
 from e2e.stripe_deposits import deposit_fixtures, fixture_tags, load_deposit
+from e2e.stripe_pool import other_pairs
 
 
 class Target(BaseModel):
     intent: str
     invoice: str | None = None
     booking: str | None = None
+    client: str | None = None
 
 
 class RelayFixture(BaseModel):
@@ -79,6 +81,7 @@ class Relay:
         self,
         manifest: Path,
         upstream: str,
+        account: str,
         *,
         transport: Callable[[str, bytes, str], int] | None = None,
     ) -> None:
@@ -99,6 +102,9 @@ class Relay:
         self.requests: set[socket.socket] = set()
         self.connections: set[HTTPConnection] = set()
         self.releasing = False
+        self.resend: Callable[[str], None] | None = None
+        self.resent: str | None = None
+        self.others = other_pairs(account)
 
     def forward(self, url: str, body: bytes, signature: str) -> int:
         parsed = urlsplit(url)
@@ -152,11 +158,13 @@ class Relay:
             manifest = RelayManifest.model_validate_json(self.manifest.read_text())
             if self.target is not None or self.held is not None:
                 raise ValueError("relay already armed")
-            owned = (
-                sum(fixture.invoice == target.invoice for fixture in manifest.fixtures) == 1
-                if target.booking is None
-                else target.invoice is None and self.deposit(target.booking).startswith("cus_")
-            )
+            if target.client is not None:
+                owned = target.invoice is None and target.booking is None
+                owned = owned and self.purchaser(target.client).startswith("cus_")
+            elif target.booking is not None:
+                owned = target.invoice is None and self.deposit(target.booking).startswith("cus_")
+            else:
+                owned = sum(fixture.invoice == target.invoice for fixture in manifest.fixtures) == 1
             if not target.intent.startswith("pi_") or not owned:
                 raise ValueError("target is not a registered fixture")
             self.target = target
@@ -169,10 +177,23 @@ class Relay:
             raise ValueError("the deposit fixture has no customer yet")
         return fixture.customer
 
+    def purchaser(self, client: str) -> str:
+        """The customer of the registered client fixture, for a gift card or package purchase."""
+        fixtures = client_fixtures(json.loads(self.manifest.read_text()), complete=True)
+        fixture = next(fixture for fixture in fixtures if fixture.client == client)
+        if fixture.customer is None:
+            raise ValueError("the client fixture has no customer yet")
+        return fixture.customer
+
     def owns(self, target: Target, event: Event) -> bool:
         manifest = RelayManifest.model_validate_json(self.manifest.read_text())
         intent = event.data.object
-        if target.booking is None:
+        if target.client is not None:
+            customer = self.purchaser(target.client)
+            lineage = not intent.metadata.get("invoice_id") and not intent.metadata.get(
+                "booking_id"
+            )
+        elif target.booking is None:
             fixture = next(row for row in manifest.fixtures if row.invoice == target.invoice)
             customer = fixture.customer
             lineage = intent.metadata.get("invoice_id") == fixture.invoice
@@ -196,6 +217,9 @@ class Relay:
             if self.stopping.is_set():
                 raise OSError("relay is stopping")
             stripe.Webhook.construct_event(body, signature, self.secret)
+            # the listener streams every account under the platform, other runs' pairs included
+            if json.loads(body).get("account") in self.others:
+                return 200
             if self.target is not None:
                 envelope = json.loads(body)
                 if envelope.get("type") == "payment_intent.succeeded":
@@ -210,7 +234,11 @@ class Relay:
                         self.held = (body, signature, event.id, time.monotonic())
                         self.record("held", event=event.id, intent=intent.id)
                         return 202
-        return self.transport(self.upstream, body, signature)
+        status = self.transport(self.upstream, body, signature)
+        if self.resent is not None and json.loads(body).get("id") == self.resent:
+            with self.lock:
+                self.record("forwarded", event=self.resent, upstream_status=status)
+        return status
 
     def status(self) -> dict[str, object]:
         with self.lock:
@@ -263,6 +291,21 @@ class Relay:
         finally:
             with self.lock:
                 self.releasing = False
+
+    def late(self) -> str:
+        """Have Stripe send the held event again later, as it does after a failed delivery."""
+        with self.lock:
+            if self.stopping.is_set() or self.releasing or self.resend is None:
+                raise ValueError("relay is stopping, releasing or can't ask Stripe to resend")
+            event_id = self.held[2] if self.held is not None else self.resent
+            if event_id is None:
+                raise ValueError("no held event to send again")
+            self.held = None
+            self.target = None
+            self.resent = event_id
+            self.record("resend_requested", event=event_id)
+        self.resend(event_id)
+        return event_id
 
     def recover(self, resend: Callable[[str], None]) -> None:
         with self.lock:
@@ -346,6 +389,9 @@ class Relay:
                             deliver = relay.release if self.path == "/release" else relay.redeliver
                             self.send_json(200, {"upstream_status": deliver()})
                             return
+                        elif self.path == "/resend":
+                            self.send_json(200, {"event": relay.late()})
+                            return
                         elif self.path != "/status":
                             self.send_error(404)
                             return
@@ -358,7 +404,7 @@ class Relay:
                     stripe.SignatureVerificationError,
                 ):
                     self.send_json(400, {"error": "relay_rejected"})
-                except OSError:
+                except (OSError, subprocess.SubprocessError):
                     self.send_json(503, {"error": "upstream_unavailable"})
 
             def send_json(self, status: int, result: dict[str, object]) -> None:
@@ -441,8 +487,19 @@ def delivery_tags(state: dict[str, object], intent: dict[str, object]) -> dict[s
 async def event_customer(account: str, owned: dict[str, object]) -> str:
     """The customer behind an event's object; only customer-owned objects can be redelivered."""
     kind = owned.get("object")
-    if kind in ("payment_intent", "charge", "invoice", "subscription", "setup_intent"):
+    if kind in (
+        "payment_intent",
+        "charge",
+        "invoice",
+        "subscription",
+        "setup_intent",
+        "payment_method",
+    ):
         customer = owned.get("customer")
+    elif kind == "mandate" and isinstance(method := owned.get("payment_method"), str):
+        customer = (
+            await stripe.PaymentMethod.retrieve_async(method, stripe_account=account)
+        ).customer
     elif kind in ("refund", "dispute") and isinstance(intent := owned.get("payment_intent"), str):
         customer = (
             await stripe.PaymentIntent.retrieve_async(intent, stripe_account=account)

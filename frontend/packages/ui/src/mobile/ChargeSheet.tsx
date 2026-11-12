@@ -27,6 +27,7 @@ export function ChargeSheet({
     if (checkout.clientSecret !== null) {
         return (
             <CardForm
+                variant="desk"
                 style={style}
                 clientSecret={checkout.clientSecret}
                 stripeAccount={stripeAccount ?? currentStripeAccount()}

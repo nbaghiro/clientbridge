@@ -33,6 +33,7 @@ import { formatMoney, formatParts, normalizePhone, BUSINESS_CURRENCY } from "../
 import { isConnectionFailure, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { DocTotalLine, OptionMedia, ProgressStep } from "../ui";
+import { returnedPaid, type StripeReturn } from "./checkout";
 import { personMedia } from "./files";
 import {
     type PublicBrand,
@@ -647,6 +648,8 @@ export function usePublicBookingFlow(
         itemId?: string | undefined;
         staffId?: string | undefined;
         startsAt?: string | undefined;
+        // Stripe's answer when a redirect deposit (3D Secure, Klarna) sends the client back
+        returned?: StripeReturn | null | undefined;
     },
 ) {
     const {
@@ -655,6 +658,7 @@ export function usePublicBookingFlow(
         data: page,
         retry: retryLoad,
     } = usePublicResource(client.getServices, slug);
+    const [returned] = useState(() => initial?.returned ?? null);
     const kind = page?.subject ?? null;
     // Until the page loads nothing is shown, so the visitor's own zone stands in.
     const zone = page?.timezone ?? deviceZone();
@@ -800,13 +804,28 @@ export function usePublicBookingFlow(
         }
         setResult(held.result);
         setHeldSlot(held.slot);
+        // Stripe's event can land after the client is back, so its answer stands until then
+        if (returnedPaid(returned)) {
+            setStep("done");
+            return;
+        }
         setStep("pay");
         setResuming({
             token: held.result.manage_token ?? "",
             back: extras ? "extras" : "time",
             attempt: 0,
         });
-    }, [page, status, held, selection.itemId, selection.staffId, selection.startsAt, today, zone]);
+    }, [
+        page,
+        status,
+        held,
+        returned,
+        selection.itemId,
+        selection.staffId,
+        selection.startsAt,
+        today,
+        zone,
+    ]);
 
     useEffect(() => {
         if (resuming === null) return;
@@ -1457,8 +1476,13 @@ export function createManageBookingClient(baseUrl: string): ManageBookingClient 
 type ManageMode = "view" | "move" | "cancel" | "moved" | "canceled" | "message";
 
 /** The manage-booking page: what's booked, and moving or cancelling within the business's cut-offs. */
-export function useManageBooking(client: ManageBookingClient, token: string) {
+export function useManageBooking(
+    client: ManageBookingClient,
+    token: string,
+    returnedNow: StripeReturn | null = null,
+) {
     const { status, data, setData } = usePublicResource(client.getBooking, token);
+    const [returned] = useState(returnedNow);
     const [messageBody, setMessageBody] = useState("");
     const [messageSent, setMessageSent] = useState(false);
     const messageKey = useRef<Attempt | null>(null);
@@ -1479,6 +1503,19 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
     const snapToOpen = useRef(false);
     const { busy, error, run } = useAsyncAction();
     const depositAction = useAsyncAction();
+    const setDepositError = depositAction.setError;
+    const readReturn = useRef(false);
+    useEffect(() => {
+        if (readReturn.current || data === null || returned === null) return;
+        readReturn.current = true;
+        if (returned.status === "failed") {
+            setDepositError(strings.checkout.paymentFailed);
+            return;
+        }
+        setDepositThanks(true);
+        // Stripe's event can land after the client is back, so its answer stands until then
+        if (data.deposit_due) setData({ ...data, deposit_status: "collected", deposit_due: false });
+    }, [data, returned, setData, setDepositError]);
 
     const now = data ? parseTimestamp(data.now) : new Date();
     // Until the booking loads nothing is shown, so the visitor's own zone stands in.

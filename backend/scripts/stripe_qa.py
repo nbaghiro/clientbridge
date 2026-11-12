@@ -19,6 +19,7 @@ from e2e import stripe_shapes
 from e2e.stripe_pool import lease_file, pair, pairs
 
 from clientbridge.integrations.stripe import StripeGateway, close_stripe_client
+from scripts.stripe_setup import PORTAL_KEY, TAG
 
 REQUIRED = (
     "STRIPE_TEST_SECRET_KEY",
@@ -52,6 +53,8 @@ def environment(profile: str | None, leased: dict[str, str] | None = None) -> di
 
 async def preflight(env: dict[str, str]) -> None:
     StripeGateway(env["STRIPE_TEST_SECRET_KEY"], "", "CA")
+    # the gateway turns SDK retries off for the app; these readiness reads should ride out a blip
+    stripe.max_network_retries = 2
     try:
         platform = await stripe.Account.retrieve_async()
         if platform.id != env["STRIPE_TEST_PLATFORM"]:
@@ -69,6 +72,12 @@ async def preflight(env: dict[str, str]) -> None:
                 raise ValueError(f"{name} must settle in CAD")
             if (await stripe.Balance.retrieve_async(stripe_account=env[name])).livemode:
                 raise ValueError("live connected account is forbidden in QA")
+        # the plan's billing portal opens with the configuration `stripe_setup --apply` made
+        if not env.get("STRIPE_PORTAL_CONFIGURATION"):
+            portals = await stripe.billing_portal.Configuration.list_async(active=True, limit=100)
+            async for portal in portals.auto_paging_iter():
+                if (portal.to_dict().get("metadata") or {}).get(TAG) == PORTAL_KEY:
+                    env["STRIPE_PORTAL_CONFIGURATION"] = portal.id
     finally:
         await close_stripe_client()
 

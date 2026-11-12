@@ -3,6 +3,7 @@ import { StripeTerminalProvider, useStripeTerminal } from "@stripe/stripe-termin
 import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
 
 import { terminalSimulated } from "../lib/config";
+import { readerConnected } from "../lib/terminal";
 
 // Needs a dev build and a Tap to Pay device or `terminalSimulated`; it does not run in Expo Go.
 
@@ -77,7 +78,7 @@ export function useTerminalCheckout(locationId: string | null): TerminalCheckout
                 setPhase("error");
                 return;
             }
-            if (readerRef.current != null) {
+            if (readerConnected(initialized, readerRef.current)) {
                 setPhase("ready");
                 return;
             }

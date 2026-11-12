@@ -17,6 +17,7 @@ import {
     entitlementFixture,
     expectEntitlementLedger,
     expectRedeemed,
+    expirySweep,
     fillRedeem,
     openEntitlement,
     openPlanEditor,
@@ -144,8 +145,8 @@ test("ENT-E2E-09 a gift card refunded from its own panel is void everywhere and 
             .click();
         await expect(page.getByRole("dialog", { name: gift.code, exact: true })).toBeHidden();
         const panel = page.getByRole("complementary", { name: fixture.client.name, exact: true });
-        await expect(panel).toContainText(r.wholeOnly, { timeout: 60_000 });
-        await expect(panel.getByRole("button", { name: r.part, exact: true })).toBeDisabled();
+        await expect(panel).toContainText(r.wholeOnly.purchase, { timeout: 60_000 });
+        await expect(panel.getByRole("button", { name: r.part, exact: true })).toHaveCount(0);
         const label = r.refundButton(formatMoney(5000, "CAD"));
         await panel.getByRole("switch", { name: r.notify, exact: true }).uncheck();
         await panel.getByRole("button", { name: label, exact: true }).click();
@@ -695,4 +696,70 @@ test("ENT-E2E-06 two desks spending a gift card's last balance at once settle it
     } finally {
         await second.close();
     }
+});
+
+test("ENT-E2E-07 a gift card and a package stay usable until they expire, and the expiry sweep closes them once after", async ({
+    page,
+}, testInfo) => {
+    test.setTimeout(180_000);
+    await signIn(page);
+    const giftSale = await entitlementFixture(page, "gift_card");
+    await sellEntitlement(page, giftSale.client, "gift_card", giftSale.itemId);
+    const packSale = await entitlementFixture(page, "package");
+    await sellEntitlement(page, packSale.client, "package", packSale.itemId);
+    const gift = (await entitlementEvidence(giftSale.client.id)).gifts[0];
+    const pack = (await entitlementEvidence(packSale.client.id)).packages[0];
+    if (gift === undefined || pack === undefined) throw new Error("A sold entitlement is missing");
+    const ids = [gift.id, pack.id];
+
+    const ahead = await expirySweep(600, ids);
+    expect(ahead).toMatchObject({
+        swept: [0, 0],
+        rows: [
+            { id: gift.id, status: "active" },
+            { id: pack.id, status: "active" },
+        ],
+        breakage: [],
+    });
+    await redeemGift(page, gift.code, 1000, { leftCents: 4000 });
+    await openEntitlement(page, packSale.client.name, pack.id);
+    await expect(page.getByRole("dialog")).toContainText(w.statusLabel.active, {
+        timeout: 60_000,
+    });
+    await expect(page.getByRole("button", { name: w.action.use, exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toBeHidden();
+
+    const passed = await expirySweep(-1, ids);
+    expect(passed).toEqual({
+        swept: [2, 0],
+        expires_at: expect.any(String),
+        rows: [
+            { id: gift.id, status: "expired" },
+            { id: pack.id, status: "expired" },
+        ],
+        breakage: [
+            { subject_id: gift.id, category: "gift_card", amount_cents: 4000 },
+            { subject_id: gift.id, category: "revenue", amount_cents: -4000 },
+            { subject_id: pack.id, category: "deferred", amount_cents: 6001 },
+            { subject_id: pack.id, category: "revenue", amount_cents: -6001 },
+        ],
+    });
+    await redeemGift(page, gift.code, 1000, {
+        status: 409,
+        refused: strings.api.giftCardUnusable("expired"),
+    });
+    await openEntitlement(page, giftSale.client.name, gift.id);
+    await expect(page.getByRole("dialog")).toContainText(w.statusLabel.expired, {
+        timeout: 60_000,
+    });
+    await openEntitlement(page, packSale.client.name, pack.id);
+    await expect(page.getByRole("dialog")).toContainText(w.statusLabel.expired, {
+        timeout: 60_000,
+    });
+    await expect(page.getByRole("button", { name: w.action.use, exact: true })).toHaveCount(0);
+    await testInfo.attach("expiry-sweeps", {
+        body: JSON.stringify({ ahead, passed }),
+        contentType: "application/json",
+    });
 });

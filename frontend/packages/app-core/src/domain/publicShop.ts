@@ -14,6 +14,7 @@ import {
 import { formatList, formatMoney, normalizePhone, BUSINESS_CURRENCY } from "../format";
 import type { DocTotalLine } from "../ui";
 import { saleNumber } from "./printing";
+import { returnedPaid, type StripeReturn } from "./checkout";
 import { zoneNote } from "./publicBooking";
 import {
     type PublicBrand,
@@ -292,6 +293,7 @@ function usePublicShop(
     client: PublicShopClient,
     slug: string,
     storage?: ShopStorage,
+    returnedNow: StripeReturn | null = null,
 ): PublicShopForm {
     const { status: load, data: shop, setData: setShop } = usePublicResource(client.getShop, slug);
     const [cart, setCart] = useState<Record<string, number>>(() => storedCart(storage, slug));
@@ -306,6 +308,14 @@ function usePublicShop(
     const pendingKey = `connect-order:${slug}`;
     const [pending] = useState(() => storedPending(storage, pendingKey));
     const [order, setOrder] = useState<PublicShopOrderResult | null>(pending?.order ?? null);
+    const [returned] = useState(returnedNow);
+    // Stripe's event can land after the client is back, so its answer stands until then
+    const [paidOnReturn] = useState(
+        () =>
+            pending?.paid !== true &&
+            pending?.order != null &&
+            returnedPaid(returned, pending.order.client_secret),
+    );
     const [paid, setPaid] = useState(pending?.paid === true);
     const [restored, setRestored] = useState(pending?.paid === true);
     const [expired] = useState(() => expiredOrderToken(storage, pendingKey));
@@ -454,6 +464,15 @@ function usePublicShop(
         setCart({});
     };
 
+    const readReturn = useRef(false);
+    useEffect(() => {
+        if (readReturn.current) return;
+        readReturn.current = true;
+        if (paidOnReturn) markPaid();
+        else if (returned?.status === "failed" && pending?.order != null)
+            setError(strings.checkout.paymentFailed);
+    });
+
     const status: PublicShopStatus =
         load !== "ready" ? load : paid ? "paid" : order !== null ? "paying" : "ready";
 
@@ -526,8 +545,13 @@ const MAX_EACH = 20;
 type ShopStep = "pickup" | "details" | "pay";
 
 /** The shop page: the cart and checkout from usePublicShop, plus categories, cart lines and stock caps. */
-export function useShopFlow(client: PublicShopClient, slug: string, storage?: ShopStorage) {
-    const base = usePublicShop(client, slug, storage);
+export function useShopFlow(
+    client: PublicShopClient,
+    slug: string,
+    storage?: ShopStorage,
+    returned: StripeReturn | null = null,
+) {
+    const base = usePublicShop(client, slug, storage, returned);
     const [stage, setStage] = useState<"pickup" | "details">("pickup");
     const [variantIds, setVariantIds] = useState<Record<string, string>>({});
     const [search, setSearch] = useState("");

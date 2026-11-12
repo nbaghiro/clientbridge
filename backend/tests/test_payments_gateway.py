@@ -221,6 +221,30 @@ async def test_charge_of_a_card_from_another_account_is_a_conflict(
         )
 
 
+@pytest.mark.parametrize(("card_only", "allowed"), [(True, ["card"]), (False, None)])
+async def test_a_card_typed_by_staff_allows_only_cards(
+    gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch, card_only: bool, allowed: object
+) -> None:
+    sent: dict[str, object] = {}
+
+    async def create(**params: object) -> object:
+        sent.update(params)
+        return stripe.PaymentIntent.construct_from({"id": "pi_x", "client_secret": "s"}, "k")
+
+    monkeypatch.setattr(stripe.PaymentIntent, "create_async", create)
+    await gateway.create_payment_intent(
+        "acct_x",
+        amount_cents=100,
+        currency="CAD",
+        customer_id=None,
+        application_fee_cents=2,
+        metadata={},
+        idempotency_key="k",
+        card_only=card_only,
+    )
+    assert sent.get("allowed_payment_method_types") == allowed
+
+
 async def test_other_invalid_requests_still_raise(
     gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -432,48 +456,51 @@ def test_a_platform_subscription_parses_with_its_business_and_items() -> None:
 ADDRESS = PostalAddress("1207 Government Street", "Victoria", "BC", "V8W 1Y9")
 
 
-@pytest.mark.parametrize(
-    ("identity", "sets_address"),
-    [
-        ({}, True),
-        ({"individual": {"address": {"line1": "1 Main St"}}}, False),
-        ({"business_details": {"address": {"line1": "1 Main St"}}}, False),
-    ],
-)
-async def test_customer_configuration_keeps_a_verified_address(
-    gateway: StripeGateway,
-    monkeypatch: pytest.MonkeyPatch,
-    identity: dict[str, object],
-    sets_address: bool,
-) -> None:
-    accounts = gateway.client.v2.core.accounts
-    updates: list[dict[str, object]] = []
+PLAN_CUSTOMER = {
+    "capabilities": {"automatic_indirect_tax": {"requested": True}},
+    "shipping": {
+        "name": "Birch & Bark",
+        "address": {
+            "line1": "1207 Government Street",
+            "city": "Victoria",
+            "state": "BC",
+            "postal_code": "V8W 1Y9",
+            "country": "CA",
+        },
+    },
+}
 
-    async def retrieve(account_id: str, params: object = None) -> stripe.StripeObject:
-        return stripe.StripeObject.construct_from({"id": account_id, "identity": identity}, "sk")
+
+async def test_a_plan_is_taxed_at_the_business_address_not_the_owners(
+    gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    updates: list[dict[str, object]] = []
 
     async def update(account_id: str, params: dict[str, object]) -> None:
         updates.append(params)
 
-    monkeypatch.setattr(accounts, "retrieve_async", retrieve)
-    monkeypatch.setattr(accounts, "update_async", update)
-    await gateway.add_customer_configuration("acct_x", address=ADDRESS)
-    (body,) = updates
-    assert body["configuration"] == {
-        "customer": {"capabilities": {"automatic_indirect_tax": {"requested": True}}}
-    }
-    expected = {
-        "business_details": {
-            "address": {
-                "line1": "1207 Government Street",
-                "city": "Victoria",
-                "state": "BC",
-                "postal_code": "V8W 1Y9",
-                "country": "CA",
-            }
-        }
-    }
-    assert body.get("identity") == (expected if sets_address else None)
+    monkeypatch.setattr(gateway.client.v2.core.accounts, "update_async", update)
+    await gateway.set_plan_address("acct_x", business_name="Birch & Bark", address=ADDRESS)
+    assert updates == [{"configuration": {"customer": PLAN_CUSTOMER}}]
+
+
+async def test_a_plan_only_account_starts_taxed_at_the_business_address(
+    gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    created: list[dict[str, object]] = []
+
+    async def create(params: dict[str, object], options: object = None) -> stripe.StripeObject:
+        created.append(params)
+        return stripe.StripeObject.construct_from({"id": "acct_new"}, "sk")
+
+    monkeypatch.setattr(gateway.client.v2.core.accounts, "create_async", create)
+    account = await gateway.create_connected_account(
+        business_name="Birch & Bark", email=None, configurations=("customer",), address=ADDRESS
+    )
+    assert account == "acct_new"
+    (params,) = created
+    assert params["configuration"] == {"customer": PLAN_CUSTOMER}
+    assert params["identity"] == {"country": "ca"}
 
 
 def test_a_subscriber_keeps_their_plan_item_after_its_lookup_key_moves() -> None:

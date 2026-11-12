@@ -1846,6 +1846,9 @@
     "pos.desk.giftCardPaid": {
         "message": "Gift card"
     },
+    "pos.desk.giftCardReturned": {
+        "message": "Returned to gift card"
+    },
     "pos.desk.giftCardBeforeTip": {
         "message": "Apply the gift card before choosing a tip."
     },
@@ -1860,6 +1863,12 @@
     },
     "pos.desk.paidByGiftCard": {
         "message": "gift card"
+    },
+    "pos.desk.paidByCard": {
+        "message": "card"
+    },
+    "pos.desk.paidByCash": {
+        "message": "cash"
     },
     "pos.desk.sendAsInvoice": {
         "message": "Send as invoice"
@@ -2032,9 +2041,6 @@
     },
     "pos.desk.receiptTitle": {
         "message": "Send a receipt"
-    },
-    "pos.desk.receiptText": {
-        "message": "Text"
     },
     "pos.desk.receiptNone": {
         "message": "No receipt"
@@ -2244,10 +2250,13 @@
         "message": "Paid"
     },
     "pos.desk.status.partly_refunded": {
-        "message": "Part refunded"
+        "message": "Partly refunded"
     },
     "pos.desk.status.refunded": {
         "message": "Refunded"
+    },
+    "pos.desk.status.dispute_lost": {
+        "message": "Dispute lost"
     },
     "pos.desk.status.void": {
         "message": "Void"
@@ -9736,6 +9745,15 @@
     "refunds.statusLabel.refunded": {
         "message": "Refunded"
     },
+    "refunds.statusLabel.inquiry": {
+        "message": "Bank inquiry"
+    },
+    "refunds.statusLabel.disputed": {
+        "message": "Disputed"
+    },
+    "refunds.statusLabel.dispute_lost": {
+        "message": "Dispute lost"
+    },
     "refunds.paid": {
         "message": "Paid"
     },
@@ -9855,8 +9873,11 @@
         "message": "This issues credit note {note} and can't be undone.",
         "args": ["note"]
     },
-    "refunds.wholeOnly": {
+    "refunds.wholeOnly.purchase": {
         "message": "Gift card and package purchases are refunded in full only."
+    },
+    "refunds.wholeOnly.deposit": {
+        "message": "This deposit is already on a bill or was kept for a no-show, so it's refunded in full only."
     },
     "refunds.blocked.not_succeeded": {
         "message": "Only a payment that went through can be refunded."
@@ -9881,6 +9902,9 @@
     },
     "refunds.blocked.refund_refused": {
         "message": "The client's bank turned down an earlier refund of this payment, so it can't be refunded again here. Pay the client back another way, such as cash or e-Transfer."
+    },
+    "refunds.blocked.dispute_lost": {
+        "message": "This payment's dispute was lost, so the money has already gone back to the client's bank."
     },
     "refunds.blocked.whole_only": {
         "message": "Part of this payment has already been refunded, and the rest can't be refunded separately."
@@ -9990,6 +10014,9 @@
     "refunds.disputeStatus.lost": {
         "message": "Lost"
     },
+    "refunds.disputeStatus.inquiry": {
+        "message": "Bank inquiry"
+    },
     "refunds.disputeTitle": {
         "message": "Dispute · {amount}",
         "args": ["amount"]
@@ -10006,6 +10033,9 @@
     },
     "refunds.lostNote": {
         "message": "Lost. The funds and the dispute fee stay with the client's bank."
+    },
+    "refunds.inquiryNote": {
+        "message": "The client's bank asked about this charge before opening a dispute. No money has been taken, and answering by the date above can keep it from becoming one."
     },
     "refunds.reasonLabel": {
         "message": "Reason given"
@@ -10447,6 +10477,9 @@
     },
     "gettingPaid.reqJobTitle": {
         "message": "Job title"
+    },
+    "gettingPaid.reqLiveness": {
+        "message": "A selfie to confirm it's you"
     },
     "gettingPaid.reqBusinessName": {
         "message": "Business name"
@@ -12272,8 +12305,8 @@
         "message": "Tip is worked out on {money}.",
         "args": ["money"]
     },
-    "publicPay.payWithTip": {
-        "message": "Pay {money} by card",
+    "publicPay.continueWithTip": {
+        "message": "Continue with {money}",
         "args": ["money"]
     },
     "publicPay.notFoundTitle": {
@@ -12308,11 +12341,12 @@
     "publicPay.subtotal": {
         "message": "Subtotal"
     },
-    "publicPay.cardLabel": {
-        "message": "Credit or debit card"
+    "publicPay.payTitle": {
+        "message": "Pay online"
     },
-    "publicPay.cardBadge": {
-        "message": "Visa, Mastercard, Amex"
+    "publicPay.payMethods": {
+        "message": "By card, or with Klarna or Link where they're offered.",
+        "description": "Stripe decides per payment whether Klarna and Link appear"
     },
     "publicPay.offlineTitle": {
         "message": "This business isn't taking online payments yet"
@@ -12321,8 +12355,8 @@
         "message": "Contact {businessName} to arrange how to pay the balance.",
         "args": ["businessName"]
     },
-    "publicPay.payByCard": {
-        "message": "Pay by card"
+    "publicPay.continueToPay": {
+        "message": "Continue to payment"
     },
     "publicPay.paidTitle": {
         "message": "This invoice is paid, thank you"

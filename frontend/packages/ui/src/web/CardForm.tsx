@@ -1,8 +1,10 @@
 import {
     activeLocale,
+    cardConfirmFailure,
     refusedConfirm,
     strings,
     useAsyncAction,
+    type CardConfirmResult,
     type CardFormProps,
 } from "@clientbridge/app-core/public";
 import {
@@ -81,6 +83,7 @@ const EXPRESS_BUTTON_HEIGHT = 40;
 
 function ConfirmForm({
     mode = "payment",
+    variant = "public",
     returnUrl,
     submitLabel,
     busyLabel,
@@ -106,7 +109,7 @@ function ConfirmForm({
                     setError(submitted.error.message ?? failed);
                     return;
                 }
-                const result =
+                const result: CardConfirmResult | undefined =
                     mode === "payment"
                         ? await stripe.confirmPayment({
                               elements,
@@ -131,10 +134,9 @@ function ConfirmForm({
                     setError(result.error.message ?? failed);
                     return;
                 }
-                // only a payment that went through, or a debit on its way, counts as done
-                const status = "paymentIntent" in result ? result.paymentIntent.status : null;
-                if (status !== null && status !== "succeeded" && status !== "processing") {
-                    setError(failed);
+                const failure = cardConfirmFailure(mode, result);
+                if (failure !== null) {
+                    setError(failure);
                     return;
                 }
                 onDone();
@@ -150,10 +152,14 @@ function ConfirmForm({
 
     return (
         <form onSubmit={submit} className={cx("space-y-3", className)}>
-            {mode === "payment" ? (
+            {mode === "payment" && variant === "public" ? (
+                // Klarna sits in the method list below as a redirect, so a blocked popup cannot stop it
                 <ExpressCheckoutElement
                     onConfirm={confirmPayment}
-                    options={{ buttonHeight: EXPRESS_BUTTON_HEIGHT }}
+                    options={{
+                        buttonHeight: EXPRESS_BUTTON_HEIGHT,
+                        paymentMethods: { klarna: "never" },
+                    }}
                 />
             ) : null}
             {/* with card as the only method, tabs draw no panel around the card fields */}
@@ -163,6 +169,7 @@ function ConfirmForm({
                 }}
                 options={{
                     layout: { type: "tabs" },
+                    paymentMethodOrder: ["card"],
                     defaultValues: {
                         billingDetails: {
                             ...(defaultValue?.name ? { name: defaultValue.name } : {}),

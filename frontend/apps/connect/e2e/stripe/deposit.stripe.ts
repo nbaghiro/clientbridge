@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { expect, test, type Page, type BrowserContext } from "@playwright/test";
 import { formatMoney, formatParts, strings } from "@clientbridge/app-core/public";
 import {
@@ -11,6 +12,7 @@ import { patchBusiness } from "../../../web/e2e/support/business";
 import { select } from "../../../web/e2e/support/db";
 import { customerContext, navigate, signIn } from "../../../web/e2e/support/session";
 import { apiCall, manageUrl } from "../../../web/e2e/support/visit";
+import { bookingApi, openBooking } from "../../../web/e2e/support/bookings";
 import { controlStripeRelay } from "./support/bridge";
 import {
     depositEvidence,
@@ -31,6 +33,14 @@ import {
     refundUi,
 } from "./support/deposit";
 import { expectDepositStage } from "./support/depositOracle";
+import {
+    categoryTotals,
+    clientMoney,
+    expectLedgerMatchesStripe,
+    press,
+    startedDepositVisit,
+    stripeDispute,
+} from "./support/disputes";
 import { enrolWithCardDeposit, PROGRAM, prepareProgram, webBaseUrl } from "./support/program";
 import { runPort } from "@clientbridge/config/e2e/run";
 
@@ -795,5 +805,252 @@ test("FIN-DEPOSIT-11 with tax registration off, a card deposit paid on Connect l
     } finally {
         await patchBusiness(owner, { tax_registered: true });
         await ownerContext.close();
+    }
+});
+
+test("FIN-DEPOSIT-14 a card deposit paid before the invoice is issued and one paid after both come off the bill, and a no-show keeps the deposit as revenue", async ({
+    browser,
+}, info) => {
+    test.setTimeout(480_000);
+    const context = await browser.newContext({ baseURL: webBaseUrl() });
+    const books = async (clientId: string, intentId: string) => {
+        const provider = await stripeDispute("show", intentId);
+        const money = await clientMoney(clientId);
+        expectLedgerMatchesStripe(money.entries, provider);
+        return { provider, money };
+    };
+    try {
+        const owner = await context.newPage();
+        await signIn(owner);
+
+        const early = await test.step("a deposit paid before the invoice is issued", async () => {
+            const visit = await prepareDepositBooking(owner);
+            await collectDepositUi(owner, visit);
+            const collected = await collectedDeposit(visit.fixture);
+            const invoice = await invoiceVisitUi(owner, visit);
+            await linkStripeDepositInvoice(visit.fixture, invoice.id);
+            await sendBookingInvoiceUi(owner, invoice);
+            const applied = await depositEvidence(visit.fixture);
+            expect(applied.booking.deposit_status).toBe("applied");
+            await outstanding(owner, invoice, 9200);
+            return books(visit.booking.clientId, collected.provider.intents[0]?.id ?? "");
+        });
+
+        const late = await test.step("a deposit paid after the invoice is issued", async () => {
+            const visit = await prepareDepositBooking(owner);
+            const invoice = await invoiceVisitUi(owner, visit);
+            await linkStripeDepositInvoice(visit.fixture, invoice.id);
+            await sendBookingInvoiceUi(owner, invoice, { balance_cents: 11200, status: "sent" });
+            expect((await depositEvidence(visit.fixture)).booking.deposit_status).toBe("pending");
+            await collectDepositUi(owner, visit);
+            await expect
+                .poll(
+                    async () => {
+                        const e = await depositEvidence(visit.fixture);
+                        return {
+                            booking: e.booking.deposit_status,
+                            remote: e.provider.intents.map((p) => p.status),
+                            feesReady: e.provider.fees !== null,
+                        };
+                    },
+                    { timeout: 90_000 },
+                )
+                .toEqual({
+                    booking: "applied",
+                    remote: ["succeeded"],
+                    feesReady: true,
+                });
+            const applied = await depositEvidence(visit.fixture);
+            expect(applied.entries.filter((e) => e.event === "application")).not.toEqual([]);
+            await outstanding(owner, invoice, 9200);
+            return books(visit.booking.clientId, applied.provider.intents[0]?.id ?? "");
+        });
+
+        const kept = await test.step("a no-show keeps the deposit as revenue", async () => {
+            const visit = await startedDepositVisit(owner, false);
+            await collectDepositUi(owner, visit);
+            const collected = await collectedDeposit(visit.fixture);
+            await openBooking(owner, visit.booking, visit.visit.id);
+            const s = strings.bookings;
+            await press(owner.getByRole("button", { name: s.markNoShow, exact: true }));
+            await expect(
+                owner.getByText(s.noShowKeep(formatMoney(2000, "CAD")), { exact: true }),
+            ).toBeVisible();
+            await press(owner.getByRole("button", { name: s.confirmNoShow, exact: true }));
+            await expect
+                .poll(async () => (await depositEvidence(visit.fixture)).booking.deposit_status)
+                .toBe("forfeited");
+            const result = await books(
+                visit.booking.clientId,
+                collected.provider.intents[0]?.id ?? "",
+            );
+            const totals = categoryTotals(result.money.entries);
+            expect(totals.deposit ?? 0).toBe(0);
+            expect(totals.revenue).toBe(-2000);
+            expect(result.provider.refunds).toEqual([]);
+            return result;
+        });
+
+        await info.attach("fin-deposit-14", {
+            body: JSON.stringify({ early, late, kept }, null, 2),
+            contentType: "application/json",
+        });
+    } finally {
+        await context.close();
+    }
+});
+
+test("FIN-DEPOSIT-15 staff cancelling a camp enrolment paid on Connect cancels its days, voids its invoice and refunds the card deposit once", async ({
+    browser,
+}, info) => {
+    test.setTimeout(300_000);
+    const p = strings.programs;
+    const context = await browser.newContext({ baseURL: webBaseUrl() });
+    try {
+        const owner = await context.newPage();
+        await signIn(owner);
+        const setup = await prepareProgram(owner);
+        const { fixture, bookingIds } = await enrolWithCardDeposit(browser, setup);
+        await expect
+            .poll(
+                async () => {
+                    const e = await depositEvidence(fixture);
+                    return {
+                        booking: e.booking.deposit_status,
+                        remote: e.provider.intents.map((i) => i.status),
+                        feesReady: e.provider.fees !== null,
+                    };
+                },
+                { timeout: 90_000 },
+            )
+            .toEqual({ booking: "applied", remote: ["succeeded"], feesReady: true });
+        const invoiceId = (await depositEvidence(fixture)).booking.invoice_id;
+        if (invoiceId === null) throw new Error("the enrolment has no invoice");
+        await linkStripeDepositInvoice(fixture, invoiceId);
+        const paid = await depositEvidence(fixture);
+        const [deposit] = paid.payments;
+        const intentId = paid.provider.intents[0]?.id;
+        if (deposit === undefined || intentId === undefined) throw new Error("no card deposit");
+
+        await navigate(owner, "/schedule/classes");
+        await owner.getByRole("tab", { name: p.tab, exact: true }).click();
+        await owner
+            .getByRole("navigation", { name: p.tab, exact: true })
+            .getByRole("button")
+            .filter({ hasText: setup.camp.name })
+            .click({ timeout: 60_000 });
+        const row = owner.getByRole("listitem").filter({ hasText: setup.booker.subject });
+        await row.getByRole("button", { name: p.cancelEnrolment, exact: true }).click({
+            timeout: 60_000,
+        });
+        const confirm = owner.getByRole("dialog", {
+            name: p.cancelEnrolmentTitle(setup.booker.subject),
+            exact: true,
+        });
+        await expect(confirm.getByText(p.cancelEnrolmentBody, { exact: true })).toBeVisible();
+        const cancelling = owner.waitForResponse(
+            (r) =>
+                new URL(r.url()).pathname ===
+                    `/v1/programs/${setup.program.id}/enrolments/cancel` &&
+                r.request().method() === "POST",
+        );
+        await confirm.getByRole("button", { name: p.cancelEnrolment, exact: true }).click();
+        const cancelled = await cancelling;
+        expect(cancelled.status(), await cancelled.text()).toBe(200);
+        const outcome = (await cancelled.json()) as {
+            program_id: string;
+            canceled: string[];
+            refunded_cents: number;
+        };
+        expect(outcome).toMatchObject({
+            program_id: setup.program.id,
+            refunded_cents: PROGRAM.deposit,
+        });
+        expect([...outcome.canceled].sort()).toEqual([...bookingIds].sort());
+        await expect(
+            owner.getByText(p.canceledEnrolment(setup.booker.subject), { exact: true }),
+        ).toBeVisible();
+        await expect(row).toHaveCount(0, { timeout: 60_000 });
+
+        await expect
+            .poll(
+                async () => {
+                    const e = await depositEvidence(fixture);
+                    return {
+                        booking: e.booking.deposit_status,
+                        refunds: e.provider.refunds.map((r) => [r.status, r.amount]),
+                    };
+                },
+                { timeout: 90_000 },
+            )
+            .toEqual({ booking: "refunded", refunds: [["succeeded", PROGRAM.deposit]] });
+        const after = await depositEvidence(fixture);
+        expect(after.invoice).toMatchObject({ id: invoiceId, status: "void" });
+        const refunds = after.payments.filter((x) => x.parent_payment_id === deposit.id);
+        expect(refunds).toEqual([
+            expect.objectContaining({
+                kind: "refund",
+                status: "succeeded",
+                amount_cents: PROGRAM.deposit,
+            }),
+        ]);
+        expect(after.provider.refunds).toEqual([
+            {
+                id: refunds[0]?.provider_ref,
+                payment_intent: intentId,
+                status: "succeeded",
+                amount: PROGRAM.deposit,
+                currency: "cad",
+            },
+        ]);
+        const days = await select<{ id: string; status: string; subject_id: string | null }>`
+            SELECT id, status, subject_id FROM bookings
+            WHERE id = ANY(${bookingIds}::text[]) ORDER BY id`;
+        expect(days.map((d) => [d.id, d.status])).toEqual(
+            [...bookingIds].sort().map((id) => [id, "canceled"]),
+        );
+        const balance = (category: string, subject: string) =>
+            after.entries
+                .filter((x) => x.category === category && x.subject_id === subject)
+                .reduce((sum, x) => sum + x.amount_cents, 0);
+        expect(balance("deposit", fixture.bookingId)).toBe(0);
+        expect(balance("receivable", invoiceId)).toBe(0);
+
+        const provider = await stripeDispute("show", intentId);
+        expect(provider.charge).toMatchObject({
+            amount: PROGRAM.deposit,
+            amount_refunded: PROGRAM.deposit,
+        });
+        expect(provider.refunds.map((r) => [r.id, r.amount, r.status])).toEqual([
+            [refunds[0]?.provider_ref, PROGRAM.deposit, "succeeded"],
+        ]);
+        const money = await clientMoney(fixture.clientId);
+        expectLedgerMatchesStripe(money.entries, provider);
+        const totals = categoryTotals(money.entries);
+        expect(totals.deposit ?? 0).toBe(0);
+        expect(totals.receivable ?? 0).toBe(0);
+        expect(totals.revenue ?? 0).toBe(0);
+
+        const again = await owner.request.post(
+            `${bookingApi()}/v1/programs/${setup.program.id}/enrolments/cancel`,
+            {
+                headers: { Origin: new URL(owner.url()).origin, "Idempotency-Key": randomUUID() },
+                data: {
+                    client_id: fixture.clientId,
+                    subject_id: days[0]?.subject_id,
+                    notify: false,
+                },
+            },
+        );
+        expect(again.status(), await again.text()).toBe(404);
+        expect(await depositEvidence(fixture)).toEqual(after);
+        expect((await stripeDispute("show", intentId)).refunds).toEqual(provider.refunds);
+        expect(await clientMoney(fixture.clientId)).toEqual(money);
+        await info.attach("fin-deposit-15", {
+            body: JSON.stringify({ outcome, after, provider }, null, 2),
+            contentType: "application/json",
+        });
+    } finally {
+        await context.close();
     }
 });

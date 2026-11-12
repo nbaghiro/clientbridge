@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { type ApiLike, type Attempt, failureMessage, sendAttempt } from "../api";
 import { formatDate, parseTimestamp, useBusinessZone } from "../datetime";
@@ -38,6 +38,8 @@ const DAY_MS = 86_400_000;
 const TRIAL_WARNING_DAYS = 3;
 // Checkout carries the trial only while this much of it is left (plans.py), and bills at once after
 const TRIAL_CARRY_MS = 48 * 3_600_000;
+const CHECKOUT_CHECKS = 30;
+const CHECKOUT_CHECK_MS = 2000;
 const PLAN_TIERS: readonly PlanTier[] = ["premium", "team"];
 
 const p = strings.plans;
@@ -273,6 +275,7 @@ function headline(
 export function usePlan(
     api: ApiLike,
     open: (url: string) => Promise<void> = () => Promise.resolve(),
+    returnedFromCheckout = false,
 ): PlanView {
     const zone = useBusinessZone();
     const businessId = useBusinessId();
@@ -286,6 +289,19 @@ export function usePlan(
     const refresh = useCallback((): void => {
         reload().catch(() => undefined);
     }, [reload]);
+    // Checkout returns before Stripe's event marks the plan paid, so look again until it has
+    const [checks, setChecks] = useState(returnedFromCheckout ? CHECKOUT_CHECKS : 0);
+    const settled = state?.managed === true;
+    useEffect(() => {
+        if (checks === 0 || settled || remote.isLoading) return;
+        const timer = setTimeout(() => {
+            setChecks((left) => left - 1);
+            refresh();
+        }, CHECKOUT_CHECK_MS);
+        return () => {
+            clearTimeout(timer);
+        };
+    }, [checks, settled, remote.isLoading, refresh]);
     const interval = picked ?? state?.interval ?? "month";
     const managed = state?.managed ?? false;
     const choose = (plan: PlanTier): void => {

@@ -479,6 +479,8 @@ export interface CardFormProps {
     stripeAccount: string;
     // "payment" confirms a charge; "setup" saves the method for later.
     mode?: "payment" | "setup" | undefined;
+    // "desk" is a card staff type in: card fields only, no wallet buttons.
+    variant?: "public" | "desk" | undefined;
     submitLabel: string;
     busyLabel: string;
     onDone: () => void;

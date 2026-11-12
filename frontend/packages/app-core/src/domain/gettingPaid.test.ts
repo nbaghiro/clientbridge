@@ -93,6 +93,9 @@ describe("requirementCopy", () => {
         expect(requirementCopy("owners.given_name").label).toBe(g.reqFirstName);
         expect(requirementCopy("identity.individual.relationship.title").label).toBe(g.reqJobTitle);
         expect(requirementCopy("configuration.merchant.mcc").label).toBe(g.reqBusinessCategory);
+        expect(requirementCopy("identity.individual.documents.proof_of_liveness").label).toBe(
+            g.reqLiveness,
+        );
     });
 
     it("falls back to the generic message", () => {

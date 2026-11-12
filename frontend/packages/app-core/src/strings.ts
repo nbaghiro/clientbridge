@@ -610,11 +610,14 @@ interface Strings {
             readonly useMembership: string;
             readonly coverError: string;
             readonly giftCardPaid: string;
+            readonly giftCardReturned: string;
             readonly giftCardBeforeTip: string;
             readonly giftCardCode: string;
             readonly giftCardApply: string;
             readonly giftCardError: string;
             readonly paidByGiftCard: string;
+            readonly paidByCard: string;
+            readonly paidByCash: string;
             readonly sendAsInvoice: string;
             readonly invoiceReviewBody: (client: string, amount: string) => string;
             readonly invoicedNotice: (invoice: string, name: string) => string;
@@ -668,7 +671,6 @@ interface Strings {
             readonly paidBody: (money: string, method: string) => string;
             readonly changeToGive: (money: string) => string;
             readonly receiptTitle: string;
-            readonly receiptText: string;
             readonly receiptNone: string;
             readonly receiptPhoneTo: string;
             readonly sendText: string;
@@ -732,6 +734,7 @@ interface Strings {
                 readonly paid: string;
                 readonly partly_refunded: string;
                 readonly refunded: string;
+                readonly dispute_lost: string;
                 readonly void: string;
             } & Labels;
             readonly sourceOnline: string;
@@ -3286,6 +3289,9 @@ interface Strings {
             readonly paid: string;
             readonly partly_refunded: string;
             readonly refunded: string;
+            readonly inquiry: string;
+            readonly disputed: string;
+            readonly dispute_lost: string;
         } & Labels;
         readonly paid: string;
         readonly refundedSoFar: string;
@@ -3325,7 +3331,7 @@ interface Strings {
         readonly refundError: string;
         readonly confirmTitle: (amount: string) => string;
         readonly confirmBody: (note: string) => string;
-        readonly wholeOnly: string;
+        readonly wholeOnly: { readonly purchase: string; readonly deposit: string } & Labels;
         readonly blocked: {
             readonly not_succeeded: string;
             readonly already_refunded: string;
@@ -3335,6 +3341,7 @@ interface Strings {
             readonly package_used: string;
             readonly payment_disputed: string;
             readonly refund_refused: string;
+            readonly dispute_lost: string;
             readonly whole_only: string;
         } & Labels;
         readonly history: string;
@@ -3375,12 +3382,14 @@ interface Strings {
             readonly under_review: string;
             readonly won: string;
             readonly lost: string;
+            readonly inquiry: string;
         } & Labels;
         readonly disputeTitle: (amount: string) => string;
         readonly respondBy: (when: string, days: number) => string;
         readonly reviewNote: string;
         readonly wonNote: string;
         readonly lostNote: string;
+        readonly inquiryNote: string;
         readonly reasonLabel: string;
         readonly payment: string;
         readonly forLabel: string;
@@ -3539,6 +3548,7 @@ interface Strings {
         readonly reqEmail: string;
         readonly reqPhone: string;
         readonly reqJobTitle: string;
+        readonly reqLiveness: string;
         readonly reqBusinessName: string;
         readonly reqBusinessAddress: string;
         readonly reqBusinessType: string;
@@ -4177,7 +4187,7 @@ interface Strings {
         readonly tipBase: (money: string) => string;
         readonly tipHintNoTax: string;
         readonly tipBaseNoTax: (money: string) => string;
-        readonly payWithTip: (money: string) => string;
+        readonly continueWithTip: (money: string) => string;
         readonly notFoundTitle: string;
         readonly notFoundBody: string;
         readonly cardNotConfigured: string;
@@ -4188,11 +4198,11 @@ interface Strings {
         readonly balanceDue: string;
         readonly total: string;
         readonly subtotal: string;
-        readonly cardLabel: string;
-        readonly cardBadge: string;
+        readonly payTitle: string;
+        readonly payMethods: string;
         readonly offlineTitle: string;
         readonly offlineBody: (businessName: string) => string;
-        readonly payByCard: string;
+        readonly continueToPay: string;
         readonly paidTitle: string;
         readonly closedTitle: string;
         readonly closedBody: (businessName: string) => string;

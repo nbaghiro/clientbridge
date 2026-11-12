@@ -23,6 +23,7 @@ from e2e.stripe_clients import client_fixtures
 from e2e.stripe_context import BUSINESS, identity, save, state_path, tags, validate_context
 from e2e.stripe_deposits import cleanup_deposits, deposit_fixtures
 from e2e.stripe_onboarding import close_fresh_accounts
+from e2e.stripe_plans import clean_plans
 from e2e.stripe_reconcile import reconciled_at_prepare
 from e2e.stripe_recovery import clean_client
 
@@ -32,6 +33,15 @@ def validate_cleanup_fixtures(fixtures: list[dict[str, str]]) -> None:
         values = [fixture.get(field) for fixture in fixtures]
         if any(not value for value in values) or len(values) != len(set(values)):
             raise ValueError("incomplete or duplicate fixture lineage; cannot prove cleanup")
+
+
+async def shared_location(account: str, name: str) -> str | None:
+    """A Terminal location an earlier run's Tap to Pay made, so runs don't mint one each."""
+    listed = await stripe.terminal.Location.list_async(limit=100, stripe_account=account)
+    async for location in listed.auto_paging_iter():
+        if location.display_name == name and not location.livemode:
+            return location.id
+    return None
 
 
 async def setup_action(action: str, invoice_id: str | None) -> dict[str, object]:
@@ -68,6 +78,7 @@ async def setup_action(action: str, invoice_id: str | None) -> dict[str, object]
             if not status.charges_enabled or not status.payouts_enabled:
                 raise ValueError("v2 merchant is not ready")
             business.stripe_account_id = account
+            business.stripe_terminal_location_id = await shared_location(account, business.name)
             apply_account_status(business, status)
             db.add(await reconciled_at_prepare(account))
             await db.commit()
@@ -189,6 +200,7 @@ async def setup_action(action: str, invoice_id: str | None) -> dict[str, object]
         expected_customers = {f["customer"] for f in fixtures if "customer" in f}
         if not expected_customers.issubset(seen_customers):
             raise ValueError("registered provider customer is missing; cannot prove cleanup")
+        actions.extend(await clean_plans(state))
         actions.extend(await close_fresh_accounts(state))
         state["cleanup"] = actions
         save(path, state)

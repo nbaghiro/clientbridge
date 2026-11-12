@@ -60,11 +60,17 @@ def prepared_at(state: dict[str, object]) -> int:
 async def close_fresh_accounts(state: dict[str, object]) -> list[dict[str, object]]:
     """Close every fresh account the run's businesses still hold, including a failed case's."""
     prepared = prepared_at(state)
+    namespace = get_settings().run_namespace
+    if not namespace:
+        raise ValueError("closing fresh accounts needs the run's namespace")
     stripe = gateway()
     actions: list[dict[str, object]] = []
     async with SessionLocal() as db:
+        # other runs share the database and create their own fresh accounts meanwhile
         businesses = await db.scalars(
-            select(Business).where(Business.stripe_account_id.is_not(None))
+            select(Business).where(
+                Business.stripe_account_id.is_not(None), Business.id.endswith(namespace)
+            )
         )
         for business in businesses:
             account = await fresh_account(stripe, business, prepared)

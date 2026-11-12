@@ -7,7 +7,8 @@ import { daysUntil, formatDate, parseTimestamp, startOfMonth, useBusinessZone } 
 import { formatCredit, formatMoney, formatParts, parseCents, BUSINESS_CURRENCY } from "../format";
 import { type Load, type Remote, useAsyncAction, useRemote } from "../hooks";
 import { strings } from "../strings";
-import type { DocTotalLine, Intent, TimelineEntry } from "../ui";
+import type { DocTotalLine, Intent, NoticeTone, TimelineEntry } from "../ui";
+import { chargeNameSql } from "./billing";
 import { useReplicaLoad } from "./sync";
 
 const s = strings.refunds;
@@ -25,18 +26,22 @@ interface RefundablePaymentRow {
     paid_at: string | null;
     created_at: string;
     invoice_number: number | null;
+    charge_name: string | null;
     order_number: number | null;
     booking_id: string | null;
     gift_code: string | null;
     package_name: string | null;
     refunded_cents: number;
     fee_cents: number;
+    dispute_status: string | null;
+    dispute_respond_by: string | null;
 }
 
 const REFUNDABLE_SQL = `
 SELECT p.id, p.client_id, c.name AS client_name, c.phone AS client_phone, p.kind, p.method,
        p.provider, p.amount_cents, p.paid_at, p.created_at, i.number AS invoice_number,
-       o.number AS order_number, p.booking_id,
+       ${chargeNameSql("i")} AS charge_name, o.number AS order_number, p.booking_id,
+       p.dispute_status, p.dispute_respond_by,
        g.code AS gift_code, pi.name AS package_name,
        COALESCE((SELECT SUM(r.amount_cents) FROM payments r
                  WHERE r.parent_payment_id = p.id AND r.kind = 'refund'
@@ -71,6 +76,7 @@ export interface RefundRow {
     status: string;
     client_name: string | null;
     invoice_number: number | null;
+    charge_name: string | null;
     order_number: number | null;
     gift_code: string | null;
     package_name: string | null;
@@ -80,7 +86,7 @@ export interface RefundRow {
 export const CREDIT_NOTES_SQL = `
 SELECT r.id, r.parent_payment_id, r.amount_cents, r.paid_at, r.created_at, r.reason,
        r.credit_note, r.status, c.name AS client_name, i.number AS invoice_number,
-       o.number AS order_number, g.code AS gift_code, pi.name AS package_name, p.booking_id
+       ${chargeNameSql("i")} AS charge_name, o.number AS order_number, g.code AS gift_code, pi.name AS package_name, p.booking_id
 FROM payments r
 JOIN payments p ON p.id = r.parent_payment_id
 LEFT JOIN clients c ON c.id = p.client_id
@@ -94,6 +100,7 @@ ORDER BY COALESCE(r.paid_at, r.created_at) DESC`;
 
 interface SubjectFields {
     invoice_number: number | null;
+    charge_name: string | null;
     order_number: number | null;
     gift_code: string | null;
     package_name: string | null;
@@ -103,6 +110,7 @@ interface SubjectFields {
 /** What a payment paid for, in the words the refund desk and credit notes use. */
 function paymentSubject(p: SubjectFields): string {
     if (p.invoice_number !== null) return s.subject.invoice(p.invoice_number);
+    if (p.charge_name !== null) return p.charge_name;
     if (p.order_number !== null) return s.subject.sale(p.order_number);
     if (p.gift_code !== null) return s.subject.giftCard(p.gift_code);
     if (p.package_name !== null) return p.package_name;
@@ -114,19 +122,42 @@ export function methodLabel(method: string): string {
     return s.method[method] ?? s.method.other;
 }
 
-type RefundState = "paid" | "partly_refunded" | "refunded";
+type RefundState =
+    "paid" | "partly_refunded" | "refunded" | "inquiry" | "disputed" | "dispute_lost";
 
+/** A payment's place between paid and refunded, with a dispute or bank inquiry ahead of either. */
 export function refundState(p: RefundablePaymentRow): RefundState {
+    if (p.dispute_status === "lost") return "dispute_lost";
+    if (p.dispute_status === "needs_response" || p.dispute_status === "under_review")
+        return "disputed";
+    // an inquiry keeps only its answer-by date until it escalates or closes
+    if (p.dispute_status === null && p.dispute_respond_by !== null) return "inquiry";
     if (p.refunded_cents <= 0) return "paid";
     return p.refunded_cents >= p.amount_cents ? "refunded" : "partly_refunded";
 }
 
-function refundStateIntent(state: string): Intent {
-    return state === "refunded" ? "neutral" : state === "partly_refunded" ? "warning" : "success";
+/** What a refund could still return; a lost dispute already sent the payment back to the bank. */
+export function leftToRefund(p: RefundablePaymentRow): number {
+    return p.dispute_status === "lost" ? 0 : Math.max(0, p.amount_cents - p.refunded_cents);
+}
+
+function refundStateIntent(state: RefundState): Intent {
+    switch (state) {
+        case "paid":
+            return "success";
+        case "partly_refunded":
+        case "inquiry":
+            return "warning";
+        case "disputed":
+            return "danger";
+        default:
+            return "neutral";
+    }
 }
 
 export interface RefundSummary {
     payment: RefundablePaymentRow;
+    client: string;
     subject: string;
     method: string;
     when: string;
@@ -140,13 +171,14 @@ function summarize(p: RefundablePaymentRow, zone: string): RefundSummary {
     const state = refundState(p);
     return {
         payment: p,
+        client: p.client_name ?? strings.pos.desk.walkIn,
         subject: paymentSubject(p),
         method: methodLabel(p.method),
         when: formatDate(parseTimestamp(p.paid_at ?? p.created_at), zone),
         state,
         stateLabel: s.statusLabel[state],
         intent: refundStateIntent(state),
-        leftCents: Math.max(0, p.amount_cents - p.refunded_cents),
+        leftCents: leftToRefund(p),
     };
 }
 
@@ -179,9 +211,7 @@ export function useRefundDesk(initialId: string | null = null): RefundDesk {
         t === ""
             ? all
             : all.filter((r) =>
-                  [r.payment.client_name ?? "", r.subject, r.method].some((v) =>
-                      v.toLowerCase().includes(t),
-                  ),
+                  [r.client, r.subject, r.method].some((v) => v.toLowerCase().includes(t)),
               );
     return {
         load,
@@ -251,12 +281,13 @@ const REFUND_REASONS = Object.keys(s.reasons);
 interface RefundComposer {
     preview: Remote<RefundPreview>;
     blocked: string | null;
-    wholeOnly: boolean;
+    /** Why only a full refund is offered, or null when a part refund is allowed too. */
+    wholeOnly: string | null;
     byHand: boolean;
     leftCents: number;
     mode: RefundMode;
     setMode: (m: RefundMode) => void;
-    modes: { key: RefundMode; label: string; disabled?: boolean }[];
+    modes: { key: RefundMode; label: string }[];
     amount: string;
     setAmount: (v: string) => void;
     amountPlaceholder: string;
@@ -305,12 +336,18 @@ export function useRefundComposer(
     const cents = mode === "full" ? leftCents : (typed ?? 0);
     const valid = cents > 0 && cents <= leftCents;
     const query = mode === "part" && valid ? `?amount_cents=${String(cents)}` : "";
+    // a refund or a dispute's turn changes what can be refunded, so either reloads the preview
     const preview = useRemote(
         () => api.get<RefundPreview>(`/v1/payments/${p.id}/refund-preview${query}`),
-        `${p.id}${query}${String(p.refunded_cents)}`,
+        `${p.id}${query}${String(p.refunded_cents)}:${summary.state}`,
     );
     const data = preview.data;
-    const wholeOnly = data?.whole_only === true;
+    const wholeOnly =
+        data?.whole_only !== true
+            ? null
+            : p.kind === "deposit"
+              ? s.wholeOnly.deposit
+              : s.wholeOnly.purchase;
     const backTo = s.backTo(summary.method);
     const lines: DocTotalLine[] =
         data === null || !valid
@@ -401,9 +438,10 @@ export function useRefundComposer(
         leftCents,
         mode,
         setMode,
+        // a payment refunded in full only offers no choice, just its notice
         modes: [
             { key: "full", label: s.full(formatMoney(leftCents, BUSINESS_CURRENCY)) },
-            { key: "part", label: s.part, disabled: wholeOnly },
+            ...(wholeOnly !== null ? [] : [{ key: "part" as const, label: s.part }]),
         ],
         amount,
         setAmount: (v) => {
@@ -491,7 +529,7 @@ export function useCreditNotes(refunds: readonly RefundRow[]): {
             .map((r) => ({
                 id: r.id,
                 number: r.credit_note ?? "",
-                client: r.client_name ?? "",
+                client: r.client_name ?? strings.pos.desk.walkIn,
                 subject: paymentSubject(r),
                 when: formatDate(parseTimestamp(r.paid_at ?? r.created_at), zone),
                 reason: s.reasons[r.reason ?? ""] ?? s.noReason,
@@ -519,10 +557,12 @@ interface DisputeRow {
     amount_cents: number;
     paid_at: string | null;
     created_at: string;
+    // "inquiry" when the bank only asked: a payment with an answer-by date and no dispute
     dispute_status: string;
     dispute_reason: string | null;
     dispute_respond_by: string | null;
     invoice_number: number | null;
+    charge_name: string | null;
     order_number: number | null;
     gift_code: string | null;
     package_name: string | null;
@@ -534,7 +574,8 @@ interface DisputeRow {
 
 export const DISPUTES_SQL = `
 SELECT p.id, c.name AS client_name, p.method, p.amount_cents, p.paid_at, p.created_at,
-       p.dispute_status, p.dispute_reason, p.dispute_respond_by, i.number AS invoice_number,
+       COALESCE(p.dispute_status, 'inquiry') AS dispute_status, p.dispute_reason,
+       p.dispute_respond_by, i.number AS invoice_number, ${chargeNameSql("i")} AS charge_name,
        o.number AS order_number, g.code AS gift_code, pi.name AS package_name, p.booking_id,
        COALESCE((SELECT -SUM(de.amount_cents) FROM entries de
                  JOIN accounts da ON da.id = de.account_id
@@ -553,7 +594,7 @@ LEFT JOIN orders o ON o.id = p.order_id
 LEFT JOIN gift_cards g ON g.payment_id = p.id
 LEFT JOIN packages pk ON pk.payment_id = p.id
 LEFT JOIN items pi ON pi.id = pk.item_id
-WHERE p.dispute_status IS NOT NULL
+WHERE p.dispute_status IS NOT NULL OR p.dispute_respond_by IS NOT NULL
 ORDER BY p.dispute_respond_by DESC`;
 
 function disputeIntent(status: string): Intent {
@@ -561,6 +602,7 @@ function disputeIntent(status: string): Intent {
         case "needs_response":
             return "danger";
         case "under_review":
+        case "inquiry":
             return "warning";
         case "won":
             return "success";
@@ -572,21 +614,26 @@ function disputeIntent(status: string): Intent {
 interface DisputeView {
     row: DisputeRow;
     open: boolean;
+    client: string;
     subject: string;
     statusLabel: string;
     intent: Intent;
     deadline: string;
+    deadlineTone: NoticeTone;
+    note: string | null;
     reason: string;
     facts: { label: string; value: string }[];
     held: DocTotalLine[];
 }
 
 export function disputeView(d: DisputeRow, now: Date, zone: string): DisputeView {
-    const open = d.dispute_status === "needs_response" || d.dispute_status === "under_review";
+    const inquiry = d.dispute_status === "inquiry";
+    const answer = d.dispute_status === "needs_response" || inquiry;
+    const open = answer || d.dispute_status === "under_review";
     const reason = s.disputeReasons[d.dispute_reason ?? "general"] ?? d.dispute_reason ?? "";
     const subject = paymentSubject(d);
     const deadline =
-        d.dispute_status === "needs_response" && d.dispute_respond_by !== null
+        answer && d.dispute_respond_by !== null
             ? s.respondBy(
                   formatDate(parseTimestamp(d.dispute_respond_by), zone),
                   Math.max(0, daysUntil(parseTimestamp(d.dispute_respond_by), zone, now)),
@@ -600,10 +647,13 @@ export function disputeView(d: DisputeRow, now: Date, zone: string): DisputeView
     return {
         row: d,
         open,
+        client: d.client_name ?? strings.pos.desk.walkIn,
         subject,
         statusLabel: s.disputeStatus[d.dispute_status] ?? d.dispute_status,
         intent: disputeIntent(d.dispute_status),
         deadline,
+        deadlineTone: answer ? "danger" : d.dispute_status === "won" ? "success" : "info",
+        note: inquiry ? s.inquiryNote : null,
         reason,
         facts: [
             { label: s.reasonLabel, value: reason },
@@ -620,17 +670,19 @@ export function disputeView(d: DisputeRow, now: Date, zone: string): DisputeView
                 value: d.opened_at === null ? "" : formatDate(parseTimestamp(d.opened_at), zone),
             },
         ],
-        held: [
-            { key: "withdrawn", label: s.withdrawn, cents: withdrawn, kind: "subtotal" },
-            {
-                key: "fee",
-                label: s.disputeFee,
-                cents: d.fee_cents,
-                kind: "subtotal",
-                hint: s.returnedIfWon,
-            },
-            { key: "held", label: s.held, cents: withdrawn + d.fee_cents, kind: "total" },
-        ],
+        held: inquiry
+            ? []
+            : [
+                  { key: "withdrawn", label: s.withdrawn, cents: withdrawn, kind: "subtotal" },
+                  {
+                      key: "fee",
+                      label: s.disputeFee,
+                      cents: d.fee_cents,
+                      kind: "subtotal",
+                      hint: s.returnedIfWon,
+                  },
+                  { key: "held", label: s.held, cents: withdrawn + d.fee_cents, kind: "total" },
+              ],
     };
 }
 

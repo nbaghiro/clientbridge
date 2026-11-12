@@ -239,6 +239,7 @@ function invoice(extra: Partial<InvoiceRow> = {}): InvoiceRow {
         client_name: "Ann",
         client_phone: null,
         number: 7,
+        charge_name: null,
         currency: "CAD",
         status: "sent",
         subtotal_cents: 5000,

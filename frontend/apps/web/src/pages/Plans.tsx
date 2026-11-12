@@ -73,8 +73,11 @@ function Tiers({ plan }: { plan: PlanView }) {
     );
 }
 
+// Stripe's Checkout sends the owner back here with this flag once they've paid
+const CHECKOUT_RETURN = /[?&]checkout=done(&|$)/;
+
 export function Plans() {
-    const plan = usePlan(api, leave);
+    const plan = usePlan(api, leave, CHECKOUT_RETURN.test(window.location.search));
     return (
         <div className="space-y-6">
             <PageHeader title={strings.navigation.setupSections.plan} subtitle={p.subtitle} />

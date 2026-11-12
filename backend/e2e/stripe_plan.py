@@ -8,12 +8,13 @@ import sys
 from e2e.stripe_pool import pairs
 
 # the browser lane's shards, balanced by backend/e2e/seconds.json under stripe
-SHARDS = 2
+SHARDS = 3
 # what the browser lane depends on: payments services, its screens and the helpers it shares
 BROWSER_PATHS = re.compile(
     r"^backend/src/clientbridge/(integrations/stripe|services/(payments|ledger|billing|orders"
-    r"|entitlements|earnings|public|public_orders|remittances))\.py$"
-    r"|^backend/(e2e/stripe|tests/sandbox/|scripts/stripe_qa)"
+    r"|entitlements|earnings|public|public_orders|remittances|plans|business|bookings|programs))"
+    r"\.py$"
+    r"|^backend/(e2e/(stripe|merchant)|tests/sandbox/|scripts/stripe_qa)"
     r"|^frontend/(packages/(app-core/src|ui/src/web)|apps/(web/src|connect/src|web/e2e/support"
     r"|connect/e2e))/"
     r"|^\.github/workflows/e2e(-stripe)?\.yml$"

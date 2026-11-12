@@ -141,9 +141,9 @@ function RefundForm({
     return (
         <div className="space-y-4">
             {issued}
-            {form.wholeOnly ? (
+            {form.wholeOnly !== null ? (
                 <Notice tone="info" banner>
-                    {s.wholeOnly}
+                    {form.wholeOnly}
                 </Notice>
             ) : null}
             {form.byHand ? (
@@ -152,15 +152,17 @@ function RefundForm({
                 </Notice>
             ) : null}
             <div className="grid gap-4 xl:grid-cols-2">
-                <Field label={s.howMuch}>
-                    <Choice
-                        layout="segmented"
-                        label={s.howMuch}
-                        options={form.modes}
-                        value={form.mode}
-                        onChange={form.setMode}
-                    />
-                </Field>
+                {form.modes.length > 1 ? (
+                    <Field label={s.howMuch}>
+                        <Choice
+                            layout="segmented"
+                            label={s.howMuch}
+                            options={form.modes}
+                            value={form.mode}
+                            onChange={form.setMode}
+                        />
+                    </Field>
+                ) : null}
                 {form.mode === "part" ? (
                     <TextField
                         label={s.amount}

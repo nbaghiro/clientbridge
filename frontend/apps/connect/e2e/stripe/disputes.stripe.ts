@@ -17,6 +17,7 @@ import {
     expectDisputeListed,
     expectLedgerMatchesStripe,
     expectRefundBlocked,
+    expectRefundOpen,
     giftCard,
     manageLink,
     payLabel,
@@ -26,6 +27,7 @@ import {
     sellGiftCardByCard,
     startedDepositVisit,
     stripeDispute,
+    webhookRows,
 } from "./support/disputes";
 import {
     cardFrame,
@@ -34,6 +36,7 @@ import {
     settledStripeInvoice,
     submitStripeCard,
 } from "./support/provider";
+import { payInvoiceByLink } from "./support/wallet";
 
 const web = (): string => `http://localhost:${String(runPort("WEB_E2E_PORT"))}`;
 
@@ -177,7 +180,7 @@ test("STR-E02 a part refund made during an inquiry fails when it escalates, and 
         expect(
             lost.transactions.filter((row) => row.amount > 0 && row.type === "adjustment"),
         ).toEqual([]);
-        await expectRefundBlocked(owner, paid);
+        await expectRefundBlocked(owner, paid, "dispute_lost");
         await expectDisputeListed(owner, fixture.client, "lost");
         await info.attach("str-e02", {
             body: JSON.stringify({ inquiry, escalated, lost, ledger: final }, null, 2),
@@ -356,6 +359,159 @@ test("STR-E04 a lost dispute takes back a forfeited deposit, and a deposit paid 
         await info.attach("str-e04", {
             body: JSON.stringify({ opened, lost, forfeitLedger: final, late }, null, 2),
             contentType: "application/json",
+        });
+    } finally {
+        await customerContext.close();
+        await ownerContext.close();
+    }
+});
+
+/** Every dispute event Stripe sent for the charge reached the app and was handled. */
+async function expectEventsHandled(events: { id: string; type: string }[]): Promise<void> {
+    await expect
+        .poll(async () => (await webhookRows(events.map((e) => e.id))).map((r) => r.status), {
+            timeout: 90_000,
+        })
+        .toEqual(events.map(() => "processed"));
+}
+
+test("STR-E24 a won dispute gives back the sale and books the fee as Stripe settles it, and an inquiry that closes without escalating books nothing", async ({
+    browser,
+}, info) => {
+    test.setTimeout(480_000);
+    const ownerContext = await browser.newContext({ baseURL: web() });
+    const customerContext = await browser.newContext();
+    try {
+        const owner = await ownerContext.newPage();
+        const customer = await customerContext.newPage();
+        await signIn(owner);
+
+        await test.step("a won dispute reverses the withdrawal", async () => {
+            const client = await createClient(owner);
+            await payInvoiceByLink(owner, customer, client, DISPUTE_CARD, info);
+            await expect
+                .poll(
+                    async () =>
+                        (await clientMoney(client.id)).payments.map((p) => [
+                            p.kind,
+                            p.status,
+                            p.dispute_status,
+                        ]),
+                    { timeout: 120_000 },
+                )
+                .toEqual([["payment", "succeeded", "needs_response"]]);
+            const paymentId = (await clientMoney(client.id)).payments[0]?.id ?? "";
+            const intentId = (await clientMoney(client.id)).payments[0]?.provider_ref ?? "";
+            let opened = await stripeDispute("show", intentId);
+            let disputed = await clientMoney(client.id);
+            // Stripe books the withdrawal a moment after the dispute opens, so both sides are reread
+            await expect
+                .poll(
+                    async () => {
+                        opened = await stripeDispute("show", intentId);
+                        disputed = await clientMoney(client.id);
+                        return [
+                            opened.transactions.map((row) => row.reporting_category).sort(),
+                            (categoryTotals(disputed.entries).stripe ?? 0) - opened.net_cents,
+                        ];
+                    },
+                    { timeout: 90_000 },
+                )
+                .toEqual([["charge", "dispute"], 0]);
+            expect(opened.disputes).toEqual([
+                expect.objectContaining({ status: "needs_response", amount: 2000 }),
+            ]);
+            expectLedgerMatchesStripe(disputed.entries, opened);
+            await expectRefundBlocked(owner, { client, paymentId });
+
+            const won = await stripeDispute("win", intentId);
+            expect(won.disputes).toEqual([
+                expect.objectContaining({ status: "won", amount: 2000 }),
+            ]);
+            await expect
+                .poll(async () => (await clientMoney(client.id)).payments[0]?.dispute_status, {
+                    timeout: 120_000,
+                })
+                .toBe("won");
+            let settled = won;
+            let final = await clientMoney(client.id);
+            await expect
+                .poll(
+                    async () => {
+                        settled = await stripeDispute("show", intentId);
+                        final = await clientMoney(client.id);
+                        return [
+                            settled.transactions.map((row) => row.reporting_category).sort(),
+                            (categoryTotals(final.entries).stripe ?? 0) - settled.net_cents,
+                        ];
+                    },
+                    { timeout: 90_000 },
+                )
+                .toEqual([["charge", "dispute", "dispute_reversal"], 0]);
+            await expectEventsHandled(settled.events);
+            expectLedgerMatchesStripe(final.entries, settled);
+            // Stripe gives back the whole disputed amount; whatever fee it keeps, the books keep too
+            expect(
+                settled.transactions
+                    .filter((row) => row.reporting_category.startsWith("dispute"))
+                    .map((row) => [row.reporting_category, row.amount]),
+            ).toEqual([
+                ["dispute", -2000],
+                ["dispute_reversal", 2000],
+            ]);
+            const totals = categoryTotals(final.entries);
+            expect(totals.revenue).toBe(-2000);
+            for (const category of ["receivable", "loss"])
+                expect([category, totals[category] ?? 0]).toEqual([category, 0]);
+            await expectRefundOpen(owner, { client, paymentId });
+            await expectDisputeListed(owner, client, "won");
+            await info.attach("str-e24-won", {
+                body: JSON.stringify({ opened, settled, ledger: final }, null, 2),
+                contentType: "application/json",
+            });
+        });
+
+        await test.step("an inquiry that closes without escalating books nothing", async () => {
+            const client = await createClient(owner);
+            const invoiceId = await payInvoiceByLink(owner, customer, client, INQUIRY_CARD, info);
+            await expect
+                .poll(
+                    async () =>
+                        categoryTotals((await clientMoney(client.id)).entries).receivable ?? 0,
+                    { timeout: 120_000 },
+                )
+                .toBe(0);
+            const paid = await clientMoney(client.id);
+            const paymentId = paid.payments[0]?.id ?? "";
+            const intentId = paid.payments[0]?.provider_ref ?? "";
+            await expect
+                .poll(async () => (await stripeDispute("show", intentId)).disputes, {
+                    timeout: 90_000,
+                })
+                .toEqual([
+                    expect.objectContaining({ status: "warning_needs_response", amount: 2000 }),
+                ]);
+            const closed = await stripeDispute("close", intentId);
+            expect(closed.disputes).toEqual([
+                expect.objectContaining({ status: "warning_closed" }),
+            ]);
+            expect(closed.events.map((e) => e.type)).toContain("charge.dispute.closed");
+            await expectEventsHandled(closed.events);
+            const final = await clientMoney(client.id);
+            expect(final.payments.map((p) => [p.kind, p.status, p.dispute_status])).toEqual([
+                ["payment", "succeeded", null],
+            ]);
+            expect(new Set(final.entries.map((e) => e.ref))).toEqual(
+                new Set([`invoice:${invoiceId}`, `payment:${paymentId}`, `fee:${paymentId}`]),
+            );
+            // an inquiry moves no money at Stripe either
+            expect(closed.transactions.map((row) => row.reporting_category)).toEqual(["charge"]);
+            expectLedgerMatchesStripe(final.entries, closed);
+            await expectRefundOpen(owner, { client, paymentId });
+            await info.attach("str-e24-inquiry", {
+                body: JSON.stringify({ closed, ledger: final }, null, 2),
+                contentType: "application/json",
+            });
         });
     } finally {
         await customerContext.close();

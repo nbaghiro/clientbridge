@@ -338,6 +338,8 @@ saved card or bank account and the platform fee as `application_fee_percent`. It
   (`subscription.paid_outside_stripe`) and books nothing.
 - The past-due notice is scoped to the failing invoice, so each failed episode sends one notice while
   Smart Retries within an episode don't send more.
+- Canceling a membership that is already canceled answers 200 with it, without calling Stripe again, so a
+  retry after a lost response succeeds quietly.
 - Archiving a client cancels their memberships at the end of the paid period. A lost dispute on a
   membership charge cancels the membership at once and audits `subscription.cancel`.
 - Changing an item's price doesn't move existing members; they keep the price they joined at, and the item
@@ -418,7 +420,9 @@ Dispute and payment-failure events find their payment within the business whose 
 as settlement does, so an event can never touch another business's payment. An inquiry
 (`warning_needs_response`) alerts owners and admins once and books nothing; money moves only if it
 escalates, and then from the withdrawal's balance transaction with its fee, since Stripe can report the
-escalation before it withdraws. An inquiry keeps its answer-by date in `dispute_respond_by` until it escalates. Dispute and
+escalation before it withdraws. An inquiry keeps its answer-by date in `dispute_respond_by` until it escalates, and a
+`warning_closed` inquiry clears it; while it is set, Disputes and Payments > Refunds show the payment as a bank inquiry
+with that date and no money held. A lost dispute leaves nothing to refund (`dispute_lost`). Dispute and
 inquiry alerts push to owners' and admins' phones and email the owner's address with the date the
 evidence is due, so an owner who only uses the web still hears in time. A `prevented`
 dispute, which the card network settled before any funds left, also books
@@ -653,9 +657,11 @@ every account we create carries ours whichever configuration it starts with.
   Premium, all CAD and tax-exclusive, defined in `services/plans.py` `PLAN_PRICES` and found in Stripe by
   lookup key. A changed amount moves the key to a new price, so subscription items are named by their
   fixed product id and interval instead, and an unchanged item stays on the price it was bought at. Subscriptions use flexible billing mode so a yearly plan can carry the monthly seat item.
-- Tax: plan Checkout enables Stripe automatic tax, which locates the account by its identity address. When
-  the customer configuration is added to an account that has no identity address yet, the business
-  address is set as its `business_details.address`; a verified address is never overwritten. The
+- Tax: plan Checkout enables Stripe automatic tax, and the plan is taxed at the business's own address,
+  not its owner's. Stripe Tax places a customer account by its customer shipping address before its
+  identity address, so `set_plan_address` writes the business address there whenever plan billing is
+  added, and again when the address changes on an account that only pays for a plan or already
+  subscribes. A sole proprietor's verified home address therefore never decides the plan's tax. The
   businesses' own sales tax engine (`services/tax.py`) is unrelated.
 - Plan subscriptions live on the platform account, so their events come from a separate platform webhook
   endpoint (`connect=false`) signed with `STRIPE_PLATFORM_WEBHOOK_SECRET`. The webhook picks the secret by
@@ -832,6 +838,23 @@ Clientbridge plan subscriptions; these are separate tax flows. After changing pl
 restart the API because lookup results are cached per process. Existing subscriptions retain their
 original Price unless explicitly changed.
 
+### Go-live check
+
+Before production takes its first payment, check the live platform account against this list. Each item
+has failed in the sandbox at least once.
+
+- Stripe Tax is `active` (`GET /v1/tax/settings`), with a head office address and GST/HST and QST
+  registrations (`GET /v1/tax/registrations`). Without a head office, every plan Checkout fails with a
+  502 `payment_provider_error`: the sandbox ran that way until 2026-11-10.
+- The platform's public name reads "Clientbridge". Stripe shows it to owners in onboarding ("Clientbridge
+  uses Stripe for secure financial services") and on plan Checkout.
+- Smart Retries cancel the subscription after the last retry, so a plan that stops paying lapses rather
+  than staying past due.
+- The connected-account payment method configuration offers cards, Link and Klarna on the client pages;
+  staff-typed card payments ask Stripe for cards only, whatever it offers.
+- The Connect, thin and platform endpoints list the events above at `2026-09-30.endive`, and their recent
+  deliveries show no failures.
+
 ## Testing and QA
 
 Scenario coverage lives in the launch-readiness tickets for payments: [Stripe payments setup (CB-5)](launch-readiness.md#stripe-payments-setup-cb-5),
@@ -852,6 +875,13 @@ browser lane, and what each one proves, are in [engineering](engineering.md#stri
 The sandbox tier uses `STRIPE_TEST_SECRET_KEY` and, for existing merchant scenarios, `STRIPE_TEST_CONNECTED_ACCOUNT`;
 the setup script prints the demo account ID. Follow the [test tiers](engineering.md#stripe-four-tiers-layered-by-cost)
 for the complete harness and prerequisites. A green fake/contract suite is not a live payout sign-off.
+
+A new sandbox account always needs a person once. Stripe's hosted onboarding shows an hCaptcha on its
+sign-in step and refuses automated browsers, and an account becomes read-only to the platform for
+identity, profile and bank fields as soon as it opens an onboarding link. So prefill a test account
+through the API first (Stripe's test identity: date of birth 1901-01-01, SIN 000000000, address line 1
+`address_full_match`, bank 11000-000 / 000123456789), then have a person open the link to solve the
+captcha and accept the terms. Real details entered there instead send the account to a liveness check.
 
 The Stripe browser lane ([test tiers](engineering.md#stripe-four-tiers-layered-by-cost)) runs each money
 flow against the sandbox's QA merchants. CI leases one of six merchant pairs from `backend/e2e/stripe_pool.json`,

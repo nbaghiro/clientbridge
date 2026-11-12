@@ -1,0 +1,125 @@
+appId: ${APP_ID}
+name: NATIVE-PAY-04 On a phone, staff refund part of a card sale, which Stripe and the books both hold, and Payouts shows what awaits payout and the fees as Stripe settled them
+---
+# a number outside 555-01xx, which is set aside for fiction and never texted
+- evalScript: ${output.phone = "250" + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000))}
+- evalScript: ${output.name = "Wren Halloway"}
+- evalScript: ${output.batch = String(1000 + Math.floor(Math.random() * 9000))}
+- evalScript: ${output.product = "Spruce rinse " + output.batch}
+- evalScript: ${output.expiry = "12" + String((new Date().getFullYear() + 3) % 100)}
+- runScript:
+      file: ../helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/clients
+          BODY: "${JSON.stringify({ name: output.name, phone: output.phone })}"
+- evalScript: ${output.client = output.response.id}
+# the lane files the client before the sale gives it a Stripe customer, so cleanup owns its charge
+- runScript:
+      file: ../helpers/control.js
+      env:
+          ACTION: purchaser
+          PAYLOAD: ${output.client}
+- runScript:
+      file: ../helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/items
+          BODY: "${JSON.stringify({ kind: 'product', name: output.product, price_cents: 2000, tax_class: 'exempt' })}"
+- launchApp:
+      permissions:
+          notifications: allow
+- runFlow: ../helpers/allow-location.yaml
+- runFlow: ../helpers/owner.yaml
+- scrollUntilVisible:
+      element: "View payments"
+      direction: DOWN
+- tapOn: "View payments"
+- tapOn: "Sales"
+- tapOn: "Search"
+- inputText: ${output.batch}
+- hideKeyboard
+- scrollUntilVisible:
+      element: ${output.product + ".*"}
+      direction: DOWN
+      timeout: 60000
+- tapOn: ${output.product + ".*"}
+- tapOn: "Charge \\$20.00"
+- tapOn: "Walk-in.*"
+- tapOn: "Search clients"
+- inputText: ${output.phone}
+- extendedWaitUntil:
+      visible: ${".*" + output.name + ".*"}
+      timeout: 60000
+- tapOn: ${".*" + output.name + ".*"}
+- tapOn: "Charge \\$20.00"
+- tapOn: "Enter card.*"
+- tapOn: "Charge \\$20.00"
+- extendedWaitUntil:
+      visible: "Card number"
+      timeout: 30000
+# Stripe's card field moves on to the expiry, the code and the postal code as each fills
+- tapOn: "Card number"
+- inputText: "4242424242424242"
+- inputText: ${output.expiry}
+- inputText: "123"
+- inputText: "V8W1A1"
+- takeScreenshot: refunds-card
+- tapOn: "Charge \\$20.00"
+- extendedWaitUntil:
+      visible: "Payment received"
+      timeout: 90000
+- runScript:
+      file: ../helpers/stripe-money.js
+      env:
+          CLIENT: ${output.client}
+          PAYMENTS: "payment:succeeded:2000"
+- tapOn: "No receipt"
+- tapOn: "New sale"
+- tapOn: "Refunds"
+- tapOn: "Search client, invoice or card"
+- inputText: ${output.name}
+- hideKeyboard
+- tapOn:
+      text: ${".*" + output.name + ".*"}
+      index: 1
+- tapOn: "Part"
+- tapOn: ".*Up to.*"
+- inputText: "5.00"
+# the number pad has no return key, so a tap on a label puts it away
+- tapOn: "How much"
+- takeScreenshot: refunds-composer
+- tapOn: "Refund \\$5.00"
+- tapOn:
+      text: "Refund \\$5.00"
+      rightOf: "Cancel"
+- runScript:
+      file: ../helpers/stripe-money.js
+      env:
+          CLIENT: ${output.client}
+          PAYMENTS: "payment:succeeded:2000,refund:succeeded:500"
+- takeScreenshot: refunds-issued
+- assertTrue: ${output.intents === "card:succeeded:2000"}
+- assertTrue: ${output.refunds === "succeeded:500"}
+- assertTrue: ${output.refunded === 500}
+- assertTrue: ${output.balanced}
+# the sale is booked net of what went back, and the books hold Stripe's net and fee to the cent
+- assertTrue: ${output.revenue === -1500}
+# the composer stays open on the refunded payment; its close button is an icon at the top right
+- tapOn:
+      point: "89%,17%"
+- swipe:
+      from:
+          text: "Refunds"
+      direction: LEFT
+- tapOn: "Payouts"
+- extendedWaitUntil:
+      visible: "Awaiting payout"
+      timeout: 60000
+- assertVisible: ${".*" + output.awaitingShown + ".*"}
+- assertVisible: ${".*" + output.feesShown + ".*"}
+- scrollUntilVisible:
+      element: ${".*" + output.name + ".*"}
+      direction: DOWN
+- assertVisible: ${".*" + output.netShown + ".*"}
+- takeScreenshot: refunds-payouts

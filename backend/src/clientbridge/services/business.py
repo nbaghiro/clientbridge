@@ -374,16 +374,20 @@ class BusinessService:
         self.gateway = gateway
 
     async def _move_plan_account(self, business: Business) -> None:
-        """Give a plan-only Stripe account the new address so its plan is taxed where it now is."""
-        # a payments account's address was verified in Stripe onboarding and changes there
-        if business.stripe_account_id is None or has_merchant(business):
+        """Tax the business's plan at its new address."""
+        # a payments account gets plan billing only once it subscribes
+        if business.stripe_account_id is None or (
+            has_merchant(business) and business.stripe_subscription_id is None
+        ):
             return
         try:
             address = postal_address(business)
         except Unprocessable:
             return
         try:
-            await self.gateway.update_account_address(business.stripe_account_id, address=address)
+            await self.gateway.set_plan_address(
+                business.stripe_account_id, business_name=business.name, address=address
+            )
         except Exception:
             # the settings stay saved; Stripe keeps the old address until the next change
             _log.exception("stripe address update failed for %s", business.id)
