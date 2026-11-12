@@ -1,14 +1,30 @@
+import asyncio
+
 import httpx
 import pytest
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
+from clientbridge.core.db import SessionLocal
+from clientbridge.core.deps import Principal
+from clientbridge.core.errors import Conflict
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Estimate, Invoice, Line
 from clientbridge.models.catalog import Item
+from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import Addon, Booking
-from tests.conftest import BIZ, STAFF_USER, Factory, FakeIdentityProvider, session_token
+from clientbridge.schemas.bookings import BookingCreate
+from clientbridge.services.bookings import BookingService
+from tests.conftest import (
+    BIZ,
+    OWNER_USER,
+    STAFF_USER,
+    Factory,
+    FakeIdentityProvider,
+    FakePaymentGateway,
+    session_token,
+)
 from tests.helpers import client_id, key, new_client, ok
 
 ST_OWNER = "st_owner"
@@ -383,3 +399,48 @@ async def test_staff_and_strangers_cannot_convert_a_booked_estimate(
     assert (await as_owner.post(f"/v1/estimates/{eid}/convert")).status_code == 403
     del as_owner.headers["X-Session-Token"]
     assert (await as_owner.post(f"/v1/estimates/{eid}/convert")).status_code == 401
+
+
+async def test_a_booking_waiting_on_a_decline_is_refused_once_the_decline_lands(
+    db: AsyncSession,
+) -> None:
+    cid = await client_id(db)
+    iid = await _service(db)
+    eid = new_id("estimate")
+    async with SessionLocal() as setup:
+        setup.add(Estimate(id=eid, business_id=BIZ, client_id=cid, status="accepted"))
+        await setup.commit()
+    locked = asyncio.Event()
+    owner = Principal(user_id=OWNER_USER, business_id=BIZ, staff_id=ST_OWNER, role="owner")
+
+    async def decline() -> None:
+        async with SessionLocal() as session:
+            await session.execute(select(Estimate.id).where(Estimate.id == eid).with_for_update())
+            locked.set()
+            await asyncio.sleep(0.2)
+            await session.execute(
+                update(Estimate).where(Estimate.id == eid).values(status="declined")
+            )
+            await session.commit()
+
+    async def book() -> None:
+        await asyncio.wait_for(locked.wait(), 5)
+        async with SessionLocal() as session:
+            data = BookingCreate.model_validate(
+                _body(cid, iid, "2027-03-09T17:00:00Z", estimate_id=eid)
+            )
+            await BookingService(session, owner, FakePaymentGateway()).create(data, None)
+
+    try:
+        with pytest.raises(Conflict):
+            await asyncio.gather(decline(), book())
+        async with SessionLocal() as check:
+            booked = await check.scalar(
+                select(func.count()).select_from(Booking).where(Booking.estimate_id == eid)
+            )
+            assert booked == 0
+    finally:
+        async with SessionLocal() as cleanup:
+            await cleanup.execute(delete(Audit).where(Audit.entity_id == eid))
+            await cleanup.execute(delete(Estimate).where(Estimate.id == eid))
+            await cleanup.commit()

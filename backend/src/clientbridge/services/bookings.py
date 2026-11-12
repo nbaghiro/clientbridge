@@ -134,6 +134,7 @@ _PROGRAM_FIRST_DAY = "a program's first day carries its price; cancel the whole 
 _TERMINAL = frozenset({"completed", "canceled", "no_show"})
 _AFTER_START = frozenset({"completed", "no_show"})
 _NOT_STARTED = "a visit can be completed or marked a no-show only once it has started"
+_ESTIMATE_UNACCEPTED = "only an accepted estimate can be booked"
 _ESTIMATE_BOOKED = "the estimate already has a booked visit; cancel it to book the estimate again"
 _ESTIMATE_INVOICED = "the estimate was already invoiced, so its products are billed there"
 _CLOSED_OR_WAITING = ("completed", "canceled", "no_show", "waitlisted")
@@ -1318,7 +1319,7 @@ class BookingService:
         if estimate.client_id != client_id:
             raise Unprocessable("the estimate is for another client", code="invalid_request")
         if estimate.status != "accepted":
-            raise Conflict("only an accepted estimate can be booked")
+            raise Conflict(_ESTIMATE_UNACCEPTED)
         if estimate.converted_invoice_id is not None:
             raise Conflict(_ESTIMATE_INVOICED)
         lines = [
@@ -1350,6 +1351,14 @@ class BookingService:
             raise Conflict(_ESTIMATE_INVOICED)
         if live is not None:
             raise Conflict(_ESTIMATE_BOOKED, code="estimate_booked")
+        # staff can decline an accepted estimate, so its answer is read again under the lock
+        status = await self.db.scalar(
+            scoped(Estimate, self.biz)
+            .with_only_columns(Estimate.status)
+            .where(Estimate.id == estimate_id)
+        )
+        if status != "accepted":
+            raise Conflict(_ESTIMATE_UNACCEPTED)
 
     async def depart(self, booking_id: str) -> BookingOut:
         """Record that the member set off and text the client; setting off again sends nothing."""
