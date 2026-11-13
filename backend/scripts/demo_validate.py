@@ -25,6 +25,7 @@ from clientbridge.models.scheduling import Booking, Hours, Recurrence, Resource,
 from clientbridge.schemas.forms import FormDefinition
 from clientbridge.schemas.subjects import ATTRIBUTES
 from clientbridge.services.bookings import within_hours
+from clientbridge.services.catalog import class_size
 from clientbridge.services.forms import validate_answers
 from clientbridge.services.lines import crew_note
 from clientbridge.services.remittances import RemittanceService
@@ -77,6 +78,12 @@ def validate_graph(ctx: DemoContext) -> list[str]:
         for client in ctx.all(Client)
         if client.phone and e164(client.phone) != client.phone
     )
+    for item in items.values():
+        if item.kind == "class":
+            try:
+                class_size(item)
+            except AppError as exc:
+                errors.append(f"{item.id}: {exc.message}")
     holders: dict[str, str] = {}
     for client in sorted(ctx.all(Client), key=lambda c: c.id):
         if client.phone is None or client.deleted_at is not None:

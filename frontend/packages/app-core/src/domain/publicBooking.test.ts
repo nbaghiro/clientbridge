@@ -5,12 +5,15 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
     dateKey,
     deviceZone,
+    formatFullDate,
     formatTime,
+    formatTimeRange,
     formatWeekday,
     formatZoneName,
     setDeviceZone,
     zonedDate,
 } from "../datetime";
+import { formatParts } from "../format";
 import { strings } from "../strings";
 import {
     usePublicBookingFlow,
@@ -1447,4 +1450,66 @@ it("names each member's title beside them, and nothing beside anyone available o
         ["st_new", undefined],
         ["st_blank", undefined],
     ]);
+});
+
+it("titles a program by its whole run and daily hours, since every day is booked together", async () => {
+    const days = [17, 18, 19].map((day) => ({
+        starts_at: at(day, 16).toISOString(),
+        ends_at: at(day, 17).toISOString(),
+    }));
+    const client: Parameters<typeof usePublicBookingFlow>[0] = {
+        getServices: vi.fn().mockResolvedValue({
+            business_name: "Demo",
+            brand: { logo_url: null, primary: null, tagline: null },
+            services: [
+                {
+                    id: "camp",
+                    name: "Agility camp",
+                    description: null,
+                    duration_min: 60,
+                    price_cents: 12000,
+                    currency: "CAD",
+                    deposit_required: false,
+                    deposit_amount_cents: 0,
+                    taxable: true,
+                    image_url: null,
+                    kind: "class",
+                    category: null,
+                    color: null,
+                    staff_ids: [],
+                    session_count: 3,
+                },
+            ],
+            staff: [],
+            addons: [],
+            stripe_account_id: null,
+            slug: "demo",
+            now: "2026-10-13T17:00:00Z",
+            timezone: ZONE,
+            policy: null,
+            subject: null,
+        }),
+        getDays: vi.fn().mockResolvedValue([]),
+        getSlots: vi.fn().mockResolvedValue([]),
+        book: vi.fn(),
+        joinWaitlist: vi.fn(),
+        getPrograms: vi
+            .fn()
+            .mockResolvedValue([
+                { starts_at: days[0]?.starts_at, staff_id: "st_lead", days, seats_left: 6 },
+            ]),
+        payDeposit: vi.fn(),
+    };
+    const { result } = renderHook(() => usePublicBookingFlow(client, "demo", { itemId: "camp" }));
+    await waitFor(() => {
+        expect(result.current.programs).toHaveLength(1);
+    });
+    act(() => {
+        result.current.pickSlot(at(17, 16).toISOString());
+    });
+    const run = s.programDates(formatFullDate(at(17, 16), ZONE), formatFullDate(at(19, 16), ZONE));
+    expect(result.current.when).toBe(run);
+    expect(result.current.whenTitle).toBe(
+        formatParts([run, formatTimeRange(at(17, 16), at(17, 17), ZONE)]),
+    );
 });

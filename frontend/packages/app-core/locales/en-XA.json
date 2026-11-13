@@ -371,6 +371,12 @@
     "api.schedulePast": {
         "message": "[Çĥööšé å ƒîŕšţ ðåý ţĥåţ'š šţîļļ åĥéåð. one two three]"
     },
+    "api.classSize": {
+        "message": "[Šéţ ĥöŵ ɱåñý çļîéñţš çåñ ƀööķ öñé çļåšš, ţĥéñ šåṽé îţ åĝåîñ. one two three four]"
+    },
+    "api.programSize": {
+        "message": "[Å þŕöĝŕåɱ ñééðš ŕööɱ ƒöŕ ɱöŕé ţĥåñ öñé çļîéñţ. Ŕåîšé îţš çļåšš šîžé, ţĥéñ šåṽé îţ åĝåîñ. one two three four five six]"
+    },
     "api.classSchedule": {
         "message": "[Ţĥîš îš å çļåšš šçĥéðûļé. Çĥåñĝé öŕ çåñçéļ îţ ûñðéŕ Çļåššéš. one two three four]"
     },
@@ -4234,6 +4240,9 @@
     },
     "programs.pickInstructor": {
         "message": "[Ñö åçţîṽé ţéåɱ ɱéɱƀéŕ ţéåçĥéš ţĥîš þŕöĝŕåɱ. Çĥööšé ŵĥö öƒƒéŕš îţ öñ ţĥé çļåšš îñ ţĥé çåţåļöĝ. one two three four five six]"
+    },
+    "programs.chooseInstructor": {
+        "message": "[Çĥööšé ŵĥö ţéåçĥéš ţĥîš þŕöĝŕåɱ. one two three]"
     },
     "programs.instructor": {
         "message": "[Îñšţŕûçţöŕ one two]"
@@ -8444,6 +8453,12 @@
     "catalog.programDaysInvalid": {
         "message": "[Šéţ ţĥé þŕöĝŕåɱ'š ðåýš åš å ŵĥöļé ñûɱƀéŕ, öŕ ļéåṽé îţ éɱþţý ƒöŕ ðŕöþ-îñ šéššîöñš. one two three four five]"
     },
+    "catalog.capacityRequired": {
+        "message": "[Šéţ ĥöŵ ɱåñý çļîéñţš çåñ ƀööķ öñé çļåšš, åš å ŵĥöļé ñûɱƀéŕ. one two three four]"
+    },
+    "catalog.programCapacity": {
+        "message": "[Å þŕöĝŕåɱ ñééðš ŕööɱ ƒöŕ ɱöŕé ţĥåñ öñé çļîéñţ. Ŕåîšé ţĥé çļåšš šîžé öŕ ļéåṽé ţĥé ðåýš éɱþţý. one two three four five six]"
+    },
     "catalog.onlineBookable": {
         "message": "[Çļîéñţš çåñ ƀööķ ţĥîš öñļîñé one two three]"
     },
@@ -8956,6 +8971,9 @@
     },
     "catalog.durationRequired": {
         "message": "[Šéţ ĥöŵ ļöñĝ îţ ţåķéš, îñ ɱîñûţéš one two three]"
+    },
+    "catalog.bufferInvalid": {
+        "message": "[Šéţ šéţûþ åñð çļéåñ-ûþ îñ ŵĥöļé ɱîñûţéš, 0 öŕ ɱöŕé one two three four]"
     },
     "catalog.depositRequired": {
         "message": "[Éñţéŕ ţĥé ðéþöšîţ åɱöûñţ one two three]"

@@ -116,6 +116,63 @@ async def test_empty_name_is_422(as_owner: httpx.AsyncClient) -> None:
     assert res.status_code == 422
 
 
+@pytest.mark.parametrize(
+    ("days", "capacity", "error"),
+    [
+        (None, None, "class_size"),
+        (None, 0, "class_size"),
+        (3, None, "class_size"),
+        (3, 1, "program_size"),
+    ],
+)
+async def test_a_class_needs_a_size_and_a_program_more_than_one_seat(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    days: int | None,
+    capacity: int | None,
+    error: str,
+) -> None:
+    camp = {"kind": "class", "name": "Agility camp", "duration_min": 60, "session_count": days}
+    before = await db.scalar(text("SELECT count(*) FROM items WHERE business_id = :b"), {"b": BIZ})
+
+    res = await as_owner.post("/v1/items", json={**camp, "capacity": capacity})
+
+    assert res.status_code == 422, res.text
+    assert res.json()["error"] == error
+    after = await db.scalar(text("SELECT count(*) FROM items WHERE business_id = :b"), {"b": BIZ})
+    assert after == before
+
+
+async def test_a_program_cannot_shrink_to_one_seat(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    res = await as_owner.post(
+        "/v1/items",
+        json={
+            "kind": "class",
+            "name": "Camp",
+            "duration_min": 60,
+            "capacity": 2,
+            "session_count": 3,
+        },
+    )
+    assert res.status_code == 201, res.text
+    camp = res.json()["id"]
+
+    shrunk = await as_owner.patch(f"/v1/items/{camp}", json={"capacity": 1})
+
+    assert shrunk.status_code == 422, shrunk.text
+    assert shrunk.json()["error"] == "program_size"
+    # the refused request shares this session, so drop its unsaved edit before reading the row
+    db.expire_all()
+    row = await db.get(Item, camp, populate_existing=True)
+    assert row is not None and row.capacity == 2
+    # without days it is a drop-in class again, which may seat one
+    dropped = await as_owner.patch(f"/v1/items/{camp}", json={"capacity": 1, "session_count": None})
+    assert dropped.status_code == 200, dropped.text
+    assert dropped.json()["capacity"] == 1
+
+
 async def _item(api: httpx.AsyncClient, name: str) -> str:
     res = await api.post("/v1/items", json={"kind": "service", "name": name, "price_cents": 1000})
     return str(res.json()["id"])

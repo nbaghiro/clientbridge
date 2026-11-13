@@ -68,6 +68,8 @@ describe("refused requests", () => {
             ["idempotency_mismatch", strings.api.idempotencyMismatch],
             ["payment_provider_error", strings.api.paymentProviderError],
             ["unsupported_currency", strings.api.unsupportedCurrency],
+            ["class_size", strings.api.classSize],
+            ["program_size", strings.api.programSize],
         ];
         for (const [code, message] of cases)
             expect(failureMessage(refused(409, code), "fallback")).toBe(message);

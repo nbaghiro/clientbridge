@@ -402,6 +402,12 @@
     "api.schedulePast": {
         "message": "Choose a first day that's still ahead."
     },
+    "api.classSize": {
+        "message": "Set how many clients can book one class, then save it again."
+    },
+    "api.programSize": {
+        "message": "A program needs room for more than one client. Raise its class size, then save it again."
+    },
     "api.classSchedule": {
         "message": "This is a class schedule. Change or cancel it under Classes."
     },
@@ -4613,6 +4619,9 @@
     },
     "programs.pickInstructor": {
         "message": "No active team member teaches this program. Choose who offers it on the class in the catalog."
+    },
+    "programs.chooseInstructor": {
+        "message": "Choose who teaches this program."
     },
     "programs.instructor": {
         "message": "Instructor"
@@ -9142,6 +9151,12 @@
     "catalog.programDaysInvalid": {
         "message": "Set the program's days as a whole number, or leave it empty for drop-in sessions."
     },
+    "catalog.capacityRequired": {
+        "message": "Set how many clients can book one class, as a whole number."
+    },
+    "catalog.programCapacity": {
+        "message": "A program needs room for more than one client. Raise the class size or leave the days empty."
+    },
     "catalog.onlineBookable": {
         "message": "Clients can book this online"
     },
@@ -9700,6 +9715,9 @@
     },
     "catalog.durationRequired": {
         "message": "Set how long it takes, in minutes"
+    },
+    "catalog.bufferInvalid": {
+        "message": "Set setup and clean-up in whole minutes, 0 or more"
     },
     "catalog.depositRequired": {
         "message": "Enter the deposit amount"

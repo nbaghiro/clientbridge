@@ -35,6 +35,7 @@ export function ProgramForm({
                 <Select
                     label={s.instructor}
                     value={f.staffId}
+                    placeholder={s.chooseInstructor}
                     options={f.staffOptions}
                     onChange={f.setStaffId}
                 />

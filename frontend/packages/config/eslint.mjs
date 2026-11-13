@@ -51,6 +51,7 @@ const MAESTRO_GLOBALS = {
         "LOGIN",
         "PREFIX",
         "STAFF_ID",
+        "NAME",
     ]),
     output: "writable",
 };

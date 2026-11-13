@@ -13,6 +13,7 @@ from clientbridge.core.config import get_settings
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Estimate, Invoice
 from clientbridge.models.business import Business
+from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client, Consent
 from clientbridge.models.platform import File, FileParent
 from clientbridge.models.scheduling import Booking, Slot
@@ -28,6 +29,16 @@ def test_demo_preflight_rejects_corrupted_booking_timestamps() -> None:
     errors = validate_graph(ctx)
     assert f"{booking.id}: completion chronology" in errors
     assert f"{booking.id}: future confirmation" in errors
+
+
+def test_demo_preflight_rejects_a_class_without_a_size_and_a_program_for_one() -> None:
+    ctx = build_demo(datetime(2026, 10, 8, 16, tzinfo=UTC), core=True)
+    sizeless, single = [row for row in ctx.all(Item) if row.kind == "class"][:2]
+    sizeless.capacity = None
+    single.capacity, single.session_count = 1, 3
+    errors = validate_graph(ctx)
+    assert f"{sizeless.id}: a class needs a size" in errors
+    assert f"{single.id}: a program seats more than one client" in errors
 
 
 def test_demo_preflight_rejects_a_phone_not_stored_as_e164() -> None:

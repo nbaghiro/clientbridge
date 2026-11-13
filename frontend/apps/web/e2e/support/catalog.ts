@@ -78,6 +78,36 @@ export async function newProduct(page: Page): Promise<Locator> {
     await page.getByRole("button", { name: s.addProduct, exact: true }).click();
     return page.getByRole("dialog");
 }
+/** The editor for a new service or class, opened from Add item. */
+export async function newBookable(page: Page, kind: "service" | "class"): Promise<Locator> {
+    await page.goto("/setup/services");
+    await page.getByRole("button", { name: s.addItem, exact: true }).click();
+    const picker = page.getByRole("dialog");
+    await picker.locator(`button[data-value="${kind}"]`).click();
+    await picker.getByRole("button", { name: s.next, exact: true }).click();
+    const editor = page.getByRole("dialog");
+    await expect(editor.getByRole("textbox", { name: s.name, exact: true })).toBeVisible();
+    return editor;
+}
+/** Sends the editor and returns the item the API saved. */
+export async function saveItem<T>(
+    page: Page,
+    editor: Locator,
+    method: "POST" | "PATCH",
+): Promise<T> {
+    const saved = page.waitForResponse(
+        (response) =>
+            new URL(response.url()).pathname.startsWith("/v1/items") &&
+            response.request().method() === method,
+    );
+    await editor
+        .getByRole("button", { name: method === "POST" ? s.add : s.save, exact: true })
+        .click();
+    const response = await saved;
+    expect(response.status(), await response.text()).toBe(method === "POST" ? 201 : 200);
+    await expect(editor).toBeHidden();
+    return (await response.json()) as T;
+}
 export async function fillProduct(editor: Locator, name: string, opening = "7"): Promise<void> {
     await editor.getByRole("textbox", { name: s.name, exact: true }).fill(name);
     await editor.getByRole("textbox", { name: s.price, exact: true }).fill("15");

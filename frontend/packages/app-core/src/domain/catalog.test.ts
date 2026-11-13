@@ -151,6 +151,12 @@ describe("catalog list", () => {
             "5 visits · valid 12 months",
         );
         expect(itemMeta({ ...base, sku: "BB-1" })).toBe("SKU BB-1");
+        expect(itemMeta({ ...base, kind: "class", duration_min: 60, capacity: 6 })).toBe(
+            "60 min · up to 6",
+        );
+        expect(itemMeta({ ...base, kind: "class", duration_min: 60, capacity: null })).toBe(
+            "60 min",
+        );
     });
 
     it("reads suggested gift amounts from the replica's array text", () => {
@@ -280,6 +286,32 @@ describe("item editor", () => {
         expect(
             itemFormError({ ...values, kind: "product", trackStock: true, openingStock: "-1" }),
         ).not.toBeNull();
+    });
+
+    it("needs a class size, and a program room for more than one client", () => {
+        const c = strings.catalog;
+        expect(itemFormError({ ...values, kind: "class", capacity: "" })).toBe(c.capacityRequired);
+        expect(itemFormError({ ...values, kind: "class", capacity: "0" })).toBe(c.capacityRequired);
+        expect(itemFormError({ ...values, kind: "class", capacity: "1" })).toBeNull();
+        expect(itemFormError({ ...values, kind: "class", capacity: "1", sessionCount: "3" })).toBe(
+            c.programCapacity,
+        );
+        expect(
+            itemFormError({ ...values, kind: "class", capacity: "2", sessionCount: "3" }),
+        ).toBeNull();
+    });
+
+    it("takes setup and clean-up in whole minutes from zero", () => {
+        expect(itemFormError({ ...values, bufferBefore: "-5" })).toBe(
+            strings.catalog.bufferInvalid,
+        );
+        expect(itemFormError({ ...values, bufferAfter: "7.5" })).toBe(
+            strings.catalog.bufferInvalid,
+        );
+        expect(itemFormError({ ...values, bufferBefore: "", bufferAfter: "10" })).toBeNull();
+        expect(itemPayload({ ...values, bufferBefore: "", bufferAfter: "10" }, true)).toMatchObject(
+            { buffer_before_min: 0, buffer_after_min: 10 },
+        );
     });
 });
 

@@ -1,0 +1,187 @@
+appId: ${APP_ID}
+name: NATIVE-CFG-04 A service set up on the phone with a room, clean-up, deposit and members is booked online that way, and a class needs a size
+---
+- evalScript: ${output.tag = String(100000 + Math.floor(Math.random() * 900000))}
+- evalScript: ${output.groom = "Coat refresh " + output.tag}
+- evalScript: ${output.camp = "Agility camp " + output.tag}
+- evalScript: ${output.room = "Tub " + output.tag}
+- runFlow: helpers/owner.yaml
+- tapOn: "Setup"
+- tapOn: "Rooms & equipment"
+# the seed has no rooms, so the empty state offers the button
+- tapOn: "Add room or equipment|Add"
+- extendedWaitUntil:
+      visible: "New room or equipment"
+      timeout: 20000
+# a scroll would swipe this short sheet closed, so the name is tapped where it opens
+- tapOn:
+      text: "Name"
+      index: 1
+- inputText: ${output.room}
+# Android's keyboard covers the sheet, and its action key saves the form
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - pressKey: Enter
+# on iOS the first tap on Save can only close the keyboard
+- repeat:
+      times: 2
+      commands:
+          - runFlow:
+                when:
+                    visible: "New room or equipment"
+                commands:
+                    - tapOn: "Save"
+# a row reads as one label, its name first
+- extendedWaitUntil:
+      visible: ${".*" + output.room + ".*"}
+      timeout: 30000
+- tapOn: "Back|Go back|Navigate up"
+- tapOn: "Services & products"
+- extendedWaitUntil:
+      visible: "Bath & Tidy"
+      timeout: 60000
+- tapOn: "Add"
+- tapOn: "Service, .*"
+- tapOn: "Next"
+- extendedWaitUntil:
+      visible: "New service"
+      timeout: 20000
+# the buffers sit in view as the editor opens; scrolling to them centres them under the sheet's header
+- tapOn:
+      text: "Clean-up after \\(min\\)"
+      index: 1
+- eraseText
+- inputText: "10"
+- runFlow:
+      when:
+          platform: iOS
+          visible: "Done"
+      commands:
+          - tapOn: "Done"
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - pressKey: Enter
+- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Name", VALUE: "${output.groom}" } }
+- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Price", VALUE: "80" } }
+- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Duration \\(min\\)", VALUE: "60" } }
+- scrollUntilVisible:
+      element: "Blocks 70 min: 60 min with the client, 10 min clean-up.*"
+      direction: DOWN
+- scrollUntilVisible:
+      element: "Diego Ramirez"
+      direction: DOWN
+      centerElement: true
+- tapOn: "Hannah Wong"
+- tapOn: "Diego Ramirez"
+- scrollUntilVisible:
+      element: ${output.room}
+      direction: DOWN
+      centerElement: true
+- tapOn: ${output.room}
+- scrollUntilVisible:
+      element: "Percent"
+      direction: DOWN
+      centerElement: true
+- tapOn: "Percent"
+- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Deposit percent", VALUE: "25" } }
+- scrollUntilVisible:
+      element: "Clients pay \\$20\\.00 when they book\\. The other \\$60\\.00 is due at the visit\\."
+      direction: DOWN
+- takeScreenshot: native-service-editor
+- tapOn: "Add to catalog"
+- extendedWaitUntil:
+      notVisible: "New service"
+      timeout: 30000
+- tapOn: "Search name, category or SKU"
+- inputText: ${output.groom}
+# otherwise the next Back only puts Android's keyboard away
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - pressKey: Enter
+- extendedWaitUntil:
+      visible: ${output.groom}
+      timeout: 30000
+- runScript:
+      file: helpers/public-service.js
+      env:
+          NAME: ${output.groom}
+          STAFF_ID: ${"st_diego_" + E2E_NAMESPACE}
+- assertTrue: ${output.service.price === 8000 && output.service.minutes === 60}
+- assertTrue: ${output.service.deposit === 2000}
+# each visit blocks its hour and the clean-up, so back-to-back starts are 70 minutes apart
+- assertTrue: ${output.service.gap === 70}
+- assertTrue: ${output.service.staff === "st_diego_" + E2E_NAMESPACE + ",st_owner_" + E2E_NAMESPACE}
+- tapOn: "Back|Go back|Navigate up"
+- tapOn: "Rooms & equipment"
+- extendedWaitUntil:
+      visible: ${".*" + output.groom + ".*"}
+      timeout: 30000
+- tapOn: "Back|Go back|Navigate up"
+- tapOn: "Services & products"
+- extendedWaitUntil:
+      visible: "Bath & Tidy"
+      timeout: 60000
+
+# a program needs room for more than one client, and a class a size; each editor only scrolls down
+- tapOn: "Add"
+- tapOn: "Class, .*"
+- tapOn: "Next"
+- extendedWaitUntil:
+      visible: "New class"
+      timeout: 20000
+- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Name", VALUE: "${output.camp}" } }
+- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Duration \\(min\\)", VALUE: "60" } }
+- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Class size", VALUE: "1" } }
+- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Days in a program", VALUE: "3" } }
+- tapOn: "Add to catalog"
+# a first tap can only put Android's keyboard away; a second check of the form sends nothing
+- runFlow:
+      when:
+          notVisible: "A program needs room for more than one client\\. Raise the class size or leave the days empty\\."
+      commands:
+          - tapOn: "Add to catalog"
+- scrollUntilVisible:
+      element: "A program needs room for more than one client\\. Raise the class size or leave the days empty\\."
+      direction: DOWN
+- takeScreenshot: native-program-size
+- runFlow: helpers/close-sheet.yaml
+- runFlow:
+      when:
+          visible: "Discard.*"
+      commands:
+          - tapOn: "Discard.*"
+- tapOn: "Add"
+- tapOn: "Class, .*"
+- tapOn: "Next"
+- extendedWaitUntil:
+      visible: "New class"
+      timeout: 20000
+- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Name", VALUE: "${output.camp}" } }
+- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Duration \\(min\\)", VALUE: "60" } }
+- tapOn: "Add to catalog"
+# a first tap can only put Android's keyboard away; a second check of the form sends nothing
+- runFlow:
+      when:
+          notVisible: "Set how many clients can book one class, as a whole number\\."
+      commands:
+          - tapOn: "Add to catalog"
+- scrollUntilVisible:
+      element: "Set how many clients can book one class, as a whole number\\."
+      direction: DOWN
+- runFlow: helpers/close-sheet.yaml
+- runFlow:
+      when:
+          visible: "Discard.*"
+      commands:
+          - tapOn: "Discard.*"
+- tapOn: "Search name, category or SKU"
+- inputText: ${output.camp}
+- extendedWaitUntil:
+      visible: "No items match that search\\."
+      timeout: 15000

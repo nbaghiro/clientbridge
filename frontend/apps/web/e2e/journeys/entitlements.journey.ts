@@ -2,10 +2,14 @@ import { randomUUID } from "node:crypto";
 import {
     combineDayAndTime,
     dateKey,
+    formatFullDate,
     formatMoney,
+    formatParts,
     formatTime,
+    formatTimeRange,
     strings,
     addDays,
+    whenTitle,
 } from "@clientbridge/app-core/public";
 import { expect, test, type Page } from "@playwright/test";
 import { bookingApi } from "../support/bookings";
@@ -671,8 +675,20 @@ test("CLS-E2E-02 a client enrols in a three-day camp on Connect and every day, w
         const cards = client.getByRole("group", { name: b.programPick, exact: true });
         await expect(cards.getByRole("button")).toHaveCount(1);
         await cards.getByRole("button").first().click();
+        // every day is booked together, so the visit reads as the whole run at its daily hours
+        const first = new Date(sessions[0] ?? 0);
+        const dates = b.programDates(
+            formatFullDate(first, ZONE),
+            formatFullDate(new Date(sessions.at(-1) ?? 0), ZONE),
+        );
+        const when = formatParts([
+            dates,
+            formatTimeRange(first, new Date(first.getTime() + 60 * 60_000), ZONE),
+        ]);
+        await expect(client.getByText(when, { exact: true }).first()).toBeVisible();
         const booker = onlineBooker("Maple");
         await fillConnectDetails(client, booker, "pet");
+        await expect(client.getByText(when, { exact: true }).first()).toBeVisible();
         const posted = client.waitForResponse(
             (response) =>
                 new URL(response.url()).pathname === `/book/${demoSlug("cedarcoast")}` &&
@@ -699,6 +715,12 @@ test("CLS-E2E-02 a client enrols in a three-day camp on Connect and every day, w
         });
         expect(enrolled.booking_ids).toHaveLength(3);
         await expect(client.getByRole("heading", { name: b.doneTitle, exact: true })).toBeVisible();
+        await expect(client.getByText(when, { exact: true }).first()).toBeVisible();
+        await expect(
+            client.getByText(whenTitle(first.toISOString(), dateKey(new Date(), ZONE), ZONE), {
+                exact: true,
+            }),
+        ).toHaveCount(0);
 
         const evidence = await visitEvidence([booker.phone]);
         const slotIds = program.sessions.map((session) => session.slot_id);

@@ -158,6 +158,8 @@ const FAILURES: Record<string, (detail: FailureDetail) => string> = {
     program_days: () => strings.api.programDays,
     schedule_conflict: () => strings.api.scheduleConflict,
     schedule_past: () => strings.api.schedulePast,
+    class_size: () => strings.api.classSize,
+    program_size: () => strings.api.programSize,
     class_schedule: () => strings.api.classSchedule,
     addon_length_in_use: (d) => strings.api.addonLengthInUse(detailCount(d)),
     enrolment_paid: () => strings.api.enrolmentPaid,

@@ -32,7 +32,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 2. Clients and catalog | Client subjects: who or what is booked | [CB-9](https://linear.app/clientbridgeca/issue/CB-9) | Automated |
 | 2. Clients and catalog | Client notes, photos and history | [CB-10](https://linear.app/clientbridgeca/issue/CB-10) | Automated |
 | 2. Clients and catalog | Client tags and duplicate merge | [CB-11](https://linear.app/clientbridgeca/issue/CB-11) | Partly automated |
-| 2. Clients and catalog | Services, classes and resources | [CB-13](https://linear.app/clientbridgeca/issue/CB-13) | Partly automated |
+| 2. Clients and catalog | Services, classes and resources | [CB-13](https://linear.app/clientbridgeca/issue/CB-13) | Automated |
 | 2. Clients and catalog | Products and stock | [CB-14](https://linear.app/clientbridgeca/issue/CB-14) | Partly automated |
 | 3. Run the day | Today screen | [CB-44](https://linear.app/clientbridgeca/issue/CB-44) | Partly automated |
 | 3. Run the day | Hours, time off and closures | [CB-16](https://linear.app/clientbridgeca/issue/CB-16) | Partly automated |
@@ -643,14 +643,15 @@ The business loads its clients, what they book for, and the services and product
 
 **Automated by**
 
+* `CFG-E2E-13 (web)`
+* `CFG-E2E-15 (web)`
+* `CLS-E2E-02 (journeys)`
+* `CLS-E2E-04 (web)`
 * `SCH-E2E-05 (journeys)`
 * `SCH-E2E-06 (journeys)`
+* `SCH-E2E-23 (journeys)`
 * `STR-E10 (web)`
-* `CLS-E2E-02 (journeys)`
-
-**To automate**
-
-* `CFG-E2E-13` in `apps/web/e2e/catalog.e2e.ts`: Buffers and deposit percentage on a service match the slots and deposit Connect offers.
+* `NATIVE-CFG-04 (native-ios, native-android)`
 
 **Depends on:** Nothing
 

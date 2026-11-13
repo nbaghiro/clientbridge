@@ -1,5 +1,9 @@
-import { strings } from "@clientbridge/app-core/public";
-import { expect, test, type Route } from "@playwright/test";
+import { randomUUID } from "node:crypto";
+import { addDays, dateKey, formatMoney, strings } from "@clientbridge/app-core/public";
+import { demoPerson } from "@clientbridge/config/e2e/demo";
+import { demoSlug, runEmail } from "@clientbridge/config/e2e/run";
+import { expect, test, type Page, type Route } from "@playwright/test";
+import { bookingApi, cancelOwnedBooking } from "./support/bookings";
 import {
     catalogEvidence,
     catalogFixture,
@@ -7,10 +11,27 @@ import {
     expectStockReplica,
     fillProduct,
     itemCurrency,
+    newBookable,
     newProduct,
+    saveItem,
 } from "./support/catalog";
-import { signIn } from "./support/session";
+import { customerContext, signIn } from "./support/session";
+import { select } from "./support/db";
+import { choiceKeys, connectUrl, onlineBooker, teamMember } from "./support/visit";
 const s = strings.catalog;
+const b = strings.publicBooking;
+const MIN = 60_000;
+const ZONE = "America/Vancouver";
+
+interface SavedItem {
+    id: string;
+    price_cents: number;
+    duration_min: number;
+    buffer_after_min: number;
+    deposit_type: string;
+    deposit_value: number;
+    staff_ids: string[];
+}
 
 test("CFG-E2E-01 product validation and opening stock persist across replicas", async ({
     page,
@@ -305,4 +326,210 @@ test("STR-E10 a price in another currency is refused with the catalog copy and n
         body: JSON.stringify({ refusals, item: created.items[0] }),
         contentType: "application/json",
     });
+});
+
+test("CFG-E2E-13 the length, clean-up, deposit and members set on a service are what Connect offers, and a new price reaches it", async ({
+    page,
+    browser,
+}, testInfo) => {
+    test.setTimeout(180_000);
+    await signIn(page);
+    const slug = demoSlug("birchbark");
+    const name = `Coat refresh for ${demoPerson(randomUUID())}`;
+    const hannah = await teamMember(page, runEmail("hannah@birchbark.example"));
+    const diego = await teamMember(page, runEmail("diego@birchbark.example"));
+    const priya = await teamMember(page, runEmail("priya@birchbark.example"));
+    const editor = await newBookable(page, "service");
+    await editor.getByRole("textbox", { name: s.name, exact: true }).fill(name);
+    await editor.getByRole("textbox", { name: s.price, exact: true }).fill("80");
+    await editor.getByRole("textbox", { name: s.durationLabel, exact: true }).fill("60");
+    await editor.getByRole("textbox", { name: s.bufferAfter, exact: true }).fill("10");
+    const offeredBy = editor.getByRole("group", { name: s.offeredBy, exact: true });
+    await offeredBy.locator(`button[data-value="${hannah.id}"]`).click();
+    await offeredBy.locator(`button[data-value="${diego.id}"]`).click();
+    await editor
+        .getByRole("group", { name: s.sectionDeposit, exact: true })
+        .locator('button[data-value="percent"]')
+        .click();
+    await editor.getByRole("textbox", { name: s.depositPercentLabel, exact: true }).fill("25");
+    await expect(
+        editor.getByText(s.depositSummary(formatMoney(2000, "CAD"), formatMoney(6000, "CAD"))),
+    ).toBeVisible();
+    const item = await saveItem<SavedItem>(page, editor, "POST");
+    expect(item).toMatchObject({
+        price_cents: 8000,
+        duration_min: 60,
+        buffer_after_min: 10,
+        deposit_type: "percent",
+        deposit_value: 25,
+        staff_ids: [diego.id, hannah.id].sort(),
+    });
+
+    const context = await customerContext(browser);
+    try {
+        const client = await context.newPage();
+        const card = async (visitor: Page) => {
+            await visitor.goto(connectUrl(slug));
+            await expect(visitor.getByRole("heading", { name: b.stepService })).toBeVisible();
+            return visitor.getByRole("button").filter({ hasText: name });
+        };
+        const listed = await card(client);
+        await expect(listed).toContainText(b.deposit(formatMoney(2000, "CAD")));
+        await expect(listed).toContainText(formatMoney(8000, "CAD"));
+        await listed.click();
+        const extras = client.getByText(b.oftenAdded, { exact: true });
+        const days = client.getByRole("radiogroup", { name: b.date, exact: true });
+        await expect(days.or(extras)).toBeVisible();
+        if (await extras.isVisible())
+            await client.getByRole("button", { name: b.continue, exact: true }).first().click();
+        expect(await choiceKeys(client.getByRole("group", { name: b.with, exact: true }))).toEqual(
+            ["any", diego.id, hannah.id].sort(),
+        );
+
+        const slots = async (staffId: string, date: string) =>
+            context.request.get(`${bookingApi()}/book/${slug}/slots`, {
+                params: { item_id: item.id, staff_id: staffId, date },
+            });
+        // each visit blocks its hour and the clean-up, so open starts sit 70 minutes apart or more
+        let starts: number[] = [];
+        let adjacent = false;
+        for (let offset = 14; offset < 28 && !adjacent; offset++) {
+            const date = dateKey(addDays(new Date(), offset, ZONE), ZONE);
+            const response = await slots(diego.id, date);
+            expect(response.status(), await response.text()).toBe(200);
+            const open = (
+                (await response.json()) as { slots: { starts_at: string; ends_at: string }[] }
+            ).slots;
+            for (const slot of open)
+                expect(Date.parse(slot.ends_at) - Date.parse(slot.starts_at)).toBe(60 * MIN);
+            starts = open.map((slot) => Date.parse(slot.starts_at));
+            const gaps = starts.slice(1).map((start, k) => (start - (starts[k] ?? 0)) / MIN);
+            for (const gap of gaps) expect(gap, date).toBeGreaterThanOrEqual(70);
+            adjacent = gaps.includes(70);
+        }
+        expect(adjacent).toBe(true);
+        const unoffered = await slots(priya.id, dateKey(new Date(starts[0] ?? 0), ZONE));
+        expect(unoffered.status(), await unoffered.text()).toBe(422);
+        expect(((await unoffered.json()) as { error: string }).error).toBe("service_not_offered");
+
+        await page.locator(`button[data-row-key="${item.id}"]`).click();
+        const edit = page.getByRole("dialog");
+        await edit.getByRole("textbox", { name: s.price, exact: true }).fill("95");
+        const repriced = await saveItem<SavedItem>(page, edit, "PATCH");
+        expect(repriced.price_cents).toBe(9500);
+        // a returning visitor resumes their draft, so a new one reads the list again
+        const relisted = await card(await context.newPage());
+        await expect(relisted).toContainText(formatMoney(9500, "CAD"));
+        await expect(relisted).toContainText(b.deposit(formatMoney(2375, "CAD")));
+        await testInfo.attach("service-on-connect", {
+            body: JSON.stringify({ item, repriced, starts }),
+            contentType: "application/json",
+        });
+    } finally {
+        await context.close();
+    }
+});
+
+test("CFG-E2E-15 a class needs a size and a program room for more than one, and a class of six seats two online bookers in one session", async ({
+    page,
+    browser,
+}, testInfo) => {
+    test.setTimeout(180_000);
+    await signIn(page);
+    const slug = demoSlug("birchbark");
+    const name = `Agility basics for ${demoPerson(randomUUID())}`;
+    const saved = () => select<{ id: string }>`SELECT id FROM items WHERE name = ${name}`;
+    const posts: string[] = [];
+    page.on("request", (request) => {
+        if (request.method() === "POST" && new URL(request.url()).pathname === "/v1/items")
+            posts.push(request.url());
+    });
+    const editor = await newBookable(page, "class");
+    await editor.getByRole("textbox", { name: s.name, exact: true }).fill(name);
+    await editor.getByRole("textbox", { name: s.durationLabel, exact: true }).fill("60");
+    const add = editor.getByRole("button", { name: s.add, exact: true });
+    const refusal = async (copy: string) => {
+        await add.click();
+        await expect(editor.getByText(copy, { exact: true })).toBeVisible();
+    };
+    await refusal(s.capacityRequired);
+    const size = editor.getByRole("textbox", { name: s.capacity, exact: true });
+    const days = editor.getByRole("textbox", { name: s.programDays, exact: true });
+    await size.fill("1");
+    await days.fill("3");
+    await refusal(s.programCapacity);
+    await days.fill("");
+    await size.fill("6");
+    await editor.getByRole("textbox", { name: s.bufferBefore, exact: true }).fill("-5");
+    await refusal(s.bufferInvalid);
+    expect(posts).toEqual([]);
+    expect(await saved()).toEqual([]);
+    await editor.getByRole("textbox", { name: s.bufferBefore, exact: true }).fill("0");
+    const item = await saveItem<{ id: string; capacity: number; session_count: number | null }>(
+        page,
+        editor,
+        "POST",
+    );
+    expect(item).toMatchObject({ capacity: 6, session_count: null });
+    await expect(page.locator(`button[data-row-key="${item.id}"]`)).toContainText(s.classSize(6));
+
+    for (const [sizes, error] of [
+        [{ capacity: null, session_count: null }, "class_size"],
+        [{ capacity: 1, session_count: 3 }, "program_size"],
+    ] as const) {
+        const refused = await page.request.post(`${bookingApi()}/v1/items`, {
+            headers: { Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() },
+            data: { kind: "class", name, duration_min: 60, ...sizes },
+        });
+        expect(refused.status(), await refused.text()).toBe(422);
+        expect(((await refused.json()) as { error: string }).error).toBe(error);
+    }
+    expect(await saved()).toEqual([{ id: item.id }]);
+
+    const context = await customerContext(browser);
+    const booked: string[] = [];
+    try {
+        const client = await context.newPage();
+        await client.goto(connectUrl(slug));
+        await expect(client.getByRole("button").filter({ hasText: name })).toBeVisible();
+        let start: string | undefined;
+        for (let offset = 14; offset < 28 && start === undefined; offset++) {
+            const date = dateKey(addDays(new Date(), offset, ZONE), ZONE);
+            const response = await context.request.get(`${bookingApi()}/book/${slug}/slots`, {
+                params: { item_id: item.id, staff_id: "any", date },
+            });
+            expect(response.status(), await response.text()).toBe(200);
+            start = ((await response.json()) as { slots: { starts_at: string }[] }).slots[0]
+                ?.starts_at;
+        }
+        if (start === undefined) throw new Error("Connect offered no time for the class");
+        for (const pet of ["Pickle", "Juniper"]) {
+            const booker = onlineBooker(pet);
+            const response = await context.request.post(`${bookingApi()}/book/${slug}`, {
+                headers: { "Idempotency-Key": randomUUID() },
+                data: {
+                    item_id: item.id,
+                    staff_id: "any",
+                    starts_at: start,
+                    client: { name: booker.name, phone: booker.phone },
+                    subject_name: booker.subject,
+                },
+            });
+            expect(response.status(), await response.text()).toBe(200);
+            booked.push(((await response.json()) as { booking_id: string }).booking_id);
+        }
+        const seats = await select<{ slot_id: string; capacity: number }>`
+            SELECT b.slot_id, s.capacity FROM bookings b JOIN slots s ON s.id = b.slot_id
+            WHERE b.id = ANY(${booked}::text[])`;
+        await testInfo.attach("class-seats", {
+            body: JSON.stringify({ item, start, booked, seats }),
+            contentType: "application/json",
+        });
+        expect(seats).toHaveLength(2);
+        expect(new Set(seats.map((seat) => seat.slot_id)).size).toBe(1);
+        expect(seats[0]?.capacity).toBe(6);
+    } finally {
+        for (const id of booked) await cancelOwnedBooking(page, id);
+        await context.close();
+    }
 });
