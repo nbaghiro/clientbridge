@@ -8006,6 +8006,9 @@
     "staff.team.removeScheduleNote": {
         "message": "[Å çļåšš šçĥéðûļé ɱöṽéš ŵîţĥ éṽéŕý šéššîöñ ļéƒţ. Ţĥé ɱéɱƀéŕ ýöû çĥööšé ñééðš ţö ţéåçĥ ţĥé çļåšš åñð ƀé ƒŕéé ƒöŕ åļļ öƒ ţĥéɱ. one two three four five six seven eight]"
     },
+    "staff.team.removeUnderway": {
+        "message": "[{count,plural,one{Ţĥéîŕ ṽîšîţ ûñðéŕ ŵåý ñöŵ šţåýš ŵîţĥ ţĥéɱ ûñţîļ îţ éñðš, åñð îţ ļéåṽéš ţĥé ðåý'š šçĥéðûļé öñçé ţĥéý'ŕé ŕéɱöṽéð.} other{Ţĥéîŕ # ṽîšîţš ûñðéŕ ŵåý ñöŵ šţåý ŵîţĥ ţĥéɱ ûñţîļ ţĥéý éñð, åñð ţĥéý ļéåṽé ţĥé ðåý'š šçĥéðûļé öñçé ţĥéý'ŕé ŕéɱöṽéð.}} one two three four five six seven eight nine ten one two three four]"
+    },
     "staff.team.removeScheduleClash": {
         "message": "[Ţĥé ɱéɱƀéŕ ýöû çĥöšé îšñ'ţ ƒŕéé ƒöŕ {name} öñ {day}. Çĥööšé šöɱéöñé éļšé, öŕ çåñçéļ ţĥé šéššîöñš. one two three four five six]"
     },
@@ -8070,10 +8073,10 @@
         "message": "[{name} ŵåš ŕéɱöṽéð one two]"
     },
     "staff.team.removedMoved": {
-        "message": "[{count,plural,one{# ṽîšîţ ɱöṽéð, åñð îţš çļîéñţ ŵåš ţöļð ŵĥö ţĥéý'ļļ šéé.} other{# ṽîšîţš ɱöṽéð, åñð ţĥéîŕ çļîéñţš ŵéŕé ţöļð ŵĥö ţĥéý'ļļ šéé.}} one two three four five six seven]"
+        "message": "[{count,plural,one{# ṽîšîţ ɱöṽéð. Îƒ îţš çļîéñţ ţåķéš ţéẋţš, ţĥéý'ļļ ĝéţ öñé šåýîñĝ ŵĥö ţĥéý'ļļ šéé.} other{# ṽîšîţš ɱöṽéð. Çļîéñţš ŵĥö ţåķé ţéẋţš ŵîļļ ĝéţ öñé šåýîñĝ ŵĥö ţĥéý'ļļ šéé.}} one two three four five six seven eight nine]"
     },
     "staff.team.removedCanceled": {
-        "message": "[{count,plural,one{# ṽîšîţ ŵåš çåñçéļéð, åñð îţš çļîéñţ ŵåš ţöļð.} other{# ṽîšîţš ŵéŕé çåñçéļéð, åñð ţĥéîŕ çļîéñţš ŵéŕé ţöļð.}} one two three four five six]"
+        "message": "[{count,plural,one{# ṽîšîţ ŵåš çåñçéļéð. Îƒ îţš çļîéñţ ţåķéš ţéẋţš, ţĥéý'ļļ ĝéţ öñé šåýîñĝ šö.} other{# ṽîšîţš ŵéŕé çåñçéļéð. Çļîéñţš ŵĥö ţåķé ţéẋţš ŵîļļ ĝéţ öñé šåýîñĝ šö.}} one two three four five six seven eight nine]"
     },
     "staff.team.removedSeriesMoved": {
         "message": "[{count,plural,one{# ŕéþéåţîñĝ šéŕîéš ɱöṽéð ŵîţĥ îţš ṽîšîţš.} other{# ŕéþéåţîñĝ šéŕîéš ɱöṽéð ŵîţĥ ţĥéîŕ ṽîšîţš.}} one two three four five six]"

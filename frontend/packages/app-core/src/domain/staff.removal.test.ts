@@ -25,10 +25,16 @@ const VISITS = [
     },
 ];
 
+const UNDERWAY: { id: string }[] = [];
+
 vi.mock("../hooks", async (original) => ({
     ...(await original<typeof import("../hooks")>()),
     useBusinessQuery: (sql: string) => ({
-        data: sql.includes("FROM slots s JOIN bookings b") ? VISITS : [],
+        data: sql.includes("s.ends_at")
+            ? UNDERWAY
+            : sql.includes("FROM slots s JOIN bookings b")
+              ? VISITS
+              : [],
         isLoading: false,
         error: null,
     }),
@@ -152,6 +158,68 @@ describe("useRemoveMember", () => {
             expect(result.current.outcome).toEqual({ body: t.removedMoved(2), series: [] });
         });
         expect(removed).not.toHaveBeenCalled();
+    });
+
+    it("lets the record go when the dialog closes mid-removal", () => {
+        const removing = vi.fn();
+        const { result, unmount } = renderHook(
+            () =>
+                useRemoveMember(
+                    api(() => new Promise(() => undefined)),
+                    LEE,
+                    [LEE, TAM],
+                    vi.fn(),
+                    removing,
+                ),
+            { wrapper },
+        );
+        act(() => {
+            result.current.submit();
+        });
+        unmount();
+        expect(removing.mock.calls).toEqual([[true], [false]]);
+    });
+
+    it("keeps the record when the connection drops, so a retry can replay the summary", async () => {
+        const removing = vi.fn();
+        const { result } = renderHook(
+            () =>
+                useRemoveMember(
+                    api(() => Promise.reject(new TypeError("Network request failed"))),
+                    LEE,
+                    [LEE, TAM],
+                    vi.fn(),
+                    removing,
+                ),
+            { wrapper },
+        );
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(result.current.error).not.toBeNull();
+        });
+        expect(removing.mock.calls).toEqual([[true]]);
+    });
+
+    it("says a visit under way stays with the member", () => {
+        UNDERWAY.push({ id: "bk_now" });
+        try {
+            const { result } = renderHook(
+                () =>
+                    useRemoveMember(
+                        api(() => Promise.resolve({})),
+                        LEE,
+                        [LEE, TAM],
+                        vi.fn(),
+                        vi.fn(),
+                    ),
+                { wrapper },
+            );
+            expect(result.current.underwayNote).toBe(t.removeUnderway(1));
+        } finally {
+            UNDERWAY.length = 0;
+        }
     });
 });
 

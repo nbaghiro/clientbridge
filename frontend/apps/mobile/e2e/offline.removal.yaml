@@ -8,14 +8,14 @@ onFlowComplete:
           env:
               ACTION: online
     - runScript:
-          file: helpers/team-member.js
+          file: helpers/team.js
           env:
               ACTION: forget
     - runFlow: helpers/restore-owner.yaml
 ---
 - runFlow: helpers/owner.yaml
 - runScript:
-      file: helpers/team-member.js
+      file: helpers/team.js
       env:
           ACTION: join
           SURNAME: Offline
@@ -51,7 +51,7 @@ onFlowComplete:
       env:
           ACTION: offline
 - runScript:
-      file: helpers/team-member.js
+      file: helpers/team.js
       env:
           ACTION: remove
 # offline, the phone can't hear of the removal and keeps showing its replica

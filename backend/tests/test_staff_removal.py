@@ -286,6 +286,23 @@ async def test_a_visit_nobody_can_take_refuses_the_removal_and_names_it_409(
     assert len(sms.sent) == sent
 
 
+async def test_a_refused_removal_can_be_sent_again_with_its_key_once_the_clash_is_gone(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    item = await _item(db)
+    leaving = await _member(db, factory, "Leaving Lee")
+    taking = await _member(db, factory, "Taking Tam")
+    visit = await _visit(as_owner, item, leaving, FIRST)
+    blocking = await _visit(as_owner, item, taking, FIRST)
+    headers = key()
+    body = {"future": "reassign", "reassign_to": taking}
+    refused = await as_owner.post(f"/v1/staff/{leaving}/remove", json=body, headers=headers)
+    assert refused.status_code == 409 and refused.json()["error"] == "visits_unplaced"
+    ok(await as_owner.patch(f"/v1/bookings/{blocking}", json={"starts_at": SECOND}))
+    ok(await as_owner.post(f"/v1/staff/{leaving}/remove", json=body, headers=headers))
+    assert await _staff_of(db, visit) == (taking, taking, "confirmed")
+
+
 async def test_a_series_whose_visits_all_clash_refuses_the_removal(
     as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
 ) -> None:
@@ -379,6 +396,31 @@ async def test_any_member_prefers_someone_with_hours_that_day_over_a_day_with_no
     )
     await db.flush()
     visit = await _visit(as_owner, item, leaving, MONDAY)
+    assert ok(await _remove(as_owner, leaving, future="reassign", reassign_to="any"))
+    assert await _staff_of(db, visit) == (mondays, mondays, "confirmed")
+
+
+async def test_any_member_reads_hours_on_the_visit_s_local_day_not_its_utc_day(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    item = await _item(db)
+    leaving = await _member(db, factory, "Leaving Lee")
+    mondays = await _member(db, factory, "Monday Mo")
+    db.add(
+        Hours(
+            id=new_id("hours"),
+            business_id=BIZ,
+            staff_id=mondays,
+            basis="recurring",
+            weekday=0,
+            start_time=time(9, 0),
+            end_time=time(22, 0),
+            available=True,
+        )
+    )
+    await db.flush()
+    # Monday 8 pm in Vancouver is already Tuesday in UTC, when the demo's members work
+    visit = await _visit(as_owner, item, leaving, "2027-03-02T04:00:00Z")
     assert ok(await _remove(as_owner, leaving, future="reassign", reassign_to="any"))
     assert await _staff_of(db, visit) == (mondays, mondays, "confirmed")
 

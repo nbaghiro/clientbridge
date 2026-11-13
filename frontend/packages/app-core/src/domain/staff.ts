@@ -26,6 +26,7 @@ import {
     type Attempt,
     failedCode,
     failedDetail,
+    failedStatus,
     failureMessage,
     sendAttempt,
 } from "../api";
@@ -301,6 +302,13 @@ WHERE s.staff_id = ?1 AND s.status = 'scheduled' AND b.deleted_at IS NULL
   AND ${utcSql("s.starts_at")} >= ${utcSql("?2")}
 ORDER BY s.starts_at, b.id`;
 
+const MEMBER_UNDERWAY_SQL = `
+SELECT b.id
+FROM slots s JOIN bookings b ON b.slot_id = s.id
+WHERE s.staff_id = ?1 AND s.status = 'scheduled' AND b.deleted_at IS NULL
+  AND b.status IN ('pending', 'confirmed', 'waitlisted')
+  AND ${utcSql("s.starts_at")} < ${utcSql("?2")} AND ${utcSql("s.ends_at")} > ${utcSql("?2")}`;
+
 const MEMBER_SERIES_SQL = `
 SELECT r.id, r.client_id, i.name AS item_name, c.name AS client_name
 FROM recurrences r
@@ -428,6 +436,8 @@ interface RemoveMemberView {
     // the member's class schedules, each moving whole to one member or canceled
     schedules: Fact[];
     scheduleNote: string | null;
+    // a visit already under way stays with the member, so the owner is told before removing
+    underwayNote: string | null;
     summary: string;
     choice: RemovalChoice;
     setChoice: (choice: RemovalChoice) => void;
@@ -455,6 +465,7 @@ export function useRemoveMember(
     const [now] = useState(() => new Date().toISOString());
     const rows = useQuery<FutureVisitRow>(MEMBER_FUTURE_SQL, [member.id, now]).data;
     const series = useQuery<MemberSeriesRow>(MEMBER_SERIES_SQL, [member.id]).data;
+    const underway = useQuery<{ id: string }>(MEMBER_UNDERWAY_SQL, [member.id, now]).data;
     const [choice, setChoice] = useState<RemovalChoice>("reassign");
     const [taker, setTaker] = useState(ANY_MEMBER);
     const [outcome, setOutcome] = useState<RemovalOutcome | null>(null);
@@ -463,6 +474,15 @@ export function useRemoveMember(
         visits: Map<string, string | null>;
     } | null>(null);
     const attempt = useRef<Attempt | null>(null);
+    const release = useRef(onRemoving);
+    release.current = onRemoving;
+    // a dialog closed mid-removal lets the record go, so it closes once the member leaves
+    useEffect(
+        () => () => {
+            release.current(false);
+        },
+        [],
+    );
     const { busy, error, setError, run } = useAsyncAction();
     const anyone = taker === ANY_MEMBER;
     const unplaced = choice === "reassign" && refused?.taker === taker ? refused.visits : null;
@@ -515,6 +535,7 @@ export function useRemoveMember(
             detail: choice === "cancel" ? t.removeScheduleCancels : t.removeScheduleMoves,
         })),
         scheduleNote: schedules.length > 0 && choice === "reassign" ? t.removeScheduleNote : null,
+        underwayNote: underway.length > 0 ? t.removeUnderway(underway.length) : null,
         summary:
             rows.length === 0 && series.length === 0
                 ? t.removeNoWork
@@ -559,7 +580,8 @@ export function useRemoveMember(
                     const result = await sendAttempt(attempt, [path, body], (key) =>
                         api.post<RemovalResult>(path, body, { idempotencyKey: key }),
                     ).catch((e: unknown) => {
-                        onRemoving(false);
+                        // with no answer the removal may have gone through; a retry replays its summary
+                        if (failedStatus(e) !== null) onRemoving(false);
                         const visits = unplacedVisits(e);
                         setRefused(visits.size > 0 ? { taker, visits } : null);
                         throw e;

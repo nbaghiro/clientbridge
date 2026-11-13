@@ -337,6 +337,13 @@ function RemoveSheet({
                     ) : null}
                 </>
             ) : null}
+            {removal.underwayNote !== null ? (
+                <View style={styles.gapSm}>
+                    <Notice tone="info" banner>
+                        {removal.underwayNote}
+                    </Notice>
+                </View>
+            ) : null}
             {owed !== null ? (
                 <View style={styles.gapSm}>
                     <Notice tone="info" banner>

@@ -366,6 +366,11 @@ function RemoveDialog({
                         ) : null}
                     </>
                 ) : null}
+                {removal.underwayNote !== null ? (
+                    <Notice tone="info" banner>
+                        {removal.underwayNote}
+                    </Notice>
+                ) : null}
                 {owed !== null ? (
                     <Notice tone="info" banner>
                         {owed}

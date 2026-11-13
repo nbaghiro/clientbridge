@@ -4,6 +4,7 @@ import logging
 import secrets
 import string
 from collections import Counter
+from collections.abc import Callable
 from datetime import datetime
 
 from sqlalchemy import ColumnElement, func, or_, select
@@ -560,6 +561,7 @@ class StaffService:
                 if booking.id in live and booking.status in _OPEN:
                     slots.setdefault(slot.id, (slot, []))[1].append(booking)
             taken: dict[str, list[str]] = {}
+            rank = await self._by_hours(biz, candidates)
             for slot, bookings in slots.values():
                 await self.db.refresh(slot, with_for_update=True)
                 if data.future == "cancel":
@@ -575,7 +577,7 @@ class StaffService:
                         out.canceled.append(booking.id)
                     await release_slot(self.db, slot)
                     continue
-                taker, problem = await self._reassign(biz, slot, bookings, candidates)
+                taker, problem = await self._reassign(biz, slot, bookings, rank(slot))
                 if taker is None:
                     unplaced.extend(
                         UnplacedVisit(
@@ -697,7 +699,7 @@ class StaffService:
         """Give the slot to the first candidate free then; else the refusal that says most."""
         item = await load_item(self.db, biz, slot.item_id, require_active=False)
         refusal = BookingCheck(ok=False, problem="not_offered", message=NOT_OFFERED)
-        for candidate in await self._working_then(biz, slot, candidates):
+        for candidate in candidates:
             problem = (
                 await slot_problem(
                     self.db,
@@ -734,10 +736,10 @@ class StaffService:
                 refusal = problem
         return None, refusal
 
-    async def _working_then(self, biz: str, slot: Slot, candidates: list[Staff]) -> list[Staff]:
-        """Candidates with hours set on the visit's day first; one with none is never off."""
+    async def _by_hours(self, biz: str, candidates: list[Staff]) -> Callable[[Slot], list[Staff]]:
+        """Orders candidates for a visit: hours set on its day first; one with none is never off."""
         if len(candidates) < 2:
-            return candidates
+            return lambda _slot: candidates
         tz = await business_tz(self.db, biz)
         hours: dict[str, list[Hours]] = {}
         for row in await self.db.scalars(
@@ -745,8 +747,12 @@ class StaffService:
         ):
             if row.staff_id is not None:
                 hours.setdefault(row.staff_id, []).append(row)
-        day = slot.starts_at.astimezone(tz).date()
-        return sorted(candidates, key=lambda c: windows_on(hours.get(c.id, []), day) is None)
+
+        def rank(slot: Slot) -> list[Staff]:
+            day = slot.starts_at.astimezone(tz).date()
+            return sorted(candidates, key=lambda c: windows_on(hours.get(c.id, []), day) is None)
+
+        return rank
 
     async def _take_schedule(
         self, biz: str, schedule: Recurrence, sessions: list[Slot], candidates: list[Staff]

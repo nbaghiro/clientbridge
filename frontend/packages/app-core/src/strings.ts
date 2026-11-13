@@ -2933,6 +2933,7 @@ interface Strings {
             readonly removeScheduleMoves: string;
             readonly removeScheduleCancels: string;
             readonly removeScheduleNote: string;
+            readonly removeUnderway: (count: number) => string;
             readonly removeScheduleClash: (name: string, day: string) => string;
             readonly removeScheduleBusy: (name: string) => string;
             readonly removeScheduleNoTeacher: (name: string) => string;

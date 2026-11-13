@@ -8678,6 +8678,11 @@
     "staff.team.removeScheduleNote": {
         "message": "A class schedule moves with every session left. The member you choose needs to teach the class and be free for all of them."
     },
+    "staff.team.removeUnderway": {
+        "message": "{count, plural, one {Their visit under way now stays with them until it ends, and it leaves the day's schedule once they're removed.} other {Their # visits under way now stay with them until they end, and they leave the day's schedule once they're removed.}}",
+        "description": "Removal dialog: visits that have already started aren't moved, and drop off the schedule",
+        "args": ["count"]
+    },
     "staff.team.removeScheduleClash": {
         "message": "The member you chose isn't free for {name} on {day}. Choose someone else, or cancel the sessions.",
         "description": "Refusing a removal: the member chosen to take a class schedule is busy or off on that day",
@@ -8758,12 +8763,12 @@
         "args": ["name"]
     },
     "staff.team.removedMoved": {
-        "message": "{count, plural, one {# visit moved, and its client was told who they'll see.} other {# visits moved, and their clients were told who they'll see.}}",
+        "message": "{count, plural, one {# visit moved. If its client takes texts, they'll get one saying who they'll see.} other {# visits moved. Clients who take texts will get one saying who they'll see.}}",
         "description": "Summary after removing a member: how many of their visits went to other members",
         "args": ["count"]
     },
     "staff.team.removedCanceled": {
-        "message": "{count, plural, one {# visit was canceled, and its client was told.} other {# visits were canceled, and their clients were told.}}",
+        "message": "{count, plural, one {# visit was canceled. If its client takes texts, they'll get one saying so.} other {# visits were canceled. Clients who take texts will get one saying so.}}",
         "description": "Summary after removing a member: how many of their visits were canceled",
         "args": ["count"]
     },
