@@ -66,6 +66,10 @@ onFlowComplete:
 - assertNotVisible: "Good .*, Rowan"
 - assertNotVisible: "Olivia Martin"
 - takeScreenshot: member-after-removal
+# the onboarding form pushes the sign-out link below a phone-height screen's fold
+- scrollUntilVisible:
+      element: "Not you\\? Sign out"
+      direction: DOWN
 - tapOn: "Not you\\? Sign out"
 - extendedWaitUntil:
       visible: "Sign in"
