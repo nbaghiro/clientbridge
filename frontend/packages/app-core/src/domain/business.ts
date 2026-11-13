@@ -1293,7 +1293,8 @@ export function useBusinessSelection(bindApi: (businessId: string | null) => voi
         !selection.error &&
         !businesses.isLoading &&
         !selection.isLoading &&
-        (selectedId !== null || (noBusinesses && confirmedEmpty));
+        // a team just joined is on its way, so the splash holds rather than showing onboarding
+        (selectedId !== null || (noBusinesses && confirmedEmpty && joined === null));
     useEffect(() => {
         if (ready) {
             bindApi(selectedId);

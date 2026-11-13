@@ -50,9 +50,8 @@ onFlowComplete:
       timeout: 60000
 - takeScreenshot: choose-business
 # the field's label comes first, then the picker it names
-- tapOn:
-      text: "Business"
-      index: 1
+# Android reads the empty picker as "Business, ", so the placeholder is what both platforms show
+- tapOn: "Choose a business to continue"
 - tapOn: "Birchbark Pet Studio"
 - extendedWaitUntil:
       visible: "Good .*, Erik"

@@ -281,15 +281,73 @@ describe("useInviteTeammatesForm", () => {
         return hook.result;
     }
 
-    it("refuses a member or an address with an open invite before sending anything", async () => {
+    it("skips a member or an address with an open invite, sends the rest and names it", async () => {
         const api = invitingApi();
-        expect((await submit(api, "DIEGO@birchbark.example")).current.error).toBe(
-            t.alreadyMember("diego@birchbark.example"),
-        );
-        expect((await submit(api, "new@test.ca, sam@example.com")).current.error).toBe(
-            t.alreadyInvited("sam@example.com"),
-        );
+        const member = await submit(api, "DIEGO@birchbark.example");
+        expect(member.current.error).toBe(t.alreadyMember("diego@birchbark.example"));
+        expect(member.current.done).toBe(false);
         expect(api.invited).toEqual([]);
+        const mixed = await submit(api, "new@test.ca, sam@example.com");
+        expect(mixed.current.done).toBe(true);
+        expect(mixed.current.error).toBe(t.alreadyInvited("sam@example.com"));
+        expect(api.invited).toEqual([{ email: "new@test.ca", role: "staff" }]);
+    });
+
+    it("names a refusal from an attempt that then failed once the retry goes through", async () => {
+        const refuse: Record<string, string> = {
+            "b@test.ca": "already_member",
+            "c@test.ca": "boom",
+        };
+        const hook = renderHook(() => useInviteTeammatesForm(invitingApi(refuse), TEAM));
+        act(() => {
+            hook.result.current.setEmails("a@test.ca b@test.ca c@test.ca");
+        });
+        act(() => {
+            hook.result.current.submit();
+        });
+        await waitFor(() => {
+            expect(hook.result.current.error).toBe(t.inviteError);
+        });
+        expect(hook.result.current.emails).toBe("c@test.ca");
+        delete refuse["c@test.ca"];
+        act(() => {
+            hook.result.current.submit();
+        });
+        await waitFor(() => {
+            expect(hook.result.current.done).toBe(true);
+        });
+        expect(hook.result.current.error).toBe(t.alreadyMember("b@test.ca"));
+        expect(hook.result.current.sent.map((i) => i.email)).toEqual(["a@test.ca", "c@test.ca"]);
+    });
+
+    it("skips an address whose lost response left an invite, and still sends the rest", async () => {
+        const refuse: Record<string, string> = { "b@test.ca": "boom" };
+        const api = invitingApi(refuse);
+        const { result, rerender } = renderHook(
+            ({ team }: { team: Parameters<typeof useInviteTeammatesForm>[1] }) =>
+                useInviteTeammatesForm(api, team),
+            { initialProps: { team: TEAM } },
+        );
+        act(() => {
+            result.current.setEmails("a@test.ca b@test.ca c@test.ca");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(result.current.error).toBe(t.inviteError);
+        });
+        rerender({
+            team: { ...TEAM, invites: [...TEAM.invites, { email: "b@test.ca" }] } as typeof TEAM,
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(result.current.done).toBe(true);
+        });
+        expect(result.current.error).toBe(t.alreadyInvited("b@test.ca"));
+        expect(result.current.sent.map((i) => i.email)).toEqual(["a@test.ca", "c@test.ca"]);
     });
 
     it("sends the rest past an address the server refused, and names it with what went out", async () => {

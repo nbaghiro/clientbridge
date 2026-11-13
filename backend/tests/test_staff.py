@@ -258,6 +258,39 @@ async def test_a_current_member_is_refused_an_invite(
     assert rows == 0
 
 
+async def test_a_member_who_joined_through_another_address_is_refused_an_invite_to_it(
+    as_owner: httpx.AsyncClient, identities: FakeIdentityProvider
+) -> None:
+    inv = await _invite(as_owner, "work@test.ca")
+    identity = Identity(
+        id=str(uuid4()),
+        email="personal@test.ca",
+        verified_emails=frozenset({"personal@test.ca", "work@test.ca"}),
+        name="Joiner",
+        session_id=str(uuid4()),
+        second_factor=False,
+    )
+    joined = await as_owner.post(
+        "/v1/staff/invites/accept",
+        json={"token": inv["invite_token"]},
+        headers={"X-Session-Token": identities.issue(identity), "X-Business-Id": ""},
+    )
+    assert joined.status_code == 200, joined.text
+    res = await as_owner.post("/v1/staff/invites", json={"email": "Work@test.ca"})
+    assert res.status_code == 409 and res.json()["error"] == "already_member", res.text
+
+
+async def test_an_open_invite_stored_as_typed_still_counts(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    inv = await _invite(as_owner, "legacy@test.ca")
+    await db.execute(
+        text("UPDATE staff SET invite_email = ' Legacy@Test.ca' WHERE id = :i"), {"i": inv["id"]}
+    )
+    res = await as_owner.post("/v1/staff/invites", json={"email": "legacy@test.ca"})
+    assert res.status_code == 409 and res.json()["error"] == "already_invited", res.text
+
+
 async def test_another_business_can_invite_a_member_or_an_invited_address(
     as_owner: httpx.AsyncClient,
     db: AsyncSession,

@@ -51,7 +51,7 @@ onFlowComplete:
 - repeat:
       times: 3
       while:
-          visible: "Back"
+          visible: "Back|Go back|Navigate up"
       commands:
           - tapOn: "Back|Go back|Navigate up"
 - tapOn: "Setup"

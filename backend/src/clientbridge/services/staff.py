@@ -6,7 +6,7 @@ import string
 from collections import Counter
 from datetime import datetime
 
-from sqlalchemy import ColumnElement, func, select
+from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
@@ -100,8 +100,10 @@ def _fit_rate_unit(staff: Staff, data: StaffPayUpdate) -> None:
 _log = logging.getLogger(__name__)
 
 
-def _normalized(column: InstrumentedAttribute[str]) -> ColumnElement[str]:
-    """`normalize_email` in SQL: ASCII whitespace trimmed and only ASCII letters lowercased."""
+def _normalized(
+    column: InstrumentedAttribute[str] | InstrumentedAttribute[str | None],
+) -> ColumnElement[str]:
+    """`normalize_email` for a valid address: ASCII whitespace trimmed, ASCII letters lowercased."""
     return func.translate(
         func.btrim(column, string.whitespace), string.ascii_uppercase, string.ascii_lowercase
     )
@@ -201,7 +203,7 @@ class StaffService:
         invited = await self.db.scalar(
             scoped(Staff, business_id)
             .with_only_columns(Staff.id)
-            .where(Staff.status == "invited", Staff.invite_email == address)
+            .where(Staff.status == "invited", _normalized(Staff.invite_email) == address)
             .limit(1)
         )
         if invited is not None:
@@ -212,7 +214,11 @@ class StaffService:
             scoped(Staff, business_id)
             .with_only_columns(Staff.id)
             .join(User, User.id == Staff.user_id)
-            .where(Staff.status == "active", _normalized(User.email) == address)
+            .where(
+                Staff.status == "active",
+                # a member who joined through another verified address keeps it as the invite's
+                or_(_normalized(User.email) == address, _normalized(Staff.invite_email) == address),
+            )
             .limit(1)
         )
         if member is not None:

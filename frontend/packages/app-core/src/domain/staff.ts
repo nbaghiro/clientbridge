@@ -580,6 +580,8 @@ export function useInviteTeammatesForm(
     const [role, setRole] = useState<MemberRole>("staff");
     const [sent, setSent] = useState<Invite[]>([]);
     const [done, setDone] = useState(false);
+    // a refusal from an attempt that then failed, named once the batch goes through
+    const [held, setHeld] = useState<string | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
     const taken = (email: string): string | null => {
         if (team.members.some((m) => m.email?.toLowerCase() === email))
@@ -622,16 +624,19 @@ export function useInviteTeammatesForm(
                 setError(t.emailInvalid(bad));
                 return;
             }
-            const refusal = list.map(taken).find((m) => m !== null);
-            if (refusal !== undefined) {
-                setError(refusal);
+            // an address the team already holds is skipped like a server refusal, so the rest still go
+            const refusals = list.map(taken);
+            const open = list.filter((_, i) => refusals[i] === null);
+            const skipped = refusals.find((m) => m !== null) ?? null;
+            if (open.length === 0) {
+                setError(skipped);
                 return;
             }
             run(
                 async () => {
                     setDone(false);
-                    let firstRefusal: string | null = null;
-                    for (const [at, email] of list.entries()) {
+                    let firstRefusal = held ?? skipped;
+                    for (const [at, email] of open.entries()) {
                         try {
                             const made = await inviteStaff(api, { email, role });
                             setSent((before) => [...before, made]);
@@ -639,12 +644,14 @@ export function useInviteTeammatesForm(
                             const refused = inviteRefusal(e, email);
                             if (refused === null) {
                                 // the ones before it hold their invites, so it and the rest stay to retry
-                                setEmails(list.slice(at).join(" "));
+                                setHeld(firstRefusal);
+                                setEmails(open.slice(at).join(" "));
                                 throw e;
                             }
                             firstRefusal ??= refused;
                         }
                     }
+                    setHeld(null);
                     setEmails("");
                     setDone(true);
                     if (firstRefusal !== null) setError(firstRefusal);
@@ -654,6 +661,7 @@ export function useInviteTeammatesForm(
         },
         reset: () => {
             setSent([]);
+            setHeld(null);
             setDone(false);
             setEmails("");
             setRole("staff");
