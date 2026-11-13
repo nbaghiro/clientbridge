@@ -423,17 +423,18 @@ test("MSG-E2E-15 a STOP holds against the staff toggle until the client replies 
         ["withdrawn", "reply"],
         ["granted", "reply"],
     ]);
-    const agreed = await editClient(page, contact);
+    // the START lifts the STOP but isn't a yes, so the STOP stays the client's answer to offers
+    const lifted = await editClient(page, contact);
     await expect(
-        agreed.getByText(
-            strings.clients.edit.consentAgreedBy("reply", formatDate(new Date(), zone)),
+        lifted.getByText(
+            strings.clients.edit.consentDeclinedBy("reply", formatDate(new Date(), zone)),
             { exact: true },
         ),
     ).toBeVisible({ timeout: 60_000 });
-    await expect(
-        agreed.getByRole("switch", { name: strings.clients.edit.consentLabel }),
-    ).toBeChecked();
-    await agreed.getByRole("button", { name: strings.common.cancel, exact: true }).click();
+    const unlocked = lifted.getByRole("switch", { name: strings.clients.edit.consentLabel });
+    await expect(unlocked).not.toBeChecked();
+    await expect(unlocked).toBeEnabled();
+    await lifted.getByRole("button", { name: strings.common.cancel, exact: true }).click();
     const log = await openInboxThread(page, contact);
     await expect(log.getByText("START", { exact: true })).toHaveCount(1);
     await expect(
