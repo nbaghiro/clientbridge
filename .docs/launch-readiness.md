@@ -23,7 +23,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | --- | --- | --- | --- |
 | 1. Get set up | Sign-up and sign-in: two-factor, security keys and recovery | [CB-1](https://linear.app/clientbridgeca/issue/CB-1) | Partly automated |
 | 1. Get set up | Business onboarding and branding | [CB-3](https://linear.app/clientbridgeca/issue/CB-3) | Partly automated |
-| 1. Get set up | Team invites and role permissions | [CB-4](https://linear.app/clientbridgeca/issue/CB-4) | Partly automated |
+| 1. Get set up | Team invites and role permissions | [CB-4](https://linear.app/clientbridgeca/issue/CB-4) | Automated |
 | 1. Get set up | Removing a team member | [CB-23](https://linear.app/clientbridgeca/issue/CB-23) | Automated |
 | 1. Get set up | Stripe payments setup | [CB-5](https://linear.app/clientbridgeca/issue/CB-5) | Partly automated |
 | 1. Get set up | Plan billing: trial, purchase, seats and read-only | [CB-6](https://linear.app/clientbridgeca/issue/CB-6) | Partly automated |
@@ -68,7 +68,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 8. Refunds and the books | Payouts and fee reconciliation | [CB-47](https://linear.app/clientbridgeca/issue/CB-47) | Partly automated |
 | 8. Refunds and the books | Staff pay and T4A | [CB-48](https://linear.app/clientbridgeca/issue/CB-48) | Partly automated |
 | 9. Talk to clients | Inbox: two-way texting | [CB-49](https://linear.app/clientbridgeca/issue/CB-49) | Partly automated |
-| 9. Talk to clients | STOP and texting consent | [CB-50](https://linear.app/clientbridgeca/issue/CB-50) | Partly automated |
+| 9. Talk to clients | STOP and texting consent | [CB-50](https://linear.app/clientbridgeca/issue/CB-50) | Automated |
 | 9. Talk to clients | Broadcasts to consenting clients | [CB-51](https://linear.app/clientbridgeca/issue/CB-51) | Partly automated |
 | 9. Talk to clients | Intake forms | [CB-53](https://linear.app/clientbridgeca/issue/CB-53) | Partly automated |
 | 9. Talk to clients | Contracts and signatures | [CB-54](https://linear.app/clientbridgeca/issue/CB-54) | Partly automated |
@@ -233,7 +233,7 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 **QA steps**
 
 1. Invite a staff member and an admin; accept each in another browser (accepting is web only).
-   **Expect:** each joins with the invited, verified address; an account with another email is refused.
+   **Expect:** each joins with the invited, verified address; an account with another email is refused. Inviting an address that already has an invite or is on the team is refused, and the next invite starts from Staff.
 2. Resend one invite and revoke another, then open the revoked link.
    **Expect:** the revoked link explains it is no longer valid.
 3. As staff on web, iPhone and Android: open every destination.
@@ -243,13 +243,11 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 5. As admin: open owner-only settings (Plan).
    **Expect:** everything else is reachable; Plan is not.
 6. Set a member's title, colour, photo and the services they offer.
-   **Expect:** the schedule and booking page reflect them.
-7. Downgrade the admin to staff while they have the app open on two devices.
-   **Expect:** finance screens disappear on both.
-8. Downgrade an admin to staff while their phone and browser are open.
+   **Expect:** the schedule and booking page reflect them; the booking page shows the photo once the member is on the public team in Business profile.
+7. Downgrade an admin to staff while their phone and browser are open.
    **Expect:** finance screens and data disappear from both without a sign-out.
-9. Invite the owner of another demo business as staff and accept.
-   **Expect:** they can switch between both businesses on web and mobile, and each shows only its own data.
+8. Invite the owner of another demo business as staff and accept.
+   **Expect:** joining opens the new business; they can switch between both from the sidebar on web and Setup on mobile, a new sign-in asks which to open, and each shows only its own data.
 
 **Done when:** Each role sees and can do exactly its list on web, iPhone and Android, and the server refuses the rest.
 
@@ -268,11 +266,15 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 * `web: shell.e2e.ts › staff: payments, inbox and setup show only what staff can use`
 * `mobile: staff.yaml (reduced Payments, Inbox and Setup, unregistered)`
 * `sync: revocation.e2e.ts › live renames reach the replica; downgrade, deletion and removal purge its data`
-
-**To automate**
-
-* `TEAM-E2E-01` in `apps/web/e2e/staff.e2e.ts`: Invite lifecycle: two simultaneous accepts, revoke then old URL, resend, expiry.
-* `TEAM-E2E-02` in `apps/web/e2e/staff.e2e.ts`: Admin sees everything but Plan; contractor matches staff.
+* `TEAM-E2E-01 (web)`
+* `TEAM-E2E-02 (web)`
+* `TEAM-E2E-03 (web)`
+* `TEAM-E2E-04 (connect)`
+* `TEAM-E2E-05 (web)`
+* `SCH-E2E-06 (journeys)`
+* `NATIVE-TEAM-01 (mobile: staff.invites.yaml)`
+* `NATIVE-TEAM-02 (mobile: business.switch.yaml)`
+* `NATIVE-TEAM-03 (mobile: staff.downgrade.yaml)`
 
 **Depends on:** Nothing
 
@@ -2147,13 +2149,13 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 1. Reply STOP from a client's phone.
    **Expect:** every device shows texts off for that client; queued notices to the number are not sent.
 2. Turn texts back on from the staff toggle.
-   **Expect:** refused until the number replies START.
+   **Expect:** refused until the number replies START; after the START, texts work again and offers stay off until the client agrees again.
 3. Change the client's phone to another number.
    **Expect:** texts to the new number work; the old number stays stopped.
 4. Record a no to offers for another client.
    **Expect:** shown on the record with the date.
 5. Export consents.
-   **Expect:** a CSV with each client's state and dates.
+   **Expect:** a CSV of every consent change with its date and the number it was for, oldest first per client; a STOP from a number no client holds is listed with no name.
 
 **Done when:** A number that replied STOP can't be texted by the business, except what the law allows, until it replies START.
 
@@ -2162,10 +2164,8 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 * `FLOW-06-A (journeys)`
 * `MSG-E2E-14 (journeys)`
 * `MSG-E2E-15 (journeys)`
-
-**To automate**
-
-* `MSG-E2E-19` in `apps/web/e2e/messaging.e2e.ts`: Consent export and a staff-recorded no to offers.
+* `MSG-E2E-19 (web)`
+* `NATIVE-MSG-01 (native-ios, native-android)`
 
 **Depends on:** Nothing
 

@@ -3,13 +3,14 @@ import {
     setupSectionsFor,
     strings,
     mediaUrl,
+    useBusinessSwitch,
     useSetupProgress,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { type RouteProp, useNavigation, useRoute } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Avatar, Button, Icon, Skeleton } from "@clientbridge/ui";
+import { Avatar, Button, Icon, Select, Skeleton } from "@clientbridge/ui";
 
 import { apiBaseUrl } from "../lib/api";
 import { useRole } from "../lib/auth";
@@ -53,6 +54,7 @@ export function SetupScreen() {
     const nav = useNavigation<Nav>();
     const role = useRole();
     const business = useSetupProgress();
+    const picker = useBusinessSwitch();
     const signOut = useSignOut();
     const openLink = useOpenLink();
     if (role === null) {
@@ -74,6 +76,19 @@ export function SetupScreen() {
                 />
                 <Text style={styles.rowLabel}>{business.businessName}</Text>
             </View>
+            {picker !== null ? (
+                <View style={styles.switcher}>
+                    <Select
+                        label={strings.business.selectBusiness}
+                        options={picker.options}
+                        value={picker.selectedId ?? undefined}
+                        onChange={picker.choose}
+                        disabled={picker.busy}
+                        error={picker.error}
+                        surface="surface"
+                    />
+                </View>
+            ) : null}
             <View style={[styles.group, styles.payments]}>
                 <Pressable
                     style={styles.row}
@@ -124,6 +139,7 @@ const styles = StyleSheet.create({
     screen: { flex: 1 },
     content: { padding: 16 },
     payments: { marginBottom: 16 },
+    switcher: { marginBottom: 16 },
     group: {
         backgroundColor: theme.colors.surface,
         borderRadius: theme.radius,

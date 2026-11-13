@@ -7,7 +7,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.errors import TooManyRequests
 from clientbridge.core.ids import new_id
-from clientbridge.core.ratelimit import RateLimiter, public_booking_rate_limit
+from clientbridge.core.ratelimit import (
+    RateLimiter,
+    public_booking_rate_limit,
+    public_booking_read_rate_limit,
+)
 from clientbridge.main import app
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item
@@ -375,8 +379,23 @@ async def test_public_booking_is_rate_limited(api: httpx.AsyncClient) -> None:
             raise TooManyRequests("slow down")
 
     app.dependency_overrides[public_booking_rate_limit] = limited
+    assert (await api.post(f"/book/{SLUG}", json=_body("2027-03-02T18:50:00Z"))).status_code == 200
+    assert (await api.post(f"/book/{SLUG}", json=_body("2027-03-02T19:50:00Z"))).status_code == 429
+    # reads of the page and its times count apart, so a visitor who books can still browse
     assert (await api.get(f"/book/{SLUG}/services")).status_code == 200
-    assert (await api.get(f"/book/{SLUG}/services")).status_code == 429
+
+
+async def test_booking_page_reads_have_their_own_limit(api: httpx.AsyncClient) -> None:
+    rl = RateLimiter(limit=1, window_s=60.0)
+
+    def limited() -> None:
+        if not rl.check("x", 0.0):
+            raise TooManyRequests("slow down")
+
+    app.dependency_overrides[public_booking_read_rate_limit] = limited
+    assert (await api.get(f"/book/{SLUG}/services")).status_code == 200
+    assert (await api.get(f"/book/{SLUG}/next-openings")).status_code == 429
+    assert (await api.post(f"/book/{SLUG}", json=_body("2027-03-02T18:50:00Z"))).status_code == 200
 
 
 def _local(day: date, hour: int, minute: int = 0) -> str:

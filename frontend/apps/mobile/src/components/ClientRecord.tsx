@@ -290,6 +290,11 @@ export function ClientRecordView({
                         {record.textsStopped}
                     </Notice>
                 ) : null}
+                {record.offersDeclined !== null ? (
+                    <Notice tone="info" banner>
+                        {record.offersDeclined}
+                    </Notice>
+                ) : null}
                 {cl.tags.length > 0 ? (
                     <View style={styles.tags}>
                         {cl.tags.map((tag) => (

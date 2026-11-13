@@ -1,10 +1,13 @@
 // @vitest-environment happy-dom
 import { act, renderHook, waitFor } from "@testing-library/react";
+import { type ReactNode, createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ApiLike } from "../api";
 import { strings } from "../strings";
 import {
+    BusinessSwitchProvider,
+    useBusinessSwitch,
     brandColourName,
     industryOptions,
     setupTasks,
@@ -628,5 +631,29 @@ describe("useOnboardingForm", () => {
         expect(options).toContainEqual({ key: "drivingSchool", label: "Driving school" });
         expect(options[0]).toEqual({ key: "petGrooming", label: "Pet grooming and daycare" });
         expect(options.at(-1)).toEqual({ key: "other", label: "Something else" });
+    });
+});
+
+describe("useBusinessSwitch", () => {
+    const picker = (n: number) => ({
+        options: Array.from({ length: n }, (_, i) => ({
+            key: `bz_${String(i)}`,
+            label: `Biz ${String(i)}`,
+        })),
+        selectedId: "bz_0",
+        choose: vi.fn(),
+        busy: false,
+        error: null,
+    });
+    const within = (value: ReturnType<typeof picker> | null) => ({
+        wrapper: ({ children }: { children: ReactNode }) =>
+            createElement(BusinessSwitchProvider, { value }, children),
+    });
+
+    it("offers the picker only to someone on more than one team", () => {
+        expect(renderHook(() => useBusinessSwitch(), within(picker(1))).result.current).toBeNull();
+        expect(renderHook(() => useBusinessSwitch(), within(null)).result.current).toBeNull();
+        const two = picker(2);
+        expect(renderHook(() => useBusinessSwitch(), within(two)).result.current).toBe(two);
     });
 });

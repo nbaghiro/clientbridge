@@ -79,7 +79,7 @@ function InviteDialog({
     const first = form.sent[0];
     return (
         <Modal onClose={onClose} size="lg">
-            {first !== undefined ? (
+            {form.done && first !== undefined ? (
                 <div className="space-y-4">
                     <Icon name="check" size={32} className="block text-ink-soft" />
                     <div>
@@ -100,6 +100,11 @@ function InviteDialog({
                             </li>
                         ))}
                     </ul>
+                    {form.error !== null ? (
+                        <Notice tone="danger" banner>
+                            {form.error}
+                        </Notice>
+                    ) : null}
                     {form.sent.length === 1 ? (
                         <CopyField
                             label={t.copyLink}
@@ -150,6 +155,11 @@ function InviteDialog({
                         />
                     </div>
                     {seatCost !== "" ? <Notice tone="info">{seatCost}</Notice> : null}
+                    {form.sentSoFar !== null ? (
+                        <Notice tone="success" banner>
+                            {form.sentSoFar}
+                        </Notice>
+                    ) : null}
                     {form.error !== null ? (
                         <Notice tone="danger" banner>
                             {form.error}
@@ -594,10 +604,7 @@ export function Team() {
     const viewer = useViewer();
     const team = useTeam(api, viewer);
     const pay = useStaffPay();
-    const invite = useInviteTeammatesForm(
-        api,
-        team.members.map((m) => m.email ?? ""),
-    );
+    const invite = useInviteTeammatesForm(api, team);
     const seatCost = useSeatCost(api, viewer?.role ?? null);
     const [inviting, setInviting] = useState(false);
     const { open, setOpen, keepOpen } = useOpenMember(team.members);

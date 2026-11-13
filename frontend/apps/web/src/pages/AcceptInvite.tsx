@@ -3,7 +3,7 @@ import { Button, Lockup, Notice } from "@clientbridge/ui";
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
-import { api, selectBusiness } from "../lib/api";
+import { api } from "../lib/api";
 import { getUserId, heldInvite, holdInvite, releaseInvite } from "../lib/auth";
 
 const s = strings.staff;
@@ -28,9 +28,8 @@ export function AcceptInvite({
         const navigated = navigate(to, { replace: true });
         if (navigated) navigated.catch(() => undefined);
     };
-    const invite = useAcceptInvite(api, token, (businessId) => {
+    const invite = useAcceptInvite(api, token, () => {
         releaseInvite();
-        selectBusiness(businessId);
         go("/");
         onAuthed();
     });

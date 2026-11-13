@@ -1,4 +1,6 @@
 import logging
+import re
+import unicodedata
 from collections.abc import Sequence
 from datetime import datetime
 
@@ -60,11 +62,26 @@ from clientbridge.services.plans import serving
 
 _log = logging.getLogger(__name__)
 _BROADCAST_CAP = 500
-# Carrier opt-out keywords (CTIA), plus the French ones Canadian carriers honour.
+# Carrier and FCC opt-out keywords as Twilio's defaults take them, plus French ones
 STOP_WORDS = frozenset(
-    {"STOP", "STOPALL", "UNSUBSCRIBE", "CANCEL", "END", "QUIT", "ARRET", "ARRÊT"}
+    {
+        "STOP",
+        "STOPALL",
+        "STOP ALL",
+        "UNSUBSCRIBE",
+        "CANCEL",
+        "END",
+        "QUIT",
+        "REVOKE",
+        "OPTOUT",
+        "OPT OUT",
+        "ARRET",
+        "ARRÊT",
+    }
 )
 START_WORDS = frozenset({"START", "UNSTOP"})
+# Twilio matches whole messages, and "Cancel?" or "End." is more often a question than an opt-out
+_LOOSE_STOP_WORDS = frozenset({"STOP", "STOPALL", "STOP ALL", "ARRET", "ARRÊT"})
 
 
 async def unread_count(db: AsyncSession, thread: Thread) -> int:
@@ -298,11 +315,15 @@ async def _send_broadcast(
     return True
 
 
-async def route_inbound_sms(db: AsyncSession, number: str, destination: str) -> Client | None:
+def _reply_keyword(body: str) -> str:
+    """The whole reply as a keyword; only STOP also matches with punctuation or emoji around it."""
+    text = " ".join(unicodedata.normalize("NFC", body).replace("-", " ").split()).upper()
+    bare = " ".join(re.sub(r"^[\W_]+|[\W_]+$", "", text).split())
+    return bare if bare in _LOOSE_STOP_WORDS else text
+
+
+async def route_inbound_sms(db: AsyncSession, business_id: str, number: str) -> Client | None:
     """The business's one live client on the number, archived or not, as it still holds it."""
-    business_id = await db.scalar(select(Business.id).where(Business.sms_number == destination))
-    if business_id is None:
-        return None
     return await db.scalar(
         scoped(Client, business_id, soft_delete=True)
         .where(same_phone(Client.phone, number))
@@ -320,11 +341,22 @@ async def process_inbound_sms(
         return
     number = e164(from_phone)
     destination = e164(to_phone)
-    client = await route_inbound_sms(db, number, destination) if number and destination else None
-    keyword = body.strip().upper()
-    if client is not None and number is not None:
-        if keyword in STOP_WORDS or keyword in START_WORDS:
-            await record_text_reply(db, client, number, stop=keyword in STOP_WORDS)
+    business_id = (
+        await db.scalar(select(Business.id).where(Business.sms_number == destination))
+        if destination
+        else None
+    )
+    client = await route_inbound_sms(db, business_id, number) if business_id and number else None
+    keyword = _reply_keyword(body)
+    if business_id is not None and number is not None and keyword in STOP_WORDS | START_WORDS:
+        await record_text_reply(
+            db,
+            business_id,
+            None if client is None else client.id,
+            number,
+            stop=keyword in STOP_WORDS,
+        )
+    if client is not None:
         thread = await open_thread(db, client.business_id, client.id)
         message = Message(
             id=new_id("message"),
@@ -349,7 +381,7 @@ async def process_inbound_sms(
                 "from": number or from_phone,
                 "to": destination,
                 "matched": client is not None,
-                "business_id": client.business_id if client is not None else None,
+                "business_id": business_id,
                 "opt_out": keyword in STOP_WORDS,
             },
             status="processed",

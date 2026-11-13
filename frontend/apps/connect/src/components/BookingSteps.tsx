@@ -93,6 +93,7 @@ export function WhenPicker({ flow }: { flow: PublicBookingFlow }) {
                     options={flow.staffOptions.map((o) => ({
                         key: o.id,
                         label: o.name,
+                        hint: o.hint,
                         media: o.media,
                     }))}
                 />

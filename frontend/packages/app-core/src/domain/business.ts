@@ -1,7 +1,7 @@
 import { keepTabBusiness, selectReplicaBusiness, selectionQuery } from "@clientbridge/sync";
 import { useBusinessQuery as useQuery } from "../hooks";
 import { usePowerSync, useQuery as useGlobalQuery } from "@powersync/react";
-import { useCallback, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 
 import { type Load, useAsyncAction, useLoad, useSyncedDraft } from "../hooks";
 import { BUSINESS_CURRENCY, formatList, formatMoney, formatParts } from "../format";
@@ -14,7 +14,7 @@ import { bareUrl, bookingPageUrl, businessPageUrl } from "../runtime";
 import type { ShellTarget } from "./navigation";
 import { BRAND_PALETTE } from "@clientbridge/tokens";
 import { useStaff, staffName } from "./staff";
-import { useReplicaLoad, useSyncStatus } from "./sync";
+import { holdJoinedBusiness, useJoinedBusiness, useReplicaLoad, useSyncStatus } from "./sync";
 import { SUPPORTED_ZONES, type SupportedZone } from "../zones";
 import { dateKey } from "../datetime";
 import { SUBJECT_ICON } from "../icons";
@@ -1199,6 +1199,24 @@ export function useBookingPreview(limit: number): BookingPreview {
     };
 }
 
+export interface BusinessSwitch {
+    options: SelectOption<string>[];
+    selectedId: string | null;
+    choose: (id: string) => void;
+    busy: boolean;
+    error: string | null;
+}
+
+const BusinessSwitchContext = createContext<BusinessSwitch | null>(null);
+
+export const BusinessSwitchProvider = BusinessSwitchContext.Provider;
+
+/** The picker for a viewer on more than one team, wherever the shell offers it; null otherwise. */
+export function useBusinessSwitch(): BusinessSwitch | null {
+    const picker = useContext(BusinessSwitchContext);
+    return picker !== null && picker.options.length > 1 ? picker : null;
+}
+
 export function useBusinessSelection(bindApi: (businessId: string | null) => void) {
     const db = usePowerSync();
     const businesses = useGlobalQuery<{ id: string; name: string }>(
@@ -1264,12 +1282,19 @@ export function useBusinessSelection(bindApi: (businessId: string | null) => voi
     useEffect(() => {
         if (onlyId && !selectedId) choose(onlyId);
     }, [onlyId, selectedId, choose]);
+    const joined = useJoinedBusiness();
+    useEffect(() => {
+        if (joined === null || !businesses.data.some((row) => row.id === joined)) return;
+        holdJoinedBusiness(null);
+        choose(joined);
+    }, [joined, businesses.data, choose]);
     const ready =
         !businesses.error &&
         !selection.error &&
         !businesses.isLoading &&
         !selection.isLoading &&
-        (selectedId !== null || (noBusinesses && confirmedEmpty));
+        // a team just joined is on its way, so the splash holds rather than showing onboarding
+        (selectedId !== null || (noBusinesses && confirmedEmpty && joined === null));
     useEffect(() => {
         if (ready) {
             bindApi(selectedId);

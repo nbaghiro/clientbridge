@@ -96,10 +96,11 @@ class Consent(PKMixin, BusinessScoped, TimestampMixin, Base):
         ),
     )
 
-    client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)
+    # null for a STOP or START from a number no client holds
+    client_id: Mapped[str | None] = mapped_column(ForeignKey("clients.id"))
     status: Mapped[ConsentStatus] = mapped_column(String, nullable=False)
     source: Mapped[ConsentSource] = mapped_column(String, nullable=False)
     recorded_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    # a STOP or START reply's E.164 number, which it holds for every client on it
+    # the E.164 number it was recorded for; a reply's number holds for every client on it
     phone: Mapped[str | None] = mapped_column(String(16))

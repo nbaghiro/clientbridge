@@ -73,7 +73,7 @@ function InviteSheet({ form, onClose }: { form: InviteTeammatesForm; onClose: ()
     const first = form.sent[0];
     return (
         <Modal open onClose={onClose} size="xl">
-            {first !== undefined ? (
+            {form.done && first !== undefined ? (
                 <View>
                     <View style={styles.okIcon}>
                         <Icon name="check" size={32} color={c.inkSoft} />
@@ -91,6 +91,13 @@ function InviteSheet({ form, onClose }: { form: InviteTeammatesForm; onClose: ()
                             />
                         </View>
                     ))}
+                    {form.error !== null ? (
+                        <View style={styles.gapSm}>
+                            <Notice tone="danger" banner>
+                                {form.error}
+                            </Notice>
+                        </View>
+                    ) : null}
                     {form.sent.length === 1 ? (
                         <View style={styles.gap}>
                             <Button
@@ -141,6 +148,13 @@ function InviteSheet({ form, onClose }: { form: InviteTeammatesForm; onClose: ()
                         onChange={form.setRole}
                         options={roleOptions()}
                     />
+                    {form.sentSoFar !== null ? (
+                        <View style={styles.gapSm}>
+                            <Notice tone="success" banner>
+                                {form.sentSoFar}
+                            </Notice>
+                        </View>
+                    ) : null}
                     {form.error !== null ? (
                         <View style={styles.gapSm}>
                             <Notice tone="danger" banner>
@@ -518,10 +532,7 @@ export function Team({ footer, showFooter = false }: { footer?: ReactNode; showF
     const viewer = useViewer();
     const team = useTeam(api, viewer);
     const pay = useStaffPay();
-    const invite = useInviteTeammatesForm(
-        api,
-        team.members.map((m) => m.email ?? ""),
-    );
+    const invite = useInviteTeammatesForm(api, team);
     const [inviting, setInviting] = useState(false);
     const { open, setOpen, keepOpen } = useOpenMember(team.members);
     const role = team.viewerRole ?? "staff";

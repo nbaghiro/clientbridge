@@ -267,6 +267,11 @@ class Settings(BaseSettings):
         # in dev one browser plays every visitor of the e2e suites, all from one address
         return 1000 if self.env == "dev" else 30
 
+    def public_read_rate_limit(self) -> int:
+        """Requests per minute from one IP on the booking page's reads of times and services."""
+        # a visitor comparing days and staff reads slots on every change, so reads get more room
+        return 1000 if self.env == "dev" else 120
+
     def auth_email_hourly_limit(self) -> int:
         """Auth emails of one template per hour to one address, whoever asks for them."""
         # in dev the e2e suites and the seeded logins mail the same addresses again and again

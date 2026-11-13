@@ -1,5 +1,7 @@
 import { type CSSProperties, type ReactNode, useState } from "react";
 import {
+    type BusinessSwitch,
+    BusinessSwitchProvider,
     BusinessZoneContext,
     checkSession,
     endAbandonedReset,
@@ -16,7 +18,15 @@ import { DebugPanel } from "./components/DebugPanel";
 import { RecordPaper } from "./components/DocumentPreview";
 import { config } from "./config";
 import { AuthError, Login, VerifyEmail } from "./pages/Login";
-import { Button, ConfirmHost, LoadFailed, Logo, Select, SendReviewHost } from "@clientbridge/ui";
+import {
+    Button,
+    ConfirmHost,
+    LoadFailed,
+    Lockup,
+    Logo,
+    Select,
+    SendReviewHost,
+} from "@clientbridge/ui";
 import { api, identity, onSignedOut, selectBusiness } from "./lib/api";
 import {
     clearUser,
@@ -294,25 +304,41 @@ function BusinessScope({
 }) {
     const business = useBusinessSelection(selectBusiness);
     return (
-        <>
-            {business.options.length > 1 ? (
-                <Select
-                    label={strings.business.selectBusiness}
-                    placeholder={strings.business.chooseBusiness}
-                    options={business.options}
-                    value={business.selectedId ?? ""}
-                    onChange={business.choose}
-                    disabled={business.busy}
-                    error={business.error}
-                />
-            ) : null}
+        <BusinessSwitchProvider value={business}>
             {business.ready ? (
                 children(business.selectedId ?? "onboarding")
             ) : business.error ? (
                 <LoadFailed variant="page" onRetry={onRetry} retrying={false} />
-            ) : business.needsChoice ? null : (
+            ) : business.needsChoice ? (
+                <ChooseBusiness picker={business} />
+            ) : (
                 <Splash />
             )}
-        </>
+        </BusinessSwitchProvider>
+    );
+}
+
+function ChooseBusiness({ picker }: { picker: BusinessSwitch }) {
+    return (
+        <div className="flex min-h-screen items-center justify-center bg-bg px-6 py-12">
+            <div className="w-full max-w-sm">
+                <Lockup className="mb-8 text-lg text-ink" />
+                <h1 className="font-display text-2xl font-bold text-ink">
+                    {strings.business.chooseTitle}
+                </h1>
+                <p className="mt-1 text-sm text-muted">{strings.business.chooseBody}</p>
+                <div className="mt-6">
+                    <Select
+                        label={strings.business.selectBusiness}
+                        placeholder={strings.business.chooseBusiness}
+                        options={picker.options}
+                        value={picker.selectedId ?? ""}
+                        onChange={picker.choose}
+                        disabled={picker.busy}
+                        error={picker.error}
+                    />
+                </div>
+            </div>
+        </div>
     );
 }

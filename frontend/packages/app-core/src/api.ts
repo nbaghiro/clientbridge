@@ -109,6 +109,7 @@ const FAILURES: Record<string, (detail: FailureDetail) => string> = {
     payment_method_in_use: () => strings.api.paymentMethodInUse,
     bank_setup_in_progress: () => strings.api.bankSetupInProgress,
     texts_stopped: () => strings.api.textsStopped,
+    number_stopped: () => strings.api.numberStopped,
     pad_link_used: () => strings.api.padLinkUsed,
     pad_unavailable: () => strings.api.padUnavailable,
     payment_method_not_chargeable: () => strings.api.paymentMethodNotChargeable,

@@ -185,6 +185,9 @@
     "api.textsStopped": {
         "message": "[Ţĥîš çļîéñţ ŕéþļîéð ŠŢÖÞ, šö ţĥéý çåñ’ţ ƀé ţéẋţéð. Çöþý ţĥé ļîñķ åñð šĥåŕé îţ åñöţĥéŕ ŵåý. one two three four five six]"
     },
+    "api.numberStopped": {
+        "message": "[Ţĥîš ñûɱƀéŕ ŕéþļîéð ŠŢÖÞ. Ţéẋţš çöɱé ƀåçķ öñ öñļý ŵĥéñ îţ ŕéþļîéš ŠŢÅŔŢ. one two three four five]"
+    },
     "api.padUnavailable": {
         "message": "[Ɓåñķ ðéƀîţ îšñ'ţ ţûŕñéð öñ ƒöŕ ţĥîš ƀûšîñéšš ýéţ. Öþéñ Ĝéţţîñĝ þåîð îñ Šéţûþ ţö šéé ŵĥåţ Šţŕîþé ñééðš. one two three four five six seven]"
     },
@@ -5219,6 +5222,9 @@
     "clients.record.textsStopped": {
         "message": "[Ţĥéîŕ ñûɱƀéŕ ŕéþļîéð ŠŢÖÞ öñ {when}. Ţéẋţš šţåý öƒƒ ûñţîļ îţ ŕéþļîéš ŠŢÅŔŢ. one two three four five]"
     },
+    "clients.record.offersDeclined": {
+        "message": "[Šåîð ñö ţö ñéŵš åñð öƒƒéŕš öñ {when}. one two three]"
+    },
     "clients.record.inProgress": {
         "message": "[Îñ þŕöĝŕéšš one two]"
     },
@@ -5305,6 +5311,18 @@
     },
     "clients.edit.consentRecorded": {
         "message": "[Åĝŕééð {when}, ŕéçöŕðéð ƀý {who} one two]"
+    },
+    "clients.edit.consentAgreedBy": {
+        "message": "[{source,select,form{Åĝŕééð öñ å ƒöŕɱ öñ {when}} online_booking{Åĝŕééð ŵĥéñ ƀööķîñĝ öñļîñé öñ {when}} other{Åĝŕééð öñ {when}}} one two three four]"
+    },
+    "clients.edit.consentDeclined": {
+        "message": "[Šåîð ñö {when}, ŕéçöŕðéð ƀý {who} one two]"
+    },
+    "clients.edit.consentDeclinedBy": {
+        "message": "[{source,select,form{Šåîð ñö öñ å ƒöŕɱ öñ {when}} other{Šåîð ñö öñ {when}} reply{Šåîð ñö ƀý ŕéþļýîñĝ ŠŢÖÞ öñ {when}}} one two three four]"
+    },
+    "clients.edit.consentImplied": {
+        "message": "[Îɱþļîéð ƀý å ƀööķîñĝ öŕ þûŕçĥåšé ûñţîļ {date}. Åšķ ţĥéɱ îñ þéŕšöñ ţö ķééþ šéñðîñĝ öƒƒéŕš. one two three four five six]"
     },
     "clients.edit.nameRequired": {
         "message": "[Éñţéŕ ţĥé çļîéñţ'š ñåɱé. one two]"
@@ -6782,6 +6800,15 @@
     "business.chooseBusiness": {
         "message": "[Çĥööšé å ƀûšîñéšš ţö çöñţîñûé one two three]"
     },
+    "business.switchBusiness": {
+        "message": "[Šŵîţçĥ ƀûšîñéšš one two]"
+    },
+    "business.chooseTitle": {
+        "message": "[Ŵĥîçĥ ƀûšîñéšš? one two]"
+    },
+    "business.chooseBody": {
+        "message": "[Ýöû'ŕé öñ ɱöŕé ţĥåñ öñé ţéåɱ. Öþéñ öñé ñöŵ; ýöû çåñ šŵîţçĥ åţ åñý ţîɱé. one two three four five]"
+    },
     "business.switchError": {
         "message": "[Çöûļð ñöţ šŵîţçĥ ƀûšîñéššéš. Ţŕý åĝåîñ. one two three]"
     },
@@ -7895,6 +7922,12 @@
     "staff.team.alreadyMember": {
         "message": "[{email} îš åļŕéåðý öñ ţĥé ţéåɱ. one two]"
     },
+    "staff.team.alreadyInvited": {
+        "message": "[{email} åļŕéåðý ĥåš åñ îñṽîţé. Ŕéšéñð îţ ƒŕöɱ Þéñðîñĝ îñṽîţéš. one two three four]"
+    },
+    "staff.team.sentSoFar": {
+        "message": "[{n,plural,one{Îñṽîţé šéñţ ţö {emails}.} other{Îñṽîţéš šéñţ ţö {emails}.}} Ţĥé åððŕéššéš ļéƒţ ƀéļöŵ ŵéŕéñ'ţ šéñţ. one two three four five]"
+    },
     "staff.team.inviteError": {
         "message": "[Ŵé çöûļðñ'ţ šéñð ţĥåţ îñṽîţé. Çĥéçķ ýöûŕ çöññéçţîöñ åñð ţŕý åĝåîñ. one two three four five]"
     },
@@ -7929,7 +7962,7 @@
         "message": "[Ţîţļé one]"
     },
     "staff.team.titleHint": {
-        "message": "[Šĥöŵñ ûñðéŕ ţĥéîŕ ñåɱé öñ ţĥé çåļéñðåŕ åñð ţĥé ƀööķîñĝ þåĝé one two three four]"
+        "message": "[Šĥöŵñ ŵîţĥ ţĥéîŕ ñåɱé ŵĥéñ çļîéñţš þîçķ ŵĥö ţö ƀööķ öñļîñé one two three four]"
     },
     "staff.team.titlePlaceholder": {
         "message": "[é.ĝ. Šéñîöŕ Ĝŕööɱéŕ one two]"
@@ -11776,9 +11809,6 @@
     },
     "publicBooking.anyone": {
         "message": "[Åñýöñé åṽåîļåƀļé one two]"
-    },
-    "publicBooking.anyoneHint": {
-        "message": "[Ṁöšţ öþéñ ţîɱéš one two]"
     },
     "publicBooking.date": {
         "message": "[Đåţé one]"

@@ -15,6 +15,7 @@ from clientbridge.core.deps import (
 )
 from clientbridge.core.ratelimit import (
     public_booking_rate_limit,
+    public_booking_read_rate_limit,
     public_contract_rate_limit,
     public_form_rate_limit,
     public_pay_rate_limit,
@@ -75,6 +76,7 @@ RateLimited = Annotated[None, Depends(public_pay_rate_limit)]
 FormRateLimited = Annotated[None, Depends(public_form_rate_limit)]
 ContractRateLimited = Annotated[None, Depends(public_contract_rate_limit)]
 BookingRateLimited = Annotated[None, Depends(public_booking_rate_limit)]
+BookingReadRateLimited = Annotated[None, Depends(public_booking_read_rate_limit)]
 
 
 @pay_router.get("/{token}", response_model=PublicInvoice)
@@ -221,14 +223,14 @@ booking_router = APIRouter(prefix="/book", tags=["public-booking"])
 
 @booking_router.get("/{slug}/services", response_model=PublicBookingPage)
 async def public_booking_page(
-    slug: str, db: DbSession, gateway: GatewayDep, _: BookingRateLimited
+    slug: str, db: DbSession, gateway: GatewayDep, _: BookingReadRateLimited
 ) -> PublicBookingPage:
     return await PublicBookingService(db, gateway).page(slug)
 
 
 @booking_router.get("/{slug}/profile", response_model=PublicProfile)
 async def public_profile(
-    slug: str, db: DbSession, gateway: GatewayDep, _: BookingRateLimited
+    slug: str, db: DbSession, gateway: GatewayDep, _: BookingReadRateLimited
 ) -> PublicProfile:
     return await PublicProfilesService(db, gateway).page(slug)
 
@@ -238,7 +240,7 @@ async def public_next_openings(
     slug: str,
     db: DbSession,
     gateway: GatewayDep,
-    _: BookingRateLimited,
+    _: BookingReadRateLimited,
     item_ids: Annotated[list[str], Query(min_length=1, max_length=12)],
 ) -> PublicNextOpenings:
     return await PublicBookingService(db, gateway).next_openings(slug, item_ids)
@@ -257,7 +259,7 @@ async def public_booking_slots(
     date: date,
     db: DbSession,
     gateway: GatewayDep,
-    _: BookingRateLimited,
+    _: BookingReadRateLimited,
     extra_min: ExtraMinutes = 0,
 ) -> PublicSlots:
     return await PublicBookingService(db, gateway).slots(slug, item_id, staff_id, date, extra_min)
@@ -271,7 +273,7 @@ async def public_booking_days(
     start: Annotated[date, Query(alias="from")],
     db: DbSession,
     gateway: GatewayDep,
-    _: BookingRateLimited,
+    _: BookingReadRateLimited,
     days: Annotated[int, Query(ge=1, le=14)] = 7,
     extra_min: ExtraMinutes = 0,
 ) -> PublicDays:
@@ -287,7 +289,7 @@ async def public_booking_programs(
     staff_id: str,
     db: DbSession,
     gateway: GatewayDep,
-    _: BookingRateLimited,
+    _: BookingReadRateLimited,
 ) -> PublicPrograms:
     return await PublicBookingService(db, gateway).programs(slug, item_id, staff_id)
 
@@ -330,7 +332,7 @@ async def public_join_waitlist(
 
 @booking_router.get("/{slug}/shop", response_model=PublicShop)
 async def public_shop(
-    slug: str, db: DbSession, gateway: GatewayDep, _: BookingRateLimited
+    slug: str, db: DbSession, gateway: GatewayDep, _: BookingReadRateLimited
 ) -> PublicShop:
     return await PublicShopService(db, gateway).shop(slug)
 
@@ -352,14 +354,14 @@ manage_router = APIRouter(prefix="/manage", tags=["public-manage"])
 
 @manage_router.get("/{token}", response_model=ManagedBooking)
 async def manage_view(
-    token: str, db: DbSession, gateway: GatewayDep, _: BookingRateLimited
+    token: str, db: DbSession, gateway: GatewayDep, _: BookingReadRateLimited
 ) -> ManagedBooking:
     return await PublicManageService(db, gateway).view(token)
 
 
 @manage_router.get("/{token}/receipt", response_model=VisitReceipt)
 async def manage_receipt(
-    token: str, db: DbSession, gateway: GatewayDep, _: BookingRateLimited
+    token: str, db: DbSession, gateway: GatewayDep, _: BookingReadRateLimited
 ) -> VisitReceipt:
     return await PublicManageService(db, gateway).receipt(token)
 
@@ -371,7 +373,7 @@ async def manage_photo(
     db: DbSession,
     gateway: GatewayDep,
     storage: StorageDep,
-    _: BookingRateLimited,
+    _: BookingReadRateLimited,
 ) -> RedirectResponse:
     location = await PublicManageService(db, gateway).photo(token, file_id, storage)
     return RedirectResponse(
@@ -385,7 +387,7 @@ async def manage_days(
     start: Annotated[date, Query(alias="from")],
     db: DbSession,
     gateway: GatewayDep,
-    _: BookingRateLimited,
+    _: BookingReadRateLimited,
     days: Annotated[int, Query(ge=1, le=14)] = 7,
 ) -> PublicDays:
     return await PublicManageService(db, gateway).days(token, start, days)
@@ -393,7 +395,7 @@ async def manage_days(
 
 @manage_router.get("/{token}/slots", response_model=PublicSlots)
 async def manage_slots(
-    token: str, date: date, db: DbSession, gateway: GatewayDep, _: BookingRateLimited
+    token: str, date: date, db: DbSession, gateway: GatewayDep, _: BookingReadRateLimited
 ) -> PublicSlots:
     return await PublicManageService(db, gateway).slots(token, date)
 
@@ -452,7 +454,7 @@ async def public_media(file_id: str, db: DbSession, storage: StorageDep) -> Redi
 
 @booking_router.get("/{slug}/shop/pickup-days", response_model=PublicPickupDays)
 async def public_pickup_days(
-    slug: str, db: DbSession, gateway: GatewayDep, _: BookingRateLimited
+    slug: str, db: DbSession, gateway: GatewayDep, _: BookingReadRateLimited
 ) -> PublicPickupDays:
     return await PublicShopService(db, gateway).pickup_days(slug)
 

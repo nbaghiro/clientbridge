@@ -150,11 +150,9 @@ async def test_a_repeated_stop_or_a_start_from_a_number_never_stopped_records_no
     db: AsyncSession,
 ) -> None:
     cid = await _client_with_phone(db)
-    client = await db.get(Client, cid)
-    assert client is not None
-    assert not await record_text_reply(db, client, PHONE, stop=False)
-    assert await record_text_reply(db, client, PHONE, stop=True)
-    assert not await record_text_reply(db, client, PHONE, stop=True)
+    assert not await record_text_reply(db, BIZ, cid, PHONE, stop=False)
+    assert await record_text_reply(db, BIZ, cid, PHONE, stop=True)
+    assert not await record_text_reply(db, BIZ, cid, PHONE, stop=True)
     replies = await db.scalars(select(Consent.id).where(Consent.client_id == cid))
     assert len(list(replies)) == 1
 
@@ -206,6 +204,15 @@ async def test_a_number_without_an_assigned_destination_is_recorded_unmatched(
     row = await _webhook(db, "SM_nobody")
     assert summary(row)["matched"] is False and summary(row)["opt_out"] is True
     assert not await texts_stopped(db, rival.id, theirs.id)
+
+
+async def test_a_stop_from_a_number_no_client_holds_is_logged_under_its_business(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    ok(await text_in(api, {"From": OTHER, "Body": "STOP", "MessageSid": "SM_no_client"}))
+    row = await _webhook(db, "SM_no_client")
+    assert summary(row)["matched"] is False and summary(row)["business_id"] == BIZ
+    assert await number_stopped(db, BIZ, OTHER)
 
 
 async def test_equal_send_times_do_not_make_destination_routing_ambiguous(
