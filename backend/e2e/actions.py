@@ -6,6 +6,7 @@ import hashlib
 import hmac
 import json
 import os
+import secrets
 import sys
 from collections.abc import Callable
 from datetime import UTC, datetime, time, timedelta
@@ -40,7 +41,7 @@ from clientbridge.core.zones import zone
 from clientbridge.integrations.expo import get_push_sender
 from clientbridge.integrations.resend import get_email_sender
 from clientbridge.integrations.stripe import PlanSubscription, SubscribedItem
-from clientbridge.integrations.twilio import get_sms_sender
+from clientbridge.integrations.twilio import get_sms_sender, twilio_signature
 from clientbridge.models.billing import Invoice
 from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import GiftCard, Item, Package
@@ -546,6 +547,38 @@ def client_photo_main(argv: list[str]) -> None:
     print(json.dumps(asyncio.run(client_photo(args.client_id, args.file_id, args.upload_url))))
 
 
+async def text_in(phone: str, words: str) -> None:
+    """A text from phone to the fixture business's number, signed as Twilio signs it."""
+    async with SessionLocal() as db:
+        number = await db.scalar(
+            select(Business.sms_number).where(Business.id == run_id(FIXTURE_BUSINESS))
+        )
+    if number is None:
+        raise RuntimeError("the fixture business has no texting number")
+    settings = get_settings()
+    form = [
+        ("From", phone),
+        ("To", number),
+        ("Body", words),
+        ("MessageSid", f"SM{secrets.token_hex(16)}"),
+    ]
+    url = f"{settings.api_base_url.rstrip('/')}/webhooks/sms"
+    signature = twilio_signature(settings.twilio_auth_token, url, form)
+    async with httpx.AsyncClient(base_url=os.environ["API_URL"], timeout=30) as http:
+        sent = await http.post(
+            "/webhooks/sms", data=dict(form), headers={"X-Twilio-Signature": signature}
+        )
+    sent.raise_for_status()
+
+
+def text_in_main(argv: list[str]) -> None:
+    parser = argparse.ArgumentParser(prog="python -m e2e.actions text-in")
+    parser.add_argument("phone")
+    parser.add_argument("words")
+    args = parser.parse_args(argv)
+    asyncio.run(text_in(args.phone, args.words))
+
+
 def _run_namespace(*ids: str) -> str:
     settings = get_settings()
     if settings.env != "dev" or urlparse(settings.smtp_url or "").hostname not in (
@@ -933,6 +966,7 @@ COMMANDS: dict[str, Callable[[list[str]], None]] = {
     "client-photo": client_photo_main,
     "web-fixtures": web_fixtures_main,
     "tax-quarter": tax_quarter_main,
+    "text-in": text_in_main,
     "expiry": lambda argv: asyncio.run(expiry_main(argv)),
 }
 

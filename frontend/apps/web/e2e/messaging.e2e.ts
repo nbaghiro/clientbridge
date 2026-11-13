@@ -1,5 +1,11 @@
-import { strings, addDays, combineDayAndTime } from "@clientbridge/app-core/public";
-import { expect, test, type Browser, type Page } from "@playwright/test";
+import {
+    strings,
+    addDays,
+    combineDayAndTime,
+    formatDate,
+    formatPhone,
+} from "@clientbridge/app-core/public";
+import { expect, test, type Browser, type Locator, type Page } from "@playwright/test";
 import {
     careMessage,
     composeMessage,
@@ -24,8 +30,11 @@ import {
     type Contact,
 } from "./support/messaging";
 import { signIn, navigate } from "./support/session";
+import { csvRows } from "./support/reports";
+import { clientCommand, editClient, openClient } from "./support/clients";
 import { freshPhone, textsTo } from "./support/auth";
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { demoId, runEmail } from "@clientbridge/config/e2e/run";
 import { demoPerson } from "@clientbridge/config/e2e/demo";
 
@@ -676,4 +685,130 @@ test("MSG-E2E-16 a broadcast scheduled from the composer counts its audience and
         expect(await textsTo(page.request, contact.phone)).toEqual([]);
         expect((await clientOutreach(contact.id)).messages).toEqual([]);
     }
+});
+
+test("MSG-E2E-19 a no to offers shows with its date, a STOP stays with its number, and the consent export lists every change", async ({
+    page,
+}) => {
+    test.setTimeout(300_000);
+    await signIn(page);
+    const c = strings.clients;
+    const today = formatDate(new Date(), ZONE);
+    const declining = await createContact(page, { consent: true });
+    const mover = await createContact(page, { consent: true });
+    const consentToggle = (editor: Locator) =>
+        editor.getByRole("switch", { name: c.edit.consentLabel });
+    const save = async (editor: Locator, id: string) => {
+        const saving = clientCommand(page, `/${id}`, "PATCH");
+        await editor.getByRole("button", { name: c.edit.save, exact: true }).click();
+        expect((await saving).status()).toBe(200);
+    };
+
+    let editor = await editClient(page, declining);
+    await expect(consentToggle(editor)).toBeChecked();
+    await consentToggle(editor).uncheck();
+    await save(editor, declining.id);
+    const record = await openClient(page, declining);
+    await expect(record.getByText(c.record.offersDeclined(today), { exact: true })).toBeVisible({
+        timeout: 60_000,
+    });
+    editor = await editClient(page, declining);
+    await expect(editor.getByText(c.edit.consentDeclined(today, "Hannah Wong"))).toBeVisible();
+    await editor.getByRole("button", { name: strings.common.cancel, exact: true }).click();
+    expect(
+        (await clientOutreach(declining.id)).consents.map((row) => [row.status, row.source]),
+    ).toEqual([
+        ["granted", "in_person"],
+        ["withdrawn", "in_person"],
+    ]);
+
+    const stop = await postInboundSms(page.request, {
+        from: mover.phone,
+        to: BIRCHBARK_SMS,
+        body: "Stop.",
+    });
+    expect(stop.response.status()).toBe(200);
+    editor = await editClient(page, mover);
+    await expect(editor.getByText(c.record.textsStopped(today), { exact: true })).toBeVisible({
+        timeout: 60_000,
+    });
+    await expect(consentToggle(editor)).toBeDisabled();
+    const forced = await page.request.patch(`${apiBase()}/v1/clients/${mover.id}`, {
+        data: { marketing_consent: true },
+        headers: headers(page),
+    });
+    expect(forced.status()).toBe(409);
+    expect(await forced.json()).toMatchObject({ error: "number_stopped" });
+
+    const newPhone = freshPhone();
+    await editor.getByRole("textbox", { name: c.edit.phoneLabel }).fill(formatPhone(newPhone));
+    await expect(editor.getByText(c.record.textsStopped(today), { exact: true })).toHaveCount(0);
+    await expect(consentToggle(editor)).toBeEnabled();
+    await save(editor, mover.id);
+    const moved = { ...mover, phone: newPhone };
+    const movedRecord = await openClient(page, moved);
+    await expect(movedRecord.getByText(c.record.textsStopped(today), { exact: true })).toHaveCount(
+        0,
+        { timeout: 60_000 },
+    );
+    const texted = await page.request.post(`${apiBase()}/v1/messages`, {
+        data: { client_id: mover.id, body: "Your new number is all set." },
+        headers: headers(page),
+    });
+    expect(texted.status(), await texted.text()).toBe(200);
+    const heir = await createContact(page, { phone: mover.phone });
+    await expect(
+        (await openClient(page, heir)).getByText(c.record.textsStopped(today), { exact: true }),
+    ).toBeVisible({ timeout: 60_000 });
+    const blocked = await page.request.post(`${apiBase()}/v1/messages`, {
+        data: { client_id: heir.id, body: "Hello" },
+        headers: headers(page),
+    });
+    expect(blocked.status()).toBe(409);
+
+    // a STOP from a number no client holds waits for whoever takes the number
+    const stranger = freshPhone();
+    const strangerStop = await postInboundSms(page.request, {
+        from: stranger,
+        to: BIRCHBARK_SMS,
+        body: "STOP",
+    });
+    expect(strangerStop.response.status()).toBe(200);
+    const agreeing = await page.request.post(`${apiBase()}/v1/clients`, {
+        data: { name: demoPerson(randomUUID()), phone: stranger, marketing_consent: true },
+        headers: headers(page),
+    });
+    expect(agreeing.status()).toBe(409);
+    expect(await agreeing.json()).toMatchObject({ error: "number_stopped" });
+    const newcomer = await createContact(page, { phone: stranger });
+    await expect(
+        (await openClient(page, newcomer)).getByText(c.record.textsStopped(today), {
+            exact: true,
+        }),
+    ).toBeVisible({ timeout: 60_000 });
+
+    await navigate(page, "/inbox?segment=broadcasts");
+    const download = page.waitForEvent("download");
+    await page.getByRole("button", { name: strings.broadcasts.exportLog, exact: true }).click();
+    const file = await download;
+    expect(file.suggestedFilename()).toMatch(/^consent-log-\d{4}-\d{2}-\d{2}\.csv$/);
+    const rows = csvRows(readFileSync(await file.path(), "utf8"));
+    const day = /^\d{4}-\d{2}-\d{2}T/;
+    const of = (name: string, phone?: string) =>
+        rows
+            .filter((row) => row[0] === name && (phone === undefined || row[1] === phone))
+            .map(([, phone, status, source, at]) => {
+                expect(at).toMatch(day);
+                return [phone, status, source];
+            });
+    expect(of(declining.name)).toEqual([
+        [declining.phone, "granted", "in_person"],
+        [declining.phone, "withdrawn", "in_person"],
+    ]);
+    expect(of(mover.name)).toEqual([
+        [mover.phone, "granted", "in_person"],
+        [mover.phone, "withdrawn", "reply"],
+    ]);
+    expect(of(heir.name)).toEqual([]);
+    expect(of("", stranger)).toEqual([[stranger, "withdrawn", "reply"]]);
 });

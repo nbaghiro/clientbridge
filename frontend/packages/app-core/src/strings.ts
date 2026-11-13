@@ -77,6 +77,7 @@ interface Strings {
         readonly paymentMethodInUse: string;
         readonly bankSetupInProgress: string;
         readonly textsStopped: string;
+        readonly numberStopped: string;
         readonly padUnavailable: string;
         readonly padLinkUsed: string;
         readonly paymentMethodNotChargeable: string;
@@ -1855,6 +1856,7 @@ interface Strings {
             readonly call: string;
             readonly text: string;
             readonly textsStopped: (when: string) => string;
+            readonly offersDeclined: (when: string) => string;
             readonly inProgress: string;
             readonly depositDue: (amount: string) => string;
             readonly depositPaid: (amount: string) => string;
@@ -1886,6 +1888,10 @@ interface Strings {
             readonly consentLabel: string;
             readonly consentHint: string;
             readonly consentRecorded: (when: string, who: string) => string;
+            readonly consentAgreedBy: (source: string, when: string) => string;
+            readonly consentDeclined: (when: string, who: string) => string;
+            readonly consentDeclinedBy: (source: string, when: string) => string;
+            readonly consentImplied: (date: string) => string;
             readonly nameRequired: string;
             readonly nameTooLong: (max: number) => string;
             readonly contactRequired: string;

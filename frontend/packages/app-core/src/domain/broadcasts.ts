@@ -19,13 +19,13 @@ import { useReplicaLoad } from "./sync";
 
 const b = strings.broadcasts;
 
-// The newest consent row per client; no row means the client was never asked.
+// The newest consent to offers per client, where a START only lifts a STOP; no row means never asked.
 export const LATEST_CONSENTS_SQL = `
 SELECT k.client_id, k.status, k.source, k.created_at, k.expires_at
 FROM consents k
-WHERE NOT EXISTS (
+WHERE k.client_id IS NOT NULL AND NOT (k.source = 'reply' AND k.status = 'granted') AND NOT EXISTS (
     SELECT 1 FROM consents n
-    WHERE n.client_id = k.client_id
+    WHERE n.client_id = k.client_id AND NOT (n.source = 'reply' AND n.status = 'granted')
       AND (n.created_at > k.created_at OR (n.created_at = k.created_at AND n.id > k.id))
 )`;
 
@@ -533,7 +533,7 @@ interface BroadcastActions {
 /** `save` hands the CSV to the platform: a download on web, the share sheet on a phone. */
 export function useBroadcastActions(
     api: ApiLike,
-    save: (filename: string, content: string) => void,
+    save: (filename: string, content: string) => void | Promise<void>,
 ): BroadcastActions {
     const [exported, setExported] = useState<string | null>(null);
     const { busy, error, run } = useAsyncAction();
@@ -548,7 +548,7 @@ export function useBroadcastActions(
                         "/v1/consents/export",
                         {},
                     );
-                    save(out.filename, out.content);
+                    await save(out.filename, out.content);
                     setExported(out.filename);
                 },
                 { errorMessage: b.actionErrors.exportFailed },

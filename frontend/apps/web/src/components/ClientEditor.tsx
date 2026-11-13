@@ -117,6 +117,7 @@ function ClientFields({ editor }: { editor: ClientEditor }) {
                     label={s.consentLabel}
                     hint={editor.textsStopped ?? editor.consentNote ?? s.consentHint}
                     value={draft.consent}
+                    disabled={editor.consentLocked}
                     onChange={(v) => {
                         set("consent", v);
                     }}

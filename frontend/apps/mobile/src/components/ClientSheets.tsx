@@ -204,6 +204,7 @@ export function ClientEditorSheet({
                     label={e.consentLabel}
                     hint={editor.textsStopped ?? editor.consentNote ?? e.consentHint}
                     value={draft.consent}
+                    disabled={editor.consentLocked}
                     onChange={(v) => {
                         set("consent", v);
                     }}

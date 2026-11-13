@@ -1,16 +1,33 @@
 // @vitest-environment happy-dom
 import { act, renderHook } from "@testing-library/react";
 import { type ReactNode, createElement } from "react";
-import { expect, it, vi } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 
 import type { ApiLike } from "../api";
 import { BusinessZoneContext } from "../datetime";
-import { type ClientListRow, useClientEditor } from "./clients";
+import { strings } from "../strings";
+import {
+    CLIENT_CONSENT_SQL,
+    type ClientListRow,
+    NUMBER_REPLY_SQL,
+    useClientEditor,
+} from "./clients";
+
+const replica = vi.hoisted(() => {
+    const rows: (sql: string, params: readonly unknown[]) => unknown[] = () => [];
+    return { rows };
+});
 
 vi.mock("../hooks", async (importOriginal) => ({
     ...(await importOriginal<typeof import("../hooks")>()),
-    useBusinessQuery: () => ({ data: [] }),
+    useBusinessQuery: (sql: string, params: readonly unknown[] = []) => ({
+        data: replica.rows(sql, params),
+    }),
 }));
+
+afterEach(() => {
+    replica.rows = () => [];
+});
 
 const api: ApiLike = {
     get: <T>() => Promise.resolve({} as T),
@@ -138,4 +155,171 @@ it("shows the client a refused save names as holding the phone", async () => {
         result.current.set("phone", "604 555 0010");
     });
     expect(result.current.duplicates).toEqual([]);
+});
+
+it("locks consent while the number as typed replied STOP, and a tap there never comes back as a yes", async () => {
+    replica.rows = (sql, params) =>
+        sql === NUMBER_REPLY_SQL && params[0] === "+16045550001"
+            ? [{ status: "withdrawn", created_at: "2026-11-01T17:00:00Z" }]
+            : [];
+    const patch = vi.fn((_path: string, body: Record<string, unknown>) =>
+        Promise.resolve({ name: "Ann Tremblay", phone: "+16045550003", tags: [], ...body }),
+    );
+    const { result } = renderHook(
+        () => useClientEditor({ ...api, patch } as ApiLike, [ann], "cl_ann", () => undefined),
+        { wrapper },
+    );
+    expect(result.current.consentLocked).toBe(true);
+    expect(result.current.textsStopped).toBe(strings.clients.record.textsStopped("Nov 1, 2026"));
+    act(() => {
+        result.current.set("consent", true);
+    });
+    expect(result.current.draft.consent).toBe(false);
+    expect(result.current.dirty).toBe(false);
+    act(() => {
+        result.current.set("phone", "604 555 0003");
+    });
+    expect(result.current.consentLocked).toBe(false);
+    expect(result.current.textsStopped).toBeNull();
+    expect(result.current.draft.consent).toBe(false);
+    await act(async () => {
+        result.current.submit();
+        await Promise.resolve();
+    });
+    expect(patch.mock.calls[0]?.[1]).toEqual({ phone: "+16045550003" });
+});
+
+it.each([
+    [
+        { status: "granted", source: "form", recorded_by_name: null, expires_at: null },
+        true,
+        () => strings.clients.edit.consentAgreedBy("form", "Nov 1, 2026"),
+    ],
+    [
+        {
+            status: "withdrawn",
+            source: "in_person",
+            recorded_by_name: "Hannah Wong",
+            expires_at: null,
+        },
+        false,
+        () => strings.clients.edit.consentDeclined("Nov 1, 2026", "Hannah Wong"),
+    ],
+    [
+        { status: "withdrawn", source: "reply", recorded_by_name: null, expires_at: null },
+        false,
+        () => strings.clients.edit.consentDeclinedBy("reply", "Nov 1, 2026"),
+    ],
+    [
+        {
+            status: "implied",
+            source: "online_booking",
+            recorded_by_name: null,
+            expires_at: "2027-04-10T17:00:00Z",
+        },
+        true,
+        () => strings.clients.edit.consentImplied("Apr 10, 2027"),
+    ],
+    [
+        {
+            status: "implied",
+            source: "online_booking",
+            recorded_by_name: null,
+            expires_at: "2026-10-01T17:00:00Z",
+        },
+        false,
+        () => null,
+    ],
+])("says how the newest consent came about (%o)", (row, agreed, note) => {
+    replica.rows = (sql) =>
+        sql === CLIENT_CONSENT_SQL ? [{ ...row, created_at: "2026-11-01T17:00:00Z" }] : [];
+    const { result } = editor([ann]);
+    expect(result.current.draft.consent).toBe(agreed);
+    expect(result.current.consentNote).toBe(note());
+});
+
+it("records a no for a client who only has implied consent, since offers still go to them", async () => {
+    replica.rows = (sql) =>
+        sql === CLIENT_CONSENT_SQL
+            ? [
+                  {
+                      status: "implied",
+                      source: "online_booking",
+                      recorded_by_name: null,
+                      expires_at: "2027-04-10T17:00:00Z",
+                      created_at: "2026-11-01T17:00:00Z",
+                  },
+              ]
+            : [];
+    const patch = vi.fn((_path: string, body: Record<string, unknown>) =>
+        Promise.resolve({ name: "Ann Tremblay", phone: "+16045550001", tags: [], ...body }),
+    );
+    const { result } = renderHook(
+        () => useClientEditor({ ...api, patch } as ApiLike, [ann], "cl_ann", () => undefined),
+        { wrapper },
+    );
+    expect(result.current.draft.consent).toBe(true);
+    act(() => {
+        result.current.set("consent", false);
+    });
+    expect(result.current.dirty).toBe(true);
+    await act(async () => {
+        result.current.submit();
+        await Promise.resolve();
+    });
+    expect(patch.mock.calls[0]?.[1]).toEqual({ marketing_consent: false });
+});
+
+it("shows a stopped number's toggle off even over an earlier yes", () => {
+    replica.rows = (sql) =>
+        sql === NUMBER_REPLY_SQL
+            ? [{ status: "withdrawn", created_at: "2026-11-01T17:00:00Z" }]
+            : sql === CLIENT_CONSENT_SQL
+              ? [
+                    {
+                        status: "granted",
+                        source: "in_person",
+                        recorded_by_name: "Hannah Wong",
+                        expires_at: null,
+                        created_at: "2026-10-01T17:00:00Z",
+                    },
+                ]
+              : [];
+    const { result } = editor([ann]);
+    expect(result.current.consentLocked).toBe(true);
+    expect(result.current.draft.consent).toBe(false);
+    expect(result.current.dirty).toBe(false);
+});
+
+it("drops a choice made before a STOP landed once the START lifts it", () => {
+    const consent = (source: string, at: string) => ({
+        status: "granted",
+        source,
+        recorded_by_name: null,
+        expires_at: null,
+        created_at: at,
+    });
+    replica.rows = (sql) =>
+        sql === CLIENT_CONSENT_SQL ? [consent("in_person", "2026-10-01T17:00:00Z")] : [];
+    const { result, rerender } = editor([ann]);
+    act(() => {
+        result.current.set("consent", false);
+    });
+    expect(result.current.dirty).toBe(true);
+    replica.rows = (sql) =>
+        sql === NUMBER_REPLY_SQL
+            ? [{ status: "withdrawn", created_at: "2026-11-01T17:00:00Z" }]
+            : [];
+    rerender({ rows: [ann] });
+    expect(result.current.consentLocked).toBe(true);
+    replica.rows = (sql) =>
+        sql === NUMBER_REPLY_SQL
+            ? [{ status: "granted", created_at: "2026-11-02T17:00:00Z" }]
+            : sql === CLIENT_CONSENT_SQL
+              ? [consent("reply", "2026-11-02T17:00:00Z")]
+              : [];
+    rerender({ rows: [ann] });
+    expect(result.current.consentLocked).toBe(false);
+    expect(result.current.draft.consent).toBe(true);
+    expect(result.current.dirty).toBe(false);
 });

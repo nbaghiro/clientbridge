@@ -353,14 +353,16 @@ function ThreadView({ thread, onBack }: { thread: InboxThread; onBack?: () => vo
                 ))}
             </ScrollView>
             <View style={styles.composer}>
-                <Choice
-                    label={s.quickReplies}
-                    options={quickReplies()}
-                    value={null}
-                    onChange={(k) => {
-                        composer.setBody(quickReplies().find((q) => q.key === k)?.text ?? "");
-                    }}
-                />
+                {composer.smsBlocked ? null : (
+                    <Choice
+                        label={s.quickReplies}
+                        options={quickReplies()}
+                        value={null}
+                        onChange={(k) => {
+                            composer.setBody(quickReplies().find((q) => q.key === k)?.text ?? "");
+                        }}
+                    />
+                )}
                 <TextField
                     multiline
                     rows={2}

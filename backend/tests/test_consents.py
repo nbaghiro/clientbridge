@@ -12,7 +12,13 @@ from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.models.clients import Client, Consent
 from clientbridge.schemas.messaging import BroadcastAudience
-from clientbridge.services.consents import record_consent, set_marketing_consent, stopped_clients
+from clientbridge.services.consents import (
+    allows_marketing,
+    latest_consents,
+    record_consent,
+    set_marketing_consent,
+    stopped_clients,
+)
 from clientbridge.services.messaging import broadcast_recipients
 from tests.conftest import Factory, FakeSmsSender
 from tests.google_business import configure_google_review_profile
@@ -154,14 +160,18 @@ async def test_export_needs_a_session(unauth: httpx.AsyncClient) -> None:
     assert (await unauth.post("/v1/consents/export")).status_code == 401
 
 
-async def test_a_staff_toggle_after_stop_does_not_unblock_texts(
+async def test_a_staff_toggle_after_stop_is_refused(
     as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
     cid = await _client(db)
     await _text_in(as_owner, "STOP", "SM_sticky_1")
     ok(await as_owner.patch(f"/v1/clients/{cid}", json={"marketing_consent": False}))
-    ok(await as_owner.patch(f"/v1/clients/{cid}", json={"marketing_consent": True}))
+    refused = await as_owner.patch(
+        f"/v1/clients/{cid}", json={"name": "Renamed", "marketing_consent": True}
+    )
+    assert refused.status_code == 409 and refused.json()["error"] == "number_stopped"
     assert await _consents(db, cid) == [("withdrawn", "reply")]
+    assert await db.scalar(select(Client.name).where(Client.id == cid)) != "Renamed"
     blocked = await as_owner.post("/v1/messages", json={"client_id": cid, "body": "Back?"})
     assert blocked.status_code == 409 and sms.sent == []
 
@@ -198,3 +208,155 @@ async def test_a_stop_from_an_old_number_does_not_follow_the_client_to_a_new_one
     assert cid in {client.id for client, _ in recipients}
     res = await as_owner.post("/v1/messages", json={"client_id": cid, "body": "Hi"})
     assert res.status_code == 200, res.text
+
+
+async def test_a_new_client_on_a_stopped_number_cannot_start_agreed(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _client(db)
+    await _text_in(as_owner, "STOP", "SM_new_on_stopped")
+    await db.execute(update(Client).where(Client.phone == PHONE).values(phone="+16045550879"))
+    body = {"name": "Second Owner", "phone": PHONE, "marketing_consent": True}
+    refused = await as_owner.post("/v1/clients", json=body)
+    assert refused.status_code == 409 and refused.json()["error"] == "number_stopped"
+    assert await db.scalar(select(Client.id).where(Client.name == "Second Owner")) is None
+    created = ok(await as_owner.post("/v1/clients", json={**body, "marketing_consent": False}), 201)
+    assert await stopped_clients(db, BIZ, [created.json()["id"]]) == {created.json()["id"]}
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "Stop.",
+        "STOP!",
+        " stop?! ",
+        "\u201cStop\u201d",
+        "STOP \U0001f6d1",
+        "Opt  out",
+        "Opt-out",
+        "revoke",
+        "arre\u0302t",
+    ],
+)
+async def test_a_stop_with_punctuation_still_opts_out(
+    as_owner: httpx.AsyncClient, db: AsyncSession, body: str
+) -> None:
+    cid = await _client(db)
+    await _text_in(as_owner, body, "SM_punctuated_stop")
+    assert await _consents(db, cid) == [("withdrawn", "reply")]
+    await _text_in(as_owner, "START", "SM_punctuated_start")
+    assert await _consents(db, cid) == [("withdrawn", "reply"), ("granted", "reply")]
+
+
+@pytest.mark.parametrize("body", ["Cancel?", "End.", "Quit!", '"Unsubscribe"', "Stop please"])
+async def test_a_question_that_starts_with_an_opt_out_word_is_only_a_message(
+    as_owner: httpx.AsyncClient, db: AsyncSession, body: str
+) -> None:
+    cid = await _client(db)
+    await _text_in(as_owner, body, "SM_not_a_stop")
+    assert await _consents(db, cid) == []
+
+
+async def test_a_start_lifts_the_stop_but_offers_wait_for_a_new_yes(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await _client(db)
+    ok(await as_owner.patch(f"/v1/clients/{cid}", json={"marketing_consent": True}))
+    await _text_in(as_owner, "STOP", "SM_offers_stop")
+    await _text_in(as_owner, "START", "SM_offers_start")
+    assert await stopped_clients(db, BIZ, [cid]) == set()
+    assert not allows_marketing((await latest_consents(db, BIZ, [cid])).get(cid))
+    ok(await as_owner.patch(f"/v1/clients/{cid}", json={"marketing_consent": True}))
+    assert allows_marketing((await latest_consents(db, BIZ, [cid])).get(cid))
+    assert (await _consents(db, cid))[-1] == ("granted", "in_person")
+
+
+async def test_export_names_the_number_each_change_was_recorded_for(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await _client(db, name="Moved Number")
+    ok(await as_owner.patch(f"/v1/clients/{cid}", json={"marketing_consent": True}))
+    await _text_in(as_owner, "STOP", "SM_export_old_number")
+    ok(await as_owner.patch(f"/v1/clients/{cid}", json={"phone": "+16045550878"}))
+    ok(await as_owner.patch(f"/v1/clients/{cid}", json={"marketing_consent": True}))
+    ok(await as_owner.patch(f"/v1/clients/{cid}", json={"marketing_consent": False}))
+    content = ok(await as_owner.post("/v1/consents/export")).json()["content"]
+    mine = [r for r in csv.reader(io.StringIO(content)) if r[0] == "Moved Number"]
+    assert [(r[1], r[2], r[3]) for r in mine] == [
+        (PHONE, "granted", "in_person"),
+        (PHONE, "withdrawn", "reply"),
+        ("+16045550878", "granted", "in_person"),
+        ("+16045550878", "withdrawn", "in_person"),
+    ]
+
+
+async def test_an_in_person_yes_over_implied_consent_is_recorded(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await _client(db)
+    await record_consent(
+        db,
+        BIZ,
+        cid,
+        status="implied",
+        source="online_booking",
+        recorded_by=None,
+        expires_at=clock.now() + timedelta(days=30),
+    )
+    ok(await as_owner.patch(f"/v1/clients/{cid}", json={"marketing_consent": True}))
+    ok(await as_owner.patch(f"/v1/clients/{cid}", json={"marketing_consent": True}))
+    assert await _consents(db, cid) == [("implied", "online_booking"), ("granted", "in_person")]
+    ok(await as_owner.patch(f"/v1/clients/{cid}", json={"marketing_consent": False}))
+    ok(await as_owner.patch(f"/v1/clients/{cid}", json={"marketing_consent": False}))
+    assert (await _consents(db, cid))[-2:] == [("granted", "in_person"), ("withdrawn", "in_person")]
+
+
+async def test_a_phone_change_moves_the_staff_toggle_onto_the_new_numbers_stop(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await _client(db)
+    await _text_in(as_owner, "STOP", "SM_toggle_follows_number")
+    away = {"phone": "+16045550878", "marketing_consent": True}
+    ok(await as_owner.patch(f"/v1/clients/{cid}", json=away))
+    assert (await _consents(db, cid))[-1] == ("granted", "in_person")
+    assert cid not in await stopped_clients(db, BIZ, [cid])
+    neighbour = {"name": "Next Door", "phone": "+16045550879"}
+    other = ok(await as_owner.post("/v1/clients", json=neighbour), 201).json()["id"]
+    onto = {"phone": PHONE, "marketing_consent": True}
+    refused = await as_owner.patch(f"/v1/clients/{other}", json=onto)
+    assert refused.status_code == 409 and refused.json()["error"] == "number_stopped"
+    assert await db.scalar(select(Client.phone).where(Client.id == other)) == "+16045550879"
+
+
+async def test_a_stop_from_a_number_no_client_holds_blocks_whoever_takes_it_until_start(
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
+) -> None:
+    await _text_in(as_owner, "STOP", "SM_stranger_stop")
+    rows = (
+        await db.execute(
+            select(Consent.client_id, Consent.status, Consent.source).where(Consent.phone == PHONE)
+        )
+    ).all()
+    assert [tuple(row) for row in rows] == [(None, "withdrawn", "reply")]
+    body = {"name": "Late Arrival", "phone": PHONE, "marketing_consent": True}
+    refused = await as_owner.post("/v1/clients", json=body)
+    assert refused.status_code == 409 and refused.json()["error"] == "number_stopped"
+    created = ok(await as_owner.post("/v1/clients", json={**body, "marketing_consent": False}), 201)
+    cid = created.json()["id"]
+    assert await stopped_clients(db, BIZ, [cid]) == {cid}
+    blocked = await as_owner.post("/v1/messages", json={"client_id": cid, "body": "Welcome"})
+    assert blocked.status_code == 409 and sms.sent == []
+    content = ok(await as_owner.post("/v1/consents/export")).json()["content"]
+    assert ["", PHONE, "withdrawn", "reply"] in [r[:4] for r in csv.reader(io.StringIO(content))]
+    await _text_in(as_owner, "START", "SM_stranger_start")
+    assert await stopped_clients(db, BIZ, [cid]) == set()
+    assert await _consents(db, cid) == [("granted", "reply")]
+    ok(await as_owner.post("/v1/messages", json={"client_id": cid, "body": "Welcome"}))
+
+
+async def test_a_start_or_an_ordinary_text_from_a_stranger_records_nothing(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _text_in(as_owner, "START", "SM_stranger_start_only")
+    await _text_in(as_owner, "Stop by at noon?", "SM_stranger_chat")
+    assert await db.scalar(select(Consent.id).where(Consent.phone == PHONE)) is None

@@ -285,8 +285,10 @@ owner/admin/staff/contractor, payout config `payee`/`rate_type` with the rate in
 after the business changes kind, clients read a subject as the kind its details belong to, so a pet keeps showing as a
 pet), `notes` (polymorphic
 `parent_type`/`parent_id` over client/subject/booking, `created_by`), `consents` (one row per change to a
-client's marketing consent, with its `source`; the newest row holds, and a STOP or START reply
-also records the `phone` it came from, where the newest one decides whether that number gets texts).
+client's marketing consent, with its `source` and the `phone` it was recorded for; the newest row holds,
+and the newest STOP or START reply from a phone decides whether that number gets texts. A START only lifts the
+STOP: it doesn't count as a yes to offers, so the STOP stays the client's newest answer until they agree again. A reply from a
+phone no client holds is kept with no `client_id`).
 A phone number belongs to one live client per business (`uq_clients_business_phone`, archived clients
 included, merged ones not).
 
@@ -1011,9 +1013,13 @@ client, and a merge leaves the number with the record that's kept.
 A STOP belongs to the phone number it came from, not to the person: texts to that number stop until it
 replies START, and a client who moves to another number can be texted there. Every send path checks the
 number's newest STOP or START reply, including texts to a number typed in for a sale or a gift, and the
-delivery worker checks it again just before sending. A STOP from a phone no client holds isn't recorded,
-since a consent row needs a client. STOP is the only way a client opts out themselves; staff can also
-record a client's yes or no to offers, which can't override a STOP on their number. A broadcast is
+delivery worker checks it again just before sending. A STOP from a phone no client holds is recorded
+against the number alone, so whoever later takes the number starts stopped. A reply counts only when it
+is the whole message, as Twilio matches it: the FCC's opt-out words (STOP, QUIT, END, REVOKE, OPT OUT,
+CANCEL, UNSUBSCRIBE) and ARRÊT all count, and STOP, STOP ALL and ARRÊT also match with punctuation or
+emoji around them, while "Cancel?" or "End." stays a message. A START lifts the STOP but isn't a yes to
+offers. STOP is the only way a client opts out themselves; staff can
+also record a client's yes or no to offers, which is refused with `number_stopped` on a stopped number. A broadcast is
 refused until the business has a legal address and a public contact method.
 Broadcasts are sent by the job one recipient at a time, claimed with `SKIP LOCKED` and saved before and after
 each send, so delivery is at most once, and they wait during quiet hours (21:00 to 09:00 local). An inbound

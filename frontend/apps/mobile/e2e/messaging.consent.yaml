@@ -1,0 +1,131 @@
+appId: ${APP_ID}
+name: NATIVE-MSG-01 A STOP turns a client's texts off on the phone until START, the consent toggle stays locked, the STOP stays their no to offers after the START until staff record a yes, and the consent log shares as a CSV file
+tags:
+    - lane
+---
+- evalScript: ${output.phone = "250" + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000))}
+- evalScript: ${output.name = "Wren Halloway"}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/clients
+          BODY: "${JSON.stringify({ name: output.name, phone: output.phone, marketing_consent: true })}"
+- runFlow: helpers/owner.yaml
+- runScript:
+      file: helpers/control.js
+      env:
+          ACTION: text-in
+          PAYLOAD: ${output.phone + " Stop."}
+- tapOn: "Clients"
+- tapOn: "Search name, phone or pet"
+- inputText: ${output.phone}
+- extendedWaitUntil:
+      visible: ${"WH, " + output.name + ".*"}
+      timeout: 60000
+- tapOn: ${"WH, " + output.name + ".*"}
+- extendedWaitUntil:
+      visible: "Their number replied STOP on .*"
+      timeout: 60000
+- tapOn: "Edit"
+- extendedWaitUntil:
+      visible: "Edit client"
+      timeout: 30000
+# a short phone keeps the consent toggle below the fold
+- scrollUntilVisible:
+      element: "Agrees to news and offers"
+      direction: DOWN
+# only the number's own START lifts its STOP, so a tap on the switch changes nothing to save
+- tapOn:
+      text: "Agrees to news and offers"
+      checked: false
+      rightOf: "Agrees to news and offers"
+- assertVisible:
+      text: "Agrees to news and offers"
+      checked: false
+      rightOf: "Agrees to news and offers"
+- scrollUntilVisible:
+      element: "Done"
+      direction: UP
+- assertVisible:
+      text: "Done"
+      enabled: false
+- takeScreenshot: consent-locked
+- tapOn: "Cancel"
+- tapOn: "Message"
+- extendedWaitUntil:
+      visible: "Texts to Wren are off.*"
+      timeout: 60000
+- assertNotVisible: "Confirmed"
+- takeScreenshot: consent-texts-off
+- runScript:
+      file: helpers/control.js
+      env:
+          ACTION: text-in
+          PAYLOAD: ${output.phone + " START"}
+- extendedWaitUntil:
+      notVisible: "Texts to Wren are off.*"
+      timeout: 60000
+- assertVisible: "Confirmed"
+- tapOn: "Client details"
+- extendedWaitUntil:
+      visible: "Book"
+      timeout: 60000
+- assertNotVisible: "Their number replied STOP on .*"
+# a START lifts the STOP but isn't a yes, so the STOP stays the client's no to offers
+- assertVisible: "Said no to news and offers on .*"
+- takeScreenshot: consent-declined-on-record
+- tapOn: "Edit"
+- extendedWaitUntil:
+      visible: "Edit client"
+      timeout: 30000
+- scrollUntilVisible:
+      element: "Said no by replying STOP on .*"
+      direction: DOWN
+      timeout: 30000
+- tapOn:
+      text: "Agrees to news and offers"
+      checked: false
+      rightOf: "Agrees to news and offers"
+- scrollUntilVisible:
+      element: "Done"
+      direction: UP
+- tapOn: "Done"
+- extendedWaitUntil:
+      notVisible: "Said no to news and offers on .*"
+      timeout: 60000
+- takeScreenshot: consent-agreed-on-record
+- runFlow: helpers/close-sheet.yaml
+- tapOn: "Inbox"
+- tapOn: "Broadcasts"
+- scrollUntilVisible:
+      element: "Export consent log"
+      direction: DOWN
+      timeout: 30000
+- tapOn: "Export consent log"
+- extendedWaitUntil:
+      visible: ".*consent-log-.*"
+      timeout: 30000
+- takeScreenshot: consent-log-shared
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - back
+- runFlow:
+      when:
+          platform: iOS
+      commands:
+          - tapOn:
+                text: "Close"
+                optional: true
+          - runFlow:
+                when:
+                    visible: ".*consent-log-.*"
+                commands:
+                    - swipe:
+                          start: "50%,40%"
+                          end: "50%,95%"
+- extendedWaitUntil:
+      notVisible: ".*consent-log-.*"
+      timeout: 10000

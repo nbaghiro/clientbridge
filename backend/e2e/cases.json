@@ -73,6 +73,7 @@
     "MSG-E2E-11": {"lanes": ["web"], "browsers": false, "status": "implemented"},
     "MSG-E2E-13": {"lanes": ["web"], "browsers": false, "status": "implemented"},
     "MSG-E2E-16": {"lanes": ["web"], "browsers": false, "status": "implemented"},
+    "MSG-E2E-19": {"lanes": ["web"], "browsers": false, "status": "implemented"},
     "PLN-E2E-01": {"lanes": ["web"], "browsers": false, "status": "implemented"},
     "PLN-E2E-02": {"lanes": ["web"], "browsers": false, "status": "implemented"},
     "PLN-E2E-03": {"lanes": ["web"], "browsers": false, "status": "implemented"},
@@ -246,5 +247,6 @@
     "XB-E2E-23": {"lanes": ["connect"], "browsers": true, "status": "verified"},
     "STR-E18": {"lanes": ["stripe"], "browsers": false, "status": "verified"},
     "STR-E31": {"lanes": ["stripe"], "browsers": false, "status": "verified"},
-    "NATIVE-SCH-02": {"lanes": ["native-ios", "native-android"], "browsers": false, "status": "verified"}
+    "NATIVE-SCH-02": {"lanes": ["native-ios", "native-android"], "browsers": false, "status": "verified"},
+    "NATIVE-MSG-01": {"lanes": ["native-ios", "native-android"], "browsers": false, "status": "implemented"}
 }

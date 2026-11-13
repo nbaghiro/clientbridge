@@ -68,7 +68,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 8. Refunds and the books | Payouts and fee reconciliation | [CB-47](https://linear.app/clientbridgeca/issue/CB-47) | Partly automated |
 | 8. Refunds and the books | Staff pay and T4A | [CB-48](https://linear.app/clientbridgeca/issue/CB-48) | Partly automated |
 | 9. Talk to clients | Inbox: two-way texting | [CB-49](https://linear.app/clientbridgeca/issue/CB-49) | Partly automated |
-| 9. Talk to clients | STOP and texting consent | [CB-50](https://linear.app/clientbridgeca/issue/CB-50) | Partly automated |
+| 9. Talk to clients | STOP and texting consent | [CB-50](https://linear.app/clientbridgeca/issue/CB-50) | Automated |
 | 9. Talk to clients | Broadcasts to consenting clients | [CB-51](https://linear.app/clientbridgeca/issue/CB-51) | Partly automated |
 | 9. Talk to clients | Intake forms | [CB-53](https://linear.app/clientbridgeca/issue/CB-53) | Partly automated |
 | 9. Talk to clients | Contracts and signatures | [CB-54](https://linear.app/clientbridgeca/issue/CB-54) | Partly automated |
@@ -2148,13 +2148,13 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 1. Reply STOP from a client's phone.
    **Expect:** every device shows texts off for that client; queued notices to the number are not sent.
 2. Turn texts back on from the staff toggle.
-   **Expect:** refused until the number replies START.
+   **Expect:** refused until the number replies START; after the START, texts work again and offers stay off until the client agrees again.
 3. Change the client's phone to another number.
    **Expect:** texts to the new number work; the old number stays stopped.
 4. Record a no to offers for another client.
    **Expect:** shown on the record with the date.
 5. Export consents.
-   **Expect:** a CSV with each client's state and dates.
+   **Expect:** a CSV of every consent change with its date and the number it was for, oldest first per client; a STOP from a number no client holds is listed with no name.
 
 **Done when:** A number that replied STOP can't be texted by the business, except what the law allows, until it replies START.
 
@@ -2163,10 +2163,8 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 * `FLOW-06-A (journeys)`
 * `MSG-E2E-14 (journeys)`
 * `MSG-E2E-15 (journeys)`
-
-**To automate**
-
-* `MSG-E2E-19` in `apps/web/e2e/messaging.e2e.ts`: Consent export and a staff-recorded no to offers.
+* `MSG-E2E-19 (web)`
+* `NATIVE-MSG-01 (native-ios, native-android)`
 
 **Depends on:** Nothing
 
