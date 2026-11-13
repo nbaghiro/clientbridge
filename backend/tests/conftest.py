@@ -30,6 +30,7 @@ from clientbridge.core.errors import (
 from clientbridge.core.ids import new_id
 from clientbridge.core.ratelimit import (
     public_booking_rate_limit,
+    public_booking_read_rate_limit,
     public_contract_rate_limit,
     public_form_rate_limit,
     public_invite_rate_limit,
@@ -1005,6 +1006,7 @@ async def api(
     app.dependency_overrides[public_form_rate_limit] = lambda: None
     app.dependency_overrides[public_contract_rate_limit] = lambda: None
     app.dependency_overrides[public_booking_rate_limit] = lambda: None
+    app.dependency_overrides[public_booking_read_rate_limit] = lambda: None
     app.dependency_overrides[public_invite_rate_limit] = lambda: None
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
