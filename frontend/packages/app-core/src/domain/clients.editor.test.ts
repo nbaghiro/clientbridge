@@ -217,7 +217,7 @@ it.each([
             recorded_by_name: null,
             expires_at: "2027-04-10T17:00:00Z",
         },
-        false,
+        true,
         () => strings.clients.edit.consentImplied("Apr 10, 2027"),
     ],
     [
@@ -236,6 +236,38 @@ it.each([
     const { result } = editor([ann]);
     expect(result.current.draft.consent).toBe(agreed);
     expect(result.current.consentNote).toBe(note());
+});
+
+it("records a no for a client who only has implied consent, since offers still go to them", async () => {
+    replica.rows = (sql) =>
+        sql === CLIENT_CONSENT_SQL
+            ? [
+                  {
+                      status: "implied",
+                      source: "online_booking",
+                      recorded_by_name: null,
+                      expires_at: "2027-04-10T17:00:00Z",
+                      created_at: "2026-11-01T17:00:00Z",
+                  },
+              ]
+            : [];
+    const patch = vi.fn((_path: string, body: Record<string, unknown>) =>
+        Promise.resolve({ name: "Ann Tremblay", phone: "+16045550001", tags: [], ...body }),
+    );
+    const { result } = renderHook(
+        () => useClientEditor({ ...api, patch } as ApiLike, [ann], "cl_ann", () => undefined),
+        { wrapper },
+    );
+    expect(result.current.draft.consent).toBe(true);
+    act(() => {
+        result.current.set("consent", false);
+    });
+    expect(result.current.dirty).toBe(true);
+    await act(async () => {
+        result.current.submit();
+        await Promise.resolve();
+    });
+    expect(patch.mock.calls[0]?.[1]).toEqual({ marketing_consent: false });
 });
 
 it("shows a stopped number's toggle off even over an earlier yes", () => {

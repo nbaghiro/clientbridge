@@ -206,6 +206,15 @@ async def test_a_number_without_an_assigned_destination_is_recorded_unmatched(
     assert not await texts_stopped(db, rival.id, theirs.id)
 
 
+async def test_a_stop_from_a_number_no_client_holds_is_logged_under_its_business(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    ok(await text_in(api, {"From": OTHER, "Body": "STOP", "MessageSid": "SM_no_client"}))
+    row = await _webhook(db, "SM_no_client")
+    assert summary(row)["matched"] is False and summary(row)["business_id"] == BIZ
+    assert await number_stopped(db, BIZ, OTHER)
+
+
 async def test_equal_send_times_do_not_make_destination_routing_ambiguous(
     api: httpx.AsyncClient, db: AsyncSession, factory: Factory
 ) -> None:

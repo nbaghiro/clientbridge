@@ -758,6 +758,13 @@ interface ConsentDbRow {
     recorded_by_name: string | null;
 }
 
+// mirrors the server's allows_marketing, so the toggle shows whether offers go out now
+function offersAllowed(row: ConsentDbRow | undefined): boolean {
+    if (row === undefined || row.status === "withdrawn") return false;
+    if (row.status !== "implied" || row.expires_at === null) return true;
+    return parseTimestamp(row.expires_at) > new Date();
+}
+
 function consentNote(row: ConsentDbRow | undefined, zone: string): string | null {
     if (row === undefined) return null;
     const when = formatDate(parseTimestamp(row.created_at), zone);
@@ -825,8 +832,7 @@ export function useClientEditor(
     const zone = useBusinessZone();
     const kind = useSubjectKind();
     const consentRow = useQuery<ConsentDbRow>(CLIENT_CONSENT_SQL, [clientId ?? ""]).data[0];
-    // implied consent lapses, so only an express yes shows as agreed
-    const agreed = consentRow?.status === "granted";
+    const agreed = offersAllowed(consentRow);
     // an edited record keeps only the fields touched, so a field synced in meanwhile shows through
     const synced = useSyncedDraft(client === null ? null : contactOf(client));
     const [added, setAdded] = useState<ClientDraft>(EMPTY_DRAFT);

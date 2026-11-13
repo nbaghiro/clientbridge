@@ -1,5 +1,6 @@
 import logging
 import re
+import unicodedata
 from collections.abc import Sequence
 from datetime import datetime
 
@@ -314,7 +315,8 @@ async def _send_broadcast(
 
 def _reply_keyword(body: str) -> str:
     """The reply as a keyword, so "Stop.", a quoted STOP or one with an emoji still opts out."""
-    return " ".join(re.sub(r"^[\W_]+|[\W_]+$", "", body).split()).upper()
+    text = unicodedata.normalize("NFC", body).replace("-", " ")
+    return " ".join(re.sub(r"^[\W_]+|[\W_]+$", "", text).split()).upper()
 
 
 async def route_inbound_sms(db: AsyncSession, business_id: str, number: str) -> Client | None:
@@ -376,7 +378,7 @@ async def process_inbound_sms(
                 "from": number or from_phone,
                 "to": destination,
                 "matched": client is not None,
-                "business_id": client.business_id if client is not None else None,
+                "business_id": business_id,
                 "opt_out": keyword in STOP_WORDS,
             },
             status="processed",

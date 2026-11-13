@@ -228,7 +228,9 @@ async def test_a_new_client_on_a_stopped_number_cannot_start_agreed(
         "\u201cStop\u201d",
         "STOP \U0001f6d1",
         "Opt  out",
+        "Opt-out",
         "revoke",
+        "arre\u0302t",
     ],
 )
 async def test_a_stop_with_punctuation_still_opts_out(
