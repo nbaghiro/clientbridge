@@ -224,7 +224,7 @@ class StaffService:
         if member is not None:
             raise Conflict("this address is already on the team", code="already_member")
 
-    async def _pending(self, token: str) -> Staff:
+    async def _pending(self, token: str, user: User | None = None) -> Staff:
         staff = (
             await self.db.execute(
                 select(Staff)
@@ -235,6 +235,8 @@ class StaffService:
         if staff is None:
             raise NotFound("this invite link isn't valid", code="invite_invalid")
         if staff.status != "invited":
+            if user is not None and staff.user_id == user.id:
+                raise Conflict("you're already on this team", code="already_member")
             raise Conflict("invite already accepted", code="invite_accepted")
         if (staff.invited_at or staff.created_at) + INVITE_TTL < clock.now():
             raise AppError("this invite has expired", code="invite_expired", status_code=410)
@@ -252,7 +254,7 @@ class StaffService:
 
     async def accept_invite(self, user: User, identity: Identity, token: str) -> AcceptInviteOut:
         """The signed-in user joins the team, if the invited address is one they have verified."""
-        staff = await self._pending(token)
+        staff = await self._pending(token, user)
         invited = normalize_email(staff.invite_email or "")
         if invited not in identity.verified_emails:
             if invited == normalize_email(identity.email):
@@ -271,7 +273,7 @@ class StaffService:
         ).scalar_one_or_none()
         if member is not None and member.status == "active":
             raise Conflict("you're already on this team", code="already_member")
-        staff = await self._pending(token)
+        staff = await self._pending(token, user)
         # the plan may have changed since the invite went out
         await plans.assert_seat_free(self.db, business, clock.now(), member=staff.id)
         if member is not None:
