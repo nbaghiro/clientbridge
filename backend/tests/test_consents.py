@@ -12,7 +12,13 @@ from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.models.clients import Client, Consent
 from clientbridge.schemas.messaging import BroadcastAudience
-from clientbridge.services.consents import record_consent, set_marketing_consent, stopped_clients
+from clientbridge.services.consents import (
+    allows_marketing,
+    latest_consents,
+    record_consent,
+    set_marketing_consent,
+    stopped_clients,
+)
 from clientbridge.services.messaging import broadcast_recipients
 from tests.conftest import Factory, FakeSmsSender
 from tests.google_business import configure_google_review_profile
@@ -224,7 +230,6 @@ async def test_a_new_client_on_a_stopped_number_cannot_start_agreed(
         "Stop.",
         "STOP!",
         " stop?! ",
-        '"Unsubscribe"',
         "\u201cStop\u201d",
         "STOP \U0001f6d1",
         "Opt  out",
@@ -239,8 +244,31 @@ async def test_a_stop_with_punctuation_still_opts_out(
     cid = await _client(db)
     await _text_in(as_owner, body, "SM_punctuated_stop")
     assert await _consents(db, cid) == [("withdrawn", "reply")]
-    await _text_in(as_owner, "Start.", "SM_punctuated_start")
+    await _text_in(as_owner, "START", "SM_punctuated_start")
     assert await _consents(db, cid) == [("withdrawn", "reply"), ("granted", "reply")]
+
+
+@pytest.mark.parametrize("body", ["Cancel?", "End.", "Quit!", '"Unsubscribe"', "Stop please"])
+async def test_a_question_that_starts_with_an_opt_out_word_is_only_a_message(
+    as_owner: httpx.AsyncClient, db: AsyncSession, body: str
+) -> None:
+    cid = await _client(db)
+    await _text_in(as_owner, body, "SM_not_a_stop")
+    assert await _consents(db, cid) == []
+
+
+async def test_a_start_lifts_the_stop_but_offers_wait_for_a_new_yes(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await _client(db)
+    ok(await as_owner.patch(f"/v1/clients/{cid}", json={"marketing_consent": True}))
+    await _text_in(as_owner, "STOP", "SM_offers_stop")
+    await _text_in(as_owner, "START", "SM_offers_start")
+    assert await stopped_clients(db, BIZ, [cid]) == set()
+    assert not allows_marketing((await latest_consents(db, BIZ, [cid])).get(cid))
+    ok(await as_owner.patch(f"/v1/clients/{cid}", json={"marketing_consent": True}))
+    assert allows_marketing((await latest_consents(db, BIZ, [cid])).get(cid))
+    assert (await _consents(db, cid))[-1] == ("granted", "in_person")
 
 
 async def test_export_names_the_number_each_change_was_recorded_for(

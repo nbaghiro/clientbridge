@@ -191,9 +191,9 @@ it("locks consent while the number as typed replied STOP, and a tap there never 
 
 it.each([
     [
-        { status: "granted", source: "reply", recorded_by_name: null, expires_at: null },
+        { status: "granted", source: "form", recorded_by_name: null, expires_at: null },
         true,
-        () => strings.clients.edit.consentAgreedBy("reply", "Nov 1, 2026"),
+        () => strings.clients.edit.consentAgreedBy("form", "Nov 1, 2026"),
     ],
     [
         {

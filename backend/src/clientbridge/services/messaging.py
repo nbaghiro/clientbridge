@@ -80,6 +80,8 @@ STOP_WORDS = frozenset(
     }
 )
 START_WORDS = frozenset({"START", "UNSTOP"})
+# Twilio matches whole messages, and "Cancel?" or "End." is more often a question than an opt-out
+_LOOSE_STOP_WORDS = frozenset({"STOP", "STOPALL", "STOP ALL", "ARRET", "ARRÊT"})
 
 
 async def unread_count(db: AsyncSession, thread: Thread) -> int:
@@ -314,9 +316,10 @@ async def _send_broadcast(
 
 
 def _reply_keyword(body: str) -> str:
-    """The reply as a keyword, so "Stop.", a quoted STOP or one with an emoji still opts out."""
-    text = unicodedata.normalize("NFC", body).replace("-", " ")
-    return " ".join(re.sub(r"^[\W_]+|[\W_]+$", "", text).split()).upper()
+    """The whole reply as a keyword; only STOP also matches with punctuation or emoji around it."""
+    text = " ".join(unicodedata.normalize("NFC", body).replace("-", " ").split()).upper()
+    bare = " ".join(re.sub(r"^[\W_]+|[\W_]+$", "", text).split())
+    return bare if bare in _LOOSE_STOP_WORDS else text
 
 
 async def route_inbound_sms(db: AsyncSession, business_id: str, number: str) -> Client | None:

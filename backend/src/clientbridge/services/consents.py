@@ -47,12 +47,15 @@ async def record_consent(
 async def latest_consents(
     db: AsyncSession, business_id: str, client_ids: Sequence[str]
 ) -> dict[str, Consent]:
-    """The newest consent row per client (no row means never asked)."""
+    """The newest consent to offers per client; a START only lifts a STOP, so it isn't a yes."""
     rows = (
         (
             await db.execute(
                 scoped(Consent, business_id)
-                .where(Consent.client_id.in_(client_ids))
+                .where(
+                    Consent.client_id.in_(client_ids),
+                    ~((Consent.source == "reply") & (Consent.status == "granted")),
+                )
                 .order_by(Consent.client_id, Consent.created_at.desc(), Consent.id.desc())
             )
         )

@@ -747,7 +747,7 @@ function validateDraft(d: ClientDraft): DraftErrors {
 export const CLIENT_CONSENT_SQL = `
 SELECT cn.status, cn.source, cn.created_at, cn.expires_at, ${staffNameSql("st")} AS recorded_by_name
 FROM consents cn LEFT JOIN staff st ON st.user_id = cn.recorded_by
-WHERE cn.client_id = ?
+WHERE cn.client_id = ? AND NOT (cn.source = 'reply' AND cn.status = 'granted')
 ORDER BY cn.created_at DESC, cn.id DESC LIMIT 1`;
 
 interface ConsentDbRow {

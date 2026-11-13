@@ -5313,7 +5313,7 @@
         "message": "[Åĝŕééð {when}, ŕéçöŕðéð ƀý {who} one two]"
     },
     "clients.edit.consentAgreedBy": {
-        "message": "[{source,select,form{Åĝŕééð öñ å ƒöŕɱ öñ {when}} online_booking{Åĝŕééð ŵĥéñ ƀööķîñĝ öñļîñé öñ {when}} other{Åĝŕééð öñ {when}} reply{Åĝŕééð ƀý ŕéþļýîñĝ ŠŢÅŔŢ öñ {when}}} one two three four five six]"
+        "message": "[{source,select,form{Åĝŕééð öñ å ƒöŕɱ öñ {when}} online_booking{Åĝŕééð ŵĥéñ ƀööķîñĝ öñļîñé öñ {when}} other{Åĝŕééð öñ {when}}} one two three four]"
     },
     "clients.edit.consentDeclined": {
         "message": "[Šåîð ñö {when}, ŕéçöŕðéð ƀý {who} one two]"

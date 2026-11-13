@@ -1,5 +1,5 @@
 appId: ${APP_ID}
-name: NATIVE-MSG-01 A STOP turns a client's texts off on the phone until START, the consent toggle stays locked, a no to offers shows on the record with its date, and the consent log shares as a CSV file
+name: NATIVE-MSG-01 A STOP turns a client's texts off on the phone until START, the consent toggle stays locked, the STOP stays their no to offers after the START until staff record a yes, and the consent log shares as a CSV file
 tags:
     - lane
 ---
@@ -72,25 +72,29 @@ tags:
       visible: "Book"
       timeout: 60000
 - assertNotVisible: "Their number replied STOP on .*"
+# a START lifts the STOP but isn't a yes, so the STOP stays the client's no to offers
+- assertVisible: "Said no to news and offers on .*"
+- takeScreenshot: consent-declined-on-record
 - tapOn: "Edit"
 - extendedWaitUntil:
       visible: "Edit client"
       timeout: 30000
 - scrollUntilVisible:
-      element: "Agreed by replying START on .*"
+      element: "Said no by replying STOP on .*"
       direction: DOWN
       timeout: 30000
 - tapOn:
       text: "Agrees to news and offers"
-      checked: true
+      checked: false
+      rightOf: "Agrees to news and offers"
 - scrollUntilVisible:
       element: "Done"
       direction: UP
 - tapOn: "Done"
 - extendedWaitUntil:
-      visible: "Said no to news and offers on .*"
+      notVisible: "Said no to news and offers on .*"
       timeout: 60000
-- takeScreenshot: consent-declined-on-record
+- takeScreenshot: consent-agreed-on-record
 - runFlow: helpers/close-sheet.yaml
 - tapOn: "Inbox"
 - tapOn: "Broadcasts"

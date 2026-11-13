@@ -2148,7 +2148,7 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 1. Reply STOP from a client's phone.
    **Expect:** every device shows texts off for that client; queued notices to the number are not sent.
 2. Turn texts back on from the staff toggle.
-   **Expect:** refused until the number replies START.
+   **Expect:** refused until the number replies START; after the START, texts work again and offers stay off until the client agrees again.
 3. Change the client's phone to another number.
    **Expect:** texts to the new number work; the old number stays stopped.
 4. Record a no to offers for another client.

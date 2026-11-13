@@ -2567,6 +2567,13 @@ describe("app-core SQL against the replica schema", () => {
     });
 
     it("reads consent, the broadcast audience and broadcast results", () => {
+        const stopOrStart = (id: string, status: string) => ({
+            id,
+            client_id: "cl_ben",
+            status,
+            source: "reply",
+            phone: "+16045550002",
+        });
         scoped("consents", [
             {
                 id: "cns_x1",
@@ -2589,6 +2596,22 @@ describe("app-core SQL against the replica schema", () => {
                 "status",
             ),
         ).toEqual([{ status: "withdrawn" }]);
+        scoped("consents", [
+            { ...stopOrStart("cns_x3", "withdrawn"), created_at: "2026-06-27T08:00:00Z" },
+            { ...stopOrStart("cns_x4", "granted"), created_at: "2026-06-28T08:00:00Z" },
+        ]);
+        // a START lifts the STOP but isn't a yes, so the STOP stays the newest answer to offers
+        expect(
+            pick(
+                run("LATEST_CONSENTS_SQL").filter((r) => r.client_id === "cl_ben"),
+                "status",
+                "source",
+            ),
+        ).toEqual([{ status: "withdrawn", source: "reply" }]);
+        expect(pick(run("CLIENT_CONSENT_SQL", ["cl_ben"]), "status", "source")).toEqual([
+            { status: "withdrawn", source: "reply" },
+        ]);
+        db.run("DELETE FROM consents WHERE id IN ('cns_x3', 'cns_x4')");
         const reply = (id: string, client: string, status: string, at: string) => ({
             id,
             client_id: client,

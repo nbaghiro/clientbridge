@@ -5762,7 +5762,7 @@
         "args": ["when", "who"]
     },
     "clients.edit.consentAgreedBy": {
-        "message": "{source, select, form {Agreed on a form on {when}} online_booking {Agreed when booking online on {when}} reply {Agreed by replying START on {when}} other {Agreed on {when}}}",
+        "message": "{source, select, form {Agreed on a form on {when}} online_booking {Agreed when booking online on {when}} other {Agreed on {when}}}",
         "description": "How a client agreed to news and offers when no teammate recorded it",
         "args": ["source", "when"]
     },
