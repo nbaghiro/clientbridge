@@ -38,7 +38,6 @@ from clientbridge.schemas.staff import (
     FutureWork,
     InviteOut,
     InvitePreviewOut,
-    LeftVisit,
     MemberRole,
     MovedSeries,
     StaffPayOut,
@@ -48,6 +47,7 @@ from clientbridge.schemas.staff import (
     StaffUpdate,
     TeamMember,
     TeamOut,
+    UnplacedVisit,
 )
 from clientbridge.services import plans
 from clientbridge.services.billing import void_enrolment_invoice
@@ -59,8 +59,9 @@ from clientbridge.services.bookings import (
     lock_staff,
     release_slot,
     slot_problem,
+    windows_on,
 )
-from clientbridge.services.business import load_staff, staff_names
+from clientbridge.services.business import business_tz, load_staff, staff_names
 from clientbridge.services.catalog import NOT_OFFERED, load_item, offers
 from clientbridge.services.deliveries import delivery_key
 from clientbridge.services.lines import crew_note
@@ -78,6 +79,7 @@ from clientbridge.services.programs import sessions_of
 _ANY = "any"
 _OPEN = ("pending", "confirmed", "waitlisted")
 _SCHEDULE_CLASH = "the member chosen can't take every session of this class schedule"
+_UNPLACED = "no member can take some of this member's visits"
 _ENROLMENT_PAID = "money was taken on a program enrolment's invoice; refund it first"
 
 
@@ -476,7 +478,8 @@ class StaffService:
                     code="staff_has_future_work",
                     detail=work.model_dump(mode="json"),
                 )
-            out = StaffRemoveOut(moved=[], canceled=[], left=[], series_moved=[], series_ended=[])
+            out = StaffRemoveOut(moved=[], canceled=[], series_moved=[], series_ended=[])
+            unplaced: list[UnplacedVisit] = []
             live = {b.id for b in await lock_bookings(self.db, biz, [b.id for b, _ in visits])}
             schedules = [r for r in series if r.client_id is None]
             sessions = {
@@ -523,12 +526,11 @@ class StaffService:
                     continue
                 taker, problem = await self._reassign(biz, slot, bookings, candidates)
                 if taker is None:
-                    out.left.extend(
-                        LeftVisit(
+                    unplaced.extend(
+                        UnplacedVisit(
                             booking_id=b.id,
                             starts_at=slot.starts_at,
                             problem=problem.problem if problem else None,
-                            message=problem.message if problem else None,
                         )
                         for b in bookings
                     )
@@ -543,6 +545,12 @@ class StaffService:
                     out.moved.append(booking.id)
                 if slot.recurrence_id is not None:
                     taken.setdefault(slot.recurrence_id, []).append(taker)
+            if unplaced:
+                raise Conflict(
+                    _UNPLACED,
+                    code="visits_unplaced",
+                    detail={"visits": [v.model_dump(mode="json") for v in unplaced]},
+                )
             if data.future == "cancel":
                 for slot in (slot for ahead in sessions.values() for slot in ahead):
                     slot.status = "canceled"
@@ -565,7 +573,6 @@ class StaffService:
                     "future": data.future,
                     "moved": len(out.moved),
                     "canceled": len(out.canceled),
-                    "left": len(out.left),
                 },
             )
             notifier = queued_notifier(
@@ -608,7 +615,15 @@ class StaffService:
             .where(Staff.status == "active", Staff.id != member_id)
             .order_by(Staff.created_at, Staff.id)
         )
-        return list(rows)
+        working = set(
+            await self.db.scalars(
+                scoped(Hours, biz)
+                .with_only_columns(Hours.staff_id)
+                .where(Hours.basis == "recurring", Hours.available)
+            )
+        )
+        # a member with no hours set is never off, so they take only what working members can't
+        return sorted(rows, key=lambda member: member.id not in working)
 
     async def _future_visits(self, biz: str, member_id: str) -> list[tuple[Booking, Slot]]:
         rows = await self.db.execute(
@@ -628,10 +643,10 @@ class StaffService:
     async def _reassign(
         self, biz: str, slot: Slot, bookings: list[Booking], candidates: list[Staff]
     ) -> tuple[str | None, BookingCheck | None]:
-        """Give the slot to the first candidate free then; the first refusal when nobody is."""
+        """Give the slot to the first candidate free then; else the refusal that says most."""
         item = await load_item(self.db, biz, slot.item_id, require_active=False)
-        first: BookingCheck | None = None
-        for candidate in candidates:
+        refusal = BookingCheck(ok=False, problem="not_offered", message=NOT_OFFERED)
+        for candidate in await self._working_then(biz, slot, candidates):
             problem = (
                 await slot_problem(
                     self.db,
@@ -664,15 +679,30 @@ class StaffService:
                     problem = BookingCheck(ok=False, problem="overlap", message=OVERLAP)
                 else:
                     return candidate.id, None
-            first = first or problem
-        return None, first
+            if refusal.problem == "not_offered":
+                refusal = problem
+        return None, refusal
+
+    async def _working_then(self, biz: str, slot: Slot, candidates: list[Staff]) -> list[Staff]:
+        """Candidates with hours set on the visit's day first; one with none is never off."""
+        if len(candidates) < 2:
+            return candidates
+        tz = await business_tz(self.db, biz)
+        hours: dict[str, list[Hours]] = {}
+        for row in await self.db.scalars(
+            scoped(Hours, biz).where(Hours.staff_id.in_([c.id for c in candidates]))
+        ):
+            if row.staff_id is not None:
+                hours.setdefault(row.staff_id, []).append(row)
+        day = slot.starts_at.astimezone(tz).date()
+        return sorted(candidates, key=lambda c: windows_on(hours.get(c.id, []), day) is None)
 
     async def _take_schedule(
         self, biz: str, schedule: Recurrence, sessions: list[Slot], candidates: list[Staff]
     ) -> str:
         """Give a class schedule and its sessions ahead to the first candidate free for them all."""
         item = await load_item(self.db, biz, schedule.item_id, require_active=False)
-        first: tuple[datetime, str] | None = None
+        refusal: tuple[datetime, str] | None = None
         for candidate in candidates:
             clash = await self._schedule_clash(biz, item, sessions, candidate.id)
             if clash is None:
@@ -686,8 +716,12 @@ class StaffService:
                     clash = (sessions[0].starts_at, "overlap")
                 else:
                     return candidate.id
-            first = first or clash
-        day, problem = first or (sessions[0].starts_at if sessions else clock.now(), "overlap")
+            if refusal is None or refusal[1] == "not_offered":
+                refusal = clash
+        day, problem = refusal or (
+            sessions[0].starts_at if sessions else clock.now(),
+            "not_offered",
+        )
         raise Conflict(
             _SCHEDULE_CLASH,
             code="schedule_clash",

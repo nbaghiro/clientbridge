@@ -317,16 +317,9 @@ interface FutureVisitRow {
     item_name: string | null;
 }
 
-interface LeftVisit {
-    booking_id: string;
-    starts_at: string;
-    message: string | null;
-}
-
 interface RemovalResult {
     moved: string[];
     canceled: string[];
-    left: LeftVisit[];
     series_moved: { recurrence_id: string; staff_id: string }[];
     series_ended: string[];
 }
@@ -334,20 +327,19 @@ interface RemovalResult {
 interface RemovalOutcome {
     body: string;
     series: Fact[];
-    left: OccurrenceRow[];
 }
 
-/** What the owner is told after a removal; null when nothing needs telling. */
+/** What the owner is told after a removal; null when it had no visits or series. */
 export function removalOutcome(
-    result: Pick<RemovalResult, "series_moved" | "series_ended">,
+    result: RemovalResult,
     series: readonly Pick<MemberSeriesRow, "id" | "item_name" | "client_name">[],
     members: readonly Pick<TeamMember, "id" | "name">[],
-    left: OccurrenceRow[],
 ): RemovalOutcome | null {
     const t = strings.staff.team;
     const moved = result.series_moved;
     const ended = result.series_ended;
-    if (left.length === 0 && moved.length === 0 && ended.length === 0) return null;
+    const visits = result.moved.length + result.canceled.length;
+    if (visits === 0 && moved.length === 0 && ended.length === 0) return null;
     const known = new Map(series.map((r) => [r.id, r]));
     const title = (id: string): string => {
         const r = known.get(id);
@@ -355,7 +347,8 @@ export function removalOutcome(
     };
     const names = new Map(members.map((m) => [m.id, m.name]));
     const sentences = [
-        left.length > 0 ? t.removeLeftBody(left.length) : null,
+        result.moved.length > 0 ? t.removedMoved(result.moved.length) : null,
+        result.canceled.length > 0 ? t.removedCanceled(result.canceled.length) : null,
         moved.length > 0 ? t.removedSeriesMoved(moved.length) : null,
         ended.length > 0 ? t.removedSeriesEnded(ended.length) : null,
     ].filter((line): line is string => line !== null);
@@ -381,24 +374,44 @@ export function removalOutcome(
                 detail: t.removedSeriesEndedState,
             })),
         ],
-        left,
     };
 }
 
-/** Why a removal was refused: a class schedule its taker can't teach or isn't free for, by day. */
+/** The visits a refused removal named as ones no member can take, with the problem of each. */
+function unplacedVisits(e: unknown): Map<string, string | null> {
+    const found = new Map<string, string | null>();
+    if (failedCode(e) !== "visits_unplaced") return found;
+    const visits = failedDetail(e).visits;
+    if (!Array.isArray(visits)) return found;
+    for (const visit of visits as unknown[]) {
+        if (typeof visit !== "object" || visit === null) continue;
+        const { booking_id: id, problem } = visit as Record<string, unknown>;
+        if (typeof id === "string") found.set(id, typeof problem === "string" ? problem : null);
+    }
+    return found;
+}
+
+/** Why a removal was refused: visits or a class schedule the member chosen, or anyone, can't take. */
 export function removalFailure(
     e: unknown,
     schedules: readonly Pick<MemberSeriesRow, "id" | "item_name">[],
     zone: string,
+    taker: string,
 ): string {
     const t = strings.staff.team;
-    if (failedCode(e) !== "schedule_clash") return failureMessage(e, t.actionError);
+    const code = failedCode(e);
+    if (code === "visits_unplaced") return t.removeUnplaced(unplacedVisits(e).size);
+    if (code !== "schedule_clash") return failureMessage(e, t.actionError);
     const d = failedDetail(e);
     const name = schedules.find((r) => r.id === d.recurrence_id)?.item_name ?? t.removeSchedules;
-    if (d.problem === "not_offered") return t.removeScheduleNotTaught(name);
+    const anyone = taker === ANY_MEMBER;
+    if (d.problem === "not_offered") {
+        return anyone ? t.removeScheduleNoTeacher(name) : t.removeScheduleNotTaught(name);
+    }
+    if (anyone) return t.removeScheduleBusy(name);
     const day = typeof d.starts_at === "string" ? parseTimestamp(d.starts_at) : null;
     return day === null || Number.isNaN(day.getTime())
-        ? t.removeScheduleBusy(name)
+        ? t.removeScheduleTakerBusy(name)
         : t.removeScheduleClash(name, formatShortDay(day, zone));
 }
 
@@ -426,6 +439,8 @@ export function useRemoveMember(
     member: TeamMember,
     members: readonly TeamMember[],
     onRemoved: () => void,
+    // true while a removal is in flight or done, so the record outlives the member for the summary
+    onRemoving: (removing: boolean) => void,
 ): RemoveMemberView {
     const photos = usePeoplePhotos();
     const t = strings.staff.team;
@@ -436,36 +451,56 @@ export function useRemoveMember(
     const [choice, setChoice] = useState<RemovalChoice>("reassign");
     const [taker, setTaker] = useState(ANY_MEMBER);
     const [outcome, setOutcome] = useState<RemovalOutcome | null>(null);
+    const [refused, setRefused] = useState<{
+        taker: string;
+        visits: Map<string, string | null>;
+    } | null>(null);
     const attempt = useRef<Attempt | null>(null);
-    const { busy, error, run } = useAsyncAction();
-    const names = new Map(rows.map((r) => [r.id, r]));
-    const row = (
-        id: string,
-        startsAt: string,
-        index: number,
-        state: string,
-        intent: Intent,
-        note: string | null,
-    ): OccurrenceRow => {
-        const at = parseTimestamp(startsAt);
-        const info = names.get(id);
+    const { busy, error, setError, run } = useAsyncAction();
+    const anyone = taker === ANY_MEMBER;
+    const unplaced = choice === "reassign" && refused?.taker === taker ? refused.visits : null;
+    const why = (problem: string | null): string =>
+        problem === "not_offered"
+            ? anyone
+                ? t.removeNoneOffers
+                : t.removeTakerNotOffered
+            : anyone
+              ? t.removeNoneFree
+              : t.removeTakerBusy;
+    const row = (r: FutureVisitRow, index: number): OccurrenceRow => {
+        const at = parseTimestamp(r.starts_at);
+        const stuck = unplaced?.has(r.id) === true;
         return {
-            key: id,
+            key: r.id,
             index,
             date: formatShortDay(at, zone),
             time: formatTime(at, zone),
-            intent,
-            state,
-            note: note ?? (formatParts([info?.client_name, info?.item_name]) || null),
+            intent: stuck ? "warning" : choice === "cancel" ? "danger" : "accent",
+            state: stuck
+                ? t.removeUnplacedState
+                : choice === "cancel"
+                  ? t.removeStateCancel
+                  : t.removeStateMove,
+            note:
+                formatParts([
+                    r.client_name,
+                    r.item_name,
+                    stuck ? why(unplaced.get(r.id) ?? null) : null,
+                ]) || null,
         };
     };
-    const state = choice === "cancel" ? t.removeStateCancel : t.removeStateMove;
     const schedules = series.filter((r) => r.client_id === null);
+    // the visits no member can take go to the top, where the refusal says they are
+    const ordered =
+        unplaced === null
+            ? rows
+            : [
+                  ...rows.filter((r) => unplaced.has(r.id)),
+                  ...rows.filter((r) => !unplaced.has(r.id)),
+              ];
     return {
         hasWork: rows.length > 0 || series.length > 0,
-        visits: rows.map((r, i) =>
-            row(r.id, r.starts_at, i + 1, state, choice === "cancel" ? "danger" : "accent", null),
-        ),
+        visits: ordered.map((r, i) => row(r, i + 1)),
         schedules: schedules.map((r) => ({
             key: r.id,
             icon: "repeat",
@@ -483,9 +518,15 @@ export function useRemoveMember(
                         t.removeSeries(series.length),
                     ),
         choice,
-        setChoice,
+        setChoice: (next) => {
+            setChoice(next);
+            setError(null);
+        },
         taker,
-        setTaker,
+        setTaker: (id) => {
+            setTaker(id);
+            setError(null);
+        },
         takers: [
             { key: ANY_MEMBER, label: t.removeAnyone },
             ...members
@@ -507,29 +548,47 @@ export function useRemoveMember(
             const path = `/v1/staff/${member.id}/remove`;
             run(
                 async () => {
+                    onRemoving(true);
                     const result = await sendAttempt(attempt, [path, body], (key) =>
                         api.post<RemovalResult>(path, body, { idempotencyKey: key }),
-                    );
-                    const left = result.left.map((v, i) =>
-                        row(
-                            v.booking_id,
-                            v.starts_at,
-                            i + 1,
-                            t.removeLeftState,
-                            "warning",
-                            v.message,
-                        ),
-                    );
-                    const told = removalOutcome(result, series, members, left);
+                    ).catch((e: unknown) => {
+                        onRemoving(false);
+                        const visits = unplacedVisits(e);
+                        setRefused(visits.size > 0 ? { taker, visits } : null);
+                        throw e;
+                    });
+                    const told = removalOutcome(result, series, members);
                     if (told === null) {
                         onRemoved();
                         return;
                     }
                     setOutcome(told);
                 },
-                { errorMessage: (e) => removalFailure(e, schedules, zone) },
+                { errorMessage: (e) => removalFailure(e, schedules, zone, taker) },
             );
         },
+    };
+}
+
+interface OpenMember {
+    open: TeamMember | undefined;
+    setOpen: (id: string | null) => void;
+    // while a removal it sent is in flight or done, the record stays open after the member leaves
+    keepOpen: (keep: boolean) => void;
+}
+
+/** The member whose record is open; it closes when they leave the team, unless it removed them. */
+export function useOpenMember(members: readonly TeamMember[]): OpenMember {
+    const [held, setHeld] = useState<TeamMember | null>(null);
+    const [kept, setKept] = useState(false);
+    const found = held === null ? undefined : members.find((m) => m.id === held.id);
+    return {
+        open: found ?? (kept && held !== null ? held : undefined),
+        setOpen: (id) => {
+            setKept(false);
+            setHeld(id === null ? null : (members.find((m) => m.id === id) ?? null));
+        },
+        keepOpen: setKept,
     };
 }
 

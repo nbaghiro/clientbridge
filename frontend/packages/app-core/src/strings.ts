@@ -2924,6 +2924,8 @@ interface Strings {
             readonly removeScheduleNote: string;
             readonly removeScheduleClash: (name: string, day: string) => string;
             readonly removeScheduleBusy: (name: string) => string;
+            readonly removeScheduleNoTeacher: (name: string) => string;
+            readonly removeScheduleTakerBusy: (name: string) => string;
             readonly removeScheduleNotTaught: (name: string) => string;
             readonly removeFuture: string;
             readonly removeReassign: string;
@@ -2934,9 +2936,15 @@ interface Strings {
             readonly removeAnyone: string;
             readonly removeStateMove: string;
             readonly removeStateCancel: string;
-            readonly removeLeftState: string;
+            readonly removeUnplacedState: string;
+            readonly removeUnplaced: (count: number) => string;
+            readonly removeNoneOffers: string;
+            readonly removeNoneFree: string;
+            readonly removeTakerNotOffered: string;
+            readonly removeTakerBusy: string;
             readonly removedTitle: (name: string) => string;
-            readonly removeLeftBody: (count: number) => string;
+            readonly removedMoved: (count: number) => string;
+            readonly removedCanceled: (count: number) => string;
             readonly removedSeriesMoved: (count: number) => string;
             readonly removedSeriesEnded: (count: number) => string;
             readonly removedSeries: string;

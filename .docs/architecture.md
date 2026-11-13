@@ -874,7 +874,10 @@ entitlement and its liability are created.
   per client when there is none, so siblings can each take a seat in one session. Removing an instructor
   moves each of their schedules whole to the first member who offers the class and is free for every session
   ahead, or cancels it with its enrolments; when the removal asks to move one and nobody fits, it is refused
-  with 409 `schedule_clash`, naming the schedule and the first day that clashes.
+  with 409 `schedule_clash`, naming the schedule and the first day that clashes. A visit nobody can take
+  refuses the removal the same way, with 409 `visits_unplaced` listing each visit and its problem, so no
+  visit is left with a member who has gone. "Any" offers a visit to members with hours set on its day
+  before those with none, who are never off. A visit already under way stays with the removed member.
 - **Receipts** list every line with its tax, and walk-in sales can take a phone number for the receipt.
   Sales by item is a report with a CSV like the others.
 

@@ -24,7 +24,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 1. Get set up | Sign-up and sign-in: two-factor, security keys and recovery | [CB-1](https://linear.app/clientbridgeca/issue/CB-1) | Partly automated |
 | 1. Get set up | Business onboarding and branding | [CB-3](https://linear.app/clientbridgeca/issue/CB-3) | Partly automated |
 | 1. Get set up | Team invites and role permissions | [CB-4](https://linear.app/clientbridgeca/issue/CB-4) | Partly automated |
-| 1. Get set up | Removing a team member | [CB-23](https://linear.app/clientbridgeca/issue/CB-23) | Partly automated |
+| 1. Get set up | Removing a team member | [CB-23](https://linear.app/clientbridgeca/issue/CB-23) | Automated |
 | 1. Get set up | Stripe payments setup | [CB-5](https://linear.app/clientbridgeca/issue/CB-5) | Partly automated |
 | 1. Get set up | Plan billing: trial, purchase, seats and read-only | [CB-6](https://linear.app/clientbridgeca/issue/CB-6) | Partly automated |
 | 1. Get set up | Sales tax by province | [CB-7](https://linear.app/clientbridgeca/issue/CB-7) | Automated |
@@ -289,13 +289,13 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 **QA steps**
 
 1. Remove a member with future visits, a series and a class schedule, choosing reassign.
-   **Expect:** the summary lists what moved; each visit lands on a member who offers the service.
+   **Expect:** the summary counts the visits moved and names each series and class schedule with its new member; each visit lands on a member who offers the service, and Any available member gives it to someone working then before someone with no hours set.
 2. Remove another, choosing cancel.
-   **Expect:** their visits are cancelled and clients told.
-3. Remove a member when no one can take a schedule.
-   **Expect:** refused, naming the schedule and day.
+   **Expect:** their visits are cancelled, clients told, and the summary counts them.
+3. Remove a member when no one can take a schedule, then when no one can take one of their visits.
+   **Expect:** each is refused and nothing changes: the schedule is named, with the day when the member chosen is busy, and the visits nobody can take move to the top of the list, marked with why.
 4. Open Staff pay.
-   **Expect:** the removed member is still listed while owed.
+   **Expect:** the removed member is still listed while owed, and the removal dialog says what they are owed.
 5. Remove a member whose phone is offline, then bring it back online.
    **Expect:** the business and its data disappear from their phone.
 
@@ -305,12 +305,11 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 * `FLOW-08-A (journeys)`
 * `SCH-E2E-06 (journeys)`
+* `TEAM-E2E-06 (journeys)`
+* `TEAM-E2E-07 (journeys)`
 * `SYN-E2E-30 (sync)`
-
-**To automate**
-
-* `TEAM-E2E-03` in `apps/web/e2e/journeys/team.journey.ts`: Removal with reassignment of a series and a class schedule, and the refused case.
-* `NATIVE-SYN-01` in `apps/mobile/e2e/offline.yaml`: A removed member's phone purges the business on relaunch.
+* `NATIVE-SYN-01 (mobile: offline.removal.yaml)`
+* `NATIVE-TEAM-04 (mobile: staff.removal.yaml)`
 
 **Depends on:** Nothing
 
