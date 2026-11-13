@@ -7413,6 +7413,16 @@
     "business.chooseBusiness": {
         "message": "Choose a business to continue"
     },
+    "business.switchBusiness": {
+        "message": "Switch business",
+        "description": "The sidebar picker that opens another team the viewer belongs to"
+    },
+    "business.chooseTitle": {
+        "message": "Which business?"
+    },
+    "business.chooseBody": {
+        "message": "You're on more than one team. Open one now; you can switch at any time."
+    },
     "business.switchError": {
         "message": "Could not switch businesses. Try again."
     },
@@ -8576,6 +8586,15 @@
         "message": "{email} is already on the team.",
         "args": ["email"]
     },
+    "staff.team.alreadyInvited": {
+        "message": "{email} already has an invite. Resend it from Pending invites.",
+        "args": ["email"]
+    },
+    "staff.team.sentSoFar": {
+        "message": "{n, plural, one {Invite sent to {emails}.} other {Invites sent to {emails}.}} The addresses left below weren't sent.",
+        "description": "Shown when a failure stopped a batch of invites part way; emails is a formatted list",
+        "args": ["n", "emails"]
+    },
     "staff.team.inviteError": {
         "message": "We couldn't send that invite. Check your connection and try again."
     },
@@ -8610,7 +8629,7 @@
         "message": "Title"
     },
     "staff.team.titleHint": {
-        "message": "Shown under their name on the calendar and the booking page"
+        "message": "Shown with their name when clients pick who to book online"
     },
     "staff.team.titlePlaceholder": {
         "message": "e.g. Senior Groomer"
@@ -12680,9 +12699,6 @@
     },
     "publicBooking.anyone": {
         "message": "Anyone available"
-    },
-    "publicBooking.anyoneHint": {
-        "message": "Most open times"
     },
     "publicBooking.date": {
         "message": "Date"

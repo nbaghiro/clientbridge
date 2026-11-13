@@ -2,6 +2,8 @@ import { NavigationBar } from "expo-navigation-bar";
 import { StatusBar } from "expo-status-bar";
 import { type ReactElement, type ReactNode, useCallback, useEffect, useState } from "react";
 import {
+    type BusinessSwitch,
+    BusinessSwitchProvider,
     checkSession,
     strings,
     BusinessZoneContext,
@@ -15,14 +17,15 @@ import { PowerSyncContext } from "@powersync/react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { DefaultTheme, NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { AppState, LogBox, StyleSheet, View } from "react-native";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+import { AppState, LogBox, StyleSheet, Text, View } from "react-native";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import {
     Button,
     ConfirmHost,
     configureStripe,
     LoadFailed,
     PageFrame,
+    PageHeader,
     Select,
     SendReviewHost,
     useTabletLayout,
@@ -407,6 +410,14 @@ function framed({ children }: { children: ReactElement }) {
 
 const styles = StyleSheet.create({
     boot: { flex: 1, alignItems: "center", justifyContent: "center" },
+    choose: { flex: 1, gap: 24, padding: 24, backgroundColor: theme.colors.bg },
+    chooseBody: {
+        color: theme.colors.muted,
+        fontFamily: theme.fonts.ui,
+        fontSize: 15,
+        lineHeight: 21,
+        marginTop: 6,
+    },
 });
 
 function BusinessScope({
@@ -418,25 +429,36 @@ function BusinessScope({
 }) {
     const business = useBusinessSelection(selectBusiness);
     return (
-        <>
-            {business.options.length > 1 ? (
-                <Select
-                    label={strings.business.selectBusiness}
-                    placeholder={strings.business.chooseBusiness}
-                    options={business.options}
-                    value={business.selectedId ?? ""}
-                    onChange={business.choose}
-                    disabled={business.busy}
-                    error={business.error}
-                />
-            ) : null}
+        <BusinessSwitchProvider value={business}>
             {business.ready ? (
                 children(business.selectedId ?? "onboarding")
             ) : business.error ? (
                 <LoadFailed variant="page" onRetry={onRetry} retrying={false} />
-            ) : business.needsChoice ? null : (
+            ) : business.needsChoice ? (
+                <ChooseBusiness picker={business} />
+            ) : (
                 <Splash />
             )}
-        </>
+        </BusinessSwitchProvider>
+    );
+}
+
+function ChooseBusiness({ picker }: { picker: BusinessSwitch }) {
+    return (
+        <SafeAreaView style={styles.choose}>
+            <View>
+                <PageHeader title={strings.business.chooseTitle} />
+                <Text style={styles.chooseBody}>{strings.business.chooseBody}</Text>
+            </View>
+            <Select
+                label={strings.business.selectBusiness}
+                placeholder={strings.business.chooseBusiness}
+                options={picker.options}
+                value={picker.selectedId ?? ""}
+                onChange={picker.choose}
+                disabled={picker.busy}
+                error={picker.error}
+            />
+        </SafeAreaView>
     );
 }

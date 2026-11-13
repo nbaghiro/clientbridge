@@ -15,6 +15,8 @@ import {
     syncNotice,
     syncProblem,
     useSyncStatus,
+    holdJoinedBusiness,
+    useJoinedBusiness,
     useReplicaSession,
     useSyncState,
     type OpfsProbe,
@@ -308,6 +310,53 @@ describe("a session check while the app is open", () => {
             await Promise.resolve();
         });
         expect(options.restore).toHaveBeenCalledTimes(2);
+    });
+});
+
+describe("a team the viewer just joined", () => {
+    const options = () => {
+        let signedOut: () => void = () => undefined;
+        return {
+            restore: () => Promise.resolve({} as CommonPowerSyncDatabase),
+            pause: () => Promise.resolve(),
+            discard: () => Promise.resolve(),
+            clearCredentials: () => Promise.resolve(),
+            subscribe: (handler: () => void) => {
+                signedOut = handler;
+            },
+            signOut: () => {
+                signedOut();
+            },
+        };
+    };
+
+    it("is dropped by a sign-out or a session the server ended, not by a reload", async () => {
+        const session = options();
+        const { result } = renderHook(() => ({
+            session: useReplicaSession(session),
+            held: useJoinedBusiness(),
+        }));
+        act(() => {
+            holdJoinedBusiness("bz_joined");
+        });
+        await act(async () => {
+            result.current.session.restore();
+            await Promise.resolve();
+        });
+        expect(result.current.held).toBe("bz_joined");
+        await act(async () => {
+            result.current.session.discard();
+            await Promise.resolve();
+        });
+        expect(result.current.held).toBeNull();
+        act(() => {
+            holdJoinedBusiness("bz_joined");
+        });
+        await act(async () => {
+            session.signOut();
+            await Promise.resolve();
+        });
+        expect(result.current.held).toBeNull();
     });
 });
 

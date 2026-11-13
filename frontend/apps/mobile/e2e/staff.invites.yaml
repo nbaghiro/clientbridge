@@ -1,0 +1,53 @@
+appId: ${APP_ID}
+name: NATIVE-TEAM-01 An address holds one invite from the phone, and the next invite starts from Staff
+onFlowComplete:
+    - runScript:
+          file: helpers/team.js
+          env:
+              ACTION: revoke
+              PREFIX: ${"team-" + E2E_NAMESPACE}
+---
+- evalScript: ${output.first = "team-" + E2E_NAMESPACE + "-admin-" + String(Date.now() % 100000) + "@example.com"}
+- evalScript: ${output.second = "team-" + E2E_NAMESPACE + "-staff-" + String(Date.now() % 100000) + "@example.com"}
+- runFlow: helpers/owner.yaml
+- tapOn: "Setup"
+- tapOn: "Team & hours"
+- extendedWaitUntil:
+      visible: "Invite teammate"
+      timeout: 30000
+- tapOn: "Invite teammate"
+- tapOn: "sam@example.com"
+- inputText: ${output.first}
+- tapOn: "Admin.*"
+# the keyboard covers Send, so a tap on the Role label puts it away first
+- tapOn: "Role"
+- tapOn: "Send invite"
+- extendedWaitUntil:
+      visible: "Invite sent"
+      timeout: 20000
+- takeScreenshot: invite-sent
+- tapOn: "Done"
+- tapOn: "Invite teammate"
+- tapOn: "sam@example.com"
+- inputText: ${output.first}
+- tapOn: "Role"
+- tapOn: "Send invite"
+- assertVisible: ${output.first + " already has an invite. Resend it from Pending invites."}
+- takeScreenshot: invite-refused
+- tapOn: "Cancel"
+- tapOn: "Invite teammate"
+- tapOn: "sam@example.com"
+- inputText: ${output.second}
+- tapOn: "Role"
+- tapOn: "Send invite"
+- extendedWaitUntil:
+      visible: "Invite sent"
+      timeout: 20000
+- tapOn: "Done"
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: GET
+          PATH: /v1/staff/team
+- evalScript: ${output.roles = output.response.invites.filter(function (i) { return i.email.indexOf("team-" + E2E_NAMESPACE) === 0; }).map(function (i) { return i.email + ":" + i.role; }).sort().join(",")}
+- assertTrue: ${output.roles === [output.first + ":admin", output.second + ":staff"].sort().join(",")}

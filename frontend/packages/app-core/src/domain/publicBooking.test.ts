@@ -1391,3 +1391,60 @@ describe("a reload on the deposit step", () => {
         });
     });
 });
+
+it("names each member's title beside them, and nothing beside anyone available or a blank title", async () => {
+    const client: Parameters<typeof usePublicBookingFlow>[0] = {
+        getServices: vi.fn().mockResolvedValue({
+            business_name: "Demo",
+            brand: { logo_url: null, primary: null, tagline: null },
+            services: [
+                {
+                    id: "service",
+                    name: "Visit",
+                    description: null,
+                    duration_min: 60,
+                    price_cents: 1000,
+                    currency: "CAD",
+                    deposit_required: false,
+                    deposit_amount_cents: 0,
+                    taxable: true,
+                    image_url: null,
+                    kind: "service",
+                    category: null,
+                    color: null,
+                    staff_ids: ["st_lead", "st_new", "st_blank"],
+                },
+            ],
+            staff: [
+                { id: "st_lead", name: "Ana Lead", title: "Senior Groomer", color: null },
+                { id: "st_new", name: "Ben New", title: null, color: null },
+                { id: "st_blank", name: "Cy Blank", title: "  ", color: null },
+            ],
+            addons: [],
+            stripe_account_id: null,
+            slug: "demo",
+            now: "2026-10-13T17:00:00Z",
+            timezone: ZONE,
+            policy: null,
+            subject: null,
+        }),
+        getDays: vi.fn().mockResolvedValue([]),
+        getSlots: vi.fn().mockResolvedValue([]),
+        book: vi.fn(),
+        joinWaitlist: vi.fn(),
+        getPrograms: vi.fn().mockResolvedValue([]),
+        payDeposit: vi.fn(),
+    };
+    const { result } = renderHook(() =>
+        usePublicBookingFlow(client, "demo", { itemId: "service" }),
+    );
+    await waitFor(() => {
+        expect(result.current.staffOptions).toHaveLength(4);
+    });
+    expect(result.current.staffOptions.map((o) => [o.id, o.hint])).toEqual([
+        ["any", undefined],
+        ["st_lead", "Senior Groomer"],
+        ["st_new", undefined],
+        ["st_blank", undefined],
+    ]);
+});
