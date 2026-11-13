@@ -3,7 +3,7 @@ import { axeIssues, unmarkedFocus, unreadableHover } from "@clientbridge/config/
 import { demoId, runEmail, runUrl } from "@clientbridge/config/e2e/run";
 import { expect, type Locator, type Page } from "@playwright/test";
 import { test } from "./support/session";
-import { offsiteLoadFailure } from "./support/shell";
+import { appConsoleError } from "./support/shell";
 import { createInvoice, openInvoice, paymentDrawer, showOnly } from "./support/billing";
 import { paymentPanel } from "./support/pos";
 import {
@@ -83,8 +83,7 @@ class Walk {
             this.errors.push(`[${this.current}] pageerror: ${e.message}`);
         });
         page.on("console", (m) => {
-            if (m.type() === "error" && !offsiteLoadFailure(m))
-                this.errors.push(`[${this.current}] console: ${m.text()}`);
+            if (appConsoleError(m)) this.errors.push(`[${this.current}] console: ${m.text()}`);
         });
     }
 

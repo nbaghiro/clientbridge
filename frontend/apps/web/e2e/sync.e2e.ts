@@ -6,7 +6,7 @@ import { signUp } from "./support/business";
 import { showOnly } from "./support/billing";
 import { requireLocalMail } from "./support/evidence";
 import { navigate, opfsEntries, signIn, test } from "./support/session";
-import { offsiteLoadFailure } from "./support/shell";
+import { appConsoleError } from "./support/shell";
 import { demoId, runEmail } from "@clientbridge/config/e2e/run";
 
 const m = strings.messaging;
@@ -17,7 +17,7 @@ test("history older than the device window is read from the API", async ({ page 
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
     page.on("console", (msg) => {
-        if (msg.type() === "error" && !offsiteLoadFailure(msg)) errors.push(msg.text());
+        if (appConsoleError(msg)) errors.push(msg.text());
     });
     await page.goto("/");
     await page
