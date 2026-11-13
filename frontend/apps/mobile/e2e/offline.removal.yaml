@@ -1,0 +1,76 @@
+appId: ${APP_ID}
+name: NATIVE-SYN-01 A member removed while their phone is offline loses the business and its records when it reconnects
+tags:
+    - lane
+onFlowComplete:
+    - runScript:
+          file: helpers/control.js
+          env:
+              ACTION: online
+    - runScript:
+          file: helpers/team.js
+          env:
+              ACTION: forget
+    - runFlow: helpers/restore-owner.yaml
+---
+- runFlow: helpers/owner.yaml
+- runScript:
+      file: helpers/team.js
+      env:
+          ACTION: join
+          SURNAME: Offline
+- tapOn: "Setup"
+- scrollUntilVisible:
+      element: "Sign out"
+      direction: DOWN
+- tapOn: "Sign out"
+- extendedWaitUntil:
+      visible: "Sign in"
+      timeout: 30000
+- tapOn: "you@business.ca"
+- inputText: ${output.member.email}
+- tapOn: "••••••••"
+- eraseText
+- inputText: ${output.member.password}
+- runFlow: helpers/sign-in.yaml
+- runFlow: helpers/decline-save-password.yaml
+- extendedWaitUntil:
+      visible: "Good .*, Rowan"
+      timeout: 90000
+- tapOn: "Clients"
+- tapOn: "Search name, phone or pet"
+- inputText: "Olivia Martin"
+- hideKeyboard
+# a member's first sync of the business can take a while to bring its clients
+- extendedWaitUntil:
+      visible: ".*Bandit.*"
+      timeout: 120000
+- takeScreenshot: member-before-removal
+- runScript:
+      file: helpers/control.js
+      env:
+          ACTION: offline
+- runScript:
+      file: helpers/team.js
+      env:
+          ACTION: remove
+# offline, the phone can't hear of the removal and keeps showing its replica
+- assertVisible: ".*Bandit.*"
+- runScript:
+      file: helpers/control.js
+      env:
+          ACTION: online
+- extendedWaitUntil:
+      visible: "Create your business"
+      timeout: 90000
+- assertNotVisible: "Good .*, Rowan"
+- assertNotVisible: "Olivia Martin"
+- takeScreenshot: member-after-removal
+# the onboarding form pushes the sign-out link below a phone-height screen's fold
+- scrollUntilVisible:
+      element: "Not you\\? Sign out"
+      direction: DOWN
+- tapOn: "Not you\\? Sign out"
+- extendedWaitUntil:
+      visible: "Sign in"
+      timeout: 30000

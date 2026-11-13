@@ -1,18 +1,23 @@
+from datetime import datetime, time, timedelta
+
 import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.ids import new_id
 from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
 from clientbridge.models.platform import Audit
-from clientbridge.models.scheduling import Booking, Recurrence, Slot
+from clientbridge.models.scheduling import Booking, Hours, Recurrence, Slot
 from clientbridge.services.deliveries import DELIVERIES_JOB, run_deliveries
 from tests.conftest import BIZ, Factory, FakeEmailSender, FakeJobs, FakePushSender, FakeSmsSender
-from tests.helpers import enable_payments, key, new_client, reachable, settle
+from tests.helpers import enable_payments, key, new_client, ok, reachable, settle
 
 CL_AMELIE = "cl_amelie"
+ST_DIEGO = "st_diego"
+MONDAY = "2027-03-01T19:00:00Z"
 FIRST = "2027-03-02T19:00:00Z"
 SECOND = "2027-03-04T19:00:00Z"
 
@@ -128,7 +133,6 @@ async def test_removal_without_future_work_needs_no_choice(
     assert res.json() == {
         "moved": [],
         "canceled": [],
-        "left": [],
         "series_moved": [],
         "series_ended": [],
     }
@@ -148,7 +152,7 @@ async def test_removal_reassigns_visits_and_series_to_a_named_member(
     assert res.status_code == 200, res.text
     out = res.json()
     assert visit in out["moved"] and len(out["moved"]) == 3
-    assert out["left"] == [] and out["series_ended"] == []
+    assert out["series_ended"] == []
     assert out["series_moved"] == [{"recurrence_id": series, "staff_id": taking}]
     assert await _staff_of(db, visit) == (taking, taking, "confirmed")
     recurrence = await db.get(Recurrence, series, populate_existing=True)
@@ -258,25 +262,48 @@ async def test_canceling_a_removed_members_visits_refunds_their_deposits(
     assert unpaid is not None and unpaid.deposit_status == "none"
 
 
-async def test_a_visit_that_clashes_is_left_in_place_and_listed(
-    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+async def test_a_visit_nobody_can_take_refuses_the_removal_and_names_it_409(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory, sms: FakeSmsSender
 ) -> None:
+    await _textable_client(db)
     item = await _item(db)
     leaving = await _member(db, factory, "Leaving Lee")
     taking = await _member(db, factory, "Taking Tam")
     clashing = await _visit(as_owner, item, leaving, FIRST)
     free = await _visit(as_owner, item, leaving, SECOND)
     await _visit(as_owner, item, taking, FIRST)
+    sent = len(sms.sent)
     res = await _remove(as_owner, leaving, future="reassign", reassign_to=taking)
-    assert res.status_code == 200, res.text
-    out = res.json()
-    assert out["moved"] == [free]
-    assert [(v["booking_id"], v["problem"]) for v in out["left"]] == [(clashing, "overlap")]
+    assert res.status_code == 409, res.text
+    body = res.json()
+    assert body["error"] == "visits_unplaced"
+    visits = body["detail"]["visits"]
+    assert [(v["booking_id"], v["problem"]) for v in visits] == [(clashing, "overlap")]
+    assert datetime.fromisoformat(visits[0]["starts_at"]) == datetime.fromisoformat(FIRST)
     assert await _staff_of(db, clashing) == (leaving, leaving, "confirmed")
-    assert await _status(db, leaving) == "removed"
+    assert await _staff_of(db, free) == (leaving, leaving, "confirmed")
+    assert await _status(db, leaving) == "active"
+    assert len(sms.sent) == sent
 
 
-async def test_a_series_whose_visits_all_clash_ends_instead_of_moving(
+async def test_a_refused_removal_can_be_sent_again_with_its_key_once_the_clash_is_gone(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    item = await _item(db)
+    leaving = await _member(db, factory, "Leaving Lee")
+    taking = await _member(db, factory, "Taking Tam")
+    visit = await _visit(as_owner, item, leaving, FIRST)
+    blocking = await _visit(as_owner, item, taking, FIRST)
+    headers = key()
+    body = {"future": "reassign", "reassign_to": taking}
+    refused = await as_owner.post(f"/v1/staff/{leaving}/remove", json=body, headers=headers)
+    assert refused.status_code == 409 and refused.json()["error"] == "visits_unplaced"
+    ok(await as_owner.patch(f"/v1/bookings/{blocking}", json={"starts_at": SECOND}))
+    ok(await as_owner.post(f"/v1/staff/{leaving}/remove", json=body, headers=headers))
+    assert await _staff_of(db, visit) == (taking, taking, "confirmed")
+
+
+async def test_a_series_whose_visits_all_clash_refuses_the_removal(
     as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
 ) -> None:
     item = await _item(db)
@@ -285,13 +312,117 @@ async def test_a_series_whose_visits_all_clash_ends_instead_of_moving(
     series = await _series(as_owner, item, leaving)
     await _series(as_owner, item, taking)
     res = await _remove(as_owner, leaving, future="reassign", reassign_to=taking)
-    assert res.status_code == 200, res.text
-    out = res.json()
-    assert out["series_moved"] == [] and out["series_ended"] == [series]
-    assert out["moved"] == [] and len(out["left"]) == 2
+    assert res.status_code == 409, res.text
+    assert len(res.json()["detail"]["visits"]) == 2
     recurrence = await db.get(Recurrence, series, populate_existing=True)
     assert recurrence is not None
-    assert recurrence.status == "ended" and recurrence.staff_id == leaving
+    assert recurrence.status == "active" and recurrence.staff_id == leaving
+
+
+async def test_any_member_gives_a_visit_to_someone_working_before_someone_with_no_hours(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    item = await _item(db)
+    leaving = await _member(db, factory, "Leaving Lee")
+    visit = await _visit(as_owner, item, leaving, FIRST)
+    unset = await db.scalar(
+        select(Staff.id).where(
+            Staff.business_id == BIZ,
+            Staff.status == "active",
+            Staff.id.not_in(select(Hours.staff_id).where(Hours.staff_id.is_not(None))),
+        )
+    )
+    assert unset is not None, "the demo keeps a member with no hours set"
+    assert ok(await _remove(as_owner, leaving, future="reassign", reassign_to="any"))
+    taker = (await _staff_of(db, visit))[1]
+    assert taker not in (leaving, unset)
+    assert await db.scalar(
+        select(Hours.id).where(Hours.staff_id == taker, Hours.basis == "recurring").limit(1)
+    )
+
+
+async def test_a_visit_only_a_busy_member_offers_is_refused_as_busy_not_as_not_offered(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    leaving = await _member(db, factory, "Leaving Lee")
+    busy = await _member(db, factory, "Busy Bo")
+    item = await _item(db)
+    offered = await db.get(Item, item)
+    assert offered is not None
+    offered.staff_ids = [leaving, busy]
+    await db.flush()
+    visit = await _visit(as_owner, item, leaving, FIRST)
+    await _visit(as_owner, item, busy, FIRST)
+    res = await _remove(as_owner, leaving, future="reassign", reassign_to="any")
+    assert res.status_code == 409, res.text
+    visits = res.json()["detail"]["visits"]
+    assert [(v["booking_id"], v["problem"]) for v in visits] == [(visit, "overlap")]
+
+
+async def test_a_busy_member_s_refusal_outranks_members_after_them_who_don_t_offer_it(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    leaving = await _member(db, factory, "Leaving Lee")
+    item = await _item(db)
+    offered = await db.get(Item, item)
+    assert offered is not None
+    offered.staff_ids = [leaving, ST_DIEGO]
+    await db.flush()
+    visit = await _visit(as_owner, item, leaving, FIRST)
+    await _visit(as_owner, item, ST_DIEGO, FIRST)
+    res = await _remove(as_owner, leaving, future="reassign", reassign_to="any")
+    assert res.status_code == 409, res.text
+    visits = res.json()["detail"]["visits"]
+    assert [(v["booking_id"], v["problem"]) for v in visits] == [(visit, "overlap")]
+
+
+async def test_any_member_prefers_someone_with_hours_that_day_over_a_day_with_none_set(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    item = await _item(db)
+    leaving = await _member(db, factory, "Leaving Lee")
+    mondays = await _member(db, factory, "Monday Mo")
+    db.add(
+        Hours(
+            id=new_id("hours"),
+            business_id=BIZ,
+            staff_id=mondays,
+            basis="recurring",
+            weekday=0,
+            start_time=time(9, 0),
+            end_time=time(17, 0),
+            available=True,
+        )
+    )
+    await db.flush()
+    visit = await _visit(as_owner, item, leaving, MONDAY)
+    assert ok(await _remove(as_owner, leaving, future="reassign", reassign_to="any"))
+    assert await _staff_of(db, visit) == (mondays, mondays, "confirmed")
+
+
+async def test_any_member_reads_hours_on_the_visit_s_local_day_not_its_utc_day(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    item = await _item(db)
+    leaving = await _member(db, factory, "Leaving Lee")
+    mondays = await _member(db, factory, "Monday Mo")
+    db.add(
+        Hours(
+            id=new_id("hours"),
+            business_id=BIZ,
+            staff_id=mondays,
+            basis="recurring",
+            weekday=0,
+            start_time=time(9, 0),
+            end_time=time(22, 0),
+            available=True,
+        )
+    )
+    await db.flush()
+    # Monday 8 pm in Vancouver is already Tuesday in UTC, when the demo's members work
+    visit = await _visit(as_owner, item, leaving, "2027-03-02T04:00:00Z")
+    assert ok(await _remove(as_owner, leaving, future="reassign", reassign_to="any"))
+    assert await _staff_of(db, visit) == (mondays, mondays, "confirmed")
 
 
 async def test_removal_choices_are_validated_422_404(
@@ -379,28 +510,33 @@ async def test_a_repeated_removal_replays_without_notifying_again(
     assert (await _remove(as_owner, leaving, future="cancel")).status_code == 404
 
 
-async def test_the_manage_link_of_a_removed_members_visit_cannot_move_it(
+async def test_a_visit_under_way_stays_with_its_removed_member_and_its_link_can_t_move_it(
     as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
 ) -> None:
     item = await _item(db)
     leaving = await _member(db, factory, "Leaving Lee")
-    taking = await _member(db, factory, "Taking Tam")
     visit = await _visit(as_owner, item, leaving, FIRST)
-    await _visit(as_owner, item, taking, FIRST)
-    res = await _remove(as_owner, leaving, future="reassign", reassign_to=taking)
-    assert res.json()["left"][0]["booking_id"] == visit
     booking = await db.get(Booking, visit)
     assert booking is not None and booking.manage_token is not None
+    slot = await db.get(Slot, booking.slot_id)
+    assert slot is not None
+    slot.starts_at = clock.now() - timedelta(minutes=30)
+    slot.ends_at = clock.now() + timedelta(minutes=30)
+    await db.commit()
+    assert ok(await _remove(as_owner, leaving))
+    assert await _staff_of(db, visit) == (leaving, leaving, "confirmed")
     token = booking.manage_token
     view = (await as_owner.get(f"/manage/{token}")).json()
-    assert view["can_move"] is False and view["can_cancel"] is True
-    assert view["blocked"] == "member_unavailable"
+    assert view["can_move"] is False and view["can_cancel"] is False
+    assert view["blocked"] == "cutoff"
     moved = await as_owner.post(
         f"/manage/{token}/reschedule", json={"starts_at": "2027-03-03T19:00:00Z"}
     )
     assert moved.status_code == 409 and moved.json()["error"] == "change_blocked"
+    assert moved.json()["detail"]["reason"] == "member_unavailable"
     slots = await as_owner.get(f"/manage/{token}/slots", params={"date": "2027-03-03"})
     assert slots.status_code == 409
     days = await as_owner.get(f"/manage/{token}/days", params={"from": "2027-03-01"})
     assert days.status_code == 409
-    assert (await as_owner.post(f"/manage/{token}/cancel")).status_code == 200
+    canceled = await as_owner.post(f"/manage/{token}/cancel")
+    assert canceled.status_code == 409 and canceled.json()["error"] == "change_blocked"

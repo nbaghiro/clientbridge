@@ -19,68 +19,68 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 - **Every ticket uses one layout:** Covers, Before you start, Where to test (one line each for local and staging), QA steps (each with its expected result), Done when, By hand only (when needed), Automated by, To automate and Depends on. Each carries an Automation label, in the table below and in Linear, that follows from those lists: Automated when its cases cover every step and it has no By hand only or To automate lines, Partly automated when it has a case and still has one of those lines, and Manual when it has no case yet. Closing a ticket's last By hand only and To automate lines is what moves it to Automated.
 - **Linear changes go through its API:** `linear --workspace clientbridgeca api '<query>' --variables-json '<json>'`. A dependency is `issueRelationCreate` with type `blocks`, from the prerequisite (`issueId`) to the ticket that waits on it (`relatedIssueId`). Priority isn't used.
 
-| Area | Ticket | Linear | Automation |
-| --- | --- | --- | --- |
-| 1. Get set up | Sign-up and sign-in: two-factor, security keys and recovery | [CB-1](https://linear.app/clientbridgeca/issue/CB-1) | Partly automated |
-| 1. Get set up | Business onboarding and branding | [CB-3](https://linear.app/clientbridgeca/issue/CB-3) | Partly automated |
-| 1. Get set up | Team invites and role permissions | [CB-4](https://linear.app/clientbridgeca/issue/CB-4) | Automated |
-| 1. Get set up | Removing a team member | [CB-23](https://linear.app/clientbridgeca/issue/CB-23) | Partly automated |
-| 1. Get set up | Stripe payments setup | [CB-5](https://linear.app/clientbridgeca/issue/CB-5) | Partly automated |
-| 1. Get set up | Plan billing: trial, purchase, seats and read-only | [CB-6](https://linear.app/clientbridgeca/issue/CB-6) | Partly automated |
-| 1. Get set up | Sales tax by province | [CB-7](https://linear.app/clientbridgeca/issue/CB-7) | Automated |
-| 2. Clients and catalog | Client records: add, edit and search | [CB-8](https://linear.app/clientbridgeca/issue/CB-8) | Automated |
-| 2. Clients and catalog | Client subjects: who or what is booked | [CB-9](https://linear.app/clientbridgeca/issue/CB-9) | Automated |
-| 2. Clients and catalog | Client notes, photos and history | [CB-10](https://linear.app/clientbridgeca/issue/CB-10) | Automated |
-| 2. Clients and catalog | Client tags and duplicate merge | [CB-11](https://linear.app/clientbridgeca/issue/CB-11) | Partly automated |
-| 2. Clients and catalog | Services, classes and resources | [CB-13](https://linear.app/clientbridgeca/issue/CB-13) | Partly automated |
-| 2. Clients and catalog | Products and stock | [CB-14](https://linear.app/clientbridgeca/issue/CB-14) | Partly automated |
-| 3. Run the day | Today screen | [CB-44](https://linear.app/clientbridgeca/issue/CB-44) | Partly automated |
-| 3. Run the day | Hours, time off and closures | [CB-16](https://linear.app/clientbridgeca/issue/CB-16) | Partly automated |
-| 3. Run the day | Calendar: book, move and cancel | [CB-17](https://linear.app/clientbridgeca/issue/CB-17) | Partly automated |
-| 3. Run the day | Visit flow: on my way to checkout | [CB-18](https://linear.app/clientbridgeca/issue/CB-18) | Partly automated |
-| 3. Run the day | Repeat visits | [CB-19](https://linear.app/clientbridgeca/issue/CB-19) | Partly automated |
-| 3. Run the day | Classes, waitlists and programs | [CB-20](https://linear.app/clientbridgeca/issue/CB-20) | Partly automated |
-| 3. Run the day | Crew jobs, visit records and photos | [CB-21](https://linear.app/clientbridgeca/issue/CB-21) | Manual |
-| 3. Run the day | Visit reminders | [CB-22](https://linear.app/clientbridgeca/issue/CB-22) | Partly automated |
-| 4. Book online | Online booking with deposits | [CB-24](https://linear.app/clientbridgeca/issue/CB-24) | Automated |
-| 4. Book online | Returning-client sign-in by text code | [CB-25](https://linear.app/clientbridgeca/issue/CB-25) | Partly automated |
-| 4. Book online | Booking add-ons billed once | [CB-26](https://linear.app/clientbridgeca/issue/CB-26) | Partly automated |
-| 4. Book online | Reschedule and cancel by link | [CB-27](https://linear.app/clientbridgeca/issue/CB-27) | Automated |
-| 4. Book online | Business page and website embed | [CB-28](https://linear.app/clientbridgeca/issue/CB-28) | Partly automated |
-| 5. Sell at the desk and online | Desk sales and receipts | [CB-29](https://linear.app/clientbridgeca/issue/CB-29) | Partly automated |
-| 5. Sell at the desk and online | Card payments at the desk | [CB-30](https://linear.app/clientbridgeca/issue/CB-30) | Partly automated |
-| 5. Sell at the desk and online | Tap to Pay | [CB-31](https://linear.app/clientbridgeca/issue/CB-31) | Partly automated |
-| 5. Sell at the desk and online | Tips and discounts | [CB-32](https://linear.app/clientbridgeca/issue/CB-32) | Partly automated |
-| 5. Sell at the desk and online | Saved cards and bank accounts | [CB-12](https://linear.app/clientbridgeca/issue/CB-12) | Partly automated |
-| 5. Sell at the desk and online | Online shop orders and pickup | [CB-41](https://linear.app/clientbridgeca/issue/CB-41) | Automated |
-| 6. Invoice and get paid | Estimates to invoices | [CB-33](https://linear.app/clientbridgeca/issue/CB-33) | Automated |
-| 6. Invoice and get paid | Invoices and payment links | [CB-34](https://linear.app/clientbridgeca/issue/CB-34) | Automated |
-| 6. Invoice and get paid | Printed and shared documents | [CB-36](https://linear.app/clientbridgeca/issue/CB-36) | Manual |
-| 6. Invoice and get paid | Deposits applied to the bill | [CB-37](https://linear.app/clientbridgeca/issue/CB-37) | Partly automated |
-| 7. Gift cards, packages and memberships | Package, membership and gift card items | [CB-15](https://linear.app/clientbridgeca/issue/CB-15) | Automated |
-| 7. Gift cards, packages and memberships | Gift cards: sell and redeem | [CB-38](https://linear.app/clientbridgeca/issue/CB-38) | Automated |
-| 7. Gift cards, packages and memberships | Packages: sell, use and expire | [CB-39](https://linear.app/clientbridgeca/issue/CB-39) | Partly automated |
-| 7. Gift cards, packages and memberships | Memberships: renewals and failed payments | [CB-40](https://linear.app/clientbridgeca/issue/CB-40) | Partly automated |
-| 8. Refunds and the books | Refunds and credit notes | [CB-42](https://linear.app/clientbridgeca/issue/CB-42) | Automated |
-| 8. Refunds and the books | Disputes and chargebacks | [CB-43](https://linear.app/clientbridgeca/issue/CB-43) | Partly automated |
-| 8. Refunds and the books | Bookkeeper reports and exports | [CB-45](https://linear.app/clientbridgeca/issue/CB-45) | Partly automated |
-| 8. Refunds and the books | GST/HST returns | [CB-46](https://linear.app/clientbridgeca/issue/CB-46) | Automated |
-| 8. Refunds and the books | Payouts and fee reconciliation | [CB-47](https://linear.app/clientbridgeca/issue/CB-47) | Partly automated |
-| 8. Refunds and the books | Staff pay and T4A | [CB-48](https://linear.app/clientbridgeca/issue/CB-48) | Partly automated |
-| 9. Talk to clients | Inbox: two-way texting | [CB-49](https://linear.app/clientbridgeca/issue/CB-49) | Partly automated |
-| 9. Talk to clients | STOP and texting consent | [CB-50](https://linear.app/clientbridgeca/issue/CB-50) | Automated |
-| 9. Talk to clients | Broadcasts to consenting clients | [CB-51](https://linear.app/clientbridgeca/issue/CB-51) | Partly automated |
-| 9. Talk to clients | Intake forms | [CB-53](https://linear.app/clientbridgeca/issue/CB-53) | Partly automated |
-| 9. Talk to clients | Contracts and signatures | [CB-54](https://linear.app/clientbridgeca/issue/CB-54) | Partly automated |
-| 9. Talk to clients | Google review requests | [CB-55](https://linear.app/clientbridgeca/issue/CB-55) | Partly automated |
-| 10. Work anywhere | Offline mode and reconnect | [CB-56](https://linear.app/clientbridgeca/issue/CB-56) | Partly automated |
-| 10. Work anywhere | Multi-tab and multi-device sync | [CB-57](https://linear.app/clientbridgeca/issue/CB-57) | Partly automated |
-| 10. Work anywhere | Staff push notifications | [CB-59](https://linear.app/clientbridgeca/issue/CB-59) | Partly automated |
-| 10. Work anywhere | Mobile app on phones, tablets and screen readers | [CB-60](https://linear.app/clientbridgeca/issue/CB-60) | Partly automated |
-| 11. Platform and launch | Admin console | [CB-65](https://linear.app/clientbridgeca/issue/CB-65) | Partly automated |
-| 11. Platform and launch | Marketing site | [CB-66](https://linear.app/clientbridgeca/issue/CB-66) | Partly automated |
-| 11. Platform and launch | App Store and Google Play release | [CB-70](https://linear.app/clientbridgeca/issue/CB-70) | Manual |
-| 11. Platform and launch | Full business day on staging | [CB-68](https://linear.app/clientbridgeca/issue/CB-68) | Manual |
+| Area                                    | Ticket                                                      | Linear                                                 | Automation       |
+| --------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------ | ---------------- |
+| 1. Get set up                           | Sign-up and sign-in: two-factor, security keys and recovery | [CB-1](https://linear.app/clientbridgeca/issue/CB-1)   | Partly automated |
+| 1. Get set up                           | Business onboarding and branding                            | [CB-3](https://linear.app/clientbridgeca/issue/CB-3)   | Partly automated |
+| 1. Get set up                           | Team invites and role permissions                           | [CB-4](https://linear.app/clientbridgeca/issue/CB-4)   | Automated        |
+| 1. Get set up                           | Removing a team member                                      | [CB-23](https://linear.app/clientbridgeca/issue/CB-23) | Automated        |
+| 1. Get set up                           | Stripe payments setup                                       | [CB-5](https://linear.app/clientbridgeca/issue/CB-5)   | Partly automated |
+| 1. Get set up                           | Plan billing: trial, purchase, seats and read-only          | [CB-6](https://linear.app/clientbridgeca/issue/CB-6)   | Partly automated |
+| 1. Get set up                           | Sales tax by province                                       | [CB-7](https://linear.app/clientbridgeca/issue/CB-7)   | Automated        |
+| 2. Clients and catalog                  | Client records: add, edit and search                        | [CB-8](https://linear.app/clientbridgeca/issue/CB-8)   | Automated        |
+| 2. Clients and catalog                  | Client subjects: who or what is booked                      | [CB-9](https://linear.app/clientbridgeca/issue/CB-9)   | Automated        |
+| 2. Clients and catalog                  | Client notes, photos and history                            | [CB-10](https://linear.app/clientbridgeca/issue/CB-10) | Automated        |
+| 2. Clients and catalog                  | Client tags and duplicate merge                             | [CB-11](https://linear.app/clientbridgeca/issue/CB-11) | Partly automated |
+| 2. Clients and catalog                  | Services, classes and resources                             | [CB-13](https://linear.app/clientbridgeca/issue/CB-13) | Partly automated |
+| 2. Clients and catalog                  | Products and stock                                          | [CB-14](https://linear.app/clientbridgeca/issue/CB-14) | Partly automated |
+| 3. Run the day                          | Today screen                                                | [CB-44](https://linear.app/clientbridgeca/issue/CB-44) | Partly automated |
+| 3. Run the day                          | Hours, time off and closures                                | [CB-16](https://linear.app/clientbridgeca/issue/CB-16) | Partly automated |
+| 3. Run the day                          | Calendar: book, move and cancel                             | [CB-17](https://linear.app/clientbridgeca/issue/CB-17) | Partly automated |
+| 3. Run the day                          | Visit flow: on my way to checkout                           | [CB-18](https://linear.app/clientbridgeca/issue/CB-18) | Partly automated |
+| 3. Run the day                          | Repeat visits                                               | [CB-19](https://linear.app/clientbridgeca/issue/CB-19) | Partly automated |
+| 3. Run the day                          | Classes, waitlists and programs                             | [CB-20](https://linear.app/clientbridgeca/issue/CB-20) | Partly automated |
+| 3. Run the day                          | Crew jobs, visit records and photos                         | [CB-21](https://linear.app/clientbridgeca/issue/CB-21) | Manual           |
+| 3. Run the day                          | Visit reminders                                             | [CB-22](https://linear.app/clientbridgeca/issue/CB-22) | Partly automated |
+| 4. Book online                          | Online booking with deposits                                | [CB-24](https://linear.app/clientbridgeca/issue/CB-24) | Automated        |
+| 4. Book online                          | Returning-client sign-in by text code                       | [CB-25](https://linear.app/clientbridgeca/issue/CB-25) | Partly automated |
+| 4. Book online                          | Booking add-ons billed once                                 | [CB-26](https://linear.app/clientbridgeca/issue/CB-26) | Partly automated |
+| 4. Book online                          | Reschedule and cancel by link                               | [CB-27](https://linear.app/clientbridgeca/issue/CB-27) | Automated        |
+| 4. Book online                          | Business page and website embed                             | [CB-28](https://linear.app/clientbridgeca/issue/CB-28) | Partly automated |
+| 5. Sell at the desk and online          | Desk sales and receipts                                     | [CB-29](https://linear.app/clientbridgeca/issue/CB-29) | Partly automated |
+| 5. Sell at the desk and online          | Card payments at the desk                                   | [CB-30](https://linear.app/clientbridgeca/issue/CB-30) | Partly automated |
+| 5. Sell at the desk and online          | Tap to Pay                                                  | [CB-31](https://linear.app/clientbridgeca/issue/CB-31) | Partly automated |
+| 5. Sell at the desk and online          | Tips and discounts                                          | [CB-32](https://linear.app/clientbridgeca/issue/CB-32) | Partly automated |
+| 5. Sell at the desk and online          | Saved cards and bank accounts                               | [CB-12](https://linear.app/clientbridgeca/issue/CB-12) | Partly automated |
+| 5. Sell at the desk and online          | Online shop orders and pickup                               | [CB-41](https://linear.app/clientbridgeca/issue/CB-41) | Automated        |
+| 6. Invoice and get paid                 | Estimates to invoices                                       | [CB-33](https://linear.app/clientbridgeca/issue/CB-33) | Automated        |
+| 6. Invoice and get paid                 | Invoices and payment links                                  | [CB-34](https://linear.app/clientbridgeca/issue/CB-34) | Automated        |
+| 6. Invoice and get paid                 | Printed and shared documents                                | [CB-36](https://linear.app/clientbridgeca/issue/CB-36) | Manual           |
+| 6. Invoice and get paid                 | Deposits applied to the bill                                | [CB-37](https://linear.app/clientbridgeca/issue/CB-37) | Partly automated |
+| 7. Gift cards, packages and memberships | Package, membership and gift card items                     | [CB-15](https://linear.app/clientbridgeca/issue/CB-15) | Automated        |
+| 7. Gift cards, packages and memberships | Gift cards: sell and redeem                                 | [CB-38](https://linear.app/clientbridgeca/issue/CB-38) | Automated        |
+| 7. Gift cards, packages and memberships | Packages: sell, use and expire                              | [CB-39](https://linear.app/clientbridgeca/issue/CB-39) | Partly automated |
+| 7. Gift cards, packages and memberships | Memberships: renewals and failed payments                   | [CB-40](https://linear.app/clientbridgeca/issue/CB-40) | Partly automated |
+| 8. Refunds and the books                | Refunds and credit notes                                    | [CB-42](https://linear.app/clientbridgeca/issue/CB-42) | Automated        |
+| 8. Refunds and the books                | Disputes and chargebacks                                    | [CB-43](https://linear.app/clientbridgeca/issue/CB-43) | Partly automated |
+| 8. Refunds and the books                | Bookkeeper reports and exports                              | [CB-45](https://linear.app/clientbridgeca/issue/CB-45) | Partly automated |
+| 8. Refunds and the books                | GST/HST returns                                             | [CB-46](https://linear.app/clientbridgeca/issue/CB-46) | Automated        |
+| 8. Refunds and the books                | Payouts and fee reconciliation                              | [CB-47](https://linear.app/clientbridgeca/issue/CB-47) | Partly automated |
+| 8. Refunds and the books                | Staff pay and T4A                                           | [CB-48](https://linear.app/clientbridgeca/issue/CB-48) | Partly automated |
+| 9. Talk to clients                      | Inbox: two-way texting                                      | [CB-49](https://linear.app/clientbridgeca/issue/CB-49) | Partly automated |
+| 9. Talk to clients                      | STOP and texting consent                                    | [CB-50](https://linear.app/clientbridgeca/issue/CB-50) | Automated        |
+| 9. Talk to clients                      | Broadcasts to consenting clients                            | [CB-51](https://linear.app/clientbridgeca/issue/CB-51) | Partly automated |
+| 9. Talk to clients                      | Intake forms                                                | [CB-53](https://linear.app/clientbridgeca/issue/CB-53) | Partly automated |
+| 9. Talk to clients                      | Contracts and signatures                                    | [CB-54](https://linear.app/clientbridgeca/issue/CB-54) | Partly automated |
+| 9. Talk to clients                      | Google review requests                                      | [CB-55](https://linear.app/clientbridgeca/issue/CB-55) | Partly automated |
+| 10. Work anywhere                       | Offline mode and reconnect                                  | [CB-56](https://linear.app/clientbridgeca/issue/CB-56) | Partly automated |
+| 10. Work anywhere                       | Multi-tab and multi-device sync                             | [CB-57](https://linear.app/clientbridgeca/issue/CB-57) | Partly automated |
+| 10. Work anywhere                       | Staff push notifications                                    | [CB-59](https://linear.app/clientbridgeca/issue/CB-59) | Partly automated |
+| 10. Work anywhere                       | Mobile app on phones, tablets and screen readers            | [CB-60](https://linear.app/clientbridgeca/issue/CB-60) | Partly automated |
+| 11. Platform and launch                 | Admin console                                               | [CB-65](https://linear.app/clientbridgeca/issue/CB-65) | Partly automated |
+| 11. Platform and launch                 | Marketing site                                              | [CB-66](https://linear.app/clientbridgeca/issue/CB-66) | Partly automated |
+| 11. Platform and launch                 | App Store and Google Play release                           | [CB-70](https://linear.app/clientbridgeca/issue/CB-70) | Manual           |
+| 11. Platform and launch                 | Full business day on staging                                | [CB-68](https://linear.app/clientbridgeca/issue/CB-68) | Manual           |
 
 ---
 
@@ -99,28 +99,28 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator. Email lands in Mailpit at [http://localhost:8715](<http://localhost:8715>).
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Mail to the demo's `.example` addresses isn't sent, so use an address you can read.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](http://localhost:8700) and mobile in the iOS simulator. Email lands in Mailpit at [http://localhost:8715](http://localhost:8715).
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Mail to the demo's `.example` addresses isn't sent, so use an address you can read.
 
 **QA steps**
 
- 1. From the marketing site, click Start free.
+1.  From the marketing site, click Start free.
     **Expect:** the browser lands on `/signup`, not the sign-in page.
- 2. Sign up with the new email and enter a wrong code, then the mailed code.
+2.  Sign up with the new email and enter a wrong code, then the mailed code.
     **Expect:** the wrong code is refused with a plain message; the right one opens onboarding. Six wrong codes stop that code with a message that says so; Send a new code then works.
- 3. Reload while confirming.
+3.  Reload while confirming.
     **Expect:** you stay signed in and are not sent back to confirm again.
- 4. Sign out and back in on web, iPhone and Android.
+4.  Sign out and back in on web, iPhone and Android.
     **Expect:** each lands on Today; on mobile, signing out reaches Sign in right away, and killing and reopening the app keeps you signed in.
- 5. Reset the password with the emailed code on web and on a phone, with and without a second factor on.
+5.  Reset the password with the emailed code on web and on a phone, with and without a second factor on.
     **Expect:** you are signed in on that device only; the old password fails. With a second factor on, the right code is accepted and the second factor is asked for before the new password. Six wrong codes stop that code with a message that says so; Send a new code then works.
- 6. Change the password in Setup > Account & plan.
+6.  Change the password in Setup > Account & plan.
     **Expect:** the other devices are signed out at their next request; reusing the current password is refused with a plain message.
- 7. Sign in with Google on the same address.
+7.  Sign in with Google on the same address.
     **Expect:** the same account and business open; on mobile the Google button shows the unavailable state.
- 8. Try a wrong password five times.
+8.  Try a wrong password five times.
     **Expect:** the same error each time and no detail about whether the account exists.
- 9. Turn on an authenticator app on web, then sign out and in with a wrong code and the right one.
+9.  Turn on an authenticator app on web, then sign out and in with a wrong code and the right one.
     **Expect:** a QR code and a code check; backup codes are shown once; the wrong code is refused and the right one signs in.
 10. Sign in with a code on iPhone and Android.
     **Expect:** both accept the authenticator code.
@@ -135,37 +135,37 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **By hand only**
 
-* Signing in through a real Google account's consent screen. The test tier signs in through a stand-in Google, and the staging smoke checks that sign-in starts at Google with staging's client and callback.
+- Signing in through a real Google account's consent screen. The test tier signs in through a stand-in Google, and the staging smoke checks that sign-in starts at Google with staging's client and callback.
 
 **Automated by**
 
-* `XB-E2E-01 (web)`
-* `XB-E2E-02 (web)`
-* `XB-E2E-03 (web)`
-* `NATIVE-IOS-01 (native-ios, native-android)`
-* `web: auth.e2e.ts › signup has its own entry link and invites explain a missing token`
-* `web: auth.e2e.ts › a new account stays on the code step, through a reload, until its email is confirmed`
-* `web: auth.e2e.ts › an account whose identity was recreated confirms its email instead of looping`
-* `web: auth.e2e.ts › auth errors offer a clean return to sign in`
-* `web: auth.e2e.ts › sign-in, signup and reset validation at <width>px`
-* `web: auth.e2e.ts › a password reset on an account with a second factor confirms it, then saves the new password`
-* `web: auth.e2e.ts › a reset left half-finished by a reload can start again`
-* `web: auth.e2e.ts › the credentials typed decide the account, whatever session the browser still holds`
-* `web: auth.e2e.ts › too many wrong codes at sign-up ask for a new one, and it confirms the email`
-* `web: auth.e2e.ts › too many wrong codes on a reset ask for a new one, and it resets the password`
-* `mobile: auth.recovery.yaml (recovery end to end, unregistered)`
-* `mobile: staff.yaml (sign-in entry and Google unavailable, unregistered)`
-* `XB-E2E-04 (web)`
-* `ID-E2E-02 (web)`
-* `ID-E2E-03 (web)`
-* `ID-E2E-04 (web)`
-* `ID-E2E-05 (web)`
-* `ID-E2E-06 (web)`
-* `NATIVE-AUTH-01 (native-ios, native-android)`
-* `NATIVE-AUTH-02 (native-ios, native-android)`
-* `NATIVE-AUTH-03 (native-ios, native-android)`
-* `connect: smoke/auth.smoke.ts › recovery codes are throttled per address once a minute's tries run out`
-* `connect: smoke/auth.smoke.ts › Google sign-in starts at Google with this deployment's client and callback`
+- `XB-E2E-01 (web)`
+- `XB-E2E-02 (web)`
+- `XB-E2E-03 (web)`
+- `NATIVE-IOS-01 (native-ios, native-android)`
+- `web: auth.e2e.ts › signup has its own entry link and invites explain a missing token`
+- `web: auth.e2e.ts › a new account stays on the code step, through a reload, until its email is confirmed`
+- `web: auth.e2e.ts › an account whose identity was recreated confirms its email instead of looping`
+- `web: auth.e2e.ts › auth errors offer a clean return to sign in`
+- `web: auth.e2e.ts › sign-in, signup and reset validation at <width>px`
+- `web: auth.e2e.ts › a password reset on an account with a second factor confirms it, then saves the new password`
+- `web: auth.e2e.ts › a reset left half-finished by a reload can start again`
+- `web: auth.e2e.ts › the credentials typed decide the account, whatever session the browser still holds`
+- `web: auth.e2e.ts › too many wrong codes at sign-up ask for a new one, and it confirms the email`
+- `web: auth.e2e.ts › too many wrong codes on a reset ask for a new one, and it resets the password`
+- `mobile: auth.recovery.yaml (recovery end to end, unregistered)`
+- `mobile: staff.yaml (sign-in entry and Google unavailable, unregistered)`
+- `XB-E2E-04 (web)`
+- `ID-E2E-02 (web)`
+- `ID-E2E-03 (web)`
+- `ID-E2E-04 (web)`
+- `ID-E2E-05 (web)`
+- `ID-E2E-06 (web)`
+- `NATIVE-AUTH-01 (native-ios, native-android)`
+- `NATIVE-AUTH-02 (native-ios, native-android)`
+- `NATIVE-AUTH-03 (native-ios, native-android)`
+- `connect: smoke/auth.smoke.ts › recovery codes are throttled per address once a minute's tries run out`
+- `connect: smoke/auth.smoke.ts › Google sign-in starts at Google with this deployment's client and callback`
 
 **Depends on:** Nothing
 
@@ -176,8 +176,8 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at [http://localhost:8700](<http://localhost:8700>), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at [http://localhost:8700](http://localhost:8700), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
 
 **QA steps**
 
@@ -196,27 +196,27 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **Automated by**
 
-* `ID-E2E-01 (web)`
-* `XB-E2E-01 (web)`
-* `CFG-E2E-05 (web)`
-* `CFG-E2E-06 (web)`
-* `CFG-E2E-07 (web)`
-* `CFG-E2E-08 (web)`
-* `CFG-E2E-09 (web)`
-* `CFG-E2E-10 (web)`
-* `CFG-E2E-11 (web)`
-* `CFG-E2E-12 (web)`
-* `ID-E2E-07 (web)`
-* `NATIVE-CFG-01 (native-ios, native-android)`
-* `NATIVE-CFG-03 (native-ios, native-android)`
-* `connect: publicLanding.e2e.ts › business favicon follows the homepage and booking branding`
-* `connect: publicLanding.e2e.ts › empty businesses do not advertise unavailable services or products`
-* `connect: publicLanding.e2e.ts › a phone is offered plan your visit only when there is something to jump to`
-* `web: auth.e2e.ts › existing business never flashes onboarding during sign-in or a slow reload`
+- `ID-E2E-01 (web)`
+- `XB-E2E-01 (web)`
+- `CFG-E2E-05 (web)`
+- `CFG-E2E-06 (web)`
+- `CFG-E2E-07 (web)`
+- `CFG-E2E-08 (web)`
+- `CFG-E2E-09 (web)`
+- `CFG-E2E-10 (web)`
+- `CFG-E2E-11 (web)`
+- `CFG-E2E-12 (web)`
+- `ID-E2E-07 (web)`
+- `NATIVE-CFG-01 (native-ios, native-android)`
+- `NATIVE-CFG-03 (native-ios, native-android)`
+- `connect: publicLanding.e2e.ts › business favicon follows the homepage and booking branding`
+- `connect: publicLanding.e2e.ts › empty businesses do not advertise unavailable services or products`
+- `connect: publicLanding.e2e.ts › a phone is offered plan your visit only when there is something to jump to`
+- `web: auth.e2e.ts › existing business never flashes onboarding during sign-in or a slow reload`
 
 **By hand only**
 
-* Pick a logo from the photo library on a real iPhone, including a HEIC photo, and on a real Android phone. NATIVE-CFG-03 covers the simulator and the emulator, whose pickers differ from a real phone's. **Expect:** it uploads, saves and shows on the business, booking, pay and shop pages.
+- Pick a logo from the photo library on a real iPhone, including a HEIC photo, and on a real Android phone. NATIVE-CFG-03 covers the simulator and the emulator, whose pickers differ from a real phone's. **Expect:** it uploads, saves and shows on the business, booking, pay and shop pages.
 
 **Depends on:** CB-1
 
@@ -227,8 +227,8 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-connect dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator. Connect runs at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Email lands in Mailpit at [http://localhost:8715](<http://localhost:8715>).
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Mail to the demo's `.example` addresses isn't sent, so use an address you can read.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-connect dev-mobile`. Open web at [http://localhost:8700](http://localhost:8700) and mobile in the iOS simulator. Connect runs at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Email lands in Mailpit at [http://localhost:8715](http://localhost:8715).
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Mail to the demo's `.example` addresses isn't sent, so use an address you can read.
 
 **QA steps**
 
@@ -253,28 +253,28 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **Automated by**
 
-* `SEC-E2E-01 (web)`
-* `SEC-E2E-02 (web)`
-* `SYN-E2E-02 (web)`
-* `FLOW-08-A (journeys)`
-* `MSG-E2E-13 (web)`
-* `SALE-E2E-11 (web)`
-* `PLN-E2E-01 (web)`
-* `web: auth.e2e.ts › an invite joins the account that signs up with the invited email`
-* `web: auth.e2e.ts › an invite refuses an account with a different email`
-* `web: auth.e2e.ts › an invitee confirms the email first, then lands back on the invite and joins`
-* `web: shell.e2e.ts › staff: payments, inbox and setup show only what staff can use`
-* `mobile: staff.yaml (reduced Payments, Inbox and Setup, unregistered)`
-* `sync: revocation.e2e.ts › live renames reach the replica; downgrade, deletion and removal purge its data`
-* `TEAM-E2E-01 (web)`
-* `TEAM-E2E-02 (web)`
-* `TEAM-E2E-03 (web)`
-* `TEAM-E2E-04 (connect)`
-* `TEAM-E2E-05 (web)`
-* `SCH-E2E-06 (journeys)`
-* `NATIVE-TEAM-01 (mobile: staff.invites.yaml)`
-* `NATIVE-TEAM-02 (mobile: business.switch.yaml)`
-* `NATIVE-TEAM-03 (mobile: staff.downgrade.yaml)`
+- `SEC-E2E-01 (web)`
+- `SEC-E2E-02 (web)`
+- `SYN-E2E-02 (web)`
+- `FLOW-08-A (journeys)`
+- `MSG-E2E-13 (web)`
+- `SALE-E2E-11 (web)`
+- `PLN-E2E-01 (web)`
+- `web: auth.e2e.ts › an invite joins the account that signs up with the invited email`
+- `web: auth.e2e.ts › an invite refuses an account with a different email`
+- `web: auth.e2e.ts › an invitee confirms the email first, then lands back on the invite and joins`
+- `web: shell.e2e.ts › staff: payments, inbox and setup show only what staff can use`
+- `mobile: staff.yaml (reduced Payments, Inbox and Setup, unregistered)`
+- `sync: revocation.e2e.ts › live renames reach the replica; downgrade, deletion and removal purge its data`
+- `TEAM-E2E-01 (web)`
+- `TEAM-E2E-02 (web)`
+- `TEAM-E2E-03 (web)`
+- `TEAM-E2E-04 (connect)`
+- `TEAM-E2E-05 (web)`
+- `SCH-E2E-06 (journeys)`
+- `NATIVE-TEAM-01 (mobile: staff.invites.yaml)`
+- `NATIVE-TEAM-02 (mobile: business.switch.yaml)`
+- `NATIVE-TEAM-03 (mobile: staff.downgrade.yaml)`
 
 **Depends on:** Nothing
 
@@ -285,19 +285,19 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at [http://localhost:8700](<http://localhost:8700>), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at [http://localhost:8700](http://localhost:8700), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
 
 **QA steps**
 
 1. Remove a member with future visits, a series and a class schedule, choosing reassign.
-   **Expect:** the summary lists what moved; each visit lands on a member who offers the service.
+   **Expect:** the summary counts the visits moved and names each series and class schedule with its new member; each visit lands on a member who offers the service, and Any available member gives it to someone with hours set that day before someone with none set.
 2. Remove another, choosing cancel.
-   **Expect:** their visits are cancelled and clients told.
-3. Remove a member when no one can take a schedule.
-   **Expect:** refused, naming the schedule and day.
+   **Expect:** their visits are cancelled, clients who take texts get one, and the summary counts them.
+3. Remove a member when no one can take a schedule, then when no one can take one of their visits.
+   **Expect:** each is refused and nothing changes: the schedule is named, with the day when the member chosen is busy, and the visits nobody can take move to the top of the list, marked with why.
 4. Open Staff pay.
-   **Expect:** the removed member is still listed while owed.
+   **Expect:** the removed member is still listed while owed, and the removal dialog says what they are owed.
 5. Remove a member whose phone is offline, then bring it back online.
    **Expect:** the business and its data disappear from their phone.
 
@@ -305,14 +305,13 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **Automated by**
 
-* `FLOW-08-A (journeys)`
-* `SCH-E2E-06 (journeys)`
-* `SYN-E2E-30 (sync)`
-
-**To automate**
-
-* `TEAM-E2E-03` in `apps/web/e2e/journeys/team.journey.ts`: Removal with reassignment of a series and a class schedule, and the refused case.
-* `NATIVE-SYN-01` in `apps/mobile/e2e/offline.yaml`: A removed member's phone purges the business on relaunch.
+- `FLOW-08-A (journeys)`
+- `SCH-E2E-06 (journeys)`
+- `TEAM-E2E-06 (journeys)`
+- `TEAM-E2E-07 (journeys)`
+- `SYN-E2E-30 (sync)`
+- `NATIVE-SYN-01 (mobile: offline.removal.yaml)`
+- `NATIVE-TEAM-04 (mobile: staff.removal.yaml)`
 
 **Depends on:** Nothing
 
@@ -323,8 +322,8 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](http://localhost:8700) and mobile in the iOS simulator. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first.
 
 **QA steps**
 
@@ -343,19 +342,19 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **By hand only**
 
-* Completing Stripe-hosted identity verification as a person, including Stripe's sign-in and its terms.
-* Entering the code Stripe's sign-in sends before it shows bank details.
-* Swapping the bank for Stripe's failing test account in step 3: Stripe refuses bank writes by API on these accounts, and its sign-in stops a headless browser.
+- Completing Stripe-hosted identity verification as a person, including Stripe's sign-in and its terms.
+- Entering the code Stripe's sign-in sends before it shows bank details.
+- Swapping the bank for Stripe's failing test account in step 3: Stripe refuses bank writes by API on these accounts, and its sign-in stops a headless browser.
 
 **Automated by**
 
-* `STR-E15 (stripe)`
-* `STR-E09 (stripe)`
-* `STR-E13 (stripe)`
-* `STRIPE-BROWSER-05 (stripe)`
-* `NATIVE-CFG-02 (native-ios, native-android)`
-* `web: payouts.e2e.ts › payment account entrypoints preserve navigation when payment tools are offline`
-* `connect: smoke/staff.smoke.ts › signs in to today and reads the payment account`
+- `STR-E15 (stripe)`
+- `STR-E09 (stripe)`
+- `STR-E13 (stripe)`
+- `STRIPE-BROWSER-05 (stripe)`
+- `NATIVE-CFG-02 (native-ios, native-android)`
+- `web: payouts.e2e.ts › payment account entrypoints preserve navigation when payment tools are offline`
+- `connect: smoke/staff.smoke.ts › signs in to today and reads the payment account`
 
 **Depends on:** CB-3
 
@@ -366,8 +365,8 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at [http://localhost:8700](<http://localhost:8700>), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at [http://localhost:8700](http://localhost:8700), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first.
 
 **QA steps**
 
@@ -392,19 +391,19 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **By hand only**
 
-* Stripe Tax registrations and Smart Retries settings in the live Dashboard.
+- Stripe Tax registrations and Smart Retries settings in the live Dashboard.
 
 **Automated by**
 
-* `PLN-E2E-01 (web)`
-* `PLN-E2E-02 (web)`
-* `PLN-E2E-03 (web)`
-* `FLOW-08-B (journeys)`
-* `SYN-E2E-25 (sync)`
-* `OPS-E2E-02 (web)`
-* `PLN-E2E-04 (stripe)`
-* `PLN-E2E-05 (stripe)`
-* `PLN-E2E-06 (stripe)`
+- `PLN-E2E-01 (web)`
+- `PLN-E2E-02 (web)`
+- `PLN-E2E-03 (web)`
+- `FLOW-08-B (journeys)`
+- `SYN-E2E-25 (sync)`
+- `OPS-E2E-02 (web)`
+- `PLN-E2E-04 (stripe)`
+- `PLN-E2E-05 (stripe)`
+- `PLN-E2E-06 (stripe)`
 
 **Depends on:** CB-3
 
@@ -415,8 +414,8 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](http://localhost:8700) and mobile in the iOS simulator.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
 
 **QA steps**
 
@@ -439,12 +438,12 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **Automated by**
 
-* `ID-E2E-01 (web)`
-* `BILL-DOC-01 (web)`
-* `BILL-DOC-21 (web)`
-* `NATIVE-BILL-01 (native-ios, native-android)`
-* `STRIPE-BROWSER-07 (stripe)`
-* `FIN-DEPOSIT-11 (stripe)`
+- `ID-E2E-01 (web)`
+- `BILL-DOC-01 (web)`
+- `BILL-DOC-21 (web)`
+- `NATIVE-BILL-01 (native-ios, native-android)`
+- `STRIPE-BROWSER-07 (stripe)`
+- `FIN-DEPOSIT-11 (stripe)`
 
 **Depends on:** Nothing
 
@@ -463,8 +462,8 @@ The business loads its clients, what they book for, and the services and product
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](http://localhost:8700) and mobile in the iOS simulator.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
 
 **QA steps**
 
@@ -485,16 +484,16 @@ The business loads its clients, what they book for, and the services and product
 
 **Automated by**
 
-* `CRM-E2E-01 (web)`
-* `CRM-E2E-09 (web)`
-* `CRM-E2E-15 (web)`
-* `CRM-E2E-16 (web)`
-* `CRM-E2E-17 (web)`
-* `NATIVE-CRM-01 (native-ios, native-android)`
-* `NATIVE-CRM-03 (native-ios, native-android)`
-* `CRM-E2E-06 (journeys)`
-* `FLOW-04-A (journeys)`
-* `mobile: clients.record.yaml (walk, unregistered)`
+- `CRM-E2E-01 (web)`
+- `CRM-E2E-09 (web)`
+- `CRM-E2E-15 (web)`
+- `CRM-E2E-16 (web)`
+- `CRM-E2E-17 (web)`
+- `NATIVE-CRM-01 (native-ios, native-android)`
+- `NATIVE-CRM-03 (native-ios, native-android)`
+- `CRM-E2E-06 (journeys)`
+- `FLOW-04-A (journeys)`
+- `mobile: clients.record.yaml (walk, unregistered)`
 
 **Depends on:** Nothing
 
@@ -505,8 +504,8 @@ The business loads its clients, what they book for, and the services and product
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. For step 6, run `make configure-demo-admin`, restart `make dev-api` and run `make dev-admin` ([http://localhost:8711](<http://localhost:8711>)). Open web at [http://localhost:8700](<http://localhost:8700>), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. For step 6, run `make configure-demo-admin`, restart `make dev-api` and run `make dev-admin` ([http://localhost:8711](http://localhost:8711)). Open web at [http://localhost:8700](http://localhost:8700), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
 
 **QA steps**
 
@@ -529,15 +528,15 @@ The business loads its clients, what they book for, and the services and product
 
 **Automated by**
 
-* `CRM-E2E-03 (web)`
-* `CRM-E2E-08 (web)`
-* `CRM-E2E-10 (web)`
-* `CRM-E2E-18 (web)`
-* `CRM-E2E-19 (web)`
-* `OPS-E2E-02 (web)`
-* `NATIVE-CRM-04 (native-ios, native-android)`
-* `CRM-E2E-05 (journeys)`
-* `CRM-E2E-11 (journeys)`
+- `CRM-E2E-03 (web)`
+- `CRM-E2E-08 (web)`
+- `CRM-E2E-10 (web)`
+- `CRM-E2E-18 (web)`
+- `CRM-E2E-19 (web)`
+- `OPS-E2E-02 (web)`
+- `NATIVE-CRM-04 (native-ios, native-android)`
+- `CRM-E2E-05 (journeys)`
+- `CRM-E2E-11 (journeys)`
 
 **Depends on:** Nothing
 
@@ -548,8 +547,8 @@ The business loads its clients, what they book for, and the services and product
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-connect dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator. Connect runs at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-connect dev-mobile`. Open web at [http://localhost:8700](http://localhost:8700) and mobile in the iOS simulator. Connect runs at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
 
 **QA steps**
 
@@ -570,15 +569,15 @@ The business loads its clients, what they book for, and the services and product
 
 **Automated by**
 
-* `CRM-E2E-02 (web)`
-* `CRM-E2E-21 (web)`
-* `FILES-E2E-01 (web)`
-* `CRM-E2E-22 (connect)`
-* `CRM-E2E-12 (journeys)`
-* `FLOW-04-A (journeys)`
-* `SYN-E2E-29 (sync)`
-* `NATIVE-CRM-05 (native-ios, native-android)`
-* `web: sync.e2e.ts › history older than the device window is read from the API`
+- `CRM-E2E-02 (web)`
+- `CRM-E2E-21 (web)`
+- `FILES-E2E-01 (web)`
+- `CRM-E2E-22 (connect)`
+- `CRM-E2E-12 (journeys)`
+- `FLOW-04-A (journeys)`
+- `SYN-E2E-29 (sync)`
+- `NATIVE-CRM-05 (native-ios, native-android)`
+- `web: sync.e2e.ts › history older than the device window is read from the API`
 
 **Depends on:** Nothing
 
@@ -589,8 +588,8 @@ The business loads its clients, what they book for, and the services and product
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](http://localhost:8700) and mobile in the iOS simulator.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
 
 **QA steps**
 
@@ -605,12 +604,12 @@ The business loads its clients, what they book for, and the services and product
 
 **Automated by**
 
-* `CRM-E2E-04 (web)`
-* `FLOW-04-B (journeys)`
+- `CRM-E2E-04 (web)`
+- `FLOW-04-B (journeys)`
 
 **To automate**
 
-* `CRM-E2E-13` in `apps/web/e2e/clients.e2e.ts`: Set and remove tags in bulk; the broadcast audience count follows.
+- `CRM-E2E-13` in `apps/web/e2e/clients.e2e.ts`: Set and remove tags in bulk; the broadcast audience count follows.
 
 **Depends on:** Nothing
 
@@ -621,8 +620,8 @@ The business loads its clients, what they book for, and the services and product
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-connect dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator. Connect runs at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-connect dev-mobile`. Open web at [http://localhost:8700](http://localhost:8700) and mobile in the iOS simulator. Connect runs at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
 
 **QA steps**
 
@@ -643,14 +642,14 @@ The business loads its clients, what they book for, and the services and product
 
 **Automated by**
 
-* `SCH-E2E-05 (journeys)`
-* `SCH-E2E-06 (journeys)`
-* `STR-E10 (web)`
-* `CLS-E2E-02 (journeys)`
+- `SCH-E2E-05 (journeys)`
+- `SCH-E2E-06 (journeys)`
+- `STR-E10 (web)`
+- `CLS-E2E-02 (journeys)`
 
 **To automate**
 
-* `CFG-E2E-13` in `apps/web/e2e/catalog.e2e.ts`: Buffers and deposit percentage on a service match the slots and deposit Connect offers.
+- `CFG-E2E-13` in `apps/web/e2e/catalog.e2e.ts`: Buffers and deposit percentage on a service match the slots and deposit Connect offers.
 
 **Depends on:** Nothing
 
@@ -661,8 +660,8 @@ The business loads its clients, what they book for, and the services and product
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](http://localhost:8700) and mobile in the iOS simulator.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
 
 **QA steps**
 
@@ -683,22 +682,22 @@ The business loads its clients, what they book for, and the services and product
 
 **By hand only**
 
-* Photo from the phone camera.
+- Photo from the phone camera.
 
 **Automated by**
 
-* `CFG-E2E-01 (web)`
-* `CFG-E2E-02 (web)`
-* `CFG-E2E-03 (web)`
-* `CFG-E2E-04 (web)`
-* `SALE-E2E-01 (web)`
-* `SALE-E2E-10 (web)`
-* `FLOW-03-A (journeys)`
-* `FLOW-03-B (journeys)`
+- `CFG-E2E-01 (web)`
+- `CFG-E2E-02 (web)`
+- `CFG-E2E-03 (web)`
+- `CFG-E2E-04 (web)`
+- `SALE-E2E-01 (web)`
+- `SALE-E2E-10 (web)`
+- `FLOW-03-A (journeys)`
+- `FLOW-03-B (journeys)`
 
 **To automate**
 
-* `CFG-E2E-14` in `apps/web/e2e/catalog.e2e.ts`: Archive and restore a product: it leaves Sales, invoices, the shop and add-ons.
+- `CFG-E2E-14` in `apps/web/e2e/catalog.e2e.ts`: Archive and restore a product: it leaves Sales, invoices, the shop and add-ons.
 
 **Depends on:** Nothing
 
@@ -717,8 +716,8 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](http://localhost:8700) and mobile in the iOS simulator.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
 
 **QA steps**
 
@@ -737,13 +736,13 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 
 **Automated by**
 
-* `XB-E2E-08 (web), walk`
-* `web: shell.e2e.ts › staff: today, schedule and clients`
-* `mobile: today.yaml (walk, unregistered)`
+- `XB-E2E-08 (web), walk`
+- `web: shell.e2e.ts › staff: today, schedule and clients`
+- `mobile: today.yaml (walk, unregistered)`
 
 **To automate**
 
-* `FIN-REPORT-11` in `apps/web/e2e/reports.e2e.ts`: Today's figures equal the income and GST/HST report for the same day after sales and a refund.
+- `FIN-REPORT-11` in `apps/web/e2e/reports.e2e.ts`: Today's figures equal the income and GST/HST report for the same day after sales and a refund.
 
 **Depends on:** Nothing
 
@@ -754,8 +753,8 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at [http://localhost:8700](<http://localhost:8700>), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at [http://localhost:8700](http://localhost:8700), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
 
 **QA steps**
 
@@ -776,20 +775,20 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 
 **Automated by**
 
-* `OFF-E2E-01 (web)`
-* `OFF-E2E-02 (web)`
-* `OFF-E2E-03 (web)`
-* `OFF-E2E-04 (web)`
-* `SYN-E2E-08 (web)`
-* `SYN-E2E-24 (sync)`
-* `SYN-E2E-34 (sync)`
-* `sync: hours.e2e.ts (five unregistered hours outbox tests)`
-* `web: shell.e2e.ts › owner: a closed day stays reachable, open times read in the business zone and reschedule changes weeks`
-* `mobile: offline.hours.yaml (unregistered)`
+- `OFF-E2E-01 (web)`
+- `OFF-E2E-02 (web)`
+- `OFF-E2E-03 (web)`
+- `OFF-E2E-04 (web)`
+- `SYN-E2E-08 (web)`
+- `SYN-E2E-24 (sync)`
+- `SYN-E2E-34 (sync)`
+- `sync: hours.e2e.ts (five unregistered hours outbox tests)`
+- `web: shell.e2e.ts › owner: a closed day stays reachable, open times read in the business zone and reschedule changes weeks`
+- `mobile: offline.hours.yaml (unregistered)`
 
 **To automate**
 
-* `SCH-E2E-08` in `apps/web/e2e/hours.e2e.ts`: Time off and a closure set from the UI remove those times on Connect.
+- `SCH-E2E-08` in `apps/web/e2e/hours.e2e.ts`: Time off and a closure set from the UI remove those times on Connect.
 
 **Depends on:** Nothing
 
@@ -800,8 +799,8 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-connect dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator. Connect runs at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-connect dev-mobile`. Open web at [http://localhost:8700](http://localhost:8700) and mobile in the iOS simulator. Connect runs at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
 
 **QA steps**
 
@@ -822,19 +821,19 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 
 **By hand only**
 
-* Drag on a phone and a tablet.
+- Drag on a phone and a tablet.
 
 **Automated by**
 
-* `SCH-PILOT-01 (web)`
-* `SCH-E2E-05 (journeys)`
-* `web: shell.e2e.ts › owner: schedule, booking panel, classes and repeat visits`
-* `web: shell.e2e.ts › owner: a closed day stays reachable…`
-* `mobile: today.yaml (walk, unregistered)`
+- `SCH-PILOT-01 (web)`
+- `SCH-E2E-05 (journeys)`
+- `web: shell.e2e.ts › owner: schedule, booking panel, classes and repeat visits`
+- `web: shell.e2e.ts › owner: a closed day stays reachable…`
+- `mobile: today.yaml (walk, unregistered)`
 
 **To automate**
 
-* `SCH-E2E-09` in `apps/web/e2e/bookings.e2e.ts`: Resize and reassign across replicas with the move check's problem and alternatives.
+- `SCH-E2E-09` in `apps/web/e2e/bookings.e2e.ts`: Resize and reassign across replicas with the move check's problem and alternatives.
 
 **Depends on:** Nothing
 
@@ -845,8 +844,8 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile worker`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile worker`. Open web at [http://localhost:8700](http://localhost:8700) and mobile in the iOS simulator.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
 
 **QA steps**
 
@@ -865,13 +864,13 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 
 **Automated by**
 
-* `STR-E04 (stripe), forfeited deposit only`
+- `STR-E04 (stripe), forfeited deposit only`
 
 **To automate**
 
-* `SCH-E2E-10` in `apps/web/e2e/journeys/visit.journey.ts`: On my way, check-in with needs, undo, checkout with the visit on the ticket.
-* `SCH-E2E-11` in `apps/web/e2e/journeys/visit.journey.ts`: No-show forfeits the deposit; complete and no-show refused before start.
-* `SCH-E2E-12` in `apps/web/e2e/journeys/visit.journey.ts`: The worker completes past visits and cancels stale requests overnight.
+- `SCH-E2E-10` in `apps/web/e2e/journeys/visit.journey.ts`: On my way, check-in with needs, undo, checkout with the visit on the ticket.
+- `SCH-E2E-11` in `apps/web/e2e/journeys/visit.journey.ts`: No-show forfeits the deposit; complete and no-show refused before start.
+- `SCH-E2E-12` in `apps/web/e2e/journeys/visit.journey.ts`: The worker completes past visits and cancels stale requests overnight.
 
 **Depends on:** Nothing
 
@@ -882,8 +881,8 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](http://localhost:8700) and mobile in the iOS simulator.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
 
 **QA steps**
 
@@ -902,12 +901,12 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 
 **Automated by**
 
-* `web: shell.e2e.ts › owner: schedule, booking panel, classes and repeat visits (walk only)`
+- `web: shell.e2e.ts › owner: schedule, booking panel, classes and repeat visits (walk only)`
 
 **To automate**
 
-* `SCH-E2E-13` in `apps/web/e2e/bookings.e2e.ts`: Weekly series across DST, change following, cancel all.
-* `SCH-E2E-14` in `apps/web/e2e/bookings.e2e.ts`: Series retry notices and a clashing date.
+- `SCH-E2E-13` in `apps/web/e2e/bookings.e2e.ts`: Weekly series across DST, change following, cancel all.
+- `SCH-E2E-14` in `apps/web/e2e/bookings.e2e.ts`: Series retry notices and a clashing date.
 
 **Depends on:** Nothing
 
@@ -918,8 +917,8 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect worker`. Open web at [http://localhost:8700](<http://localhost:8700>), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Texts land in Mailpit at [http://localhost:8715](<http://localhost:8715>).
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Texts to demo clients show as sent and go nowhere; for real texts, assign the business a staging Twilio number in the admin console.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect worker`. Open web at [http://localhost:8700](http://localhost:8700), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Texts land in Mailpit at [http://localhost:8715](http://localhost:8715).
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Texts to demo clients show as sent and go nowhere; for real texts, assign the business a staging Twilio number in the admin console.
 
 **QA steps**
 
@@ -940,13 +939,13 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 
 **Automated by**
 
-* `CLS-E2E-01 (journeys)`
-* `CLS-E2E-02 (journeys)`
-* `FLOW-06-A (journeys)`
-* `MSG-E2E-14 (journeys)`
-* `FIN-DEPOSIT-10 (stripe)`
-* `CLS-E2E-03 (journeys)`
-* `FIN-DEPOSIT-15 (stripe)`
+- `CLS-E2E-01 (journeys)`
+- `CLS-E2E-02 (journeys)`
+- `FLOW-06-A (journeys)`
+- `MSG-E2E-14 (journeys)`
+- `FIN-DEPOSIT-10 (stripe)`
+- `CLS-E2E-03 (journeys)`
+- `FIN-DEPOSIT-15 (stripe)`
 
 **Depends on:** Nothing
 
@@ -957,8 +956,8 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](http://localhost:8700) and mobile in the iOS simulator.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
 
 **QA steps**
 
@@ -979,13 +978,13 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 
 **Automated by**
 
-* No e2e case yet
+- No e2e case yet
 
 **To automate**
 
-* `SCH-E2E-15` in `apps/web/e2e/journeys/visit.journey.ts`: Crew block follows a move, refuses a busy helper, splits the earning.
-* `SCH-E2E-16` in `apps/web/e2e/bookings.e2e.ts`: Visit record create and amend, then the insurance receipt on Connect.
-* `DOC-E2E-07` in `apps/web/e2e/files.e2e.ts`: Job photos shared to the manage page and revoked.
+- `SCH-E2E-15` in `apps/web/e2e/journeys/visit.journey.ts`: Crew block follows a move, refuses a busy helper, splits the earning.
+- `SCH-E2E-16` in `apps/web/e2e/bookings.e2e.ts`: Visit record create and amend, then the insurance receipt on Connect.
+- `DOC-E2E-07` in `apps/web/e2e/files.e2e.ts`: Job photos shared to the manage page and revoked.
 
 **Depends on:** Nothing
 
@@ -996,8 +995,8 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-connect dev-mobile worker`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator. Connect runs at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Texts land in Mailpit at [http://localhost:8715](<http://localhost:8715>).
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Texts to demo clients show as sent and go nowhere; for real texts, assign the business a staging Twilio number in the admin console.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-connect dev-mobile worker`. Open web at [http://localhost:8700](http://localhost:8700) and mobile in the iOS simulator. Connect runs at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Texts land in Mailpit at [http://localhost:8715](http://localhost:8715).
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Texts to demo clients show as sent and go nowhere; for real texts, assign the business a staging Twilio number in the admin console.
 
 **QA steps**
 
@@ -1016,15 +1015,15 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 
 **By hand only**
 
-* Delivery to a real handset.
+- Delivery to a real handset.
 
 **Automated by**
 
-* `web: previews.e2e.ts › a reminder shows the message before it goes out, and cancelling sends nothing`
+- `web: previews.e2e.ts › a reminder shows the message before it goes out, and cancelling sends nothing`
 
 **To automate**
 
-* `MSG-E2E-17` in `apps/web/e2e/journeys/communication.journey.ts`: The worker sends one reminder matching the preview, and none after a reschedule.
+- `MSG-E2E-17` in `apps/web/e2e/journeys/communication.journey.ts`: The worker sends one reminder matching the preview, and none after a reschedule.
 
 **Depends on:** Nothing
 
@@ -1043,8 +1042,8 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-connect dev-mobile worker`. Open web at [http://localhost:8700](<http://localhost:8700>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-connect dev-mobile worker`. Open web at [http://localhost:8700](http://localhost:8700) and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first.
 
 **QA steps**
 
@@ -1069,20 +1068,20 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 **Automated by**
 
-* `SCH-E2E-03 (journeys)`
-* `SCH-E2E-04 (journeys)`
-* `SCH-E2E-18 (journeys)`
-* `SCH-E2E-19 (journeys)`
-* `XB-E2E-12 (connect)`
-* `XB-E2E-22 (connect)`
-* `FIN-DEPOSIT-04 (stripe)`
-* `STR-E17 (stripe)`
-* `STR-E28 (stripe)`
-* `SCH-E2E-17 (stripe)`
-* `NATIVE-SCH-01 (native-ios, native-android)`
-* `connect: publicBooking.e2e.ts › a new client's online booking waits for approval and opens the manage link`
-* `connect: publicBooking.e2e.ts › a client books a confirmed visit where new clients need no approval`
-* `connect: publicBooking.e2e.ts › anyone books with any member, and a refused or unreachable booking reads as such`
+- `SCH-E2E-03 (journeys)`
+- `SCH-E2E-04 (journeys)`
+- `SCH-E2E-18 (journeys)`
+- `SCH-E2E-19 (journeys)`
+- `XB-E2E-12 (connect)`
+- `XB-E2E-22 (connect)`
+- `FIN-DEPOSIT-04 (stripe)`
+- `STR-E17 (stripe)`
+- `STR-E28 (stripe)`
+- `SCH-E2E-17 (stripe)`
+- `NATIVE-SCH-01 (native-ios, native-android)`
+- `connect: publicBooking.e2e.ts › a new client's online booking waits for approval and opens the manage link`
+- `connect: publicBooking.e2e.ts › a client books a confirmed visit where new clients need no approval`
+- `connect: publicBooking.e2e.ts › anyone books with any member, and a refused or unreachable booking reads as such`
 
 **Depends on:** Nothing
 
@@ -1093,8 +1092,8 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-connect`. Open Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Texts land in Mailpit at [http://localhost:8715](<http://localhost:8715>).
-* **Staging:** Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`. Texts to demo clients show as sent and go nowhere; for real texts, assign the business a staging Twilio number in the admin console.
+- **Local:** `make up migrate seed`, then `make dev-api dev-connect`. Open Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Texts land in Mailpit at [http://localhost:8715](http://localhost:8715).
+- **Staging:** Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`. Texts to demo clients show as sent and go nowhere; for real texts, assign the business a staging Twilio number in the admin console.
 
 **QA steps**
 
@@ -1111,17 +1110,17 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 **By hand only**
 
-* The code arriving on a real phone.
+- The code arriving on a real phone.
 
 **Automated by**
 
-* `CRM-E2E-05 (journeys)`
-* `CRM-E2E-06 (journeys)`
-* `CRM-E2E-07 (journeys)`
+- `CRM-E2E-05 (journeys)`
+- `CRM-E2E-06 (journeys)`
+- `CRM-E2E-07 (journeys)`
 
 **To automate**
 
-* `CRM-E2E-14` in `apps/web/e2e/journeys/client.journey.ts`: Verification threshold and two concurrent verifications.
+- `CRM-E2E-14` in `apps/web/e2e/journeys/client.journey.ts`: Verification threshold and two concurrent verifications.
 
 **Depends on:** Nothing
 
@@ -1132,8 +1131,8 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-connect`. Open web at [http://localhost:8700](<http://localhost:8700>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-connect`. Open web at [http://localhost:8700](http://localhost:8700) and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins.
 
 **QA steps**
 
@@ -1150,12 +1149,12 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 **Automated by**
 
-* `SCH-E2E-07 (journeys)`
-* `BILL-DOC-03 (web)`
+- `SCH-E2E-07 (journeys)`
+- `BILL-DOC-03 (web)`
 
 **To automate**
 
-* `SCH-E2E-20` in `apps/web/e2e/journeys/visit.journey.ts`: Staff add-on refused with visit_no_room; removal never shortens below the service.
+- `SCH-E2E-20` in `apps/web/e2e/journeys/visit.journey.ts`: Staff add-on refused with visit_no_room; removal never shortens below the service.
 
 **Depends on:** Nothing
 
@@ -1166,8 +1165,8 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-connect`. Open Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Texts land in Mailpit at [http://localhost:8715](<http://localhost:8715>).
-* **Staging:** Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`. Texts to demo clients show as sent and go nowhere; for real texts, assign the business a staging Twilio number in the admin console.
+- **Local:** `make up migrate seed`, then `make dev-api dev-connect`. Open Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Texts land in Mailpit at [http://localhost:8715](http://localhost:8715).
+- **Staging:** Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`. Texts to demo clients show as sent and go nowhere; for real texts, assign the business a staging Twilio number in the admin console.
 
 **QA steps**
 
@@ -1186,17 +1185,17 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 **Automated by**
 
-* `SCH-E2E-21 (journeys)`
-* `SCH-E2E-22 (journeys)`
-* `XB-E2E-14 (connect)`
-* `XB-E2E-23 (connect)`
-* `STR-E18 (stripe)`
-* `STR-E31 (stripe)`
-* `NATIVE-SCH-02 (native-ios, native-android)`
-* `connect: publicManage.e2e.ts › a client opens the manage link and the move picker`
-* `connect: publicManage.e2e.ts › a client's fresh tab offers no second payment while Stripe confirms the deposit, and a cancel then promises its refund only if it lands`
-* `connect: publicBooking.e2e.ts › a new client's online booking waits for approval and opens the manage link`
-* `connect: publicBooking.e2e.ts › a client books a confirmed visit where new clients need no approval`
+- `SCH-E2E-21 (journeys)`
+- `SCH-E2E-22 (journeys)`
+- `XB-E2E-14 (connect)`
+- `XB-E2E-23 (connect)`
+- `STR-E18 (stripe)`
+- `STR-E31 (stripe)`
+- `NATIVE-SCH-02 (native-ios, native-android)`
+- `connect: publicManage.e2e.ts › a client opens the manage link and the move picker`
+- `connect: publicManage.e2e.ts › a client's fresh tab offers no second payment while Stripe confirms the deposit, and a cancel then promises its refund only if it lands`
+- `connect: publicBooking.e2e.ts › a new client's online booking waits for approval and opens the manage link`
+- `connect: publicBooking.e2e.ts › a client books a confirmed visit where new clients need no approval`
 
 **Depends on:** Nothing
 
@@ -1207,8 +1206,8 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-connect`. Open web at [http://localhost:8700](<http://localhost:8700>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-connect`. Open web at [http://localhost:8700](http://localhost:8700) and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins.
 
 **QA steps**
 
@@ -1227,16 +1226,16 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 **Automated by**
 
-* `EMBED-E2E-01 (connect)`
-* `OPS-E2E-06 (connect)`
-* `XB-E2E-09 (connect)`
-* `connect: embed.e2e.ts › the single-script booking drawer opens, closes and restores focus`
-* `connect: shell.e2e.ts › every client page explains an invalid link without offering a transaction`
-* `connect: smoke/connect.smoke.ts (hosts, framing, widgets)`
+- `EMBED-E2E-01 (connect)`
+- `OPS-E2E-06 (connect)`
+- `XB-E2E-09 (connect)`
+- `connect: embed.e2e.ts › the single-script booking drawer opens, closes and restores focus`
+- `connect: shell.e2e.ts › every client page explains an invalid link without offering a transaction`
+- `connect: smoke/connect.smoke.ts (hosts, framing, widgets)`
 
 **To automate**
 
-* `EMBED-E2E-02` in `apps/connect/e2e/embed.e2e.ts`: A booking completed inside the embed reaches the staff schedule.
+- `EMBED-E2E-02` in `apps/connect/e2e/embed.e2e.ts`: A booking completed inside the embed reaches the staff schedule.
 
 **Depends on:** Nothing
 
@@ -1255,8 +1254,8 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator. Texts land in Mailpit at [http://localhost:8715](<http://localhost:8715>).
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Texts to demo clients show as sent and go nowhere; for real texts, assign the business a staging Twilio number in the admin console.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](http://localhost:8700) and mobile in the iOS simulator. Texts land in Mailpit at [http://localhost:8715](http://localhost:8715).
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Texts to demo clients show as sent and go nowhere; for real texts, assign the business a staging Twilio number in the admin console.
 
 **QA steps**
 
@@ -1277,15 +1276,15 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 
 **Automated by**
 
-* `SALE-E2E-01 (web)`
-* `SALE-E2E-02 (web)`
-* `SALE-E2E-11 (web)`
-* `mobile: payments.yaml (walk, unregistered)`
+- `SALE-E2E-01 (web)`
+- `SALE-E2E-02 (web)`
+- `SALE-E2E-11 (web)`
+- `mobile: payments.yaml (walk, unregistered)`
 
 **To automate**
 
-* `SALE-E2E-13` in `apps/web/e2e/pos.e2e.ts`: Hold a ticket, resume on a second device, pay once.
-* `SALE-E2E-14` in `apps/web/e2e/pos.e2e.ts`: Walk-in receipt by text matches the sale, with a failed send retried.
+- `SALE-E2E-13` in `apps/web/e2e/pos.e2e.ts`: Hold a ticket, resume on a second device, pay once.
+- `SALE-E2E-14` in `apps/web/e2e/pos.e2e.ts`: Walk-in receipt by text matches the sale, with a failed send retried.
 
 **Depends on:** Nothing
 
@@ -1296,8 +1295,8 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web`. Open web at [http://localhost:8700](<http://localhost:8700>). Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web`. Open web at [http://localhost:8700](http://localhost:8700). Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first.
 
 **QA steps**
 
@@ -1316,10 +1315,10 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 
 **Automated by**
 
-* `STR-E05 (stripe)`
-* `STRIPE-BROWSER-02 (stripe), invoice decline`
-* `STR-E19 (stripe)`
-* `SALE-E2E-15 (web)`
+- `STR-E05 (stripe)`
+- `STRIPE-BROWSER-02 (stripe), invoice decline`
+- `STR-E19 (stripe)`
+- `SALE-E2E-15 (web)`
 
 **Depends on:** Nothing
 
@@ -1330,8 +1329,8 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-mobile` with a development build on a real iPhone or Android phone, since Tap to Pay needs NFC. Run `make stripe-setup` once and keep `make stripe-listen` running.
-* **Staging:** The staging app on real phones, against the Stripe sandbox.
+- **Local:** `make up migrate seed`, then `make dev-api dev-mobile` with a development build on a real iPhone or Android phone, since Tap to Pay needs NFC. Run `make stripe-setup` once and keep `make stripe-listen` running.
+- **Staging:** The staging app on real phones, against the Stripe sandbox.
 
 **QA steps**
 
@@ -1348,12 +1347,12 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 
 **By hand only**
 
-* A real tap on NFC hardware with the store-signed app, on iPhone and Android; the case uses Stripe's simulated reader on the iOS simulator.
-* Interac debit on Tap to Pay is not built.
+- A real tap on NFC hardware with the store-signed app, on iPhone and Android; the case uses Stripe's simulated reader on the iOS simulator.
+- Interac debit on Tap to Pay is not built.
 
 **Automated by**
 
-* `NATIVE-PAY-03 (stripe-native)`
+- `NATIVE-PAY-03 (stripe-native)`
 
 **Depends on:** Nothing
 
@@ -1364,8 +1363,8 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at [http://localhost:8700](<http://localhost:8700>), mobile in the iOS simulator and Connect at `pay.localhost:8709`. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), Connect at `pay.staging.clientbridge.ca` and the staging app, with the same logins. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at [http://localhost:8700](http://localhost:8700), mobile in the iOS simulator and Connect at `pay.localhost:8709`. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), Connect at `pay.staging.clientbridge.ca` and the staging app, with the same logins. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first.
 
 **QA steps**
 
@@ -1386,19 +1385,19 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 
 **By hand only**
 
-* Tip on Tap to Pay (hardware).
+- Tip on Tap to Pay (hardware).
 
 **Automated by**
 
-* `BILL-DOC-01 (web), discounts`
-* `DOC-E2E-06 (connect), discounted estimate`
-* `FLOW-02-A (journeys), discount carried through conversion`
-* `SALE-E2E-16 (web)`
-* `SALE-E2E-18 (web)`
-* `SALE-E2E-19 (web)`
-* `PAY-E2E-04 (web)`
-* `STR-E20 (stripe)`
-* `NATIVE-SALE-02 (native-ios, native-android)`
+- `BILL-DOC-01 (web), discounts`
+- `DOC-E2E-06 (connect), discounted estimate`
+- `FLOW-02-A (journeys), discount carried through conversion`
+- `SALE-E2E-16 (web)`
+- `SALE-E2E-18 (web)`
+- `SALE-E2E-19 (web)`
+- `PAY-E2E-04 (web)`
+- `STR-E20 (stripe)`
+- `NATIVE-SALE-02 (native-ios, native-android)`
 
 **Depends on:** Nothing
 
@@ -1409,8 +1408,8 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at [http://localhost:8700](<http://localhost:8700>), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at [http://localhost:8700](http://localhost:8700), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first.
 
 **QA steps**
 
@@ -1429,18 +1428,18 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 
 **By hand only**
 
-* A real Canadian PAD debit clearing, which takes business days.
-* A real text reaching a phone through Twilio in step 5; staging has no Twilio number yet.
+- A real Canadian PAD debit clearing, which takes business days.
+- A real text reaching a phone through Twilio in step 5; staging has no Twilio number yet.
 
 **Automated by**
 
-* `XB-E2E-13 (connect)`
-* `CRM-E2E-20 (web)`
-* `STR-E26 (stripe)`
-* `STR-E27 (stripe)`
-* `STR-E30 (stripe)`
-* `NATIVE-PAY-01 (native-stripe)`
-* `NATIVE-PAY-02 (stripe-native)`
+- `XB-E2E-13 (connect)`
+- `CRM-E2E-20 (web)`
+- `STR-E26 (stripe)`
+- `STR-E27 (stripe)`
+- `STR-E30 (stripe)`
+- `NATIVE-PAY-01 (native-stripe)`
+- `NATIVE-PAY-02 (stripe-native)`
 
 **Depends on:** Nothing
 
@@ -1451,8 +1450,8 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect worker`. Open web at [http://localhost:8700](<http://localhost:8700>), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps. Texts land in Mailpit at [http://localhost:8715](<http://localhost:8715>).
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first. Texts to demo clients show as sent and go nowhere; for real texts, assign the business a staging Twilio number in the admin console.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect worker`. Open web at [http://localhost:8700](http://localhost:8700), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps. Texts land in Mailpit at [http://localhost:8715](http://localhost:8715).
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first. Texts to demo clients show as sent and go nowhere; for real texts, assign the business a staging Twilio number in the admin console.
 
 **QA steps**
 
@@ -1475,27 +1474,27 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 
 **Automated by**
 
-* `SALE-E2E-03 (connect)`
-* `SALE-E2E-12 (journeys)`
-* `SALE-E2E-17 (stripe)`
-* `STR-E22 (stripe)`
-* `FLOW-03-A (journeys)`
-* `FLOW-03-B (journeys)`
-* `XB-E2E-10 (connect)`
-* `NATIVE-SALE-01 (native-ios, native-android)`
-* `connect: publicShop.e2e.ts › a client finds the shop from the landing page and fills a cart`
-* `connect: publicShop.e2e.ts › the shop says tax is added when the business charges it`
-* `connect: publicShop.e2e.ts › a business that doesn't charge tax never mentions it in the shop`
-* `connect: publicShop.e2e.ts › the shop adds from the grid, changes quantities and checks out in steps`
-* `connect: publicShop.e2e.ts › the shop's order panel folds into a bottom bar on a phone`
-* `connect: publicShop.e2e.ts › an item's quantity stops at what is left of it`
-* `connect: publicShop.e2e.ts › a paid confirmation comes back on checkout after a reload, while the shop opens on its catalog`
-* `connect: publicOrder.e2e.ts › a canceled order says what was refunded and drops the progress, pickup and texts`
-* `app-core: pos.board.test.ts › doesn't claim a text went to a client who turned texts off`
-* `app-core: pos.board.test.ts › doesn't claim a text went to a client who has a number no text can reach`
-* `backend: test_public_orders.py › test_an_uncollected_order_gets_one_reminder_text_at_nine_local`
-* `backend: test_public_orders.py › test_ready_order_reminder_sent_once_and_respects_alert_choice`
-* `backend: test_public_orders.py › test_cancel_order_refunds_once_and_releases_stock`
+- `SALE-E2E-03 (connect)`
+- `SALE-E2E-12 (journeys)`
+- `SALE-E2E-17 (stripe)`
+- `STR-E22 (stripe)`
+- `FLOW-03-A (journeys)`
+- `FLOW-03-B (journeys)`
+- `XB-E2E-10 (connect)`
+- `NATIVE-SALE-01 (native-ios, native-android)`
+- `connect: publicShop.e2e.ts › a client finds the shop from the landing page and fills a cart`
+- `connect: publicShop.e2e.ts › the shop says tax is added when the business charges it`
+- `connect: publicShop.e2e.ts › a business that doesn't charge tax never mentions it in the shop`
+- `connect: publicShop.e2e.ts › the shop adds from the grid, changes quantities and checks out in steps`
+- `connect: publicShop.e2e.ts › the shop's order panel folds into a bottom bar on a phone`
+- `connect: publicShop.e2e.ts › an item's quantity stops at what is left of it`
+- `connect: publicShop.e2e.ts › a paid confirmation comes back on checkout after a reload, while the shop opens on its catalog`
+- `connect: publicOrder.e2e.ts › a canceled order says what was refunded and drops the progress, pickup and texts`
+- `app-core: pos.board.test.ts › doesn't claim a text went to a client who turned texts off`
+- `app-core: pos.board.test.ts › doesn't claim a text went to a client who has a number no text can reach`
+- `backend: test_public_orders.py › test_an_uncollected_order_gets_one_reminder_text_at_nine_local`
+- `backend: test_public_orders.py › test_ready_order_reminder_sent_once_and_respects_alert_choice`
+- `backend: test_public_orders.py › test_cancel_order_refunds_once_and_releases_stock`
 
 **Depends on:** Nothing
 
@@ -1514,8 +1513,8 @@ Estimates become invoices, invoices are paid by link, saved card or by hand, and
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at [http://localhost:8700](<http://localhost:8700>), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Texts land in Mailpit at [http://localhost:8715](<http://localhost:8715>).
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Texts to demo clients show as sent and go nowhere; for real texts, assign the business a staging Twilio number in the admin console.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at [http://localhost:8700](http://localhost:8700), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Texts land in Mailpit at [http://localhost:8715](http://localhost:8715).
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Texts to demo clients show as sent and go nowhere; for real texts, assign the business a staging Twilio number in the admin console.
 
 **QA steps**
 
@@ -1540,16 +1539,16 @@ Estimates become invoices, invoices are paid by link, saved card or by hand, and
 
 **Automated by**
 
-* `BILL-DOC-02 (web)`
-* `BILL-DOC-20 (web)`
-* `BILL-DOC-22 (web)`
-* `BILL-DOC-25 (web)`
-* `BILL-DOC-26 (web)`
-* `DOC-E2E-06 (connect)`
-* `FLOW-02-A (journeys)`
-* `NATIVE-BILL-02 (native-ios, native-android)`
-* `connect: publicEstimate.e2e.ts › a client reads an estimate and a receipt`
-* `mobile: billing.yaml (walk, unregistered)`
+- `BILL-DOC-02 (web)`
+- `BILL-DOC-20 (web)`
+- `BILL-DOC-22 (web)`
+- `BILL-DOC-25 (web)`
+- `BILL-DOC-26 (web)`
+- `DOC-E2E-06 (connect)`
+- `FLOW-02-A (journeys)`
+- `NATIVE-BILL-02 (native-ios, native-android)`
+- `connect: publicEstimate.e2e.ts › a client reads an estimate and a receipt`
+- `mobile: billing.yaml (walk, unregistered)`
 
 **Depends on:** Nothing
 
@@ -1560,28 +1559,28 @@ Estimates become invoices, invoices are paid by link, saved card or by hand, and
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect worker`. Open web at [http://localhost:8700](<http://localhost:8700>), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps. Texts land in Mailpit at [http://localhost:8715](<http://localhost:8715>).
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first. Texts to demo clients show as sent and go nowhere; for real texts, assign the business a staging Twilio number in the admin console.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect worker`. Open web at [http://localhost:8700](http://localhost:8700), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps. Texts land in Mailpit at [http://localhost:8715](http://localhost:8715).
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first. Texts to demo clients show as sent and go nowhere; for real texts, assign the business a staging Twilio number in the admin console.
 
 **QA steps**
 
- 1. Create an invoice from a completed booking and send it.
+1.  Create an invoice from a completed booking and send it.
     **Expect:** the preview matches the text that arrives, except the pay link, which shows as … until sending creates it.
- 2. Pay through the link in a private window with card 4242.
+2.  Pay through the link in a private window with card 4242.
     **Expect:** Paid on web and phones, receipt texted.
- 3. Pay another with a 3DS card, then close the challenge on a third.
+3.  Pay another with a 3DS card, then close the challenge on a third.
     **Expect:** settles only after authentication; the closed one stays unpaid after reload.
- 4. Open one invoice in two tabs; decline in the first, pay in both.
+4.  Open one invoice in two tabs; decline in the first, pay in both.
     **Expect:** one charge.
- 5. Void an unpaid invoice; try to void one with a payment in progress.
+5.  Void an unpaid invoice; try to void one with a payment in progress.
     **Expect:** the second is refused.
- 6. Leave an invoice past due.
+6.  Leave an invoice past due.
     **Expect:** overdue on Today at 07:00 local; the reminder preview matches what is sent.
- 7. Pay a sent invoice through the link with the declined card 4000 0000 0000 0002.
+7.  Pay a sent invoice through the link with the declined card 4000 0000 0000 0002.
     **Expect:** the page says the card was declined, the client gets one payment-failed text and the invoice stays unpaid.
- 8. Record $20 cash on a $50 invoice, then charge the rest to the saved card.
+8.  Record $20 cash on a $50 invoice, then charge the rest to the saved card.
     **Expect:** Partial, then Paid.
- 9. Record an e-Transfer and a cheque on two others.
+9.  Record an e-Transfer and a cheque on two others.
     **Expect:** each shows its method on the receipt and in reports, and Today and the income report count each once.
 10. Lose the response after recording cash and retry.
     **Expect:** one payment.
@@ -1592,30 +1591,30 @@ Estimates become invoices, invoices are paid by link, saved card or by hand, and
 
 **Automated by**
 
-* `BILL-DOC-01 (web)`
-* `BILL-DOC-03 (web)`
-* `BILL-DOC-04 (web)`
-* `STRIPE-BROWSER-01 (stripe)`
-* `STRIPE-BROWSER-02 (stripe)`
-* `STRIPE-BROWSER-03 (stripe)`
-* `STRIPE-BROWSER-04 (stripe)`
-* `STRIPE-BROWSER-05 (stripe)`
-* `STRIPE-BROWSER-06 (stripe)`
-* `STR-E06 (stripe)`
-* `connect: publicPay.e2e.ts › a client opens an invoice and sees how to pay it`
-* `web: previews.e2e.ts › a reminder shows the message before it goes out, and cancelling sends nothing`
-* `BILL-PILOT-01 (web)`
-* `BILL-PILOT-02 (web)`
-* `FLOW-02-B (journeys)`
-* `web: sync.e2e.ts › a recorded payment holds the invoice until its new balance reaches this device`
-* `BILL-DOC-23 (web)`
-* `BILL-DOC-24 (web)`
-* `STR-E21 (stripe)`
-* `SCH-E2E-07 (journeys)`
-* `connect: publicPay.e2e.ts › a paid or voided invoice says so at the top and asks for nothing`
-* `NATIVE-BILL-03 (native-ios, native-android)`
-* `STR-E33 (stripe)`
-* `STR-E32 (stripe), Klarna`
+- `BILL-DOC-01 (web)`
+- `BILL-DOC-03 (web)`
+- `BILL-DOC-04 (web)`
+- `STRIPE-BROWSER-01 (stripe)`
+- `STRIPE-BROWSER-02 (stripe)`
+- `STRIPE-BROWSER-03 (stripe)`
+- `STRIPE-BROWSER-04 (stripe)`
+- `STRIPE-BROWSER-05 (stripe)`
+- `STRIPE-BROWSER-06 (stripe)`
+- `STR-E06 (stripe)`
+- `connect: publicPay.e2e.ts › a client opens an invoice and sees how to pay it`
+- `web: previews.e2e.ts › a reminder shows the message before it goes out, and cancelling sends nothing`
+- `BILL-PILOT-01 (web)`
+- `BILL-PILOT-02 (web)`
+- `FLOW-02-B (journeys)`
+- `web: sync.e2e.ts › a recorded payment holds the invoice until its new balance reaches this device`
+- `BILL-DOC-23 (web)`
+- `BILL-DOC-24 (web)`
+- `STR-E21 (stripe)`
+- `SCH-E2E-07 (journeys)`
+- `connect: publicPay.e2e.ts › a paid or voided invoice says so at the top and asks for nothing`
+- `NATIVE-BILL-03 (native-ios, native-android)`
+- `STR-E33 (stripe)`
+- `STR-E32 (stripe), Klarna`
 
 **Depends on:** Nothing
 
@@ -1626,8 +1625,8 @@ Estimates become invoices, invoices are paid by link, saved card or by hand, and
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at [http://localhost:8700](<http://localhost:8700>), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at [http://localhost:8700](http://localhost:8700), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
 
 **QA steps**
 
@@ -1642,15 +1641,15 @@ Estimates become invoices, invoices are paid by link, saved card or by hand, and
 
 **By hand only**
 
-* Physical print output.
+- Physical print output.
 
 **Automated by**
 
-* No e2e case yet
+- No e2e case yet
 
 **To automate**
 
-* `BILL-DOC-24` in `apps/web/e2e/billing.e2e.ts`: Printed invoice content matches the record.
+- `BILL-DOC-24` in `apps/web/e2e/billing.e2e.ts`: Printed invoice content matches the record.
 
 **Depends on:** Nothing
 
@@ -1661,8 +1660,8 @@ Estimates become invoices, invoices are paid by link, saved card or by hand, and
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web`. Open web at [http://localhost:8700](<http://localhost:8700>). Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web`. Open web at [http://localhost:8700](http://localhost:8700). Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first.
 
 **QA steps**
 
@@ -1679,11 +1678,11 @@ Estimates become invoices, invoices are paid by link, saved card or by hand, and
 
 **Automated by**
 
-* `BILL-DOC-03 (web)`
-* `FIN-DEPOSIT-04 (stripe)`
-* `FIN-DEPOSIT-10 (stripe)`
-* `STR-E04 (stripe)`
-* `FIN-DEPOSIT-14 (stripe)`
+- `BILL-DOC-03 (web)`
+- `FIN-DEPOSIT-04 (stripe)`
+- `FIN-DEPOSIT-10 (stripe)`
+- `STR-E04 (stripe)`
+- `FIN-DEPOSIT-14 (stripe)`
 
 **Depends on:** Nothing
 
@@ -1702,8 +1701,8 @@ The business sells gift cards, packages and memberships, and each is used, renew
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](http://localhost:8700) and mobile in the iOS simulator.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
 
 **QA steps**
 
@@ -1720,8 +1719,8 @@ The business sells gift cards, packages and memberships, and each is used, renew
 
 **Automated by**
 
-* `ENT-E2E-04 (web)`
-* `NATIVE-ENT-01 (native-ios, native-android)`
+- `ENT-E2E-04 (web)`
+- `NATIVE-ENT-01 (native-ios, native-android)`
 
 **Depends on:** Nothing
 
@@ -1732,8 +1731,8 @@ The business sells gift cards, packages and memberships, and each is used, renew
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](http://localhost:8700) and mobile in the iOS simulator. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first.
 
 **QA steps**
 
@@ -1750,10 +1749,10 @@ The business sells gift cards, packages and memberships, and each is used, renew
 
 **Automated by**
 
-* `ENT-E2E-01 (web)`
-* `ENT-E2E-05 (stripe)`
-* `ENT-E2E-06 (web)`
-* `NATIVE-ENT-02 (native-ios, native-android)`
+- `ENT-E2E-01 (web)`
+- `ENT-E2E-05 (stripe)`
+- `ENT-E2E-06 (web)`
+- `NATIVE-ENT-02 (native-ios, native-android)`
 
 **Depends on:** Nothing
 
@@ -1764,8 +1763,8 @@ The business sells gift cards, packages and memberships, and each is used, renew
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web worker`. Open web at [http://localhost:8700](<http://localhost:8700>). Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web worker`. Open web at [http://localhost:8700](http://localhost:8700). Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first.
 
 **QA steps**
 
@@ -1784,11 +1783,11 @@ The business sells gift cards, packages and memberships, and each is used, renew
 
 **Automated by**
 
-* `ENT-E2E-02 (web)`
-* `ENT-E2E-03 (web)`
-* `FLOW-07-A (journeys)`
-* `FLOW-07-B (journeys)`
-* `ENT-E2E-07 (web)`
+- `ENT-E2E-02 (web)`
+- `ENT-E2E-03 (web)`
+- `FLOW-07-A (journeys)`
+- `FLOW-07-B (journeys)`
+- `ENT-E2E-07 (web)`
 
 **Depends on:** Nothing
 
@@ -1799,8 +1798,8 @@ The business sells gift cards, packages and memberships, and each is used, renew
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web worker`. Open web at [http://localhost:8700](<http://localhost:8700>). Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web worker`. Open web at [http://localhost:8700](http://localhost:8700). Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first.
 
 **QA steps**
 
@@ -1821,12 +1820,12 @@ The business sells gift cards, packages and memberships, and each is used, renew
 
 **By hand only**
 
-* Pause is not built; record whether it is still a launch need.
+- Pause is not built; record whether it is still a launch need.
 
 **Automated by**
 
-* `STR-E07 (stripe)`
-* `ENT-E2E-08 (stripe)`
+- `STR-E07 (stripe)`
+- `ENT-E2E-08 (stripe)`
 
 **Depends on:** Nothing
 
@@ -1845,8 +1844,8 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](http://localhost:8700) and mobile in the iOS simulator. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first.
 
 **QA steps**
 
@@ -1867,17 +1866,17 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 
 **Automated by**
 
-* `REF-E2E-01 (web)`
-* `SALE-E2E-10 (web)`
-* `ENT-E2E-09 (web)`
-* `FLOW-02-B (journeys)`
-* `FLOW-03-B (journeys)`
-* `FLOW-07-B (journeys)`
-* `FIN-DEPOSIT-04 (stripe)`
-* `STR-E23 (stripe)`
-* `PAY-E2E-02 (web)`
-* `NATIVE-REF-01 (native-ios, native-android)`
-* `NATIVE-PAY-04 (stripe-native)`
+- `REF-E2E-01 (web)`
+- `SALE-E2E-10 (web)`
+- `ENT-E2E-09 (web)`
+- `FLOW-02-B (journeys)`
+- `FLOW-03-B (journeys)`
+- `FLOW-07-B (journeys)`
+- `FIN-DEPOSIT-04 (stripe)`
+- `STR-E23 (stripe)`
+- `PAY-E2E-02 (web)`
+- `NATIVE-REF-01 (native-ios, native-android)`
+- `NATIVE-PAY-04 (stripe-native)`
 
 **Depends on:** Nothing
 
@@ -1888,8 +1887,8 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web`. Open web at [http://localhost:8700](<http://localhost:8700>). Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web`. Open web at [http://localhost:8700](http://localhost:8700). Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first.
 
 **QA steps**
 
@@ -1908,14 +1907,14 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 
 **By hand only**
 
-* Suspending a disputed package or gift card while open is not built.
+- Suspending a disputed package or gift card while open is not built.
 
 **Automated by**
 
-* `STR-E02 (stripe)`
-* `STR-E03 (stripe)`
-* `STR-E04 (stripe)`
-* `STR-E24 (stripe)`
+- `STR-E02 (stripe)`
+- `STR-E03 (stripe)`
+- `STR-E04 (stripe)`
+- `STR-E24 (stripe)`
 
 **Depends on:** Nothing
 
@@ -1926,8 +1925,8 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](http://localhost:8700) and mobile in the iOS simulator.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
 
 **QA steps**
 
@@ -1944,13 +1943,13 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 
 **Automated by**
 
-* `FIN-REPORT-01 (web)`
-* `FIN-EXPORT-02 (web)`
+- `FIN-REPORT-01 (web)`
+- `FIN-EXPORT-02 (web)`
 
 **To automate**
 
-* `FIN-REPORT-12` in `apps/web/e2e/reports.e2e.ts`: Sales by item, GST/HST with PST apart and T4A CSVs against hand totals.
-* A backend test in `tests/test_reports.py` after the fix: the sales by item CSV writes an item named `=HYPERLINK(...)` as text. `sales_by_item_csv` (`services/reports.py`) writes names as they are today, so a spreadsheet would run a leading `=`, `+`, `-` or `@` as a formula; the consent export already guards its cells with `_cell` (`services/consents.py`), and the report CSVs need the same.
+- `FIN-REPORT-12` in `apps/web/e2e/reports.e2e.ts`: Sales by item, GST/HST with PST apart and T4A CSVs against hand totals.
+- A backend test in `tests/test_reports.py` after the fix: the sales by item CSV writes an item named `=HYPERLINK(...)` as text. `sales_by_item_csv` (`services/reports.py`) writes names as they are today, so a spreadsheet would run a leading `=`, `+`, `-` or `@` as a formula; the consent export already guards its cells with `_cell` (`services/consents.py`), and the report CSVs need the same.
 
 **Depends on:** Nothing
 
@@ -1961,8 +1960,8 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 
 **Where to test**
 
-* **Local:** `make up migrate`, the core seed above, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
+- **Local:** `make up migrate`, the core seed above, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](http://localhost:8700) and mobile in the iOS simulator.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
 
 **QA steps**
 
@@ -1979,9 +1978,9 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 
 **Automated by**
 
-* `FIN-RETURN-03 (filings)`
-* `FIN-RETURN-13 (filings)`
-* `NATIVE-RETURN-01 (native-ios, native-android)`
+- `FIN-RETURN-03 (filings)`
+- `FIN-RETURN-13 (filings)`
+- `NATIVE-RETURN-01 (native-ios, native-android)`
 
 **Depends on:** Nothing
 
@@ -1992,8 +1991,8 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile worker`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile worker`. Open web at [http://localhost:8700](http://localhost:8700) and mobile in the iOS simulator. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first.
 
 **QA steps**
 
@@ -2016,18 +2015,18 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 
 **By hand only**
 
-* A real bank deposit arriving.
+- A real bank deposit arriving.
 
 **Automated by**
 
-* `STR-E01 (stripe)`
-* `STR-E12 (stripe)`
-* `FLOW-10-A (journeys)`
-* `web: payouts.e2e.ts › payout contents paginate and clear when switching to a manual payout`
-* `web: payouts.e2e.ts › payout history reaches older pages and returns to the newest page`
-* `STR-E25 (stripe)`
-* `STR-E08 (stripe)`
-* `NATIVE-PAY-04 (stripe-native)`
+- `STR-E01 (stripe)`
+- `STR-E12 (stripe)`
+- `FLOW-10-A (journeys)`
+- `web: payouts.e2e.ts › payout contents paginate and clear when switching to a manual payout`
+- `web: payouts.e2e.ts › payout history reaches older pages and returns to the newest page`
+- `STR-E25 (stripe)`
+- `STR-E08 (stripe)`
+- `NATIVE-PAY-04 (stripe-native)`
 
 **Depends on:** Nothing
 
@@ -2038,8 +2037,8 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](http://localhost:8700) and mobile in the iOS simulator.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android.
 
 **QA steps**
 
@@ -2062,19 +2061,19 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 
 **By hand only**
 
-* iPad layout of Staff pay (doc CLI-44 to do).
+- iPad layout of Staff pay (doc CLI-44 to do).
 
 **Automated by**
 
-* `PAY-E2E-01 (web)`
-* `PAY-E2E-02 (web)`
-* `PAY-E2E-03 (web)`
-* `mobile: earnings.yaml (walk, unregistered)`
+- `PAY-E2E-01 (web)`
+- `PAY-E2E-02 (web)`
+- `PAY-E2E-03 (web)`
+- `mobile: earnings.yaml (walk, unregistered)`
 
 **To automate**
 
-* `PAY-E2E-05` in `apps/web/e2e/earnings.e2e.ts`: Rate matrix (percent, fixed per visit, hourly, retail) and a pay-through-date cut-off.
-* `PAY-E2E-06` in `apps/web/e2e/earnings.e2e.ts`: T4A after pay, undo and repay, owner left out.
+- `PAY-E2E-05` in `apps/web/e2e/earnings.e2e.ts`: Rate matrix (percent, fixed per visit, hourly, retail) and a pay-through-date cut-off.
+- `PAY-E2E-06` in `apps/web/e2e/earnings.e2e.ts`: T4A after pay, undo and repay, owner left out.
 
 **Depends on:** Nothing
 
@@ -2093,8 +2092,8 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator. Texts land in Mailpit at [http://localhost:8715](<http://localhost:8715>).
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Texts to demo clients show as sent and go nowhere; for real texts, assign the business a staging Twilio number in the admin console.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](http://localhost:8700) and mobile in the iOS simulator. Texts land in Mailpit at [http://localhost:8715](http://localhost:8715).
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Texts to demo clients show as sent and go nowhere; for real texts, assign the business a staging Twilio number in the admin console.
 
 **QA steps**
 
@@ -2115,23 +2114,23 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **By hand only**
 
-* A real handset reply through Twilio and carrier delivery.
+- A real handset reply through Twilio and carrier delivery.
 
 **Automated by**
 
-* `MSG-E2E-01 (web)`
-* `MSG-E2E-02 (web)`
-* `MSG-E2E-03 (web)`
-* `MSG-E2E-10 (web)`
-* `MSG-E2E-11 (web)`
-* `MSG-E2E-13 (web)`
-* `mobile: messaging.yaml, messaging.navigation.yaml (walks, unregistered)`
+- `MSG-E2E-01 (web)`
+- `MSG-E2E-02 (web)`
+- `MSG-E2E-03 (web)`
+- `MSG-E2E-10 (web)`
+- `MSG-E2E-11 (web)`
+- `MSG-E2E-13 (web)`
+- `mobile: messaging.yaml, messaging.navigation.yaml (walks, unregistered)`
 
 **To automate**
 
-* `MSG-E2E-18` in `apps/web/e2e/messaging.e2e.ts`: First-thread contention from two devices.
-* `MSG-E2E-22` in `apps/web/e2e/previews.e2e.ts`: Previews for ready, departed, rescheduled, form, contract and review match the delivered text.
-* `MSG-E2E-23` in `apps/web/e2e/messaging.e2e.ts`: Delivery retry classification.
+- `MSG-E2E-18` in `apps/web/e2e/messaging.e2e.ts`: First-thread contention from two devices.
+- `MSG-E2E-22` in `apps/web/e2e/previews.e2e.ts`: Previews for ready, departed, rescheduled, form, contract and review match the delivered text.
+- `MSG-E2E-23` in `apps/web/e2e/messaging.e2e.ts`: Delivery retry classification.
 
 **Depends on:** Nothing
 
@@ -2142,8 +2141,8 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web`. Open web at [http://localhost:8700](<http://localhost:8700>). Texts land in Mailpit at [http://localhost:8715](<http://localhost:8715>).
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Texts to demo clients show as sent and go nowhere; for real texts, assign the business a staging Twilio number in the admin console.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web`. Open web at [http://localhost:8700](http://localhost:8700). Texts land in Mailpit at [http://localhost:8715](http://localhost:8715).
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Texts to demo clients show as sent and go nowhere; for real texts, assign the business a staging Twilio number in the admin console.
 
 **QA steps**
 
@@ -2162,11 +2161,11 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **Automated by**
 
-* `FLOW-06-A (journeys)`
-* `MSG-E2E-14 (journeys)`
-* `MSG-E2E-15 (journeys)`
-* `MSG-E2E-19 (web)`
-* `NATIVE-MSG-01 (native-ios, native-android)`
+- `FLOW-06-A (journeys)`
+- `MSG-E2E-14 (journeys)`
+- `MSG-E2E-15 (journeys)`
+- `MSG-E2E-19 (web)`
+- `NATIVE-MSG-01 (native-ios, native-android)`
 
 **Depends on:** Nothing
 
@@ -2177,8 +2176,8 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile worker`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator. Texts land in Mailpit at [http://localhost:8715](<http://localhost:8715>).
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Texts to demo clients show as sent and go nowhere; for real texts, assign the business a staging Twilio number in the admin console.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile worker`. Open web at [http://localhost:8700](http://localhost:8700) and mobile in the iOS simulator. Texts land in Mailpit at [http://localhost:8715](http://localhost:8715).
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Texts to demo clients show as sent and go nowhere; for real texts, assign the business a staging Twilio number in the admin console.
 
 **QA steps**
 
@@ -2197,13 +2196,13 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **Automated by**
 
-* `MSG-E2E-16 (web)`
-* `PLN-E2E-03 (web)`
+- `MSG-E2E-16 (web)`
+- `PLN-E2E-03 (web)`
 
 **To automate**
 
-* `MSG-E2E-20` in `apps/web/e2e/journeys/communication.journey.ts`: Broadcast to a tag skips STOP and no-offers clients; quiet hours hold.
-* `MSG-E2E-21` in `apps/web/e2e/journeys/communication.journey.ts`: Consent changes during fan-out.
+- `MSG-E2E-20` in `apps/web/e2e/journeys/communication.journey.ts`: Broadcast to a tag skips STOP and no-offers clients; quiet hours hold.
+- `MSG-E2E-21` in `apps/web/e2e/journeys/communication.journey.ts`: Consent changes during fan-out.
 
 **Depends on:** Nothing
 
@@ -2214,8 +2213,8 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect worker`. Open web at [http://localhost:8700](<http://localhost:8700>), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Texts land in Mailpit at [http://localhost:8715](<http://localhost:8715>).
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Texts to demo clients show as sent and go nowhere; for real texts, assign the business a staging Twilio number in the admin console.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect worker`. Open web at [http://localhost:8700](http://localhost:8700), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Texts land in Mailpit at [http://localhost:8715](http://localhost:8715).
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Texts to demo clients show as sent and go nowhere; for real texts, assign the business a staging Twilio number in the admin console.
 
 **QA steps**
 
@@ -2236,15 +2235,15 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **Automated by**
 
-* `DOC-E2E-01 (connect)`
-* `FLOW-05-B (journeys)`
-* `connect: publicForm.e2e.ts › a client starts a form and a contract`
-* `mobile: messaging.yaml (form editor walk, unregistered)`
+- `DOC-E2E-01 (connect)`
+- `FLOW-05-B (journeys)`
+- `connect: publicForm.e2e.ts › a client starts a form and a contract`
+- `mobile: messaging.yaml (form editor walk, unregistered)`
 
 **To automate**
 
-* `DOC-E2E-08` in `apps/connect/e2e/publicForm.e2e.ts`: Real file upload and the size and type matrix.
-* `DOC-E2E-09` in `apps/web/e2e/journeys/documents.journey.ts`: Intake job sends once to a new client.
+- `DOC-E2E-08` in `apps/connect/e2e/publicForm.e2e.ts`: Real file upload and the size and type matrix.
+- `DOC-E2E-09` in `apps/web/e2e/journeys/documents.journey.ts`: Intake job sends once to a new client.
 
 **Depends on:** Nothing
 
@@ -2255,8 +2254,8 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at [http://localhost:8700](<http://localhost:8700>), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Texts land in Mailpit at [http://localhost:8715](<http://localhost:8715>).
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Texts to demo clients show as sent and go nowhere; for real texts, assign the business a staging Twilio number in the admin console.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect`. Open web at [http://localhost:8700](http://localhost:8700), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Texts land in Mailpit at [http://localhost:8715](http://localhost:8715).
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Texts to demo clients show as sent and go nowhere; for real texts, assign the business a staging Twilio number in the admin console.
 
 **QA steps**
 
@@ -2275,19 +2274,19 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **By hand only**
 
-* Signed PDF output is not built.
+- Signed PDF output is not built.
 
 **Automated by**
 
-* `DOC-E2E-02 (connect)`
-* `DOC-E2E-03 (connect)`
-* `DOC-E2E-04 (connect)`
-* `DOC-E2E-05 (connect)`
-* `FLOW-05-A (journeys)`
+- `DOC-E2E-02 (connect)`
+- `DOC-E2E-03 (connect)`
+- `DOC-E2E-04 (connect)`
+- `DOC-E2E-05 (connect)`
+- `FLOW-05-A (journeys)`
 
 **To automate**
 
-* `DOC-E2E-10` in `apps/web/e2e/journeys/documents.journey.ts`: Contract create, publish and resend with a lost response.
+- `DOC-E2E-10` in `apps/web/e2e/journeys/documents.journey.ts`: Contract create, publish and resend with a lost response.
 
 **Depends on:** Nothing
 
@@ -2298,8 +2297,8 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile worker`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator. Texts land in Mailpit at [http://localhost:8715](<http://localhost:8715>).
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Texts to demo clients show as sent and go nowhere; for real texts, assign the business a staging Twilio number in the admin console. The Google review link waits on Business Profile API access.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile worker`. Open web at [http://localhost:8700](http://localhost:8700) and mobile in the iOS simulator. Texts land in Mailpit at [http://localhost:8715](http://localhost:8715).
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Texts to demo clients show as sent and go nowhere; for real texts, assign the business a staging Twilio number in the admin console. The Google review link waits on Business Profile API access.
 
 **QA steps**
 
@@ -2318,16 +2317,16 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **By hand only**
 
-* Real Google OAuth and replies, blocked on Business Profile API approval.
+- Real Google OAuth and replies, blocked on Business Profile API approval.
 
 **Automated by**
 
-* `web: shell.e2e.ts › Google Reviews distinguishes unavailable, unlinked and empty profiles`
+- `web: shell.e2e.ts › Google Reviews distinguishes unavailable, unlinked and empty profiles`
 
 **To automate**
 
-* `REV-E2E-01` in `apps/web/e2e/reviews.e2e.ts`: Manual invitation, duplicate booking refused, history.
-* `REV-E2E-02` in `apps/web/e2e/reviews.e2e.ts`: Connect and select a profile against a recording Google fake.
+- `REV-E2E-01` in `apps/web/e2e/reviews.e2e.ts`: Manual invitation, duplicate booking refused, history.
+- `REV-E2E-02` in `apps/web/e2e/reviews.e2e.ts`: Connect and select a profile against a recording Google fake.
 
 **Depends on:** Nothing
 
@@ -2346,8 +2345,8 @@ Staff run their day on any phone, tablet or browser tab, online or not, and ever
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make up-app` for the production web build with its service worker at [http://localhost:8751](<http://localhost:8751>). Mobile needs a release build.
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and the staging app.
+- **Local:** `make up migrate seed`, then `make up-app` for the production web build with its service worker at [http://localhost:8751](http://localhost:8751). Mobile needs a release build.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca) and the staging app.
 
 **QA steps**
 
@@ -2366,23 +2365,23 @@ Staff run their day on any phone, tablet or browser tab, online or not, and ever
 
 **By hand only**
 
-* Airplane mode on a real phone (the lane cuts services instead).
+- Airplane mode on a real phone (the lane cuts services instead).
 
 **Automated by**
 
-* `OFF-E2E-01 (web)`
-* `OFF-E2E-04 (web)`
-* `XB-E2E-05 (web)`
-* `FLOW-09-A (journeys)`
-* `NATIVE-IOS-02 (native-ios, native-android)`
-* `SYN-E2E-27 (sync)`
+- `OFF-E2E-01 (web)`
+- `OFF-E2E-04 (web)`
+- `XB-E2E-05 (web)`
+- `FLOW-09-A (journeys)`
+- `NATIVE-IOS-02 (native-ios, native-android)`
+- `SYN-E2E-27 (sync)`
 
 **To automate**
 
-* `NATIVE-OFF-01` in `apps/mobile/e2e/offline.hours.yaml`: Edit hours offline on the phone and see them reach web after reconnect (register the flow).
-* `OFF-E2E-05` in `apps/web/e2e/offline.e2e.ts`: A browser closed mid-write, with no clean shutdown, reopens with its outbox intact and sends it once.
-* `NATIVE-OFF-02` in `apps/mobile/e2e/offline.yaml`: On iOS, the replica is ready right after the first sync; today it isn't in most runs, so the flow waits.
-* `XB-E2E-05` and `OFF-E2E-01` in WebKit: both run in Chromium and Firefox, and WebKit leaves them out (`@no-webkit`) because Playwright's WebKit can't load a service-worker page offline. Lift the exclusion once it can.
+- `NATIVE-OFF-01` in `apps/mobile/e2e/offline.hours.yaml`: Edit hours offline on the phone and see them reach web after reconnect (register the flow).
+- `OFF-E2E-05` in `apps/web/e2e/offline.e2e.ts`: A browser closed mid-write, with no clean shutdown, reopens with its outbox intact and sends it once.
+- `NATIVE-OFF-02` in `apps/mobile/e2e/offline.yaml`: On iOS, the replica is ready right after the first sync; today it isn't in most runs, so the flow waits.
+- `XB-E2E-05` and `OFF-E2E-01` in WebKit: both run in Chromium and Firefox, and WebKit leaves them out (`@no-webkit`) because Playwright's WebKit can't load a service-worker page offline. Lift the exclusion once it can.
 
 **Depends on:** Nothing
 
@@ -2393,8 +2392,8 @@ Staff run their day on any phone, tablet or browser tab, online or not, and ever
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web`. Open web at [http://localhost:8700](<http://localhost:8700>).
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web`. Open web at [http://localhost:8700](http://localhost:8700).
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins.
 
 **QA steps**
 
@@ -2415,24 +2414,24 @@ Staff run their day on any phone, tablet or browser tab, online or not, and ever
 
 **By hand only**
 
-* Sync health and the debug panel are read by eye.
+- Sync health and the debug panel are read by eye.
 
 **Automated by**
 
-* `SYN-E2E-20 (sync)`
-* `SYN-E2E-21 (sync)`
-* `SYN-E2E-22 (sync)`
-* `SYN-E2E-23 (sync)`
-* `SYN-E2E-26 (sync)`
-* `SYN-E2E-28 (sync)`
-* `SYN-E2E-29 (sync)`
-* `SYN-E2E-31 (sync)`
-* `SYN-E2E-32 (sync)`
-* `SYN-E2E-33 (sync)`
-* `XB-E2E-17 (web)`
-* `XB-E2E-20 (web)`
-* `XB-E2E-21 (web)`
-* `sync: lifecycle.e2e.ts and storage.e2e.ts (unregistered tests)`
+- `SYN-E2E-20 (sync)`
+- `SYN-E2E-21 (sync)`
+- `SYN-E2E-22 (sync)`
+- `SYN-E2E-23 (sync)`
+- `SYN-E2E-26 (sync)`
+- `SYN-E2E-28 (sync)`
+- `SYN-E2E-29 (sync)`
+- `SYN-E2E-31 (sync)`
+- `SYN-E2E-32 (sync)`
+- `SYN-E2E-33 (sync)`
+- `XB-E2E-17 (web)`
+- `XB-E2E-20 (web)`
+- `XB-E2E-21 (web)`
+- `sync: lifecycle.e2e.ts and storage.e2e.ts (unregistered tests)`
 
 **Depends on:** Nothing
 
@@ -2443,8 +2442,8 @@ Staff run their day on any phone, tablet or browser tab, online or not, and ever
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-connect dev-mobile`, with a development build on a real phone, since the simulator gets no push. The web feed is at [http://localhost:8700](<http://localhost:8700>).
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>) and the staging app on real phones.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-connect dev-mobile`, with a development build on a real phone, since the simulator gets no push. The web feed is at [http://localhost:8700](http://localhost:8700).
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca) and the staging app on real phones.
 
 **QA steps**
 
@@ -2459,16 +2458,16 @@ Staff run their day on any phone, tablet or browser tab, online or not, and ever
 
 **By hand only**
 
-* Real APNs and FCM delivery with production credentials.
+- Real APNs and FCM delivery with production credentials.
 
 **Automated by**
 
-* `NATIVE-IOS-03 (native-ios)`
+- `NATIVE-IOS-03 (native-ios)`
 
 **To automate**
 
-* `NATIVE-PUSH-01` in `apps/mobile/e2e/notifications.yaml`: Run the push tap flow on Android too.
-* A backend test in `tests/test_notifications_push.py` after the fix: a token Expo reports as `DeviceNotRegistered` is retired after one send. `ExpoPushSender.send` (`integrations/expo.py`) posts every token in one request and only checks the HTTP status today, so it needs to send in Expo's batches of 100, read the push tickets and receipts, and retire dead tokens.
+- `NATIVE-PUSH-01` in `apps/mobile/e2e/notifications.yaml`: Run the push tap flow on Android too.
+- A backend test in `tests/test_notifications_push.py` after the fix: a token Expo reports as `DeviceNotRegistered` is retired after one send. `ExpoPushSender.send` (`integrations/expo.py`) posts every token in one request and only checks the HTTP status today, so it needs to send in Expo's batches of 100, read the push tickets and receipts, and retire dead tokens.
 
 **Depends on:** Nothing
 
@@ -2479,8 +2478,8 @@ Staff run their day on any phone, tablet or browser tab, online or not, and ever
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-mobile` on iPhone, Android and iPad simulators. Screen readers need real devices.
-* **Staging:** The staging app on real phones and an iPad, with VoiceOver and TalkBack.
+- **Local:** `make up migrate seed`, then `make dev-api dev-mobile` on iPhone, Android and iPad simulators. Screen readers need real devices.
+- **Staging:** The staging app on real phones and an iPad, with VoiceOver and TalkBack.
 
 **QA steps**
 
@@ -2497,19 +2496,19 @@ Staff run their day on any phone, tablet or browser tab, online or not, and ever
 
 **By hand only**
 
-* iPad layout review.
-* Screen-reader pass with VoiceOver and TalkBack.
-* iOS native runs are local only.
+- iPad layout review.
+- Screen-reader pass with VoiceOver and TalkBack.
+- iOS native runs are local only.
 
 **Automated by**
 
-* `NATIVE-CRM-01 (native-ios, native-android)`
-* `NATIVE-IOS-01 (native-ios, native-android)`
-* `mobile: today.yaml, setup.yaml, payments.yaml, messaging.yaml, clients.record.yaml, staff.yaml, billing.yaml, earnings.yaml (walks, unregistered)`
+- `NATIVE-CRM-01 (native-ios, native-android)`
+- `NATIVE-IOS-01 (native-ios, native-android)`
+- `mobile: today.yaml, setup.yaml, payments.yaml, messaging.yaml, clients.record.yaml, staff.yaml, billing.yaml, earnings.yaml (walks, unregistered)`
 
 **To automate**
 
-* `NATIVE-CRM-02` in `apps/mobile/e2e/clients.record.yaml`: Fix and fold `regressions/client-editor.yaml` into the default suite.
+- `NATIVE-CRM-02` in `apps/mobile/e2e/clients.record.yaml`: Fix and fold `regressions/client-editor.yaml` into the default suite.
 
 **Depends on:** Nothing
 
@@ -2528,8 +2527,8 @@ The surfaces around the product: the platform admin console, the marketing site 
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make configure-demo-admin`, restart `make dev-api` and run `make dev-admin`. Open [http://localhost:8711](<http://localhost:8711>) as hannah@birchbark.example.
-* **Staging:** [https://admin.staging.clientbridge.ca](<https://admin.staging.clientbridge.ca>) as naib@clientbridge.ca or raul@clientbridge.ca, the staging stack's platform admins. To add one, see Platform admins in the operations doc.
+- **Local:** `make up migrate seed`, then `make configure-demo-admin`, restart `make dev-api` and run `make dev-admin`. Open [http://localhost:8711](http://localhost:8711) as hannah@birchbark.example.
+- **Staging:** [https://admin.staging.clientbridge.ca](https://admin.staging.clientbridge.ca) as naib@clientbridge.ca or raul@clientbridge.ca, the staging stack's platform admins. To add one, see Platform admins in the operations doc.
 
 **QA steps**
 
@@ -2550,15 +2549,15 @@ The surfaces around the product: the platform admin console, the marketing site 
 
 **Automated by**
 
-* `OPS-E2E-01 (web)`
-* `OPS-E2E-02 (web)`
-* `OPS-E2E-03 (web)`
-* `FLOW-10-A (journeys)`
+- `OPS-E2E-01 (web)`
+- `OPS-E2E-02 (web)`
+- `OPS-E2E-03 (web)`
+- `FLOW-10-A (journeys)`
 
 **To automate**
 
-* `OPS-E2E-08` in `apps/web/e2e/admin.e2e.ts`: SMS number assignment and retirement.
-* `OPS-E2E-09` in `apps/web/e2e/admin.e2e.ts`: Drift acknowledge and email sample replay.
+- `OPS-E2E-08` in `apps/web/e2e/admin.e2e.ts`: SMS number assignment and retirement.
+- `OPS-E2E-09` in `apps/web/e2e/admin.e2e.ts`: Drift acknowledge and email sample replay.
 
 **Depends on:** Nothing
 
@@ -2569,8 +2568,8 @@ The surfaces around the product: the platform admin console, the marketing site 
 
 **Where to test**
 
-* **Local:** `make dev-site` at [http://localhost:8710](<http://localhost:8710>), and `make build-site` for the static build.
-* **Staging:** [https://staging.clientbridge.ca](<https://staging.clientbridge.ca>), which robots.txt keeps out of search.
+- **Local:** `make dev-site` at [http://localhost:8710](http://localhost:8710), and `make build-site` for the static build.
+- **Staging:** [https://staging.clientbridge.ca](https://staging.clientbridge.ca), which robots.txt keeps out of search.
 
 **QA steps**
 
@@ -2589,18 +2588,18 @@ The surfaces around the product: the platform admin console, the marketing site 
 
 **By hand only**
 
-* Legal review of the privacy policy and terms.
-* Claim-by-claim review against the product.
+- Legal review of the privacy policy and terms.
+- Claim-by-claim review against the product.
 
 **Automated by**
 
-* `OPS-E2E-04 (connect)`
-* `OPS-E2E-05 (connect)`
-* `site CI: content, link, accessibility and Lighthouse checks (`make test-site`)`
+- `OPS-E2E-04 (connect)`
+- `OPS-E2E-05 (connect)`
+- `site CI: content, link, accessibility and Lighthouse checks (`make test-site`)`
 
 **To automate**
 
-* `OPS-E2E-10` in `apps/connect/e2e/site.e2e.ts`: Start free and Sign in links reach `/signup` and the app.
+- `OPS-E2E-10` in `apps/connect/e2e/site.e2e.ts`: Start free and Sign in links reach `/signup` and the app.
 
 **Depends on:** Nothing
 
@@ -2611,8 +2610,8 @@ The surfaces around the product: the platform admin console, the marketing site 
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](<http://localhost:8700>) and mobile in the iOS simulator. Email lands in Mailpit at [http://localhost:8715](<http://localhost:8715>).
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android, then the store builds once they exist. Mail to the demo's `.example` addresses isn't sent, so use an address you can read.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](http://localhost:8700) and mobile in the iOS simulator. Email lands in Mailpit at [http://localhost:8715](http://localhost:8715).
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android, then the store builds once they exist. Mail to the demo's `.example` addresses isn't sent, so use an address you can read.
 
 **QA steps**
 
@@ -2639,15 +2638,15 @@ The surfaces around the product: the platform admin console, the marketing site 
 
 **By hand only**
 
-* Store review, the store accounts and listings, and Sign in with Apple, which needs a real Apple ID.
+- Store review, the store accounts and listings, and Sign in with Apple, which needs a real Apple ID.
 
 **Automated by**
 
-* No e2e case yet
+- No e2e case yet
 
 **To automate**
 
-* `NATIVE-AUTH-04` in `apps/mobile/e2e/auth.delete.yaml`: Delete an account from the app and check it can no longer sign in.
+- `NATIVE-AUTH-04` in `apps/mobile/e2e/auth.delete.yaml`: Delete an account from the app and check it can no longer sign in.
 
 **Depends on:** Nothing
 
@@ -2658,8 +2657,8 @@ The surfaces around the product: the platform admin console, the marketing site 
 
 **Where to test**
 
-* **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect worker`. Open web at [http://localhost:8700](<http://localhost:8700>), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Texts and email land in Mailpit at [http://localhost:8715](<http://localhost:8715>).
-* **Staging:** [https://app.staging.clientbridge.ca](<https://app.staging.clientbridge.ca>), the Connect pages on `staging.clientbridge.ca` and the staging app. Texts to demo clients show as sent and go nowhere; for real texts, assign the business a staging Twilio number in the admin console.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile dev-connect worker`. Open web at [http://localhost:8700](http://localhost:8700), mobile in the iOS simulator and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`. Texts and email land in Mailpit at [http://localhost:8715](http://localhost:8715).
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), the Connect pages on `staging.clientbridge.ca` and the staging app. Texts to demo clients show as sent and go nowhere; for real texts, assign the business a staging Twilio number in the admin console.
 
 **QA steps**
 
@@ -2678,11 +2677,11 @@ The surfaces around the product: the platform admin console, the marketing site 
 
 **By hand only**
 
-* The whole day is run by a person.
+- The whole day is run by a person.
 
 **Automated by**
 
-* No e2e case yet
+- No e2e case yet
 
 **Depends on:** Nothing
 

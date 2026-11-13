@@ -8678,6 +8678,11 @@
     "staff.team.removeScheduleNote": {
         "message": "A class schedule moves with every session left. The member you choose needs to teach the class and be free for all of them."
     },
+    "staff.team.removeUnderway": {
+        "message": "{count, plural, one {Their visit under way now stays with them until it ends, and it leaves the day's schedule once they're removed.} other {Their # visits under way now stay with them until they end, and they leave the day's schedule once they're removed.}}",
+        "description": "Removal dialog: visits that have already started aren't moved, and drop off the schedule",
+        "args": ["count"]
+    },
     "staff.team.removeScheduleClash": {
         "message": "The member you chose isn't free for {name} on {day}. Choose someone else, or cancel the sessions.",
         "description": "Refusing a removal: the member chosen to take a class schedule is busy or off on that day",
@@ -8685,6 +8690,16 @@
     },
     "staff.team.removeScheduleBusy": {
         "message": "No member is free for every session of {name}. Choose someone else, or cancel the sessions.",
+        "args": ["name"]
+    },
+    "staff.team.removeScheduleNoTeacher": {
+        "message": "No other member teaches {name}. Add a teacher to the class, or cancel the sessions.",
+        "description": "Refusing a removal with any available member chosen: nobody else teaches the class schedule",
+        "args": ["name"]
+    },
+    "staff.team.removeScheduleTakerBusy": {
+        "message": "The member you chose isn't free for every session of {name}. Choose someone else, or cancel the sessions.",
+        "description": "Refusing a removal: the member chosen to take a class schedule is busy on a day the refusal didn't name",
         "args": ["name"]
     },
     "staff.team.removeScheduleNotTaught": {
@@ -8698,7 +8713,7 @@
         "message": "Move to another member"
     },
     "staff.team.removeReassignHint": {
-        "message": "Clients are told who they'll see. A visit nobody is free for stays on the calendar and is listed."
+        "message": "Clients are told who they'll see. If no member can take a visit, nobody is removed and the visit is marked."
     },
     "staff.team.removeCancel": {
         "message": "Cancel them"
@@ -8718,15 +8733,43 @@
     "staff.team.removeStateCancel": {
         "message": "Cancels"
     },
-    "staff.team.removeLeftState": {
-        "message": "Not moved"
+    "staff.team.removeUnplacedState": {
+        "message": "Not moved",
+        "description": "A visit no member can take, which stopped the removal"
+    },
+    "staff.team.removeUnplaced": {
+        "message": "{count, plural, one {No member can take # visit, now at the top of the list. Move it on the schedule, choose someone else, or cancel the visits.} other {No member can take # visits, now at the top of the list. Move them on the schedule, choose someone else, or cancel the visits.}}",
+        "description": "Refusing a removal: some visits have no member who offers the service and is free then",
+        "args": ["count"]
+    },
+    "staff.team.removeNoneOffers": {
+        "message": "No other member offers this service",
+        "description": "Why a visit can't move when any available member is chosen"
+    },
+    "staff.team.removeNoneFree": {
+        "message": "Nobody who offers it is free then",
+        "description": "Why a visit can't move when any available member is chosen"
+    },
+    "staff.team.removeTakerNotOffered": {
+        "message": "The member you chose doesn't offer this service",
+        "description": "Why a visit can't move to the member chosen to take it"
+    },
+    "staff.team.removeTakerBusy": {
+        "message": "The member you chose isn't free then",
+        "description": "Why a visit can't move to the member chosen to take it"
     },
     "staff.team.removedTitle": {
         "message": "{name} was removed",
         "args": ["name"]
     },
-    "staff.team.removeLeftBody": {
-        "message": "{count, plural, one {# visit had no free member, so it stays on the calendar. Move it from the schedule.} other {# visits had no free member, so they stay on the calendar. Move them from the schedule.}}",
+    "staff.team.removedMoved": {
+        "message": "{count, plural, one {# visit moved. If its client takes texts, they'll get one saying who they'll see.} other {# visits moved. Clients who take texts will get one saying who they'll see.}}",
+        "description": "Summary after removing a member: how many of their visits went to other members",
+        "args": ["count"]
+    },
+    "staff.team.removedCanceled": {
+        "message": "{count, plural, one {# visit was canceled. If its client takes texts, they'll get one saying so.} other {# visits were canceled. Clients who take texts will get one saying so.}}",
+        "description": "Summary after removing a member: how many of their visits were canceled",
         "args": ["count"]
     },
     "staff.team.removedSeriesMoved": {

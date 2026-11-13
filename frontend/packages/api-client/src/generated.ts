@@ -6954,20 +6954,6 @@ export interface components {
             /** Resource Ids */
             resource_ids?: string[] | null;
         };
-        /** LeftVisit */
-        LeftVisit: {
-            /** Booking Id */
-            booking_id: string;
-            /**
-             * Starts At
-             * Format: date-time
-             */
-            starts_at: string;
-            /** Problem */
-            problem: ("past" | "closed" | "time_off" | "off_hours" | "overlap" | "class" | "not_offered" | "crew" | "resource") | null;
-            /** Message */
-            message: string | null;
-        };
         /** LineInput */
         LineInput: {
             /** Description */
@@ -10041,11 +10027,6 @@ export interface components {
             moved: string[];
             /** Canceled */
             canceled: string[];
-            /**
-             * Left
-             * @description Visits no member could take, left in place
-             */
-            left: components["schemas"]["LeftVisit"][];
             /** Series Moved */
             series_moved: components["schemas"]["MovedSeries"][];
             /** Series Ended */

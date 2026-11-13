@@ -25,7 +25,7 @@ export function SheetHeader({
                 ) : null}
             </View>
             <View style={styles.text}>
-                <Text style={styles.title} accessibilityRole="header" numberOfLines={1}>
+                <Text style={styles.title} accessibilityRole="header" numberOfLines={2}>
                     {title}
                 </Text>
                 {subtitle !== undefined ? (
@@ -56,6 +56,7 @@ const styles = StyleSheet.create({
         fontFamily: theme.fonts.display,
         fontSize: theme.type.section,
         fontWeight: "700",
+        textAlign: "center",
     },
     subtitle: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 12, marginTop: 1 },
 });

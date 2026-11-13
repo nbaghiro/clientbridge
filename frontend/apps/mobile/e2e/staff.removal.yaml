@@ -1,0 +1,69 @@
+appId: ${APP_ID}
+name: NATIVE-TEAM-04 The owner removes a member from the phone, their visit moves to an available member, and the summary says so
+onFlowComplete:
+    - runScript:
+          file: helpers/team.js
+          env:
+              ACTION: forget
+---
+- runFlow: helpers/owner.yaml
+- runScript:
+      file: helpers/team.js
+      env:
+          ACTION: join
+          SURNAME: Leaving
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/items
+          BODY: "${JSON.stringify({ kind: 'service', name: 'Removal trim ' + String(Date.now()).slice(-5), duration_min: 30, price_cents: 3000, deposit_type: 'none', online_bookable: false })}"
+- evalScript: ${output.itemId = output.response.id}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/clients
+          BODY: "${JSON.stringify({ name: 'Removal ' + String(Date.now()).slice(-5) })}"
+          KEY: ${'client-' + String(Date.now())}
+- evalScript: ${output.clientId = output.response.id}
+- runScript:
+      file: helpers/book-next-week.js
+      env:
+          BODY: "${JSON.stringify({ client_id: output.clientId, item_id: output.itemId, staff_id: output.member.id })}"
+- tapOn: "Setup"
+- tapOn: "Team & hours"
+- extendedWaitUntil:
+      visible: "Rowan Leaving, Staff"
+      timeout: 60000
+- scrollUntilVisible:
+      element: "Rowan Leaving, Staff"
+      direction: DOWN
+- tapOn: "Rowan Leaving, Staff"
+- scrollUntilVisible:
+      element: "Remove from team"
+      direction: DOWN
+- tapOn: "Remove from team"
+# the sheet counts the visit once the phone's replica has it
+- extendedWaitUntil:
+      visible: ".*They have 1 upcoming visit\\..*"
+      timeout: 60000
+# Android reads a filled Select with its label, as "Move visits to, Any available member"
+- assertVisible: ".*Any available member.*"
+- takeScreenshot: removal-sheet
+- scrollUntilVisible:
+      element:
+          text: "Remove"
+      direction: DOWN
+- tapOn:
+      text: "Remove"
+- extendedWaitUntil:
+      visible: "Rowan Leaving was removed"
+      timeout: 30000
+- assertVisible: "1 visit moved. If its client takes texts, they'll get one saying who they'll see."
+- takeScreenshot: removal-summary
+- tapOn: "Done"
+- extendedWaitUntil:
+      notVisible: "Rowan Leaving, Staff"
+      timeout: 30000
+- assertVisible: "Team & hours"
