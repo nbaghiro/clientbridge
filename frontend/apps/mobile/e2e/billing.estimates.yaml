@@ -98,6 +98,10 @@ name: NATIVE-BILL-02 An estimate written on the phone keeps its optional add-on,
 # the toy's $18.00 carries 5% GST and 7% PST: $47.25 + $20.16
 - assertTrue: ${output.estimate.status == "accepted" && output.estimate.total_cents == 6741}
 - tapOn: "Done"
+# an upcoming booking in Up next pushes Today's Invoices link below a phone-height screen's fold
+- scrollUntilVisible:
+      element: "Invoices"
+      direction: DOWN
 - tapOn: "Invoices"
 - tapOn: "Estimates"
 - extendedWaitUntil:
