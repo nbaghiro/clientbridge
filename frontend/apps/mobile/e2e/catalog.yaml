@@ -49,34 +49,53 @@ name: NATIVE-CFG-04 A service set up on the phone with a room, clean-up, deposit
 - extendedWaitUntil:
       visible: "New service"
       timeout: 20000
-# the buffers sit in view as the editor opens; scrolling to them centres them under the sheet's header
-- tapOn:
-      text: "Clean-up after \\(min\\)"
-      index: 1
-- eraseText
-- inputText: "10"
+# on iOS the buffers sit in view as the editor opens, and scrolling to them centres them under the sheet's header
 - runFlow:
       when:
           platform: iOS
-          visible: "Done"
       commands:
-          - tapOn: "Done"
+          - tapOn:
+                text: "Clean-up after \\(min\\)"
+                index: 1
+          - eraseText
+          - inputText: "10"
+          - runFlow:
+                when:
+                    visible: "Done"
+                commands:
+                    - tapOn: "Done"
+- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Name", VALUE: "${output.groom}" } }
+- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Price", VALUE: "80" } }
+- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Duration \\(min\\)", VALUE: "60" } }
+# Android's shorter screen opens the editor above the buffers, so the clean-up is scrolled to here
 - runFlow:
       when:
           platform: Android
       commands:
+          - scrollUntilVisible:
+                element:
+                    text: "Clean-up after \\(min\\)"
+                    index: 1
+                direction: DOWN
+                centerElement: true
+          - tapOn:
+                text: "Clean-up after \\(min\\)"
+                index: 1
+          - eraseText
+          - inputText: "10"
           - pressKey: Enter
-- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Name", VALUE: "${output.groom}" } }
-- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Price", VALUE: "80" } }
-- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Duration \\(min\\)", VALUE: "60" } }
 - scrollUntilVisible:
       element: "Blocks 70 min: 60 min with the client, 10 min clean-up.*"
       direction: DOWN
 - scrollUntilVisible:
-      element: "Diego Ramirez"
+      element: "Hannah Wong"
       direction: DOWN
       centerElement: true
 - tapOn: "Hannah Wong"
+- scrollUntilVisible:
+      element: "Diego Ramirez"
+      direction: DOWN
+      centerElement: true
 - tapOn: "Diego Ramirez"
 - scrollUntilVisible:
       element: ${output.room}
