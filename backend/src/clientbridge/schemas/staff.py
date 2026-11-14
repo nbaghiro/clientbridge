@@ -150,11 +150,12 @@ class FutureWork(BaseModel):
     series: list[str]
 
 
-class LeftVisit(BaseModel):
+class UnplacedVisit(BaseModel):
+    """A visit no member could take, which refuses a reassigning removal."""
+
     booking_id: str
     starts_at: datetime
     problem: Problem | None
-    message: str | None
 
 
 class MovedSeries(BaseModel):
@@ -165,6 +166,5 @@ class MovedSeries(BaseModel):
 class StaffRemoveOut(BaseModel):
     moved: list[str]
     canceled: list[str]
-    left: list[LeftVisit] = Field(description="Visits no member could take, left in place")
     series_moved: list[MovedSeries]
     series_ended: list[str]

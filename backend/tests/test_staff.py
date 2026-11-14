@@ -87,13 +87,18 @@ async def test_foreign_staff_pay_404_by_scoping(
 
 
 def _joiner(
-    identities: FakeIdentityProvider, address: str, *, verified: bool = True
+    identities: FakeIdentityProvider,
+    address: str,
+    *,
+    verified: bool = True,
+    also_verified: str | None = None,
 ) -> dict[str, str]:
     """Session headers for someone who signed up with `address` and has no team yet."""
+    addresses = {address.casefold()} if verified else set[str]()
     identity = Identity(
         id=str(uuid4()),
         email=address,
-        verified_emails=frozenset({address.casefold()}) if verified else frozenset(),
+        verified_emails=frozenset(addresses | ({also_verified} if also_verified else set())),
         name="Joiner",
         session_id=str(uuid4()),
         second_factor=False,
@@ -189,7 +194,10 @@ async def test_double_accept_409(
     first = await as_owner.post("/v1/staff/invites/accept", json=body, headers=headers)
     assert first.status_code == 200
     second = await as_owner.post("/v1/staff/invites/accept", json=body, headers=headers)
-    assert second.status_code == 409
+    assert second.status_code == 409 and second.json()["error"] == "already_member"
+    other = _joiner(identities, "dbl-other@test.ca", also_verified="dbl@test.ca")
+    third = await as_owner.post("/v1/staff/invites/accept", json=body, headers=other)
+    assert third.status_code == 409 and third.json()["error"] == "invite_accepted"
 
 
 async def test_accept_by_a_current_member_409(

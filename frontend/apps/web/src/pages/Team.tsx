@@ -18,6 +18,7 @@ import {
     useInviteTeammatesForm,
     usePeoplePhotos,
     useStaffPay,
+    useOpenMember,
     useRemoveMember,
     useOwedPay,
     useStaffPayForm,
@@ -283,18 +284,20 @@ function RemoveDialog({
     member,
     team,
     onClose,
+    onRemoving,
     onRemoved,
 }: {
     member: TeamMember;
     team: TeamView;
     onClose: () => void;
+    onRemoving: (removing: boolean) => void;
     onRemoved: () => void;
 }) {
     const finish = () => {
         team.refresh();
         onRemoved();
     };
-    const removal = useRemoveMember(api, member, team.members, finish);
+    const removal = useRemoveMember(api, member, team.members, finish, onRemoving);
     const owed = useOwedPay(member.id);
     const outcome = removal.outcome;
     if (outcome !== null) {
@@ -309,9 +312,6 @@ function RemoveDialog({
                     </div>
                     {outcome.series.length > 0 ? (
                         <FactList facts={outcome.series} label={t.removedSeries} />
-                    ) : null}
-                    {outcome.left.length > 0 ? (
-                        <OccurrenceList rows={outcome.left} label={t.removeFuture} />
                     ) : null}
                     <div className="flex justify-end">
                         <Button onPress={finish}>{strings.common.done}</Button>
@@ -366,6 +366,11 @@ function RemoveDialog({
                         ) : null}
                     </>
                 ) : null}
+                {removal.underwayNote !== null ? (
+                    <Notice tone="info" banner>
+                        {removal.underwayNote}
+                    </Notice>
+                ) : null}
                 {owed !== null ? (
                     <Notice tone="info" banner>
                         {owed}
@@ -394,11 +399,13 @@ function MemberDetail({
     team,
     pay,
     onClose,
+    onRemoving,
 }: {
     member: TeamMember;
     team: TeamView;
     pay: StaffPayRow | undefined;
     onClose: () => void;
+    onRemoving: (removing: boolean) => void;
 }) {
     const photos = usePeoplePhotos();
     const [role, setRole] = useState<MemberRole>(member.role);
@@ -492,6 +499,7 @@ function MemberDetail({
                     onClose={() => {
                         setRemoving(false);
                     }}
+                    onRemoving={onRemoving}
                     onRemoved={onClose}
                 />
             ) : null}
@@ -604,8 +612,7 @@ export function Team() {
     const invite = useInviteTeammatesForm(api, team);
     const seatCost = useSeatCost(api, viewer?.role ?? null);
     const [inviting, setInviting] = useState(false);
-    const [openId, setOpenId] = useState<string | null>(null);
-    const open = team.members.find((m) => m.id === openId);
+    const { open, setOpen, keepOpen } = useOpenMember(team.members);
 
     return (
         <div className="space-y-6">
@@ -648,7 +655,7 @@ export function Team() {
                             rows={team.members}
                             rowKey={(m) => m.id}
                             onRowPress={(m) => {
-                                setOpenId(m.id);
+                                setOpen(m.id);
                             }}
                             empty={strings.staff.noMembers}
                             renderRow={(m) => (
@@ -731,11 +738,12 @@ export function Team() {
             {open !== undefined ? (
                 <MemberDetail
                     key={open.id}
+                    onRemoving={keepOpen}
                     member={open}
                     team={team}
                     pay={pay.find((p) => p.id === open.id)}
                     onClose={() => {
-                        setOpenId(null);
+                        setOpen(null);
                     }}
                 />
             ) : null}

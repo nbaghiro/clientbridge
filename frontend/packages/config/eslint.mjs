@@ -52,6 +52,7 @@ const MAESTRO_GLOBALS = {
         "PREFIX",
         "STAFF_ID",
         "NAME",
+        "SURNAME",
     ]),
     output: "writable",
 };

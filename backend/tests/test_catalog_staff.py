@@ -255,20 +255,19 @@ async def test_removing_a_member_hands_visits_only_to_someone_who_offers_them(
     as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
 ) -> None:
     business = await _birchbark(db)
-    first = await factory.staff(business=business, role="staff")
-    second = await factory.staff(business=business, role="staff")
-    item = await _service(db, first.id, second.id, ST_DIEGO)
-    kept = (await _book(as_owner, item, first.id, TUESDAY)).json()["id"]
+    first = (await factory.staff(business=business, role="staff")).id
+    second = (await factory.staff(business=business, role="staff")).id
+    item = await _service(db, first, second, ST_DIEGO)
+    kept = (await _book(as_owner, item, first, TUESDAY)).json()["id"]
     named = await as_owner.post(
-        f"/v1/staff/{first.id}/remove", json={"future": "reassign", "reassign_to": ST_OWNER}
+        f"/v1/staff/{first}/remove", json={"future": "reassign", "reassign_to": ST_OWNER}
     )
-    assert named.status_code == 200, named.text
-    assert named.json()["moved"] == []
-    assert named.json()["left"][0]["problem"] == "not_offered"
-    assert await _slot_staff(db, kept) == first.id
-    moved = (await _book(as_owner, item, second.id, TUESDAY)).json()["id"]
+    assert named.status_code == 409, named.text
+    assert named.json()["detail"]["visits"][0]["problem"] == "not_offered"
+    assert await _slot_staff(db, kept) == first
+    moved = (await _book(as_owner, item, second, TUESDAY)).json()["id"]
     anyone = await as_owner.post(
-        f"/v1/staff/{second.id}/remove", json={"future": "reassign", "reassign_to": "any"}
+        f"/v1/staff/{second}/remove", json={"future": "reassign", "reassign_to": "any"}
     )
     assert anyone.status_code == 200, anyone.text
     assert anyone.json()["moved"] == [moved]

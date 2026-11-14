@@ -9,3 +9,17 @@ export function offsiteLoadFailure(message: ConsoleMessage): boolean {
         return false;
     }
 }
+
+/** A sync stream that dropped mid-download, which PowerSync retries and the shell's sync banner shows. */
+function droppedSyncStream(message: ConsoleMessage): boolean {
+    // the service's cancel of a superseded checkpoint's query can land on the next query
+    const text = message.text();
+    return text.startsWith("[PowerSync]: Sync error") && text.includes("name: TypeError");
+}
+
+/** A console error that a walk through the app should fail on. */
+export function appConsoleError(message: ConsoleMessage): boolean {
+    return (
+        message.type() === "error" && !offsiteLoadFailure(message) && !droppedSyncStream(message)
+    );
+}

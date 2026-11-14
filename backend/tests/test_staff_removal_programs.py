@@ -13,6 +13,7 @@ from tests.test_programs import days, enrol, ids, program_item, schedule
 
 SECOND_DAY = "2027-03-03T18:00:00Z"
 GROOM = "it_groom_sm"
+ST_DIEGO = "st_diego"
 
 
 async def _member(db: AsyncSession, factory: Factory, name: str) -> str:
@@ -80,7 +81,7 @@ async def test_a_program_schedule_moves_whole_to_the_named_member(
     res = await as_owner.post(f"/v1/staff/{leaving}/remove", json=body, headers=headers)
     out = ok(res).json()
     assert out["series_moved"] == [{"recurrence_id": program_id, "staff_id": taking}]
-    assert sorted(out["moved"]) == sorted(booked) and out["left"] == []
+    assert sorted(out["moved"]) == sorted(booked)
     assert await _held_by(db, program_id) == {taking}
     assert await _booked_staff(db, booked) == {taking}
     assert await _status(db, leaving) == "removed"
@@ -103,6 +104,34 @@ async def test_any_member_takes_the_schedule_only_if_free_on_every_day(
     out = ok(await _remove(as_owner, leaving, future="reassign", reassign_to="any")).json()
     assert out["series_moved"] == [{"recurrence_id": program_id, "staff_id": free}]
     assert await _held_by(db, program_id) == {free}
+
+
+async def test_any_member_refusal_names_the_teacher_s_clash_not_a_member_who_doesn_t_teach(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    leaving = await _member(db, factory, "Leaving Lee")
+    busy = await _member(db, factory, "Busy Bo")
+    program_id = await _program(as_owner, db, leaving, offered_by=[leaving, busy])
+    await _busy(as_owner, busy, SECOND_DAY)
+    res = await _remove(as_owner, leaving, future="reassign", reassign_to="any")
+    assert res.status_code == 409, res.text
+    detail = res.json()["detail"]
+    assert detail["problem"] == "overlap" and detail["recurrence_id"] == program_id
+    assert datetime.fromisoformat(detail["starts_at"]) == datetime.fromisoformat(SECOND_DAY)
+    assert await _held_by(db, program_id) == {leaving}
+
+
+async def test_any_member_refusal_keeps_a_teacher_s_clash_over_later_members_who_don_t_teach(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    leaving = await _member(db, factory, "Leaving Lee")
+    program_id = await _program(as_owner, db, leaving, offered_by=[leaving, ST_DIEGO])
+    await _busy(as_owner, ST_DIEGO, SECOND_DAY)
+    res = await _remove(as_owner, leaving, future="reassign", reassign_to="any")
+    assert res.status_code == 409, res.text
+    detail = res.json()["detail"]
+    assert detail["problem"] == "overlap" and detail["recurrence_id"] == program_id
+    assert datetime.fromisoformat(detail["starts_at"]) == datetime.fromisoformat(SECOND_DAY)
 
 
 async def test_canceling_a_removed_instructor_s_program_ends_it_and_voids_its_invoices(

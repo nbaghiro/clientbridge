@@ -483,14 +483,39 @@ export function useWeekEditor(api: ApiLike, staffId: string | null): WeekEditor 
             days: WeekDay[];
             expected_revision: number;
         };
-        if (revision <= proposal.expected_revision) return;
-        const current = toWeekDays(seedDays(data));
-        rebased.current = rejection.id;
-        basis.current = { ...basis.current, base: current };
-        setDays(
-            fromWeekDays(rebaseWeek(JSON.parse(latest.base) as WeekDay[], proposal.days, current)),
-        );
-    }, [rejection, latest, revision, data]);
+        if (revision <= proposal.expected_revision || staffId === null || businessId === null)
+            return;
+        const id = rejection.id;
+        rebased.current = id;
+        // the revision and the hours rows refresh one by one, so the server's week is read in one snapshot
+        db.readTransaction(async (tx) => {
+            const staff = await tx.getOptional<{ hours_revision: number }>(
+                businessQuery(STAFF_REVISION_SQL),
+                [staffId, businessId],
+            );
+            if (!staff || staff.hours_revision <= proposal.expected_revision) return null;
+            return seedDays(
+                await tx.getAll<RecurringRow>(businessQuery(RECURRING_HOURS_SQL), [staffId]),
+            );
+        })
+            .then((seeded) => {
+                if (seeded === null || basis.current === null) {
+                    rebased.current = null;
+                    return;
+                }
+                const current = toWeekDays(seeded);
+                basis.current = { ...basis.current, base: current };
+                setDays(
+                    fromWeekDays(
+                        rebaseWeek(JSON.parse(latest.base) as WeekDay[], proposal.days, current),
+                    ),
+                );
+            })
+            .catch(() => {
+                rebased.current = null;
+                setError(s.saveError);
+            });
+    }, [db, staffId, businessId, rejection, latest, revision, setError]);
 
     const edit = (weekday: number, patch: Partial<DayHours>): void => {
         setSaved(false);
