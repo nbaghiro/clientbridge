@@ -1528,8 +1528,11 @@ describe("app-core SQL against the replica schema", () => {
         ]);
         expect(run("ADDONS_SQL", ["bk_1"]).map((r) => r.id)).toEqual(["ba_1"]);
         expect(run("BOOKING_INVOICE_SQL", ["bk_1"])).toEqual([
-            { invoice_id: "inv_1", order_id: null },
+            { invoice_id: "inv_1", order_id: null, covered: 0 },
         ]);
+        db.run("UPDATE bookings SET package_id = 'pk_1' WHERE id = 'bk_1'");
+        expect(pick(run("BOOKING_INVOICE_SQL", ["bk_1"]), "covered")).toEqual([{ covered: 1 }]);
+        db.run("UPDATE bookings SET package_id = NULL WHERE id = 'bk_1'");
     });
 
     it("derives each earning's status from its journals, tips included", () => {
@@ -1696,6 +1699,27 @@ describe("app-core SQL against the replica schema", () => {
         );
     });
 
+    it("reads a package or gift card past its date as lapsed before the sweep expires it", () => {
+        const lapsed = (): Row[] => pick(run("WALLET_SQL", ["cl_ann"]), "id", "status", "lapsed");
+        expect(lapsed()).toEqual([
+            { id: "pk_1", status: "active", lapsed: 0 },
+            { id: "sub_1", status: "active", lapsed: 0 },
+            { id: "gc_1", status: "active", lapsed: 0 },
+        ]);
+        db.run("UPDATE packages SET expires_at = '2026-01-02T00:00:00Z' WHERE id = 'pk_1'");
+        db.run("UPDATE gift_cards SET expires_at = '2026-01-02T00:00:00+00' WHERE id = 'gc_1'");
+        expect(lapsed()).toEqual([
+            { id: "pk_1", status: "active", lapsed: 1 },
+            { id: "sub_1", status: "active", lapsed: 0 },
+            { id: "gc_1", status: "active", lapsed: 1 },
+        ]);
+        expect(pick(run("CLIENT_PACKAGES_SQL", ["cl_ann"]), "id", "status")).toEqual([
+            { id: "pk_1", status: "expired" },
+        ]);
+        db.run("UPDATE packages SET expires_at = NULL WHERE id = 'pk_1'");
+        db.run("UPDATE gift_cards SET expires_at = NULL WHERE id = 'gc_1'");
+    });
+
     it("lists every client's packages, plans and gift cards with the client's name", () => {
         const rows = run("ENTITLEMENTS_SQL");
         expect(rows.map((r) => r.id).sort()).toEqual(["gc_1", "gc_2", "pk_1", "sub_1"]);
@@ -1821,17 +1845,40 @@ describe("app-core SQL against the replica schema", () => {
                 status: "active",
                 created_at: "2026-01-01T00:00:00Z",
             },
+            {
+                id: "pk_sibling_2",
+                client_id: "cl_ann",
+                item_id: "it_pkg",
+                subject_id: "sj_sibling_2",
+                sessions_total: 5,
+                status: "active",
+                created_at: "2026-02-01T00:00:00Z",
+            },
+        ]);
+        scoped("subjects", [
+            { id: "sj_sibling", client_id: "cl_ann", name: "Pip", attributes: "{}" },
+            { id: "sj_sibling_2", client_id: "cl_ann", name: "Ace", attributes: "{}" },
         ]);
         const day = ["2026-06-26T00:00:00.000Z", "2026-06-27T00:00:00.000Z"];
         const cover = (): Row[] => pick(run("CHECKOUT_QUEUE_SQL", day), "cover_package_id");
         expect(cover()).toEqual([{ cover_package_id: "pk_own" }]);
+        db.run("UPDATE packages SET status = 'used' WHERE id IN ('pk_own', 'pk_1')");
+        const why = (): Row[] =>
+            pick(run("CHECKOUT_QUEUE_SQL", day), "cover_package_id", "other_subject_names");
+        expect(why()).toEqual([{ cover_package_id: null, other_subject_names: '["Ace","Pip"]' }]);
+        db.run(
+            "UPDATE packages SET expires_at = '2026-01-02T00:00:00Z' WHERE id IN ('pk_sibling', 'pk_sibling_2')",
+        );
+        expect(why()).toEqual([{ cover_package_id: null, other_subject_names: "[]" }]);
+        db.run("UPDATE packages SET status = 'active' WHERE id = 'pk_1'");
         db.run("UPDATE bookings SET subject_id = NULL WHERE id = 'bk_1'");
         expect(cover()).toEqual([{ cover_package_id: "pk_1" }]);
         expect(pick(run("CLIENT_PACKAGES_SQL", ["cl_ann"]), "id", "subject_name")).toContainEqual({
             id: "pk_1",
             subject_name: null,
         });
-        db.run("DELETE FROM packages WHERE id IN ('pk_own', 'pk_sibling')");
+        db.run("DELETE FROM packages WHERE id IN ('pk_own', 'pk_sibling', 'pk_sibling_2')");
+        db.run("DELETE FROM subjects WHERE id IN ('sj_sibling', 'sj_sibling_2')");
         db.run("UPDATE bookings SET status = 'completed' WHERE id = 'bk_1'");
     });
 

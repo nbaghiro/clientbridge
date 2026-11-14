@@ -102,7 +102,7 @@ async def test_consume_before_activation_409(as_owner: httpx.AsyncClient, db: As
         )
     ).json()
     res = await as_owner.post(f"/v1/packages/{body['package_id']}/consume")
-    assert res.status_code == 409
+    assert (res.status_code, res.json()["error"]) == (409, "package_inactive")
 
 
 async def test_purchase_then_settle_then_consume(
@@ -204,7 +204,19 @@ async def test_consume_active_but_exhausted_409(
 ) -> None:
     pkg = await _active_package(db, total=2, used=2)
     res = await as_owner.post(f"/v1/packages/{pkg.id}/consume")
-    assert res.status_code == 409
+    assert (res.status_code, res.json()["error"]) == (409, "package_used_up")
+
+
+async def test_a_lapsed_package_is_refused_before_the_sweep_expires_it(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    pkg = await _active_package(db, total=5, used=1)
+    pkg.expires_at = clock.now() - timedelta(minutes=1)
+    await db.flush()
+    res = await as_owner.post(f"/v1/packages/{pkg.id}/consume", headers=retry_key())
+    assert (res.status_code, res.json()["error"]) == (409, "package_expired")
+    await db.refresh(pkg)
+    assert await ledger.sessions_used(db, pkg) == 1 and pkg.status == "active"
 
 
 async def test_staff_cannot_purchase_403(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:
@@ -439,14 +451,34 @@ async def test_covering_replays_and_refuses_a_second_use(
     again = await as_owner.post(path, json={"booking_id": booking.id}, headers=headers)
     assert first.status_code == again.status_code == 200
     assert again.json()["sessions_used"] == 1
-    assert (await _cover(as_owner, pkg, booking)).status_code == 409
+    covered = await _cover(as_owner, pkg, booking)
+    assert (covered.status_code, covered.json()["error"]) == (409, "visit_already_covered")
 
 
-@pytest.mark.parametrize("case", ["ahead", "used_up", "other_client", "other_service"])
+@pytest.mark.parametrize(
+    ("case", "code"),
+    [
+        ("ahead", "cover_before_start"),
+        ("used_up", "package_used_up"),
+        ("expired", "package_expired"),
+        ("unpaid", "package_inactive"),
+        ("refunded", "package_inactive"),
+        ("other_client", "package_other_client"),
+        ("other_service", "package_other_service"),
+    ],
+)
 async def test_covering_refuses_a_visit_the_package_cannot_settle(
-    as_owner: httpx.AsyncClient, db: AsyncSession, case: str
+    as_owner: httpx.AsyncClient, db: AsyncSession, case: str, code: str
 ) -> None:
-    pkg = await _active_package(db, used=5 if case == "used_up" else 0)
+    spent = case in ("used_up", "refunded")
+    pkg = await _active_package(db, used=5 if spent else 0)
+    if case == "expired":
+        pkg.expires_at = clock.now() - timedelta(minutes=1)
+    if case == "unpaid":
+        pkg.status = "pending"
+    if case == "refunded":
+        pkg.status = "canceled"
+        pkg.expires_at = clock.now() - timedelta(minutes=1)
     booking = await _bath_visit(
         db, starts_in=timedelta(days=400) if case == "ahead" else timedelta(days=-400)
     )
@@ -458,7 +490,101 @@ async def test_covering_refuses_a_visit_the_package_cannot_settle(
         assert slot is not None
         slot.item_id = "it_groom_lg"
     await db.flush()
-    assert (await _cover(as_owner, pkg, booking)).status_code == 409
+    res = await _cover(as_owner, pkg, booking)
+    assert (res.status_code, res.json()["error"]) == (409, code)
+    await db.refresh(pkg)
+    assert await ledger.sessions_used(db, pkg) == (5 if spent else 0)
+
+
+async def test_a_covered_visit_bills_only_its_add_ons(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    pkg = await _active_package(db)
+    booking = await _bath_visit(db)
+    pkg_id, booking_id = pkg.id, booking.id
+    assert (await _cover(as_owner, pkg, booking)).status_code == 200
+    service = {
+        "description": "Bath",
+        "unit_amount_cents": 4500,
+        "item_id": "it_bath",
+        "booking_id": booking_id,
+    }
+    refused = [
+        await as_owner.post(f"/v1/invoices/from-booking/{booking_id}", headers=retry_key()),
+        *[
+            await as_owner.post(
+                "/v1/invoices",
+                json={"client_id": CARD_CLIENT, "lines": [line], "send": send},
+                headers=retry_key(),
+            )
+            for line in (service, {**service, "item_id": None})
+            for send in (False, True)
+        ],
+    ]
+    for res in refused:
+        assert (res.status_code, res.json()["error"]) == (409, "visit_covered")
+    added = await as_owner.post(
+        f"/v1/bookings/{booking_id}/addons", json={"item_id": "it_shampoo"}, headers=retry_key()
+    )
+    assert added.status_code == 201, added.text
+    draft = await as_owner.post(f"/v1/invoices/from-booking/{booking_id}", headers=retry_key())
+    assert draft.status_code == 201, draft.text
+    assert [line["item_id"] for line in draft.json()["lines"]] == ["it_shampoo"]
+    sent = await as_owner.post(f"/v1/invoices/{draft.json()['id']}/send", headers=retry_key())
+    assert sent.status_code == 200, sent.text
+    row = await db.get(Booking, booking_id, populate_existing=True)
+    assert row is not None and row.package_id == pkg_id
+    assert row.invoice_id == draft.json()["id"]
+
+
+async def test_a_visit_covered_after_its_draft_is_refused_when_the_draft_is_sent(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    pkg = await _active_package(db)
+    booking = await _bath_visit(db)
+    line = {"description": "Bath", "unit_amount_cents": 4500, "booking_id": booking.id}
+    draft = await as_owner.post(
+        "/v1/invoices",
+        json={"client_id": CARD_CLIENT, "lines": [line], "send": False},
+        headers=retry_key(),
+    )
+    assert draft.status_code == 201, draft.text
+    assert (await _cover(as_owner, pkg, booking)).status_code == 200
+    sent = await as_owner.post(f"/v1/invoices/{draft.json()['id']}/send", headers=retry_key())
+    assert (sent.status_code, sent.json()["error"]) == (409, "visit_covered")
+
+
+async def test_an_estimate_carrying_a_covered_visit_is_refused_when_converted(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    pkg = await _active_package(db)
+    booking = await _bath_visit(db)
+    line = {"description": "Bath", "unit_amount_cents": 4500, "booking_id": booking.id}
+    estimate = await as_owner.post(
+        "/v1/estimates", json={"client_id": CARD_CLIENT, "lines": [line]}, headers=retry_key()
+    )
+    assert estimate.status_code == 201, estimate.text
+    sent = await as_owner.post(f"/v1/estimates/{estimate.json()['id']}/send")
+    assert sent.status_code == 200, sent.text
+    assert (await _cover(as_owner, pkg, booking)).status_code == 200
+    converted = await as_owner.post(
+        f"/v1/estimates/{estimate.json()['id']}/convert", headers=retry_key()
+    )
+    assert (converted.status_code, converted.json()["error"]) == (409, "visit_covered")
+
+
+async def test_a_covered_visit_cannot_be_rung_up_at_the_desk(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    pkg = await _active_package(db)
+    booking = await _bath_visit(db)
+    booking_id = booking.id
+    assert (await _cover(as_owner, pkg, booking)).status_code == 200
+    line = {"description": "Bath", "unit_amount_cents": 4500, "booking_id": booking_id}
+    sale = await as_owner.post("/v1/orders", json={"lines": [line]}, headers=retry_key())
+    assert (sale.status_code, sale.json()["error"]) == (409, "visit_already_covered")
+    row = await db.get(Booking, booking_id, populate_existing=True)
+    assert row is not None and row.order_id is None
 
 
 async def test_staff_cover_only_their_own_visits(
@@ -492,8 +618,8 @@ async def test_a_package_cannot_cover_a_billed_visit_or_one_with_a_paid_deposit(
     line = {"description": "Bath", "unit_amount_cents": 4500, "booking_id": billed_id}
     body = {"client_id": CARD_CLIENT, "lines": [line], "send": True}
     assert (await as_owner.post("/v1/invoices", json=body)).status_code == 201
-    for booking_id in (billed_id, held_id):
+    for booking_id, code in ((billed_id, "visit_settled"), (held_id, "visit_deposit_paid")):
         res = await as_owner.post(
             f"/v1/packages/{pkg_id}/cover", json={"booking_id": booking_id}, headers=retry_key()
         )
-        assert res.status_code == 409, res.text
+        assert (res.status_code, res.json()["error"]) == (409, code)

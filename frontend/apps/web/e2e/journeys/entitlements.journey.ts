@@ -155,6 +155,15 @@ test("FLOW-07-A a package keeps the benefits it was sold with, covers only its s
             { price_cents: 9000, session_count: 5 },
             200,
         );
+        // what it covers is one of those benefits, so it holds while the package is live
+        const moved = await apiCall<{ error: string }>(
+            page,
+            "PATCH",
+            `/v1/items/${fixture.itemId}`,
+            { covers_item_id: services.other.id },
+            409,
+        );
+        expect(moved.error).toBe("package_item_sold");
         await openEntitlement(page, client.name, fixture.packageId);
         const detail = page.getByRole("dialog");
         await expect(detail).toContainText(w.sessionsLeft(2, 2), { timeout: 60_000 });
@@ -210,6 +219,7 @@ test("FLOW-07-A a package keeps the benefits it was sold with, covers only its s
             },
         );
         expect(refused.status(), await refused.text()).toBe(409);
+        expect(((await refused.json()) as { error: string }).error).toBe("package_other_service");
         expectEntitlementLedger(await entitlementEvidence(client.id), 6001, "deferred", []);
 
         const covering = page.waitForResponse(
@@ -221,6 +231,12 @@ test("FLOW-07-A a package keeps the benefits it was sold with, covers only its s
         const covered = await covering;
         expect(covered.status(), await covered.text()).toBe(200);
         expect(await covered.json()).toMatchObject({ sessions_used: 1, status: "active" });
+        await expect(
+            deskRow(page, first.service.name, first.starts).getByText(
+                strings.pos.desk.coveredPackage(1),
+                { exact: true },
+            ),
+        ).toBeVisible();
         expectEntitlementLedger(await entitlementEvidence(client.id), 6001, "deferred", [3000]);
 
         const other = await second.newPage();
@@ -262,6 +278,15 @@ test("FLOW-07-A a package keeps the benefits it was sold with, covers only its s
         if (cover === undefined || consume === undefined) throw new Error("A race reply is gone");
         expect([cover.status(), consume.status()].sort()).toEqual([200, 409]);
         const coverWon = cover.status() === 200;
+        // the device that lost reads why, in words, where it pressed
+        const loser = (await (coverWon ? consume : cover).json()) as { error: string };
+        expect(loser.error).toBe("package_used_up");
+        await expect(
+            (coverWon
+                ? other.getByRole("dialog")
+                : deskRow(page, last.service.name, last.starts)
+            ).getByText(strings.api.packageUsedUp, { exact: true }),
+        ).toBeVisible();
         const exhausted = await entitlementEvidence(client.id);
         expectEntitlementLedger(exhausted, 6001, "deferred", [3000, 3001]);
         expect(exhausted.packages[0]?.status).toBe("used");
@@ -291,6 +316,20 @@ test("FLOW-07-A a package keeps the benefits it was sold with, covers only its s
                 device.getByRole("button", { name: w.action.refund, exact: true }),
             ).toHaveCount(0);
         }
+
+        // a visit the package settled is never billed again
+        await navigate(page, `/schedule?open=${first.id}`);
+        const visitPanel = page.getByRole("complementary").filter({ hasText: first.service.name });
+        await expect(visitPanel).toBeVisible({ timeout: 60_000 });
+        await expect(
+            visitPanel.getByRole("button", { name: strings.bookings.invoiceVisit, exact: true }),
+        ).toHaveCount(0);
+        const billed = await page.request.post(
+            `${bookingApi()}/v1/invoices/from-booking/${first.id}`,
+            { headers: { Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() } },
+        );
+        expect(billed.status(), await billed.text()).toBe(409);
+        expect(((await billed.json()) as { error: string }).error).toBe("visit_covered");
 
         await navigate(page, `/payments/refunds?open=${fixture.paymentId}`);
         const panel = page.getByRole("complementary", { name: client.name, exact: true });

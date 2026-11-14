@@ -26,11 +26,14 @@ from clientbridge.models.ledger import Entry
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Webhook
 from clientbridge.models.scheduling import Booking, Slot
-from clientbridge.schemas.billing import LineInput
-from clientbridge.schemas.entitlements import GiftCardRedeem
+from clientbridge.schemas.billing import InvoiceCreate, LineInput
+from clientbridge.schemas.catalog import ItemUpdate
+from clientbridge.schemas.entitlements import GiftCardRedeem, PackageCover, PackagePurchase
 from clientbridge.schemas.orders import OrderCreate, OrderUpdate
 from clientbridge.schemas.payments import InvoicePaymentIn
 from clientbridge.services import ledger
+from clientbridge.services.billing import BillingService
+from clientbridge.services.catalog import CatalogService
 from clientbridge.services.entitlements import GiftCardService, PackageService
 from clientbridge.services.ledger import Leg
 from clientbridge.services.orders import OrderService
@@ -289,6 +292,286 @@ async def test_two_consumes_of_a_one_session_package_use_it_once(
         used = await check.get(Package, package_id)
         assert used is not None and used.status == "used"
         assert await ledger.sessions_used(check, used) == 1
+
+
+@pytest.mark.parametrize(
+    ("same", "refusal"), [(False, "package_used_up"), (True, "visit_already_covered")]
+)
+async def test_two_desks_covering_visits_with_the_last_session_settle_one(
+    db: AsyncSession, throwaway: Throwaway, same: bool, refusal: str
+) -> None:
+    business, client, principal = await throwaway()
+    assert principal.staff_id is not None
+    started = clock.now() - timedelta(hours=2)
+    async with SessionLocal() as session:
+        item = Item(
+            id=new_id("item"),
+            business_id=business.id,
+            kind="service",
+            name="Race bath",
+            price_cents=4500,
+            duration_min=30,
+        )
+        session.add(item)
+        await session.flush()
+        booking_ids: list[str] = []
+        for minutes in (0, 45):
+            slot = Slot(
+                id=new_id("slot"),
+                business_id=business.id,
+                item_id=item.id,
+                staff_id=principal.staff_id,
+                starts_at=started + timedelta(minutes=minutes),
+                ends_at=started + timedelta(minutes=minutes + 30),
+            )
+            session.add(slot)
+            await session.flush()
+            booking = Booking(
+                id=new_id("booking"),
+                business_id=business.id,
+                slot_id=slot.id,
+                starts_at=slot.starts_at,
+                staff_id=principal.staff_id,
+                client_id=client.id,
+                status="confirmed",
+                source="manual",
+            )
+            session.add(booking)
+            await session.flush()
+            booking_ids.append(booking.id)
+        package = Package(
+            id=new_id("package"),
+            business_id=business.id,
+            client_id=client.id,
+            item_id=item.id,
+            sessions_total=1,
+            status="active",
+        )
+        session.add(package)
+        await session.flush()
+        await ledger.post(
+            session,
+            business.id,
+            event="payment",
+            ref=f"payment:{package.id}",
+            legs=[
+                Leg("business", business.id, "cash", 4500),
+                Leg("package", package.id, "deferred", -4500),
+            ],
+            subject=("package", package.id),
+        )
+        await session.commit()
+        package_id = package.id
+    race = Race[Conflict | None]()
+
+    async def cover(first: bool) -> Conflict | None:
+        async with SessionLocal() as session:
+            service = PackageService(session, principal, FakePaymentGateway())
+            try:
+                if first:
+                    await session.execute(
+                        select(Package.id).where(Package.id == package_id).with_for_update()
+                    )
+                    await race.hold(session)
+                else:
+                    await race.join(session)
+                await service.cover_visit(
+                    package_id,
+                    PackageCover(booking_id=booking_ids[0 if first or same else 1]),
+                    f"race-cover-{first}",
+                )
+            except Conflict as exc:
+                return exc
+            return None
+
+    first, second = await race.run(lambda: cover(True), lambda: cover(False))
+    assert first is None
+    assert second is not None and second.code == refusal
+    async with SessionLocal() as check:
+        used = await check.get(Package, package_id)
+        assert used is not None and used.status == "used"
+        assert await ledger.sessions_used(check, used) == 1
+        won, untouched = [await check.get(Booking, booking_id) for booking_id in booking_ids]
+        assert won is not None and (won.status, won.package_id) == ("completed", package_id)
+        assert untouched is not None
+        assert (untouched.status, untouched.package_id) == ("confirmed", None)
+
+
+@pytest.mark.parametrize(
+    ("first", "refusal"), [("cover", "visit_covered"), ("send", "visit_settled")]
+)
+async def test_covering_a_visit_and_sending_its_invoice_at_once_bill_it_once(
+    db: AsyncSession, throwaway: Throwaway, first: str, refusal: str
+) -> None:
+    business, client, principal = await throwaway()
+    assert principal.staff_id is not None
+    started = clock.now() - timedelta(hours=1)
+    async with SessionLocal() as session:
+        item = Item(
+            id=new_id("item"),
+            business_id=business.id,
+            kind="service",
+            name="Race bath",
+            price_cents=4500,
+            duration_min=30,
+        )
+        session.add(item)
+        await session.flush()
+        slot = Slot(
+            id=new_id("slot"),
+            business_id=business.id,
+            item_id=item.id,
+            staff_id=principal.staff_id,
+            starts_at=started,
+            ends_at=started + timedelta(minutes=30),
+        )
+        session.add(slot)
+        await session.flush()
+        booking = Booking(
+            id=new_id("booking"),
+            business_id=business.id,
+            slot_id=slot.id,
+            starts_at=started,
+            staff_id=principal.staff_id,
+            client_id=client.id,
+            status="confirmed",
+            source="manual",
+        )
+        session.add(booking)
+        package = Package(
+            id=new_id("package"),
+            business_id=business.id,
+            client_id=client.id,
+            item_id=item.id,
+            sessions_total=2,
+            status="active",
+        )
+        session.add(package)
+        await session.flush()
+        await ledger.post(
+            session,
+            business.id,
+            event="payment",
+            ref=f"payment:{package.id}",
+            legs=[
+                Leg("business", business.id, "cash", 9000),
+                Leg("package", package.id, "deferred", -9000),
+            ],
+            subject=("package", package.id),
+        )
+        line = LineInput(
+            description="Race bath", quantity=1, unit_amount_cents=4500, booking_id=booking.id
+        )
+        draft = await BillingService(session, principal).create_invoice(
+            InvoiceCreate(client_id=client.id, lines=[line]), "race-draft"
+        )
+        await session.commit()
+        booking_id, package_id, invoice_id = booking.id, package.id, draft.id
+    race = Race[Conflict | None]()
+
+    async def act(kind: str) -> Conflict | None:
+        async with SessionLocal() as session:
+            try:
+                if kind == first:
+                    await session.execute(
+                        select(Booking.id).where(Booking.id == booking_id).with_for_update()
+                    )
+                    await race.hold(session)
+                else:
+                    await race.join(session)
+                if kind == "cover":
+                    await PackageService(session, principal, FakePaymentGateway()).cover_visit(
+                        package_id, PackageCover(booking_id=booking_id), "race-cover"
+                    )
+                else:
+                    await BillingService(session, principal).send_invoice(invoice_id, "race-send")
+            except Conflict as exc:
+                return exc
+            return None
+
+    second = "send" if first == "cover" else "cover"
+    won, lost = await race.run(lambda: act(first), lambda: act(second))
+    assert won is None
+    assert lost is not None and lost.code == refusal
+    async with SessionLocal() as check:
+        visit = await check.get(Booking, booking_id)
+        invoice = await check.get(Invoice, invoice_id)
+        assert visit is not None and invoice is not None
+        billed = (visit.package_id is not None, invoice.status == "sent")
+        assert billed == ((True, False) if first == "cover" else (False, True))
+
+
+@pytest.mark.parametrize("first", ["sell", "edit"])
+async def test_selling_a_package_and_changing_what_it_covers_at_once_keep_the_sale(
+    db: AsyncSession, throwaway: Throwaway, first: str
+) -> None:
+    business, client, principal = await throwaway()
+    async with SessionLocal() as session:
+        baths, grooms = [
+            Item(
+                id=new_id("item"),
+                business_id=business.id,
+                kind="service",
+                name=name,
+                price_cents=4500,
+                duration_min=30,
+            )
+            for name in ("Race bath", "Race groom")
+        ]
+        session.add_all([baths, grooms])
+        await session.flush()
+        pack = Item(
+            id=new_id("item"),
+            business_id=business.id,
+            kind="package",
+            name="Race pack",
+            price_cents=9000,
+            session_count=2,
+            covers_item_id=baths.id,
+        )
+        session.add(pack)
+        await session.commit()
+        pack_id, baths_id, grooms_id = pack.id, baths.id, grooms.id
+    race = Race[Conflict | None]()
+
+    async def act(kind: str) -> Conflict | None:
+        async with SessionLocal() as session:
+            try:
+                if kind == first:
+                    held = select(Item.id).where(Item.id == pack_id)
+                    await session.execute(
+                        held.with_for_update(read=True)
+                        if kind == "sell"
+                        else held.with_for_update(key_share=True)
+                    )
+                    await race.hold(session)
+                else:
+                    await race.join(session)
+                if kind == "sell":
+                    await PackageService(session, principal, FakePaymentGateway()).purchase_package(
+                        PackagePurchase(client_id=client.id, item_id=pack_id, cash=True),
+                        "race-sell",
+                    )
+                else:
+                    await CatalogService(session, principal).update(
+                        pack_id, ItemUpdate(covers_item_id=grooms_id)
+                    )
+            except Conflict as exc:
+                return exc
+            return None
+
+    second = "edit" if first == "sell" else "sell"
+    won, lost = await race.run(lambda: act(first), lambda: act(second))
+    assert won is None
+    if first == "sell":
+        assert lost is not None and lost.code == "package_item_sold"
+    else:
+        assert lost is None
+    async with SessionLocal() as check:
+        item = await check.get(Item, pack_id)
+        sold = (await check.scalars(select(Package).where(Package.item_id == pack_id))).all()
+        assert item is not None and len(sold) == 1
+        assert item.covers_item_id == (baths_id if first == "sell" else grooms_id)
 
 
 async def test_cash_is_refused_while_a_card_charge_is_pending(

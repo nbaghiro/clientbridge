@@ -41,6 +41,7 @@ from clientbridge.services.ledger import invoice_status_expr
 from clientbridge.services.lines import (
     LineParent,
     apply_totals,
+    assert_uncovered,
     discount_of,
     discount_total,
     fetch_lines,
@@ -464,7 +465,7 @@ class BillingService:
     ) -> InvoiceOut:
         """A draft invoice for one visit and its add-ons; a booking is invoiced once."""
         self._assert_admin()
-        booking = await self._booking(booking_id)
+        booking = await self._booking(booking_id, lock=True)
 
         async def run(cmd: Command) -> InvoiceOut:
             invoice, lines = await draft_for_booking(self.db, booking)
@@ -493,12 +494,11 @@ class BillingService:
 
         return await visit_receipt(self.db, booking, business)
 
-    async def _booking(self, booking_id: str) -> Booking:
-        row = (
-            await self.db.execute(
-                scoped(Booking, self.biz, soft_delete=True).where(Booking.id == booking_id)
-            )
-        ).scalar_one_or_none()
+    async def _booking(self, booking_id: str, *, lock: bool = False) -> Booking:
+        query = scoped(Booking, self.biz, soft_delete=True).where(Booking.id == booking_id)
+        if lock:
+            query = query.with_for_update()
+        row = (await self.db.execute(query)).scalar_one_or_none()
         if row is None:
             raise NotFound("booking not found")
         return row
@@ -574,13 +574,17 @@ async def next_number(
     return await peek_number(db, business_id, model)
 
 
-async def invoice_bookings(db: AsyncSession, invoice: Invoice) -> list[Booking]:
-    rows = await db.execute(
-        scoped(Booking, invoice.business_id)
-        .join(Line, Line.booking_id == Booking.id)
-        .where(Line.invoice_id == invoice.id)
-        .distinct()
+async def invoice_bookings(
+    db: AsyncSession, invoice: Invoice, *, lock: bool = False
+) -> list[Booking]:
+    query = scoped(Booking, invoice.business_id).where(
+        Booking.id.in_(select(Line.booking_id).where(Line.invoice_id == invoice.id))
     )
+    if lock:
+        query = (
+            query.order_by(Booking.id).with_for_update().execution_options(populate_existing=True)
+        )
+    rows = await db.execute(query)
     return list(rows.scalars().all())
 
 
@@ -626,12 +630,19 @@ async def booking_lines(db: AsyncSession, booking: Booking) -> tuple[list[LineIn
 
 
 async def draft_for_booking(db: AsyncSession, booking: Booking) -> tuple[Invoice, list[Line]]:
-    """The visit's draft invoice, refused while an earlier one stands."""
+    """The visit's draft invoice, refused while one stands; a covered visit bills its add-ons."""
     if booking.invoice_id is not None:
         prior = await db.get(Invoice, booking.invoice_id)
         if prior is not None and prior.status != "void":
             raise Conflict("this visit already has an invoice")
     inputs, item = await booking_lines(db, booking)
+    if booking.package_id is not None or booking.subscription_id is not None:
+        service = item.id if item is not None else None
+        inputs = [inp for inp in inputs if inp.item_id is not None and inp.item_id != service]
+        if not inputs:
+            raise Conflict(
+                "a package or membership already covered this visit", code="visit_covered"
+            )
     invoice = Invoice(
         id=new_id("invoice"),
         business_id=booking.business_id,
@@ -778,6 +789,9 @@ async def issue_invoice(db: AsyncSession, invoice: Invoice, cmd: Command) -> Non
     if invoice.due_at is None:
         invoice.due_at = now + timedelta(days=_DUE_DAYS)
     lines = await fetch_lines(db, biz, "invoice", invoice.id)
+    # its visits are locked first, so one a desk is covering right now settles before the check
+    bookings = await invoice_bookings(db, invoice, lock=True)
+    await assert_uncovered(db, biz, lines)
     tax = await tax_for_lines(db, biz, lines)
     apply_totals(invoice, tax)
     try:
@@ -785,7 +799,6 @@ async def issue_invoice(db: AsyncSession, invoice: Invoice, cmd: Command) -> Non
     except IntegrityError as exc:
         raise Conflict("that number was just assigned — please retry") from exc
     await ledger.post_invoice(db, invoice, tax)
-    bookings = await invoice_bookings(db, invoice)
     applied = False
     for booking in bookings:
         applied = await apply_deposit(db, booking, invoice) or applied

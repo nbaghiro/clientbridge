@@ -1,5 +1,6 @@
 import {
     type CheckoutVisit,
+    type CoverOutcome,
     type OrderOut,
     type SaleTicket,
     type SalesView,
@@ -103,12 +104,16 @@ function VisitRow({
     onCheckOut,
     onCover,
     covering,
+    coverBlocked,
+    outcome,
 }: {
     v: CheckoutVisit;
     onTicket: boolean;
     onCheckOut: () => void;
     onCover: (() => void) | null;
     covering: boolean;
+    coverBlocked: boolean;
+    outcome: CoverOutcome | null;
 }) {
     const photos = usePeoplePhotos();
     const zone = useBusinessZone();
@@ -142,10 +147,21 @@ function VisitRow({
                         ])}
                     </span>
                 </p>
+                {outcome !== null ? (
+                    <Notice tone={outcome.tone}>{outcome.message}</Notice>
+                ) : v.coverNote !== null ? (
+                    <Notice tone="info">{v.coverNote}</Notice>
+                ) : null}
             </div>
             <StatusPill status={st.label} intent={st.intent} />
             {onCover === null ? null : (
-                <Button size="sm" variant="outline" busy={covering} onPress={onCover}>
+                <Button
+                    size="sm"
+                    variant="outline"
+                    busy={covering}
+                    disabled={coverBlocked}
+                    onPress={onCover}
+                >
                     {v.cover?.label}
                 </Button>
             )}
@@ -202,7 +218,7 @@ function Register({ sale, switcher }: { sale: SaleTicket; switcher: ReactNode })
     const [selling, setSelling] = useState<WalletKind | null>(null);
     const onTicket = (id: string): number =>
         sale.lines.filter((l) => l.itemId === id).reduce((n, l) => n + l.quantity, 0);
-    const waiting = queue.visits.filter((v) => v.state !== "paid");
+    const waiting = cover.listed(queue.visits);
     const noCatalog = catalog.load.state === "empty";
 
     return (
@@ -238,7 +254,6 @@ function Register({ sale, switcher }: { sale: SaleTicket; switcher: ReactNode })
                     <LoadFailed message={d.visitsError} body={d.catalogErrorBody} />
                 ) : waiting.length > 0 ? (
                     <section className="space-y-2">
-                        {cover.error !== null ? <Notice tone="danger">{cover.error}</Notice> : null}
                         <Panel flush title={d.todaysVisits} subtitle={d.todaysVisitsHint}>
                             <div className="divide-y divide-line-soft">
                                 {waiting.map((v) => (
@@ -250,9 +265,10 @@ function Register({ sale, switcher }: { sale: SaleTicket; switcher: ReactNode })
                                             sale.addVisit(v);
                                         }}
                                         covering={cover.busy === v.bookingId}
+                                        coverBlocked={cover.blocked(v.bookingId)}
+                                        outcome={cover.outcomeFor(v.bookingId)}
                                         onCover={
-                                            v.cover !== null &&
-                                            (v.state === "ready" || v.state === "inProgress")
+                                            cover.canCover(v)
                                                 ? () => {
                                                       cover.cover(v, () => {
                                                           const line = sale.lines.find(

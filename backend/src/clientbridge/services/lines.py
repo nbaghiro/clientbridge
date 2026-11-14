@@ -1,19 +1,21 @@
 """Shared line and tax helpers for invoices, estimates and orders."""
 
+from collections.abc import Sequence
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Literal
 
+from sqlalchemy import or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
-from clientbridge.core.errors import NotFound, Unprocessable
+from clientbridge.core.errors import Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped, scoped_delete
 from clientbridge.models.billing import Discounted, Estimate, Invoice, Line, Order
 from clientbridge.models.business import Staff
 from clientbridge.models.catalog import ENTITLEMENT_KINDS, Item
-from clientbridge.models.scheduling import Booking, Hours
+from clientbridge.models.scheduling import Booking, Hours, Slot
 from clientbridge.schemas.billing import DiscountIn, LineInput, LineOut
 from clientbridge.services.tax import TaxResult
 
@@ -139,6 +141,8 @@ async def replace_lines(
     items = await _line_items(db, business_id, inputs)
     await _assert_staff(db, business_id, {inp.staff_id for inp in inputs if inp.staff_id})
     await _assert_bookings(db, business_id, {inp.booking_id for inp in inputs if inp.booking_id})
+    if parent == "invoice":
+        await assert_uncovered(db, business_id, inputs)
     lines: list[Line] = []
     for i, inp in enumerate(inputs):
         item = items.get(inp.item_id) if inp.item_id else None
@@ -187,6 +191,30 @@ async def _assert_bookings(db: AsyncSession, business_id: str, ids: set[str]) ->
     )
     if len(set(rows.scalars().all())) != len(ids):
         raise NotFound("booking not found")
+
+
+async def assert_uncovered(
+    db: AsyncSession, business_id: str, lines: Sequence[LineInput] | Sequence[Line]
+) -> None:
+    """A visit a package or membership settled bills only its add-ons, never its service again."""
+    ids = {line.booking_id for line in lines if line.booking_id}
+    if not ids:
+        return
+    rows = await db.execute(
+        scoped(Booking, business_id, soft_delete=True)
+        .join(Slot, Slot.id == Booking.slot_id)
+        .with_only_columns(Booking.id, Slot.item_id)
+        .where(
+            Booking.id.in_(ids),
+            or_(Booking.package_id.is_not(None), Booking.subscription_id.is_not(None)),
+        )
+    )
+    services = dict(rows.tuples().all())
+    if any(
+        line.booking_id in services and line.item_id in (None, services[line.booking_id])
+        for line in lines
+    ):
+        raise Conflict("a package or membership already covered this visit", code="visit_covered")
 
 
 async def _line_items(

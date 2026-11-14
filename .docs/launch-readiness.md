@@ -1771,9 +1771,9 @@ The business sells gift cards, packages and memberships, and each is used, renew
 1. Sell a 5-visit package for one pet; use two visits.
    **Expect:** 3 remain.
 2. Try to cover the sibling's visit.
-   **Expect:** refused in words.
+   **Expect:** refused in words: the desk offers no Use package and says the package is for the other pet only.
 3. Use the final session from two desks at once.
-   **Expect:** settled once.
+   **Expect:** settled once; the other desk says the package has no visits left, or, when both pressed on the same visit, that it is already covered.
 4. Change the item's price after selling.
    **Expect:** the sold package keeps its benefits.
 5. Run the expiry job on an expired package and an expired gift card.
@@ -1788,6 +1788,7 @@ The business sells gift cards, packages and memberships, and each is used, renew
 - `FLOW-07-A (journeys)`
 - `FLOW-07-B (journeys)`
 - `ENT-E2E-07 (web)`
+- `NATIVE-ENT-03 (native-ios, native-android)`
 
 **Depends on:** Nothing
 

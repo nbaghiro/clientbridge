@@ -327,11 +327,22 @@ export interface ExpirySweep {
     breakage: { subject_id: string; category: string; amount_cents: number }[];
 }
 
-/** Moves expiry to `offset` seconds from now on cards and packages this case sold, then sweeps twice. */
-export async function expirySweep(offset: number, ids: string[]): Promise<ExpirySweep> {
+/** Moves expiry to `offset` seconds from now on cards and packages this case sold, then sweeps. */
+export async function expirySweep(offset: number, ids: string[], sweeps = 2): Promise<ExpirySweep> {
     const { stdout } = await promisify(execFile)(
         "uv",
-        ["run", "python", "-m", "e2e.actions", "expiry", "--", String(offset), ...ids],
+        [
+            "run",
+            "python",
+            "-m",
+            "e2e.actions",
+            "expiry",
+            "--sweeps",
+            String(sweeps),
+            "--",
+            String(offset),
+            ...ids,
+        ],
         {
             cwd: fileURLToPath(new URL("../../../../../backend", import.meta.url)),
             timeout: 60_000,

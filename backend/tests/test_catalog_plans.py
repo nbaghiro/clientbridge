@@ -1,14 +1,19 @@
 """Plan details on catalog items: the service a package covers, membership perks, gift amounts."""
 
+from datetime import timedelta
+
 import httpx
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.ids import new_id
-from clientbridge.models.catalog import Item
+from clientbridge.models.catalog import Item, Package
 from tests.conftest import BIZ, Factory
 
 BATH = "it_bath"  # seeded service
 SHAMPOO = "it_shampoo"  # seeded product
+PKG5 = "it_pkg5"  # seeded 5-bath package, already sold to clients
 
 
 async def test_package_covers_a_service(as_owner: httpx.AsyncClient) -> None:
@@ -26,6 +31,30 @@ async def test_package_covers_a_service(as_owner: httpx.AsyncClient) -> None:
     assert res.json()["covers_item_id"] == BATH
     cleared = await as_owner.patch(f"/v1/items/{res.json()['id']}", json={"covers_item_id": None})
     assert cleared.json()["covers_item_id"] is None
+
+
+async def test_a_sold_package_keeps_the_service_it_covers(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    sold = await db.scalars(select(Package.sessions_total).where(Package.item_id == PKG5))
+    before = sorted(sold)
+    refused = await as_owner.patch(f"/v1/items/{PKG5}", json={"covers_item_id": "it_groom_sm"})
+    assert (refused.status_code, refused.json()["error"]) == (409, "package_item_sold")
+    retyped = await as_owner.patch(f"/v1/items/{PKG5}", json={"kind": "subscription"})
+    assert (retyped.status_code, retyped.json()["error"]) == (409, "package_item_sold")
+    repriced = await as_owner.patch(
+        f"/v1/items/{PKG5}",
+        json={"covers_item_id": BATH, "price_cents": 26000, "session_count": 7},
+    )
+    assert repriced.status_code == 200, repriced.text
+    assert (repriced.json()["covers_item_id"], repriced.json()["session_count"]) == (BATH, 7)
+    after = await db.scalars(select(Package.sessions_total).where(Package.item_id == PKG5))
+    assert sorted(after) == before
+    # a package past its date no longer holds the item, even before the nightly sweep expires it
+    lapsed = clock.now() - timedelta(minutes=1)
+    await db.execute(update(Package).where(Package.item_id == PKG5).values(expires_at=lapsed))
+    moved = await as_owner.patch(f"/v1/items/{PKG5}", json={"covers_item_id": "it_groom_sm"})
+    assert moved.status_code == 200, moved.text
 
 
 async def test_membership_perks_and_gift_amounts(as_owner: httpx.AsyncClient) -> None:
