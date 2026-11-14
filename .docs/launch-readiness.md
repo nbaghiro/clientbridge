@@ -59,7 +59,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 6. Invoice and get paid                 | Deposits applied to the bill                                | [CB-37](https://linear.app/clientbridgeca/issue/CB-37) | Partly automated |
 | 7. Gift cards, packages and memberships | Package, membership and gift card items                     | [CB-15](https://linear.app/clientbridgeca/issue/CB-15) | Automated        |
 | 7. Gift cards, packages and memberships | Gift cards: sell and redeem                                 | [CB-38](https://linear.app/clientbridgeca/issue/CB-38) | Automated        |
-| 7. Gift cards, packages and memberships | Packages: sell, use and expire                              | [CB-39](https://linear.app/clientbridgeca/issue/CB-39) | Partly automated |
+| 7. Gift cards, packages and memberships | Packages: sell, use and expire                              | [CB-39](https://linear.app/clientbridgeca/issue/CB-39) | Automated        |
 | 7. Gift cards, packages and memberships | Memberships: renewals and failed payments                   | [CB-40](https://linear.app/clientbridgeca/issue/CB-40) | Partly automated |
 | 8. Refunds and the books                | Refunds and credit notes                                    | [CB-42](https://linear.app/clientbridgeca/issue/CB-42) | Automated        |
 | 8. Refunds and the books                | Disputes and chargebacks                                    | [CB-43](https://linear.app/clientbridgeca/issue/CB-43) | Partly automated |
