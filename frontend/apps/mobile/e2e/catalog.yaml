@@ -8,7 +8,7 @@ name: NATIVE-CFG-04 A service set up on the phone with a room, clean-up, deposit
 - runFlow: helpers/owner.yaml
 - tapOn: "Setup"
 - tapOn: "Rooms & equipment"
-# the seed has no rooms, so the empty state offers the button
+# an empty list offers "Add room or equipment", and a list with rooms a shorter "Add"
 - tapOn: "Add room or equipment|Add"
 - extendedWaitUntil:
       visible: "New room or equipment"
@@ -33,9 +33,10 @@ name: NATIVE-CFG-04 A service set up on the phone with a room, clean-up, deposit
                     visible: "New room or equipment"
                 commands:
                     - tapOn: "Save"
-# a row reads as one label, its name first
-- extendedWaitUntil:
-      visible: ${".*" + output.room + ".*"}
+# a row reads as one label, its name first, and earlier runs' rooms can push it below the fold
+- scrollUntilVisible:
+      element: ${".*" + output.room + ".*"}
+      direction: DOWN
       timeout: 30000
 - tapOn: "Back|Go back|Navigate up"
 - tapOn: "Services & products"
@@ -119,8 +120,9 @@ name: NATIVE-CFG-04 A service set up on the phone with a room, clean-up, deposit
 - assertTrue: ${output.service.staff === "st_diego_" + E2E_NAMESPACE + ",st_owner_" + E2E_NAMESPACE}
 - tapOn: "Back|Go back|Navigate up"
 - tapOn: "Rooms & equipment"
-- extendedWaitUntil:
-      visible: ${".*" + output.groom + ".*"}
+- scrollUntilVisible:
+      element: ${".*" + output.groom + ".*"}
+      direction: DOWN
       timeout: 30000
 - tapOn: "Back|Go back|Navigate up"
 - tapOn: "Services & products"

@@ -339,6 +339,13 @@ export async function connectStaff(
         .sort();
 }
 
+/** The time zone the business shows its times in, from its booking page. */
+export async function businessZone(page: Page, slug: string): Promise<string> {
+    const response = await page.request.get(`${bookingApi()}/book/${slug}/services`);
+    expect(response.status()).toBe(200);
+    return ((await response.json()) as { timezone: string }).timezone;
+}
+
 export interface RaceContact {
     name: string;
     phone: string;

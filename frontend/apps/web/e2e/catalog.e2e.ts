@@ -17,11 +17,10 @@ import {
 } from "./support/catalog";
 import { customerContext, signIn } from "./support/session";
 import { select } from "./support/db";
-import { choiceKeys, connectUrl, onlineBooker, teamMember } from "./support/visit";
+import { businessZone, choiceKeys, connectUrl, onlineBooker, teamMember } from "./support/visit";
 const s = strings.catalog;
 const b = strings.publicBooking;
 const MIN = 60_000;
-const ZONE = "America/Vancouver";
 
 interface SavedItem {
     id: string;
@@ -335,6 +334,7 @@ test("CFG-E2E-13 the length, clean-up, deposit and members set on a service are 
     test.setTimeout(180_000);
     await signIn(page);
     const slug = demoSlug("birchbark");
+    const zone = await businessZone(page, slug);
     const name = `Coat refresh for ${demoPerson(randomUUID())}`;
     const hannah = await teamMember(page, runEmail("hannah@birchbark.example"));
     const diego = await teamMember(page, runEmail("diego@birchbark.example"));
@@ -394,7 +394,7 @@ test("CFG-E2E-13 the length, clean-up, deposit and members set on a service are 
         let starts: number[] = [];
         let adjacent = false;
         for (let offset = 14; offset < 28 && !adjacent; offset++) {
-            const date = dateKey(addDays(new Date(), offset, ZONE), ZONE);
+            const date = dateKey(addDays(new Date(), offset, zone), zone);
             const response = await slots(diego.id, date);
             expect(response.status(), await response.text()).toBe(200);
             const open = (
@@ -408,7 +408,7 @@ test("CFG-E2E-13 the length, clean-up, deposit and members set on a service are 
             adjacent = gaps.includes(70);
         }
         expect(adjacent).toBe(true);
-        const unoffered = await slots(priya.id, dateKey(new Date(starts[0] ?? 0), ZONE));
+        const unoffered = await slots(priya.id, dateKey(new Date(starts[0] ?? 0), zone));
         expect(unoffered.status(), await unoffered.text()).toBe(422);
         expect(((await unoffered.json()) as { error: string }).error).toBe("service_not_offered");
 
@@ -437,6 +437,7 @@ test("CFG-E2E-15 a class needs a size and a program room for more than one, and 
     test.setTimeout(180_000);
     await signIn(page);
     const slug = demoSlug("birchbark");
+    const zone = await businessZone(page, slug);
     const name = `Agility basics for ${demoPerson(randomUUID())}`;
     const saved = () => select<{ id: string }>`SELECT id FROM items WHERE name = ${name}`;
     const posts: string[] = [];
@@ -494,7 +495,7 @@ test("CFG-E2E-15 a class needs a size and a program room for more than one, and 
         await expect(client.getByRole("button").filter({ hasText: name })).toBeVisible();
         let start: string | undefined;
         for (let offset = 14; offset < 28 && start === undefined; offset++) {
-            const date = dateKey(addDays(new Date(), offset, ZONE), ZONE);
+            const date = dateKey(addDays(new Date(), offset, zone), zone);
             const response = await context.request.get(`${bookingApi()}/book/${slug}/slots`, {
                 params: { item_id: item.id, staff_id: "any", date },
             });

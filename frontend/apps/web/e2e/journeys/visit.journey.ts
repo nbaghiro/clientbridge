@@ -486,11 +486,15 @@ async function composerChip(page: Page, staffId: string): Promise<void> {
 const hourAfter = (time: string): string =>
     `${String(Number(time.slice(0, 2)) + 1).padStart(2, "0")}:00`;
 
-/** A day and time both groomers are free, with Diego free an hour later, so only the table decides. */
+/** A time the fixture's member and the others are free, optionally one of them an hour later too. */
 async function sharedFreeTime(
     page: Page,
     fixture: BookingFixture,
-    otherId: string,
+    others: string[],
+    {
+        times = ["10:00", "11:00", "13:00", "14:00"],
+        laterFor,
+    }: { times?: string[]; laterFor?: string } = {},
 ): Promise<{ day: Date; time: string }> {
     const submit = page.getByRole("button", { name: s.composerBook, exact: true });
     const free = async (day: Date, time: string, staffId: string): Promise<boolean> => {
@@ -498,20 +502,24 @@ async function sharedFreeTime(
         await composerChip(page, staffId);
         return submit.isEnabled();
     };
+    const allFree = async (day: Date, time: string): Promise<boolean> => {
+        for (const staffId of others) if (!(await free(day, time, staffId))) return false;
+        return true;
+    };
     for (let offset = 14; offset < 28; offset++) {
         const day = addDays(new Date(), offset, fixture.zone);
         // the groomers work Tuesday to Saturday, the only days Connect offers
         const weekday = new Date(`${dateKey(day, fixture.zone)}T12:00:00Z`).getUTCDay();
         if (weekday < 2) continue;
         await pickBookingDay(page, day, fixture.zone);
-        for (const time of ["10:00", "11:00", "13:00", "14:00"]) {
+        for (const time of times) {
             if (!(await free(day, time, fixture.staffId))) continue;
-            if (!(await free(day, time, otherId))) continue;
-            if (!(await free(day, hourAfter(time), otherId))) continue;
+            if (!(await allFree(day, time))) continue;
+            if (laterFor !== undefined && !(await free(day, hourAfter(time), laterFor))) continue;
             if (await free(day, time, fixture.staffId)) return { day, time };
         }
     }
-    throw new Error("No time found when both groomers are free");
+    throw new Error("No time found when every member is free");
 }
 
 async function book(page: Page): Promise<BookingRecord & { resource_id: string | null }> {
@@ -571,7 +579,7 @@ test("SCH-E2E-05 a visit holds its shared table, so an overlapping visit is refu
     });
     try {
         await fillBookingComposer(page, first);
-        const { day, time } = await sharedFreeTime(page, first, diego.id);
+        const { day, time } = await sharedFreeTime(page, first, [diego.id], { laterFor: diego.id });
         const held = await book(page);
         owned.push(held.id);
         const start = combineDayAndTime(day, time, first.zone);
@@ -743,34 +751,6 @@ test("SCH-E2E-05 a visit holds its shared table, so an overlapping visit is refu
     }
 });
 
-/** A day and time every member is free for the service, read from the calendar's own checks. */
-async function freeForAll(
-    page: Page,
-    fixture: BookingFixture,
-    staffIds: string[],
-): Promise<{ day: Date; time: string }> {
-    const submit = page.getByRole("button", { name: s.composerBook, exact: true });
-    for (let offset = 14; offset < 28; offset++) {
-        const day = addDays(new Date(), offset, fixture.zone);
-        const weekday = new Date(`${dateKey(day, fixture.zone)}T12:00:00Z`).getUTCDay();
-        if (weekday < 2) continue;
-        await pickBookingDay(page, day, fixture.zone);
-        for (const time of ["10:00", "11:00", "13:00", "14:00"]) {
-            await pickBookingTime(page, day, time, fixture.zone);
-            let free = true;
-            for (const staffId of staffIds) {
-                await composerChip(page, staffId);
-                if (!(await submit.isEnabled())) {
-                    free = false;
-                    break;
-                }
-            }
-            if (free) return { day, time };
-        }
-    }
-    throw new Error("No time found when every member is free");
-}
-
 test("SCH-E2E-23 a service with a pool of two rooms books both at one time, then refuses a third visit in the calendar and hides it on Connect", async ({
     page,
     browser,
@@ -825,9 +805,11 @@ test("SCH-E2E-23 a service with a pool of two rooms books both at one time, then
     const context = await customerContext(browser);
     try {
         await fillBookingComposer(page, first);
-        const { day, time } = await freeForAll(page, first, [first.staffId, diego.id, priya.id]);
+        // other journeys book these groomers in the morning, so late afternoon stays this test's own
+        const { day, time } = await sharedFreeTime(page, first, [diego.id, priya.id], {
+            times: ["15:30", "16:00", "16:30"],
+        });
         const start = combineDayAndTime(day, time, first.zone);
-        await composerChip(page, first.staffId);
         const held = [await book(page)];
         owned.push(held[0]?.id ?? "");
         const asDiego: BookingFixture = {
@@ -840,6 +822,12 @@ test("SCH-E2E-23 a service with a pool of two rooms books both at one time, then
         await fillBookingComposer(page, asDiego);
         await pickBookingDay(page, day, first.zone);
         await pickBookingTime(page, day, time, first.zone);
+        // Priya is still free with one room open, so the full pool is what refuses her below
+        await composerChip(page, priya.id);
+        await expect(page.getByRole("button", { name: s.composerBook, exact: true })).toBeEnabled({
+            timeout: 60_000,
+        });
+        await composerChip(page, diego.id);
         held.push(await book(page));
         owned.push(held[1]?.id ?? "");
         expect(held.map((visit) => at(visit.starts_at))).toEqual([

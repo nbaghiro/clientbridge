@@ -1,17 +1,18 @@
 import { randomUUID } from "node:crypto";
 import { combineDayAndTime, dateKey, formatTime, strings } from "@clientbridge/app-core/public";
-import { runEmail } from "@clientbridge/config/e2e/run";
+import { demoSlug, runEmail } from "@clientbridge/config/e2e/run";
 import { expect, test } from "@playwright/test";
 import { navigate, signIn } from "./support/session";
-import { apiCall, teamMember } from "./support/visit";
+import { apiCall, businessZone, teamMember } from "./support/visit";
 const p = strings.programs;
-const ZONE = "America/Vancouver";
 
 test("CLS-E2E-04 scheduling a program starts with the signed-in instructor, and a refusal clears once the time changes", async ({
     page,
 }) => {
     await signIn(page);
+    const zone = await businessZone(page, demoSlug("birchbark"));
     const hannah = await teamMember(page, runEmail("hannah@birchbark.example"));
+    const priya = await teamMember(page, runEmail("priya@birchbark.example"));
     const camp = await apiCall<{ id: string; name: string }>(
         page,
         "POST",
@@ -23,6 +24,7 @@ test("CLS-E2E-04 scheduling a program starts with the signed-in instructor, and 
             capacity: 6,
             session_count: 3,
             online_bookable: true,
+            staff_ids: [hannah.id, priya.id],
         },
         201,
     );
@@ -35,14 +37,14 @@ test("CLS-E2E-04 scheduling a program starts with the signed-in instructor, and 
     await expect(form.getByLabel(p.instructor, { exact: true })).toHaveText(hannah.name);
 
     const time = (hhmm: string): string =>
-        formatTime(combineDayAndTime(dateKey(new Date(), ZONE), hhmm, ZONE), ZONE);
+        formatTime(combineDayAndTime(dateKey(new Date(), zone), hhmm, zone), zone);
     const pick = async (hhmm: string): Promise<void> => {
         await form.getByLabel(p.time, { exact: true }).click();
         await page.getByRole("option", { name: time(hhmm), exact: true }).click();
     };
     const refusal = form.getByText(strings.api.scheduleConflict, { exact: true });
-    // nobody at the studio works from six in the morning, so the schedule is refused
-    await pick("06:00");
+    // the form starts the camp next Monday, and Birchbark's groomers work Tuesday to Saturday
+    await pick("10:00");
     const refused = page.waitForResponse(
         (response) =>
             new URL(response.url()).pathname === "/v1/programs" &&
@@ -51,7 +53,7 @@ test("CLS-E2E-04 scheduling a program starts with the signed-in instructor, and 
     await form.getByRole("button", { name: p.create, exact: true }).click();
     expect((await refused).status()).toBe(409);
     await expect(refusal).toBeVisible();
-    await pick("06:30");
+    await pick("10:30");
     await expect(refusal).toBeHidden();
     await form.getByRole("button", { name: p.close, exact: true }).click();
     await expect(form).toBeHidden();

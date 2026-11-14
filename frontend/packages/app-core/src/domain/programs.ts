@@ -465,11 +465,11 @@ export function useProgramForm(
     const offered = item === null ? [] : idList(item.staff_ids);
     const staff = team.filter((x) => offered.length === 0 || offered.includes(x.id));
     const count = item?.session_count ?? 0;
-    // the viewer loads after the first render, so an unchosen instructor falls back to them here
+    // the viewer loads after the first render; they're the default only if the class names them
+    const mine = viewer !== null && offered.includes(viewer.staffId) ? viewer.staffId : "";
+    const only = staff.length > 1 ? "" : (staff[0]?.id ?? "");
     const staffId =
-        [chosenStaff, viewer?.staffId, staff.length === 1 ? staff[0]?.id : undefined].find(
-            (id) => id !== undefined && staff.some((x) => x.id === id),
-        ) ?? "";
+        [chosenStaff, mine, only].find((id) => id !== "" && staff.some((x) => x.id === id)) ?? "";
     const dates = item === null ? [] : scheduleDays(firstDay, weekdays, count, zone);
     const blocker =
         item === null
@@ -534,7 +534,8 @@ export function useProgramForm(
                 ? null
                 : s.rooms(pool.length, formatList(pool.map((id) => resourceName(rooms, id) ?? id))),
         canSubmit: ready,
-        blocker: item === null ? null : blocker,
+        // the empty program and instructor fields already prompt for themselves
+        blocker: item === null || (staff.length > 0 && staffId === "") ? null : blocker,
         busy,
         error,
         submit: () => {

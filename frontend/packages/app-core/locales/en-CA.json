@@ -4621,7 +4621,7 @@
         "message": "No active team member teaches this program. Choose who offers it on the class in the catalog."
     },
     "programs.chooseInstructor": {
-        "message": "Choose who teaches this program."
+        "message": "Choose who teaches this program"
     },
     "programs.instructor": {
         "message": "Instructor"

@@ -26,6 +26,16 @@ vi.mock("../hooks", async (importOriginal) => ({
                         active: 1,
                         capacity: 6,
                         session_count: 3,
+                        staff_ids: JSON.stringify(["st_admin", "st_owner"]),
+                        resource_ids: null,
+                    },
+                    {
+                        id: "it_open",
+                        kind: "class",
+                        name: "Open camp",
+                        active: 1,
+                        capacity: 6,
+                        session_count: 3,
                         staff_ids: null,
                         resource_ids: null,
                     },
@@ -62,7 +72,8 @@ describe("useProgramForm", () => {
             form.result.current.setItemId("it_camp");
         });
         expect(form.result.current.staffId).toBe("");
-        expect(form.result.current.blocker).toBe(strings.programs.chooseInstructor);
+        expect(form.result.current.canSubmit).toBe(false);
+        expect(form.result.current.blocker).toBeNull();
         form.rerender({ viewer: owner });
         expect(form.result.current.staffId).toBe("st_owner");
         act(() => {
@@ -71,7 +82,21 @@ describe("useProgramForm", () => {
         expect(form.result.current.staffId).toBe("st_admin");
     });
 
-    it("drops a refusal once the time, days or instructor change", async () => {
+    it("leaves the instructor open on a class that doesn't name who teaches it", () => {
+        const owner: Viewer = { staffId: "st_owner", role: "owner" };
+        const form = renderHook(() => useProgramForm(refusingApi(), owner, vi.fn()), { wrapper });
+        act(() => {
+            form.result.current.setItemId("it_open");
+        });
+        expect(form.result.current.staffId).toBe("");
+        expect(form.result.current.canSubmit).toBe(false);
+        act(() => {
+            form.result.current.submit();
+        });
+        expect(form.result.current.error).toBe(strings.programs.chooseInstructor);
+    });
+
+    it("drops a refusal once the time, days, instructor or program change", async () => {
         const viewer: Viewer = { staffId: "st_owner", role: "owner" };
         const form = renderHook(() => useProgramForm(refusingApi(), viewer, vi.fn()), {
             wrapper,
@@ -105,6 +130,11 @@ describe("useProgramForm", () => {
         await refuse();
         act(() => {
             form.result.current.setFirstDay("2026-11-23");
+        });
+        expect(form.result.current.error).toBeNull();
+        await refuse();
+        act(() => {
+            form.result.current.setItemId("it_open");
         });
         expect(form.result.current.error).toBeNull();
     });
