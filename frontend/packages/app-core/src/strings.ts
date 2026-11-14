@@ -150,6 +150,8 @@ interface Strings {
         readonly programDays: string;
         readonly scheduleConflict: string;
         readonly schedulePast: string;
+        readonly classSize: string;
+        readonly programSize: string;
         readonly classSchedule: string;
         readonly enrolmentPaid: string;
         readonly paymentDisputed: string;
@@ -1518,6 +1520,7 @@ interface Strings {
         readonly programHint: string;
         readonly noPrograms: string;
         readonly pickInstructor: string;
+        readonly chooseInstructor: string;
         readonly instructor: string;
         readonly firstDay: string;
         readonly time: string;
@@ -3112,6 +3115,8 @@ interface Strings {
         readonly programDays: string;
         readonly programDaysHint: string;
         readonly programDaysInvalid: string;
+        readonly capacityRequired: string;
+        readonly programCapacity: string;
         readonly onlineBookable: string;
         readonly onlineBookableHint: string;
         readonly offeredBy: string;
@@ -3292,6 +3297,7 @@ interface Strings {
         readonly nameRequired: string;
         readonly priceInvalid: string;
         readonly durationRequired: string;
+        readonly bufferInvalid: string;
         readonly depositRequired: string;
         readonly depositPercentMax: string;
         readonly sessionsRequired: string;

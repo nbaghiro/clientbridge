@@ -325,6 +325,14 @@ async def load_item(
     return row
 
 
+def assert_class_size(item: Item) -> None:
+    """A class seats at least one client, and a program more than one."""
+    if item.capacity is None or item.capacity < 1:
+        raise Unprocessable("a class needs a size", code="class_size")
+    if item.session_count is not None and item.capacity < 2:
+        raise Unprocessable("a program seats more than one client", code="program_size")
+
+
 def _assert_shape(item: Item) -> None:
     item.currency = ledger.supported(item.currency)
     if item.online_bookable and item.kind not in BOOKABLE_KINDS:
@@ -343,6 +351,8 @@ def _assert_shape(item: Item) -> None:
         raise Unprocessable("a percentage deposit can't be over 100")
     if item.session_count is not None and item.kind not in ("package", "class"):
         raise Unprocessable("only packages and classes have a session count")
+    if item.kind == "class":
+        assert_class_size(item)
     if (item.interval is not None or item.frequency is not None) and item.kind != "subscription":
         raise Unprocessable("only subscriptions repeat")
     if item.covers_item_id is not None and item.kind not in ("package", "subscription"):

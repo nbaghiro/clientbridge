@@ -486,11 +486,15 @@ async function composerChip(page: Page, staffId: string): Promise<void> {
 const hourAfter = (time: string): string =>
     `${String(Number(time.slice(0, 2)) + 1).padStart(2, "0")}:00`;
 
-/** A day and time both groomers are free, with Diego free an hour later, so only the table decides. */
+/** A time the fixture's member and the others are free, optionally one of them an hour later too. */
 async function sharedFreeTime(
     page: Page,
     fixture: BookingFixture,
-    otherId: string,
+    others: string[],
+    {
+        times = ["10:00", "11:00", "13:00", "14:00"],
+        laterFor,
+    }: { times?: string[]; laterFor?: string } = {},
 ): Promise<{ day: Date; time: string }> {
     const submit = page.getByRole("button", { name: s.composerBook, exact: true });
     const free = async (day: Date, time: string, staffId: string): Promise<boolean> => {
@@ -498,20 +502,24 @@ async function sharedFreeTime(
         await composerChip(page, staffId);
         return submit.isEnabled();
     };
+    const allFree = async (day: Date, time: string): Promise<boolean> => {
+        for (const staffId of others) if (!(await free(day, time, staffId))) return false;
+        return true;
+    };
     for (let offset = 14; offset < 28; offset++) {
         const day = addDays(new Date(), offset, fixture.zone);
         // the groomers work Tuesday to Saturday, the only days Connect offers
         const weekday = new Date(`${dateKey(day, fixture.zone)}T12:00:00Z`).getUTCDay();
         if (weekday < 2) continue;
         await pickBookingDay(page, day, fixture.zone);
-        for (const time of ["10:00", "11:00", "13:00", "14:00"]) {
+        for (const time of times) {
             if (!(await free(day, time, fixture.staffId))) continue;
-            if (!(await free(day, time, otherId))) continue;
-            if (!(await free(day, hourAfter(time), otherId))) continue;
+            if (!(await allFree(day, time))) continue;
+            if (laterFor !== undefined && !(await free(day, hourAfter(time), laterFor))) continue;
             if (await free(day, time, fixture.staffId)) return { day, time };
         }
     }
-    throw new Error("No time found when both groomers are free");
+    throw new Error("No time found when every member is free");
 }
 
 async function book(page: Page): Promise<BookingRecord & { resource_id: string | null }> {
@@ -571,7 +579,7 @@ test("SCH-E2E-05 a visit holds its shared table, so an overlapping visit is refu
     });
     try {
         await fillBookingComposer(page, first);
-        const { day, time } = await sharedFreeTime(page, first, diego.id);
+        const { day, time } = await sharedFreeTime(page, first, [diego.id], { laterFor: diego.id });
         const held = await book(page);
         owned.push(held.id);
         const start = combineDayAndTime(day, time, first.zone);
@@ -739,6 +747,171 @@ test("SCH-E2E-05 a visit holds its shared table, so an overlapping visit is refu
         });
     } finally {
         for (const id of owned) await cancelOwnedBooking(page, id);
+        await context.close();
+    }
+});
+
+test("SCH-E2E-23 a service with a pool of two rooms books both at one time, then refuses a third visit in the calendar and hides it on Connect", async ({
+    page,
+    browser,
+}, testInfo) => {
+    test.setTimeout(240_000);
+    await signIn(page);
+    const run = randomUUID().slice(0, 8);
+    const rooms: { id: string; name: string }[] = [];
+    await navigate(page, "/setup/rooms-and-equipment");
+    for (const name of [`Tub A ${run}`, `Tub B ${run}`]) {
+        await page.getByRole("button", { name: strings.resources.add }).first().click();
+        const dialog = page.getByRole("dialog");
+        await dialog.getByRole("textbox", { name: strings.resources.name, exact: true }).fill(name);
+        const added = page.waitForResponse(
+            (response) =>
+                new URL(response.url()).pathname === "/v1/resources" &&
+                response.request().method() === "POST",
+        );
+        await dialog.getByRole("button", { name: strings.resources.save, exact: true }).click();
+        const response = await added;
+        expect(response.status(), await response.text()).toBe(201);
+        rooms.push((await response.json()) as { id: string; name: string });
+        await expect(dialog).toBeHidden();
+    }
+    const pool = rooms.map((room) => room.id).sort();
+    const first = await createBookingFixture(page, { online_bookable: true });
+    await page.goto("/setup/services");
+    await page.locator(`button[data-row-key="${first.itemId}"]`).click({ timeout: 60_000 });
+    const editor = page.getByRole("dialog");
+    const needs = editor.getByRole("group", { name: strings.catalog.needs, exact: true });
+    for (const room of rooms) await needs.locator(`button[data-value="${room.id}"]`).click();
+    const pooled = page.waitForResponse(
+        (response) =>
+            new URL(response.url()).pathname === `/v1/items/${first.itemId}` &&
+            response.request().method() === "PATCH",
+    );
+    await editor.getByRole("button", { name: strings.catalog.save, exact: true }).click();
+    const pooledResponse = await pooled;
+    expect(pooledResponse.status(), await pooledResponse.text()).toBe(200);
+    expect(((await pooledResponse.json()) as { resource_ids: string[] }).resource_ids).toEqual(
+        pool,
+    );
+    await navigate(page, "/setup/rooms-and-equipment");
+    for (const room of rooms)
+        await expect(page.locator(`[data-row-key="${room.id}"]`)).toContainText(first.itemName, {
+            timeout: 60_000,
+        });
+    const diego = await teamMember(page, runEmail("diego@birchbark.example"));
+    const priya = await teamMember(page, runEmail("priya@birchbark.example"));
+    const clients = [await createClient(page), await createClient(page)];
+    const owned: string[] = [];
+    const context = await customerContext(browser);
+    try {
+        await fillBookingComposer(page, first);
+        // other journeys book these groomers in the morning, so late afternoon stays this test's own
+        const { day, time } = await sharedFreeTime(page, first, [diego.id, priya.id], {
+            times: ["15:30", "16:00", "16:30"],
+        });
+        const start = combineDayAndTime(day, time, first.zone);
+        const held = [await book(page)];
+        owned.push(held[0]?.id ?? "");
+        const asDiego: BookingFixture = {
+            ...first,
+            clientId: clients[0]?.id ?? "",
+            clientName: clients[0]?.name ?? "",
+            staffId: diego.id,
+            staffName: diego.name,
+        };
+        await fillBookingComposer(page, asDiego);
+        await pickBookingDay(page, day, first.zone);
+        await pickBookingTime(page, day, time, first.zone);
+        // Priya is still free with one room open, so the full pool is what refuses her below
+        await composerChip(page, priya.id);
+        await expect(page.getByRole("button", { name: s.composerBook, exact: true })).toBeEnabled({
+            timeout: 60_000,
+        });
+        await composerChip(page, diego.id);
+        held.push(await book(page));
+        owned.push(held[1]?.id ?? "");
+        expect(held.map((visit) => at(visit.starts_at))).toEqual([
+            start.getTime(),
+            start.getTime(),
+        ]);
+        expect(held.map((visit) => visit.resource_id).sort()).toEqual(pool);
+
+        const asPriya: BookingFixture = {
+            ...asDiego,
+            clientId: clients[1]?.id ?? "",
+            clientName: clients[1]?.name ?? "",
+            staffId: priya.id,
+            staffName: priya.name,
+        };
+        await fillBookingComposer(page, asPriya);
+        await pickBookingDay(page, day, first.zone);
+        await pickBookingTime(page, day, time, first.zone);
+        const form = page.getByRole("form", { name: s.composerTitle });
+        await expect(form.getByText(s.problemResource, { exact: true })).toBeVisible({
+            timeout: 60_000,
+        });
+        await expect(
+            form.getByRole("button", { name: s.composerBook, exact: true }),
+        ).toBeDisabled();
+        await page.getByRole("button", { name: s.composerCancel, exact: true }).click();
+        const refused = await page.request.post(`${bookingApi()}/v1/bookings`, {
+            headers: { Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() },
+            data: {
+                client_id: asPriya.clientId,
+                item_id: first.itemId,
+                staff_id: priya.id,
+                starts_at: start.toISOString(),
+                notify: false,
+            },
+        });
+        expect(refused.status(), await refused.text()).toBe(409);
+        expect(((await refused.json()) as { error: string }).error).toBe("no_resource");
+        expect((await visitEvidence([asPriya.clientId])).bookings).toEqual([]);
+
+        const date = dateKey(start, first.zone);
+        const offered: Record<string, number[]> = {};
+        for (const staffId of [priya.id, "any"]) {
+            const slots = await context.request.get(
+                `${bookingApi()}/book/${demoSlug("birchbark")}/slots`,
+                { params: { item_id: first.itemId, staff_id: staffId, date } },
+            );
+            expect(slots.status(), await slots.text()).toBe(200);
+            offered[staffId] = (
+                (await slots.json()) as { slots: { starts_at: string }[] }
+            ).slots.map((x) => at(x.starts_at));
+            expect(offered[staffId]).not.toContain(start.getTime());
+        }
+        // Priya was free at the start before the rooms filled, so only the rooms hide it
+        expect(offered[priya.id]?.length).toBeGreaterThan(0);
+        const client = await context.newPage();
+        const days = await openConnectService(client, demoSlug("birchbark"), first.itemName);
+        // choosing Priya reloads the strip on her first open day, so the date is picked after that
+        const priyaDays = client.waitForResponse(
+            (response) =>
+                response.url().includes(`/book/${demoSlug("birchbark")}/days?`) &&
+                new URL(response.url()).searchParams.get("staff_id") === priya.id,
+        );
+        await client
+            .getByRole("group", { name: strings.publicBooking.with, exact: true })
+            .locator(`button[data-value="${priya.id}"]`)
+            .click();
+        await priyaDays;
+        const shown = await openConnectDay(client, days, date);
+        expect(shown.map((x) => at(x.starts_at))).not.toContain(start.getTime());
+        const times = client.getByRole("radiogroup", {
+            name: strings.publicBooking.openTimes,
+            exact: true,
+        });
+        await expect(times.getByRole("radio").first()).toBeVisible();
+        await expect(
+            times.getByRole("radio", { name: formatTime(start, first.zone), exact: true }),
+        ).toHaveCount(0);
+        await testInfo.attach("pool-holds", {
+            body: JSON.stringify({ pool, held, offered }),
+            contentType: "application/json",
+        });
+    } finally {
+        for (const id of owned) if (id !== "") await cancelOwnedBooking(page, id);
         await context.close();
     }
 });

@@ -446,7 +446,10 @@ export function itemMeta(i: ItemRow): string {
             return formatParts(parts);
         }
         case "class":
-            return formatParts([s.minutes(i.duration_min ?? 0), s.classSize(i.capacity ?? 0)]);
+            return formatParts([
+                s.minutes(i.duration_min ?? 0),
+                i.capacity === null ? null : s.classSize(i.capacity),
+            ]);
         case "product":
             return i.sku === null ? s.untracked : s.skuLine(i.sku);
         case "package":
@@ -621,6 +624,8 @@ export function itemFormError(v: ItemFormValues): string | null {
     if (v.price.trim() !== "" && parseCents(v.price, BUSINESS_CURRENCY) === null)
         return s.priceInvalid;
     if (shown("duration") && (toInt(v.duration) ?? 0) <= 0) return s.durationRequired;
+    const buffers = (["bufferBefore", "bufferAfter"] as const).filter(shown).map((f) => v[f]);
+    if (buffers.some((m) => m.trim() !== "" && (toInt(m) ?? -1) < 0)) return s.bufferInvalid;
     if (addsToVisit(v) && v.duration.trim() !== "" && (toInt(v.duration) ?? -1) < 0)
         return s.addsToVisitInvalid;
     if (shown("depositType") && v.depositType !== "none") {
@@ -633,6 +638,9 @@ export function itemFormError(v: ItemFormValues): string | null {
     if (v.kind === "package" && (toInt(v.sessionCount) ?? 0) <= 0) return s.sessionsRequired;
     if (v.kind === "class" && v.sessionCount.trim() !== "" && (toInt(v.sessionCount) ?? 0) <= 0)
         return s.programDaysInvalid;
+    if (v.kind === "class" && (toInt(v.capacity) ?? 0) <= 0) return s.capacityRequired;
+    if (v.kind === "class" && v.sessionCount.trim() !== "" && (toInt(v.capacity) ?? 0) < 2)
+        return s.programCapacity;
     if (shown("interval") && (toInt(v.interval) ?? 0) <= 0) return s.intervalRequired;
     if (shown("memberDiscount") && v.memberDiscount.trim() !== "") {
         const pct = percentOf(v.memberDiscount);
