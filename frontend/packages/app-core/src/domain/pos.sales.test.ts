@@ -6,11 +6,13 @@ import type { ApiLike } from "../api";
 import { BUSINESS_CURRENCY, formatCredit, formatList } from "../format";
 import { strings } from "../strings";
 import {
+    CHECKOUT_QUEUE_SQL,
     SALE_GIFT_CARDS_SQL,
     SALE_LINES_SQL,
     SALE_PAYMENTS_SQL,
     SALE_RECORD_SQL,
     SALES_SQL,
+    useCheckoutQueue,
     useSaleActions,
     useSaleDetail,
     useSalesHistory,
@@ -38,7 +40,53 @@ const sale = {
     item_count: 1,
 };
 
+const visit = {
+    client_id: "cl_ann",
+    client_name: "Ann",
+    staff_id: "st_owner",
+    staff_name: "Sam",
+    staff_title: null,
+    staff_role: "owner",
+    staff_color: null,
+    starts_at: "2026-10-13T16:00:00Z",
+    ends_at: "2026-10-13T16:30:00Z",
+    price_cents: 4500,
+    deposit_status: "none",
+    deposit_amount_cents: null,
+    order_id: null,
+    charged_at: null,
+    item_id: "it_bath",
+    item_name: "Bath",
+    item_kind: "service",
+    tax_class: "standard",
+    item_color: null,
+    item_price_cents: 4500,
+    package_id: null,
+    subscription_id: null,
+    cover_package_id: null,
+    cover_subscription_id: null,
+    other_subject_names: "[]",
+};
+
 const replica: Record<string, unknown[]> = {
+    [CHECKOUT_QUEUE_SQL]: [
+        { ...visit, booking_id: "bk_held", deposit_status: "collected", cover_package_id: "pk_1" },
+        {
+            ...visit,
+            booking_id: "bk_held_club",
+            deposit_status: "collected",
+            cover_subscription_id: "su_1",
+            other_subject_names: '["Pip"]',
+        },
+        { ...visit, booking_id: "bk_sibling", other_subject_names: '["Ace","Pip"]' },
+        { ...visit, booking_id: "bk_one", other_subject_names: '["Pip"]' },
+        {
+            ...visit,
+            booking_id: "bk_own",
+            cover_package_id: "pk_1",
+            other_subject_names: '["Pip"]',
+        },
+    ],
     [SALES_SQL]: [
         { ...sale, gift_card_cents: 3000, methods: "cash" },
         { ...sale, id: "ord_gift", number: 5, gift_card_cents: 4500, methods: null },
@@ -165,5 +213,28 @@ describe("a refund from the sale record", () => {
         actions.result.current.run(detail, "refund");
         expect(onRefund).toHaveBeenCalledWith("pay_cash");
         expect(confirm).not.toHaveBeenCalled();
+    });
+});
+
+describe("the desk says why a visit has no cover", () => {
+    it("asks for a paid deposit first, then names the subjects the client's packages are for", () => {
+        const { result } = renderHook(() => useCheckoutQueue());
+        const shown = new Map(
+            result.current.visits.map((v) => [v.bookingId, { cover: v.cover, note: v.coverNote }]),
+        );
+        expect(shown.get("bk_held")).toEqual({ cover: null, note: d.coverAfterDeposit("package") });
+        expect(shown.get("bk_held_club")).toEqual({
+            cover: null,
+            note: d.coverAfterDeposit("membership"),
+        });
+        expect(shown.get("bk_sibling")).toEqual({
+            cover: null,
+            note: d.packageForOther(formatList(["Ace", "Pip"]), 2),
+        });
+        expect(shown.get("bk_one")?.note).toBe(d.packageForOther("Pip", 1));
+        expect(shown.get("bk_own")).toEqual({
+            cover: { via: "package", id: "pk_1", label: d.usePackage },
+            note: null,
+        });
     });
 });

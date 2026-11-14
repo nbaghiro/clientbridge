@@ -18,6 +18,7 @@ import {
     previewDiscount,
     issuedSale,
     priceSale,
+    type CheckoutVisit,
     type OrderOut,
     type SaleLine,
     saleStatus,
@@ -28,6 +29,7 @@ import {
     useDiscountEditor,
     useSale,
     useTerminalConnection,
+    useVisitCover,
 } from "./pos";
 import { saleNumber } from "./printing";
 
@@ -351,6 +353,151 @@ describe("useTerminalConnection", () => {
         });
         expect(secret).toBe("pst_1");
         expect(result.current.locationId).toBe("tml_1");
+    });
+});
+
+describe("useVisitCover", () => {
+    const visit = (
+        bookingId: string,
+        state: CheckoutVisit["state"],
+        via: "package" | "membership" = "package",
+        hour = 16,
+    ): CheckoutVisit => ({
+        bookingId,
+        clientId: "cl_ann",
+        clientName: "Ann",
+        itemName: "Bath",
+        priceCents: 4500,
+        staffId: null,
+        staffName: "Sam",
+        staffColor: null,
+        start: new Date(Date.UTC(2026, 9, 13, hour)),
+        end: new Date(Date.UTC(2026, 9, 13, hour, 30)),
+        state,
+        depositCents: 0,
+        cover: { via, id: via === "package" ? "pkg_1" : "sub_1", label: "Use" },
+        coverNote: null,
+        line: {
+            key: bookingId,
+            itemId: "it_bath",
+            kind: "service",
+            description: "Bath",
+            unitAmountCents: 4500,
+            quantity: 1,
+            taxClass: "standard",
+            staffId: null,
+            bookingId,
+            color: null,
+            imageFileId: null,
+            discount: null,
+        },
+    });
+    const recording = (reply: object) => {
+        const sent: unknown[][] = [];
+        const post = <T>(...args: unknown[]): Promise<T> => {
+            sent.push(args);
+            return Promise.resolve(reply as T);
+        };
+        return { sent, post };
+    };
+    const replying = (post: ApiLike["post"]): ApiLike => ({
+        get: <T>() => Promise.resolve({} as T),
+        getText: () => Promise.resolve(""),
+        post,
+        patch: <T>() => Promise.resolve({} as T),
+        delete: <T>() => Promise.resolve({} as T),
+    });
+
+    it("says how many visits are left and keeps the covered visit where it was", async () => {
+        const { sent, post } = recording({ sessions_total: 5, sessions_used: 3 });
+        const onDone = vi.fn();
+        const { result } = renderHook(() => useVisitCover(replying(post)));
+        act(() => {
+            result.current.cover(visit("bk_1", "ready", "package", 15), onDone);
+        });
+        await waitFor(() => {
+            expect(result.current.outcomeFor("bk_1")).toEqual({
+                bookingId: "bk_1",
+                tone: "success",
+                message: strings.pos.desk.coveredPackage(2),
+            });
+        });
+        expect(sent).toEqual([
+            [
+                "/v1/packages/pkg_1/cover",
+                { booking_id: "bk_1" },
+                { idempotencyKey: expect.any(String) as string },
+            ],
+        ]);
+        expect(onDone).toHaveBeenCalledOnce();
+        expect(result.current.outcomeFor("bk_3")).toBeNull();
+        // the replica still reads it ready until the cover syncs, but the desk offers it no more
+        expect(result.current.canCover(visit("bk_1", "ready", "package", 15))).toBe(false);
+        expect(result.current.canCover(visit("bk_3", "ready"))).toBe(true);
+        expect(result.current.canCover(visit("bk_5", "upcoming"))).toBe(false);
+        // the queue puts paid visits last; the one just covered keeps its place among the ready
+        const listed = result.current.listed([
+            visit("bk_0", "ready", "package", 14),
+            visit("bk_3", "ready", "package", 16),
+            visit("bk_5", "upcoming", "package", 18),
+            visit("bk_1", "paid", "package", 15),
+            visit("bk_2", "paid"),
+        ]);
+        expect(listed.map((v) => v.bookingId)).toEqual(["bk_0", "bk_1", "bk_3", "bk_5"]);
+    });
+
+    it("puts a refusal in words on the visit that was tried", async () => {
+        const refused = Object.assign(new Error("409"), { code: "package_used_up" });
+        const { result } = renderHook(() => useVisitCover(replying(() => Promise.reject(refused))));
+        const onDone = vi.fn();
+        act(() => {
+            result.current.cover(visit("bk_2", "ready"), onDone);
+        });
+        await waitFor(() => {
+            expect(result.current.outcomeFor("bk_2")).toEqual({
+                bookingId: "bk_2",
+                tone: "danger",
+                message: strings.api.packageUsedUp,
+            });
+        });
+        expect(onDone).not.toHaveBeenCalled();
+    });
+
+    it("holds the other visits' covers back while one is in flight", async () => {
+        let reply: (value: object) => void = () => undefined;
+        const post = <T>(): Promise<T> =>
+            new Promise<T>((resolve) => {
+                reply = (value) => {
+                    resolve(value as T);
+                };
+            });
+        const { result } = renderHook(() => useVisitCover(replying(post)));
+        expect(result.current.blocked("bk_3")).toBe(false);
+        act(() => {
+            result.current.cover(visit("bk_1", "ready"), () => undefined);
+        });
+        expect(result.current.blocked("bk_3")).toBe(true);
+        expect(result.current.blocked("bk_1")).toBe(false);
+        act(() => {
+            reply({ sessions_total: 5, sessions_used: 1 });
+        });
+        await waitFor(() => {
+            expect(result.current.blocked("bk_3")).toBe(false);
+        });
+    });
+
+    it("names the membership when one covers the visit", async () => {
+        const { sent, post } = recording({});
+        const { result } = renderHook(() => useVisitCover(replying(post)));
+        act(() => {
+            result.current.cover(visit("bk_4", "inProgress", "membership"), () => undefined);
+        });
+        await waitFor(() => {
+            expect(result.current.outcomeFor("bk_4")?.message).toBe(
+                strings.pos.desk.coveredMembership,
+            );
+        });
+        expect(sent.map((call) => call[0])).toEqual(["/v1/subscriptions/sub_1/cover"]);
     });
 });
 

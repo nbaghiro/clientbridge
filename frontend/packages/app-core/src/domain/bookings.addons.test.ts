@@ -3,15 +3,21 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ApiLike } from "../api";
+import { strings } from "../strings";
 import { type CalendarEvent, useBookingAddons } from "./bookings";
 import { clearTasks, useTask } from "./navigation";
 
-let invoiceRows: { invoice_id: string | null }[] = [];
+let invoiceRows: { invoice_id: string | null; covered?: number }[] = [];
+let addonRows: { id: string; quantity: number; unit_amount_cents: number }[] = [];
 
 vi.mock("../hooks", async (importOriginal) => ({
     ...(await importOriginal<typeof import("../hooks")>()),
     useBusinessQuery: (sql: string) => ({
-        data: sql.includes("invoice_id") ? invoiceRows : [],
+        data: sql.includes("invoice_id")
+            ? invoiceRows
+            : sql.includes("FROM addons")
+              ? addonRows
+              : [],
     }),
 }));
 
@@ -38,9 +44,32 @@ function invoicingApi(): ApiLike {
 afterEach(() => {
     clearTasks();
     invoiceRows = [];
+    addonRows = [];
 });
 
 describe("invoicing a visit", () => {
+    it("bills a covered visit only for add-ons, so one without any offers no invoice", () => {
+        invoiceRows = [{ invoice_id: null, covered: 1 }];
+        const covered = renderHook(() => useBookingAddons(invoicingApi(), EVENT, OWNER));
+        expect(covered.result.current.canInvoice).toBe(false);
+        expect(covered.result.current.canEdit).toBe(true);
+        addonRows = [{ id: "ba_1", quantity: 1, unit_amount_cents: 1200 }];
+        covered.rerender();
+        expect(covered.result.current.canInvoice).toBe(true);
+    });
+
+    it("says in words when another device covered the visit before the replica knew", async () => {
+        const covered = Object.assign(new Error("409"), { code: "visit_covered" });
+        const api = { ...invoicingApi(), post: () => Promise.reject(covered) };
+        const { result } = renderHook(() => useBookingAddons(api, EVENT, OWNER));
+        act(() => {
+            result.current.createInvoice();
+        });
+        await waitFor(() => {
+            expect(result.current.error).toBe(strings.api.visitCovered);
+        });
+    });
+
     it("opens the new draft once it is created", async () => {
         const { result } = renderHook(() => ({
             addons: useBookingAddons(invoicingApi(), EVENT, OWNER),

@@ -542,11 +542,12 @@ class OrderService:
             if booking.id not in wanted:
                 booking.order_id = None
                 continue
-            if (
-                booking.charged_at is not None
-                or booking.package_id is not None
-                or booking.subscription_id is not None
-            ):
+            if booking.package_id is not None or booking.subscription_id is not None:
+                raise Conflict(
+                    "a package or membership already covered this visit",
+                    code="visit_already_covered",
+                )
+            if booking.charged_at is not None:
                 raise Conflict("this visit has already been paid for")
             if booking.invoice_id is not None:
                 invoice = await self.db.get(Invoice, booking.invoice_id)

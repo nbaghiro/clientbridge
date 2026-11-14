@@ -70,11 +70,15 @@ var opened = http.post(weekPath, {
 });
 if (opened.status !== 200) throw new Error("opening today's hours failed: " + opened.body);
 output.booking = null;
-var last = today + (23 * 60 + 49) * MINUTE;
+// STARTED books one that has already begun, walking back from now
+var started = typeof STARTED !== "undefined";
+var step = (started ? -5 : 5) * MINUTE;
+var first = Math.floor(nowWall / (5 * MINUTE)) * 5 * MINUTE + (started ? -10 * MINUTE : 0);
+var last = started ? today : today + (23 * 60 + 49) * MINUTE;
 for (
-    var wall = Math.floor(nowWall / (5 * MINUTE)) * 5 * MINUTE;
-    wall <= last && output.booking === null;
-    wall += 5 * MINUTE
+    var wall = first;
+    (started ? wall >= last : wall <= last) && output.booking === null;
+    wall += step
 ) {
     var sent = http.request(API_URL + "/v1/bookings", {
         method: "POST",
@@ -91,7 +95,12 @@ for (
         throw new Error("POST /v1/bookings failed: " + sent.status + " " + sent.body);
 }
 if (output.booking === null)
-    throw new Error(visit.staff_id + " has no free ten minutes left today; run after midnight");
+    throw new Error(
+        visit.staff_id +
+            (started
+                ? " has no free time earlier today; run later in the day"
+                : " has no free ten minutes left today; run after midnight"),
+    );
 output.dayLabel =
     ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][new Date(today).getUTCDay()] +
     " " +

@@ -364,7 +364,7 @@ class PackageService:
     ) -> PackagePurchaseOut:
         self._assert_admin()
         client = await self._client(data.client_id)
-        item = await self._item(data.item_id)
+        item = await self._item(data.item_id, share=True)
         if data.subject_id is not None:
             await assert_subject(self.db, self.biz, data.subject_id, client.id)
         if item.kind != "package":
@@ -441,11 +441,8 @@ class PackageService:
         package = await self._package(package_id, lock=True)
 
         async def run(cmd: Command) -> PackageOut:
-            if package.status != "active":
-                raise Conflict("only an active package can be consumed")
             used = await ledger.sessions_used(self.db, package)
-            if used >= package.sessions_total:
-                raise Conflict("no sessions left on this package")
+            _assert_package_usable(package, used, clock.now())
             await ledger.post_consumption(self.db, package)
             if used + 1 >= package.sessions_total:
                 package.status = "used"
@@ -484,21 +481,17 @@ class PackageService:
         async def run(cmd: Command) -> PackageOut:
             now = clock.now()
             await assert_coverable(self.db, booking, slot)
-            covers = (await self._item(package.item_id)).covers_item_id
-            if package.client_id != booking.client_id or covers not in (None, slot.item_id):
-                raise Conflict("this package is for another client or service")
+            if package.client_id != booking.client_id:
+                raise Conflict("this package is for another client")
+            if (await self._item(package.item_id)).covers_item_id not in (None, slot.item_id):
+                raise Conflict("this package covers another service", code="package_other_service")
             if package.subject_id is not None and package.subject_id != booking.subject_id:
                 raise Unprocessable(
                     "this package is for another of the client's subjects",
                     code="package_other_subject",
                 )
-            if package.status != "active" or (
-                package.expires_at is not None and package.expires_at <= now
-            ):
-                raise Conflict("only an active package can cover a visit")
             used = await ledger.sessions_used(self.db, package)
-            if used >= package.sessions_total:
-                raise Conflict("no sessions left on this package")
+            _assert_package_usable(package, used, now)
             await release_pending_deposit(self.db, self.gateway, booking)
             booking.package_id = package.id
             booking.status, booking.completed_at = "completed", now
@@ -542,10 +535,12 @@ class PackageService:
             raise NotFound("client not found")
         return row
 
-    async def _item(self, item_id: str) -> Item:
-        row = (
-            await self.db.execute(scoped(Item, self.biz).where(Item.id == item_id))
-        ).scalar_one_or_none()
+    async def _item(self, item_id: str, *, share: bool = False) -> Item:
+        query = scoped(Item, self.biz).where(Item.id == item_id)
+        if share:
+            # an edit to what the item covers waits for this sale, then counts it
+            query = query.with_for_update(read=True)
+        row = (await self.db.execute(query)).scalar_one_or_none()
         if row is None:
             raise NotFound("item not found")
         return row
@@ -602,8 +597,24 @@ async def restore_purchased_package(db: AsyncSession, business_id: str, payment_
         await db.flush()
 
 
+def _assert_package_usable(package: Package, used: int, now: datetime) -> None:
+    """A session comes only from a paid package that is in date and has one left."""
+    if package.status in ("pending", "canceled"):
+        raise Conflict("only an active package can be used", code="package_inactive")
+    if package.status == "expired" or (
+        package.expires_at is not None and package.expires_at <= now
+    ):
+        raise Conflict("this package has expired", code="package_expired")
+    if package.status == "used" or used >= package.sessions_total:
+        raise Conflict("no sessions left on this package", code="package_used_up")
+
+
 async def assert_coverable(db: AsyncSession, booking: Booking, slot: Slot) -> None:
     """A package or membership covers an open, unbilled visit once it has started."""
+    if booking.package_id is not None or booking.subscription_id is not None:
+        raise Conflict(
+            "a package or membership already covered this visit", code="visit_already_covered"
+        )
     billed = booking.invoice_id is not None and (
         (invoice := await db.get(Invoice, booking.invoice_id)) is not None
         and invoice.status != "void"
@@ -614,9 +625,11 @@ async def assert_coverable(db: AsyncSession, booking: Booking, slot: Slot) -> No
         or booking.charged_at is not None
         or billed
     ):
-        raise Conflict("only an open visit that isn't billed can be covered")
+        raise Conflict("only an open visit that isn't billed can be covered", code="visit_settled")
     if booking.deposit_status == "collected":
-        raise Conflict("refund or apply this visit's deposit before covering it")
+        raise Conflict(
+            "refund or apply this visit's deposit before covering it", code="visit_deposit_paid"
+        )
     if slot.starts_at > clock.now():
         raise Conflict("a visit is covered once it has started")
 
@@ -628,7 +641,7 @@ async def release_pending_deposit(
     if booking.deposit_status != "pending":
         return
     if not await cancel_open_deposits(db, gateway, booking):
-        raise Conflict("this visit's deposit has just been paid")
+        raise Conflict("this visit's deposit has just been paid", code="visit_deposit_paid")
     booking.deposit_status = "none"
 
 

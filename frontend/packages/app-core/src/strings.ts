@@ -117,6 +117,15 @@ interface Strings {
         readonly invoiceHasPayments: string;
         readonly businessUnavailable: string;
         readonly packageOtherSubject: string;
+        readonly packageOtherService: string;
+        readonly packageExpired: string;
+        readonly packageUsedUp: string;
+        readonly packageInactive: string;
+        readonly packageItemSold: string;
+        readonly visitSettled: string;
+        readonly visitCovered: string;
+        readonly visitAlreadyCovered: string;
+        readonly visitDepositPaid: string;
         readonly serviceNotOffered: string;
         readonly visitNoRoom: string;
         readonly crewBusy: string;
@@ -609,6 +618,10 @@ interface Strings {
             readonly memberDiscount: string;
             readonly useMembership: string;
             readonly coverError: string;
+            readonly packageForOther: (subjects: string, count: number) => string;
+            readonly coverAfterDeposit: (cover: string) => string;
+            readonly coveredPackage: (left: number) => string;
+            readonly coveredMembership: string;
             readonly giftCardPaid: string;
             readonly giftCardReturned: string;
             readonly giftCardBeforeTip: string;
