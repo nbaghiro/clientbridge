@@ -339,6 +339,9 @@
     "api.packageOtherService": {
         "message": "This package covers a different service. Ring the visit up instead."
     },
+    "api.packageOtherClient": {
+        "message": "This package belongs to another client, so it can't cover this visit."
+    },
     "api.packageExpired": {
         "message": "This package has expired, so it can't be used."
     },
@@ -353,6 +356,9 @@
     },
     "api.visitSettled": {
         "message": "This visit can't be covered now. It's already paid, billed or closed, or not yet confirmed."
+    },
+    "api.coverBeforeStart": {
+        "message": "This visit hasn't started yet. A package or membership can cover it once it begins."
     },
     "api.visitCovered": {
         "message": "A package or membership already covered this visit, so only its add-ons can be invoiced."

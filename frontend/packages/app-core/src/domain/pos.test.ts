@@ -446,8 +446,12 @@ describe("useVisitCover", () => {
         expect(listed.map((v) => v.bookingId)).toEqual(["bk_0", "bk_1", "bk_3", "bk_5"]);
     });
 
-    it("puts a refusal in words on the visit that was tried", async () => {
-        const refused = Object.assign(new Error("409"), { code: "package_used_up" });
+    // a desk that lost the last session, and one that pressed on a visit another desk covered
+    it.each<[string, () => string]>([
+        ["package_used_up", () => strings.api.packageUsedUp],
+        ["visit_already_covered", () => strings.api.visitAlreadyCovered],
+    ])("puts a %s refusal in words on the visit that was tried", async (code, words) => {
+        const refused = Object.assign(new Error("409"), { code });
         const { result } = renderHook(() => useVisitCover(replying(() => Promise.reject(refused))));
         const onDone = vi.fn();
         act(() => {
@@ -457,7 +461,7 @@ describe("useVisitCover", () => {
             expect(result.current.outcomeFor("bk_2")).toEqual({
                 bookingId: "bk_2",
                 tone: "danger",
-                message: strings.api.packageUsedUp,
+                message: words(),
             });
         });
         expect(onDone).not.toHaveBeenCalled();

@@ -308,6 +308,9 @@
     "api.packageOtherService": {
         "message": "[Ţĥîš þåçķåĝé çöṽéŕš å ðîƒƒéŕéñţ šéŕṽîçé. Ŕîñĝ ţĥé ṽîšîţ ûþ îñšţéåð. one two three four five]"
     },
+    "api.packageOtherClient": {
+        "message": "[Ţĥîš þåçķåĝé ƀéļöñĝš ţö åñöţĥéŕ çļîéñţ, šö îţ çåñ'ţ çöṽéŕ ţĥîš ṽîšîţ. one two three four five]"
+    },
     "api.packageExpired": {
         "message": "[Ţĥîš þåçķåĝé ĥåš éẋþîŕéð, šö îţ çåñ'ţ ƀé ûšéð. one two three]"
     },
@@ -322,6 +325,9 @@
     },
     "api.visitSettled": {
         "message": "[Ţĥîš ṽîšîţ çåñ'ţ ƀé çöṽéŕéð ñöŵ. Îţ'š åļŕéåðý þåîð, ƀîļļéð öŕ çļöšéð, öŕ ñöţ ýéţ çöñƒîŕɱéð. one two three four five six]"
+    },
+    "api.coverBeforeStart": {
+        "message": "[Ţĥîš ṽîšîţ ĥåšñ'ţ šţåŕţéð ýéţ. Å þåçķåĝé öŕ ɱéɱƀéŕšĥîþ çåñ çöṽéŕ îţ öñçé îţ ƀéĝîñš. one two three four five six]"
     },
     "api.visitCovered": {
         "message": "[Å þåçķåĝé öŕ ɱéɱƀéŕšĥîþ åļŕéåðý çöṽéŕéð ţĥîš ṽîšîţ, šö öñļý îţš åðð-öñš çåñ ƀé îñṽöîçéð. one two three four five six]"

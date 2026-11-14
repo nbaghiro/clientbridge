@@ -744,9 +744,14 @@ test("ENT-E2E-07 a gift card and a package stay usable until they expire, and th
     await expect(page.getByRole("dialog")).toBeHidden();
 
     // past its date but before the nightly sweep, the package already reads and acts expired
-    const lapsing = await expirySweep(10, ids);
-    expect(lapsing.swept).toEqual([0, 0]);
-    await page.waitForTimeout(Math.max(0, Date.parse(lapsing.expires_at) - Date.now()) + 1000);
+    const lapsing = await expirySweep(-60, ids, 0);
+    expect(lapsing).toMatchObject({
+        swept: [],
+        rows: [
+            { id: gift.id, status: "active" },
+            { id: pack.id, status: "active" },
+        ],
+    });
     await openEntitlement(page, packSale.client.name, pack.id);
     await expect(page.getByRole("dialog")).toContainText(w.statusLabel.expired, {
         timeout: 60_000,

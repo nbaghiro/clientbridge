@@ -118,11 +118,13 @@ interface Strings {
         readonly businessUnavailable: string;
         readonly packageOtherSubject: string;
         readonly packageOtherService: string;
+        readonly packageOtherClient: string;
         readonly packageExpired: string;
         readonly packageUsedUp: string;
         readonly packageInactive: string;
         readonly packageItemSold: string;
         readonly visitSettled: string;
+        readonly coverBeforeStart: string;
         readonly visitCovered: string;
         readonly visitAlreadyCovered: string;
         readonly visitDepositPaid: string;

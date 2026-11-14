@@ -482,7 +482,7 @@ class PackageService:
             now = clock.now()
             await assert_coverable(self.db, booking, slot)
             if package.client_id != booking.client_id:
-                raise Conflict("this package is for another client")
+                raise Conflict("this package is for another client", code="package_other_client")
             if (await self._item(package.item_id)).covers_item_id not in (None, slot.item_id):
                 raise Conflict("this package covers another service", code="package_other_service")
             if package.subject_id is not None and package.subject_id != booking.subject_id:
@@ -631,7 +631,7 @@ async def assert_coverable(db: AsyncSession, booking: Booking, slot: Slot) -> No
             "refund or apply this visit's deposit before covering it", code="visit_deposit_paid"
         )
     if slot.starts_at > clock.now():
-        raise Conflict("a visit is covered once it has started")
+        raise Conflict("a visit is covered once it has started", code="cover_before_start")
 
 
 async def release_pending_deposit(

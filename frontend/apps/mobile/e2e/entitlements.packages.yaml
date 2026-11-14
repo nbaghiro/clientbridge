@@ -31,7 +31,7 @@ onFlowComplete:
       env:
           METHOD: POST
           PATH: /v1/items
-          BODY: "${JSON.stringify({ kind: 'service', name: 'Tidy bath ' + output.tag, duration_min: 5, price_cents: 3000, tax_class: 'exempt', deposit_type: 'none', online_bookable: false })}"
+          BODY: "${JSON.stringify({ kind: 'service', name: 'Tidy bath ' + output.tag, duration_min: 1, price_cents: 3000, tax_class: 'exempt', deposit_type: 'none', online_bookable: false })}"
 - evalScript: ${output.serviceId = output.response.id}
 - runScript:
       file: helpers/client-api.js
@@ -39,19 +39,19 @@ onFlowComplete:
           METHOD: POST
           PATH: /v1/items
           BODY: "${JSON.stringify({ kind: 'package', name: 'Tidy pack ' + output.tag, price_cents: 6000, tax_class: 'exempt', session_count: 3, validity_days: 365, covers_item_id: output.serviceId })}"
-# Biscuit's visit takes the latest started time, so Juniper's sorts just above it on the desk
+# Biscuit takes Priya's latest started minute, so Juniper's visit sorts just above it on the desk
 - runScript:
       file: helpers/book-today.js
       env:
           STARTED: "1"
-          BODY: "${JSON.stringify({ client_id: output.clientId, subject_id: output.biscuitId, item_id: output.serviceId, staff_id: 'st_owner_' + E2E_NAMESPACE })}"
+          BODY: "${JSON.stringify({ client_id: output.clientId, subject_id: output.biscuitId, item_id: output.serviceId, staff_id: 'st_priya_' + E2E_NAMESPACE })}"
 # restore-week.js puts back the week as it was before the first booking opened the day
 - evalScript: ${output.seededWeek = output.week}
 - runScript:
       file: helpers/book-today.js
       env:
           STARTED: "1"
-          BODY: "${JSON.stringify({ client_id: output.clientId, subject_id: output.juniperId, item_id: output.serviceId, staff_id: 'st_owner_' + E2E_NAMESPACE })}"
+          BODY: "${JSON.stringify({ client_id: output.clientId, subject_id: output.juniperId, item_id: output.serviceId, staff_id: 'st_priya_' + E2E_NAMESPACE })}"
 - evalScript: ${output.week = output.seededWeek}
 - runFlow: helpers/owner.yaml
 - scrollUntilVisible:
@@ -69,8 +69,16 @@ onFlowComplete:
       env:
           NAME: ".*${output.name}"
 - extendedWaitUntil:
-      visible: "A package for one pet covers only that pet's visits\\..*"
+      visible: "Biscuit ${output.tag}"
       timeout: 20000
+# the pet rule sits under the pet choices, below the fold on a phone
+- scrollUntilVisible:
+      element: "A package for one pet covers only that pet's visits\\..*"
+      direction: DOWN
+      centerElement: true
+- scrollUntilVisible:
+      element: "Biscuit ${output.tag}"
+      direction: UP
 - tapOn: "Biscuit ${output.tag}"
 - scrollUntilVisible:
       element: "Record \\$60.00 cash"
@@ -81,12 +89,23 @@ onFlowComplete:
       timeout: 30000
 - runFlow: helpers/close-sheet.yaml
 - tapOn: "Sales"
-# the sibling's visit can't use Biscuit's package, and the desk says so instead of hiding why
+# find Juniper's row, the first of the two, while the package reaches the phone
 - scrollUntilVisible:
-      element: "Their package is for Biscuit ${output.tag} only\\."
+      element: "${output.name}"
       direction: DOWN
+      centerElement: true
+      timeout: 60000
+# the sibling's visit can't use Biscuit's package, and the desk says so instead of hiding why
+- extendedWaitUntil:
+      visible: "Their package is for Biscuit ${output.tag} only\\."
       timeout: 60000
 - takeScreenshot: native-package-sibling-note
+- scrollUntilVisible:
+      element:
+          text: "Use package"
+          below: "Their package is for Biscuit ${output.tag} only\\."
+      direction: DOWN
+      centerElement: true
 - tapOn:
       text: "Use package"
       below: "Their package is for Biscuit ${output.tag} only\\."
@@ -96,6 +115,8 @@ onFlowComplete:
 - takeScreenshot: native-package-covered
 - tapOn: "Gift cards"
 - tapOn: "${output.name}"
-- extendedWaitUntil:
-      visible: "Biscuit ${output.tag}: 2 of 3 left"
+- scrollUntilVisible:
+      element: "Biscuit ${output.tag}: 2 of 3 left"
+      direction: DOWN
+      centerElement: true
       timeout: 30000

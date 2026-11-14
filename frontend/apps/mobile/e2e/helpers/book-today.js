@@ -70,10 +70,18 @@ var opened = http.post(weekPath, {
 });
 if (opened.status !== 200) throw new Error("opening today's hours failed: " + opened.body);
 output.booking = null;
-// STARTED books one that has already begun, walking back from now
+// STARTED books one that began earlier today, a minute at a time back from a minute ago
 var started = typeof STARTED !== "undefined";
-var step = (started ? -5 : 5) * MINUTE;
-var first = Math.floor(nowWall / (5 * MINUTE)) * 5 * MINUTE + (started ? -10 * MINUTE : 0);
+if (started && nowWall < today + 2 * MINUTE) {
+    // Maestro's scripts can't sleep, so just after midnight this spins until two minutes have begun
+    var ready = Date.now() + today + 2 * MINUTE - nowWall;
+    while (Date.now() < ready) continue;
+    nowWall = Date.now() + offsetAt(Date.now());
+}
+var step = started ? -MINUTE : 5 * MINUTE;
+var first = started
+    ? Math.floor(nowWall / MINUTE) * MINUTE - MINUTE
+    : Math.floor(nowWall / (5 * MINUTE)) * 5 * MINUTE;
 var last = started ? today : today + (23 * 60 + 49) * MINUTE;
 for (
     var wall = first;

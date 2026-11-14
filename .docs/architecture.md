@@ -982,9 +982,10 @@ invoice's, and a sale that stops being paid reverses pending earnings. Other way
   covers (none means any). A package posts one session's consumption; a membership needs
   `visits_per_period` and counts the visits it covered since its current period began (409
   `membership_visits_used`). Either way the member earns the visit's share of the price. A package refuses
-  with its own code: `package_other_subject` (422), `package_other_service`, `package_inactive` (unpaid or
-  refunded), `package_expired` (past its date even before the nightly sweep; `consume` refuses it too) and
-  `package_used_up`; the visit with `visit_already_covered`, `visit_settled` or `visit_deposit_paid`. The
+  with its own code: `package_other_client`, `package_other_subject` (422), `package_other_service`,
+  `package_inactive` (unpaid or refunded), `package_expired` (past its date even before the nightly sweep;
+  `consume` refuses it too) and `package_used_up`; the visit with `cover_before_start`,
+  `visit_already_covered`, `visit_settled` or `visit_deposit_paid`. The
   desk shows each refusal, and what is left after a cover, on the visit's own row, and says why it offers
   no cover: a paid deposit to apply or refund first, or packages that are for the client's other subjects.
   A covered visit is never billed for its service again: an invoice or draft that carries it refuses with

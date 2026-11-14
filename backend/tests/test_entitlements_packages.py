@@ -458,12 +458,12 @@ async def test_covering_replays_and_refuses_a_second_use(
 @pytest.mark.parametrize(
     ("case", "code"),
     [
-        ("ahead", "conflict"),
+        ("ahead", "cover_before_start"),
         ("used_up", "package_used_up"),
         ("expired", "package_expired"),
         ("unpaid", "package_inactive"),
         ("refunded", "package_inactive"),
-        ("other_client", "conflict"),
+        ("other_client", "package_other_client"),
         ("other_service", "package_other_service"),
     ],
 )
