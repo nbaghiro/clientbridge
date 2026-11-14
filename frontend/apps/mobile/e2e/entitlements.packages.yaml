@@ -100,12 +100,12 @@ onFlowComplete:
       visible: "Their package is for Biscuit ${output.tag} only\\."
       timeout: 60000
 - takeScreenshot: native-package-sibling-note
+# no centring: its swipe would push the note this button is found below off the screen
 - scrollUntilVisible:
       element:
           text: "Use package"
           below: "Their package is for Biscuit ${output.tag} only\\."
       direction: DOWN
-      centerElement: true
 - tapOn:
       text: "Use package"
       below: "Their package is for Biscuit ${output.tag} only\\."
