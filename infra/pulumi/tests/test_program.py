@@ -711,7 +711,9 @@ def test_the_browser_smoke_lane_gates_production_and_runs_without_credentials() 
     assert dig(smoke, "if") == "needs.staging.outputs.deployed == 'true'"
     assert "environment" not in keys(smoke)
     steps = listed(dig(smoke, "steps"))
-    assert [dig(s, "run") for s in steps][-1] == "make test-staging-smoke"
+    assert [dig(s, "run") for s in steps if dig(s, "run")][-1] == "make test-staging-smoke"
+    (kept,) = [s for s in steps if str(dig(s, "uses")).startswith("actions/upload-artifact")]
+    assert dig(kept, "if") == "failure()"
     assert not [s for s in steps if str(dig(s, "uses")).startswith("google-github-actions/")]
     production = dig(workflow("deploy.yml"), "jobs", "production")
     assert "staging-smoke" in listed(dig(production, "needs"))

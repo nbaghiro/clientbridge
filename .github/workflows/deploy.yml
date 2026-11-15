@@ -189,6 +189,12 @@ jobs:
         working-directory: frontend
       # it signs in as the demo owners and never books, pays or sends a message
       - run: make test-staging-smoke
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: staging-smoke
+          path: frontend/apps/connect/test-results/smoke
+          retention-days: 14
 
   # a manual run redeploys or rolls back the backend; the app rolls back with deploy-mobile.yml
   staging-mobile:
