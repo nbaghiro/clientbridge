@@ -143,6 +143,18 @@ export async function runIntake(formId: string, clientId: string): Promise<numbe
     return (JSON.parse(stdout) as { issued: number }).issued;
 }
 
+/** Gives a business the case opened a texting number, as the admin console would assign one. */
+export async function assignSmsNumber(businessId: string): Promise<void> {
+    await promisify(execFile)(
+        "uv",
+        ["run", "python", "-m", "e2e.actions", "sms-number", businessId],
+        {
+            cwd: fileURLToPath(new URL("../../../../../backend", import.meta.url)),
+            timeout: 60_000,
+        },
+    );
+}
+
 /** The responses a form has for one client: its id, link token and where it stands. */
 export function formResponses(
     formId: string,

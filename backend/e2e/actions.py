@@ -784,6 +784,30 @@ async def intake_main(argv: list[str]) -> None:
         await engine.dispose()
 
 
+async def sms_number(business_id: str) -> Row:
+    """A texting number for a business a case opened, as the admin console would assign one."""
+    namespace = _run_namespace(business_id)
+    async with SessionLocal() as db:
+        _confine(db, namespace)
+        business = await db.get(Business, business_id, with_for_update=True)
+        if business is None or business.sms_number is not None or not _fresh(business.created_at):
+            raise RuntimeError("only a business this case opened, without a number yet")
+        # the namespace keeps it apart from other runs' numbers, the random tail from this run's
+        business.sms_number = f"+1800{namespace}{secrets.randbelow(1000):03d}"
+        await db.commit()
+        return {"sms_number": business.sms_number}
+
+
+async def sms_number_main(argv: list[str]) -> None:
+    parser = argparse.ArgumentParser(prog="python -m e2e.actions sms-number")
+    parser.add_argument("business_id")
+    args = parser.parse_args(argv)
+    try:
+        print(json.dumps(await sms_number(args.business_id)))
+    finally:
+        await engine.dispose()
+
+
 async def invite_age(seconds: int, ids: list[str]) -> Row:
     namespace = _run_namespace(*ids)
     async with SessionLocal() as db:
@@ -1118,6 +1142,7 @@ COMMANDS: dict[str, Callable[[list[str]], None]] = {
     "expiry": lambda argv: asyncio.run(expiry_main(argv)),
     "invite-age": lambda argv: asyncio.run(invite_age_main(argv)),
     "intake": lambda argv: asyncio.run(intake_main(argv)),
+    "sms-number": lambda argv: asyncio.run(sms_number_main(argv)),
 }
 
 

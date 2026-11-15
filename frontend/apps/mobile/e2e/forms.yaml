@@ -44,6 +44,9 @@ name: NATIVE-DOC-01 A form built on the phone with a text, a choice and a file q
       text: "Required"
       checked: false
       rightOf: "Required"
+- scrollUntilVisible:
+      element: "Done"
+      direction: DOWN
 - tapOn: "Done"
 - tapOn: "Add question"
 - tapOn:
@@ -64,6 +67,9 @@ name: NATIVE-DOC-01 A form built on the phone with a text, a choice and a file q
 - tapOn: "Choice 2"
 - inputText: "Long"
 - pressKey: Enter
+- scrollUntilVisible:
+      element: "Done"
+      direction: DOWN
 - tapOn: "Done"
 - tapOn: "Add question"
 - tapOn:
@@ -75,6 +81,9 @@ name: NATIVE-DOC-01 A form built on the phone with a text, a choice and a file q
       element: "File"
       direction: DOWN
 - tapOn: "File"
+- scrollUntilVisible:
+      element: "Done"
+      direction: DOWN
 - tapOn: "Done"
 - assertVisible: "1, Dog's name, Short text · Required"
 - assertVisible: "2, Coat, Dropdown"
@@ -107,6 +116,9 @@ name: NATIVE-DOC-01 A form built on the phone with a text, a choice and a file q
 # the keyboard takes the first tap, so Return puts it away first
 - pressKey: Enter
 - tapOn: ".*${output.name}, .*"
+- scrollUntilVisible:
+      element: "Send link"
+      direction: DOWN
 - tapOn: "Send link"
 - extendedWaitUntil:
       visible: "Check it before it goes out"

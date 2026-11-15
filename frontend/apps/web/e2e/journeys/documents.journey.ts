@@ -4,6 +4,7 @@ import { newBusiness } from "../support/business";
 import { openClient } from "../support/clients";
 import { select } from "../support/db";
 import {
+    assignSmsNumber,
     formEvidence,
     formResponses,
     runIntake,
@@ -371,6 +372,7 @@ test("DOC-E2E-09 a new client's online booking gets the intake form texted once 
     const [business] = await select<{ id: string }>`
         SELECT id FROM businesses WHERE slug = ${own.slug}`;
     if (business === undefined) throw new Error("The new business has no row");
+    await assignSmsNumber(business.id);
     const booker = onlineBooker("Pepper");
     const name = `New client intake for ${booker.name}`;
     await navigate(page, "/inbox?segment=forms");
