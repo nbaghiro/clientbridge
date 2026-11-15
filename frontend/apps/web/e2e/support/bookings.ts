@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import {
     addDays,
     addMonths,
@@ -166,12 +166,22 @@ async function staffBooked(fixture: BookingFixture, start: Date): Promise<boolea
     return rows.length > 0;
 }
 
+function shuffled<T>(items: readonly T[]): T[] {
+    const out = [...items];
+    for (let i = out.length - 1; i > 0; i--) {
+        const j = randomInt(0, i + 1);
+        [out[i], out[j]] = [out[j] as T, out[i] as T];
+    }
+    return out;
+}
+
 export async function chooseFreeBookingTime(page: Page, fixture: BookingFixture): Promise<void> {
     const submit = page.getByRole("button", { name: strings.bookings.composerBook, exact: true });
-    for (let offset = 14; offset < 21; offset++) {
+    // cases running side by side book the same owner, so each walks the window in its own order
+    for (const offset of shuffled([14, 15, 16, 17, 18, 19, 20])) {
         const day = addDays(new Date(), offset, fixture.zone);
         await pickBookingDay(page, day, fixture.zone);
-        for (const time of ["10:00", "11:00", "13:00", "14:00", "15:00"]) {
+        for (const time of shuffled(["10:00", "11:00", "13:00", "14:00", "15:00"])) {
             await pickBookingTime(page, day, time, fixture.zone);
             // the replica may not hold every visit yet, so the server's calendar decides too
             const start = combineDayAndTime(day, time, fixture.zone);
