@@ -46,6 +46,8 @@ jobs:
         working-directory: frontend
       - run: make test-tier
       - name: run the shuffled, repeated lane
+        # stops short of the job limit so the steps below still collect what ran
+        timeout-minutes: 105
         run: make test-flakes FLAKE_SEED="$SEED" FLAKE_REPEAT="$REPEAT" FLAKE_ARGS="--surface ${{ matrix.surface }}"
       - name: collect the test tier's logs
         if: always()

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { saleNumber, strings } from "@clientbridge/app-core/public";
 import { expect, type Locator, type Page } from "@playwright/test";
+import { cardPaid } from "./billing";
 import { bookingApi } from "./bookings";
 import { createClient, type ClientFixture } from "./clients";
 import { select } from "./db";
@@ -391,6 +392,44 @@ export async function stockProduct(
     });
     expect(stocked.status(), await stocked.text()).toBe(200);
     return { id: item.id, name: product.name, sku };
+}
+
+/** A shop order of the case's own, paid by card and moved to ready through the desk's own steps. */
+export async function readyPickupOrder(page: Page): Promise<string> {
+    const client = await createClient(page);
+    const product = await stockProduct(page, {
+        name: `Slicker brush for ${client.name}`,
+        prefix: "BB-SB",
+        priceCents: 1800,
+        taxClass: "standard",
+        stock: 3,
+    });
+    const origin = new URL(page.url()).origin;
+    const opened = await page.request.post(`${bookingApi()}/v1/orders`, {
+        headers: { Origin: origin, "Idempotency-Key": randomUUID() },
+        data: {
+            client_id: client.id,
+            lines: [
+                {
+                    description: product.name,
+                    item_id: product.id,
+                    quantity: 1,
+                    unit_amount_cents: 1800,
+                },
+            ],
+        },
+    });
+    expect(opened.status(), await opened.text()).toBe(201);
+    const order = ((await opened.json()) as { id: string }).id;
+    expect(await cardPaid("pickup", order)).toEqual({ order, pickup_status: "unfulfilled" });
+    for (const status of ["preparing", "ready"]) {
+        const moved = await page.request.post(`${bookingApi()}/v1/orders/${order}/pickup`, {
+            headers: { Origin: origin },
+            data: { status },
+        });
+        expect(moved.status(), await moved.text()).toBe(200);
+    }
+    return order;
 }
 
 /** Rings `taps` of the product for the client and opens cash payment with `given` received. */

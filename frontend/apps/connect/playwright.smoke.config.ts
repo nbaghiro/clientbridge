@@ -19,7 +19,7 @@ const config = defineConfig({
     ],
     use: {
         viewport: { width: 1280, height: 900 },
-        trace: "off",
+        trace: "retain-on-failure",
         video: "off",
         screenshot: "only-on-failure",
         ...(process.env.CI ? {} : { channel: "chrome" }),

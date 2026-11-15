@@ -2,14 +2,15 @@ import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 import { inflateRawSync } from "node:zlib";
-import { formatCredit, formatMoney, strings } from "@clientbridge/app-core/public";
-import { expect, type Page, type TestInfo } from "@playwright/test";
+import { formatCredit, formatMoney, strings, taxName } from "@clientbridge/app-core/public";
+import { type Browser, expect, type Page, type TestInfo } from "@playwright/test";
 import { newAccount } from "./auth";
 import { bookingApi } from "./bookings";
 import { createClient } from "./clients";
 import { select } from "./db";
 import { requireLocalMail } from "./evidence";
 import { signUp, openBusiness } from "./business";
+import { acceptInvite } from "./hours";
 import { openRefund, type RefundFixture } from "./refunds";
 import { navigate } from "./session";
 import { demoId, runSetting } from "@clientbridge/config/e2e/run";
@@ -259,10 +260,17 @@ export async function filingEvidence(businessKey = "bz_birchbark"): Promise<Fili
     };
 }
 
-export async function financeFixture(page: Page, unpaid: boolean): Promise<FinanceFixture> {
+interface FinanceBusiness {
+    api: string;
+    account: ReturnType<typeof newAccount>;
+    businessId: string;
+    headers: () => Record<string, string>;
+}
+
+async function financeBusiness(page: Page, prefix: string): Promise<FinanceBusiness> {
     requireLocalMail();
     const api = bookingApi();
-    const account = newAccount("finance");
+    const account = newAccount(prefix);
     await signUp(page, page.request, account);
     const onboarding = page.waitForResponse(
         (r) => new URL(r.url()).pathname === "/v1/onboarding" && r.request().method() === "POST",
@@ -287,6 +295,11 @@ export async function financeFixture(page: Page, unpaid: boolean): Promise<Finan
     expect(empty.entries).toEqual([]);
     expect(empty.invoices).toEqual([]);
     expect(empty.payments).toEqual([]);
+    return { api, account, businessId: business.id, headers };
+}
+
+export async function financeFixture(page: Page, unpaid: boolean): Promise<FinanceFixture> {
+    const { api, account, businessId, headers } = await financeBusiness(page, "finance");
     const client = await createClient(page);
     const itemName = "Éclat facial, sensitive skin";
     const itemResponse = await page.request.post(`${api}/v1/items`, {
@@ -345,7 +358,7 @@ export async function financeFixture(page: Page, unpaid: boolean): Promise<Finan
     expect(payment.status).toBe("succeeded");
     return {
         account,
-        businessId: business.id,
+        businessId,
         itemId: item.id,
         itemName,
         client,
@@ -542,7 +555,11 @@ export async function incomeUi(page: Page, unpaid: boolean, refunded: boolean): 
         page.getByText(s.received(formatMoney(refunded ? 0 : 11200, "CAD")), { exact: true }),
     ).toBeVisible();
 }
-export function periodDates(period: "thisMonth" | "lastMonth"): { start: string; end: string } {
+export interface Span {
+    start: string;
+    end: string;
+}
+export function periodDates(period: "thisMonth" | "lastMonth"): Span {
     const parts = new Intl.DateTimeFormat("en-CA", {
         timeZone: "America/Vancouver",
         year: "numeric",
@@ -563,18 +580,46 @@ export function periodDates(period: "thisMonth" | "lastMonth"): { start: string;
         ? { start: key(year, month, 1), end: key(year, month, day) }
         : { start: key(year, month - 1, 1), end: key(year, month, 0) };
 }
+type ReportTab = "income" | "salesByItem" | "gstHst" | "pst" | "t4a";
+export const PACK_KINDS = [
+    "income",
+    "salesByItem",
+    "gstHst",
+    "pst",
+    "t4a",
+    "payouts",
+    "staffPay",
+] as const;
+type PackKind = (typeof PACK_KINDS)[number];
+const FILE: Record<PackKind, string> = {
+    income: "income",
+    salesByItem: "sales-by-item",
+    gstHst: "gst-hst",
+    pst: "pst",
+    t4a: "t4a",
+    payouts: "payouts",
+    staffPay: "staff-pay",
+};
+
+export function reportFile(kind: PackKind, span: Span): string {
+    return kind === "t4a"
+        ? `t4a-${span.end.slice(0, 4)}.csv`
+        : `${FILE[kind]}-${span.start}-to-${span.end}.csv`;
+}
+
 export async function downloadReport(
     page: Page,
     info: TestInfo,
-    kind: "income" | "salesByItem",
+    kind: ReportTab,
     tag: string,
+    span: Span,
 ): Promise<string[][]> {
-    await page.getByRole("tab", { name: s.library[kind], exact: true }).click();
+    const tab = kind === "pst" ? taxName("PST") : s.library[kind];
+    await page.getByRole("tab", { name: tab, exact: true }).click();
     const pending = page.waitForEvent("download");
     await page.getByRole("button", { name: s.downloadCsv, exact: true }).click();
     const download = await pending;
-    const span = periodDates("thisMonth");
-    const name = `${kind === "income" ? "income" : "sales-by-item"}-${span.start}-to-${span.end}.csv`;
+    const name = reportFile(kind, span);
     expect(download.suggestedFilename()).toBe(name);
     const path = info.outputPath(`${tag}-${name}`);
     await download.saveAs(path);
@@ -590,12 +635,21 @@ export function expectCsv(
     f: FinanceFixture,
     refunded: boolean,
 ): void {
+    // a $100 + 12% paid invoice, plus a $50 + 12% unpaid one when the fixture issued it
+    const sales = f.unpaidId === null ? 10000 : 15000;
+    const net = sales - (refunded ? 10000 : 0);
+    const received = refunded ? 0 : 11200;
     expect(income).toEqual([
         ["metric", "amount_cents"],
-        ["gross", "11200"],
-        ["refunds", refunded ? "11200" : "0"],
-        ["net", refunded ? "0" : "11200"],
-        ["method:cash", refunded ? "0" : "11200"],
+        ["sales", String(sales)],
+        ["refunds", refunded ? "10000" : "0"],
+        ["net_sales", String(net)],
+        ["tax:GST", String(net / 20)],
+        ["tax:PST", String((net * 7) / 100)],
+        ["sales_with_tax", String((net * 112) / 100)],
+        ["tips", "0"],
+        ["received", String(received)],
+        ...(received === 0 ? [] : [["method:cash", String(received)]]),
     ]);
     expect(items).toEqual([
         ["item", "kind", "quantity", "sales_cents", "tax_cents", "refunded_cents"],
@@ -632,10 +686,23 @@ export async function downloadPack(
     page: Page,
     info: TestInfo,
     tag: string,
-    rejectEmpty = false,
+    span: Span,
+    {
+        rejectEmpty = false,
+        kinds = ["income", "salesByItem"],
+        rows = {},
+    }: {
+        rejectEmpty?: boolean;
+        kinds?: readonly PackKind[];
+        rows?: Partial<Record<PackKind, number>>;
+    } = {},
 ): Promise<Artifact> {
     await page.getByRole("button", { name: s.bookkeeperPack, exact: true }).click();
     const dialog = page.getByRole("dialog");
+    for (const [key, count] of Object.entries(rows) as [PackKind, number][])
+        await expect(
+            dialog.getByRole("listitem").filter({ hasText: s.libraryHint[key] }),
+        ).toContainText(s.packRows(count));
     for (const checkbox of await dialog.getByRole("checkbox").all()) await checkbox.uncheck();
     if (rejectEmpty) {
         let downloads = 0,
@@ -658,15 +725,211 @@ export async function downloadPack(
             page.off("request", onRequest);
         }
     }
-    for (const key of ["income", "salesByItem"] as const)
-        await dialog.getByRole("checkbox", { name: s.library[key], exact: true }).check();
+    for (const key of kinds)
+        await dialog
+            .getByRole("checkbox", {
+                name: key === "pst" ? taxName("PST") : s.library[key],
+                exact: true,
+            })
+            .check();
     const pending = page.waitForEvent("download");
     await dialog.getByRole("button", { name: s.packDownload, exact: true }).click();
     const download = await pending;
-    const span = periodDates("thisMonth");
     expect(download.suggestedFilename()).toBe(`bookkeeper-${span.start}-to-${span.end}.zip`);
     const path = info.outputPath(`${tag}.zip`);
     await download.saveAs(path);
     await info.attach(tag, { path, contentType: "application/zip" });
     return artifact(path);
+}
+
+const BOOKKEEPER_PRODUCT = "=SUM(2,2) Shampoo";
+const BOOKKEEPER_SERVICE = "Bath and tidy";
+
+export interface BookkeeperFixture {
+    account: ReturnType<typeof newAccount>;
+    businessId: string;
+    member: { id: string; name: string; page: Page; close: () => Promise<void> };
+}
+
+/** A fresh BC business with two cash sales this month, one refunded, and one staff member paid. */
+export async function bookkeeperFixture(
+    page: Page,
+    browser: Browser,
+    baseURL: string,
+): Promise<BookkeeperFixture> {
+    const { api, account, businessId, headers } = await financeBusiness(page, "bookkeeper");
+    const post = async <T>(path: string, data: object, status = 201): Promise<T> => {
+        const response = await page.request.post(`${api}${path}`, { headers: headers(), data });
+        expect(response.status(), await response.text()).toBe(status);
+        return (await response.json()) as T;
+    };
+    const client = await createClient(page);
+    const product = await post<{ id: string }>("/v1/items", {
+        kind: "product",
+        name: BOOKKEEPER_PRODUCT,
+        price_cents: 2000,
+        tax_class: "standard",
+    });
+    const service = await post<{ id: string }>("/v1/items", {
+        kind: "service",
+        name: BOOKKEEPER_SERVICE,
+        duration_min: 30,
+        price_cents: 5000,
+        tax_class: "federal_only",
+        deposit_type: "none",
+        online_bookable: false,
+    });
+    const shampoo = (quantity: number) => ({
+        item_id: product.id,
+        description: BOOKKEEPER_PRODUCT,
+        quantity,
+        unit_amount_cents: 2000,
+        tax_class: "standard",
+    });
+    const paidInvoice = async (lines: object[], total: number): Promise<string> => {
+        const invoice = await post<{ id: string; total_cents: number }>("/v1/invoices", {
+            client_id: client.id,
+            send: true,
+            lines,
+        });
+        expect(invoice.total_cents).toBe(total);
+        const paid = await post<{ payment_id: string }>(`/v1/invoices/${invoice.id}/payments`, {
+            method: "cash",
+            amount_cents: total,
+            tendered_cents: total,
+            send_receipt: false,
+        });
+        return paid.payment_id;
+    };
+    // $40 of shampoo with GST and PST, and a $50 service with GST only
+    await paidInvoice(
+        [
+            shampoo(2),
+            {
+                item_id: service.id,
+                description: BOOKKEEPER_SERVICE,
+                quantity: 1,
+                unit_amount_cents: 5000,
+                tax_class: "federal_only",
+            },
+        ],
+        9730,
+    );
+    const returned = await paidInvoice([shampoo(1)], 2240);
+    await post(`/v1/payments/${returned}/refund`, { reason: "other", notify: false }, 200);
+    const memberAccount = newAccount("bookkeeper-staff");
+    const invite = await post<{ invite_token: string }>("/v1/staff/invites", {
+        email: memberAccount.email,
+        role: "staff",
+    });
+    const memberContext = await browser.newContext({ baseURL });
+    try {
+        const memberPage = await memberContext.newPage();
+        const staffId = await acceptInvite(
+            memberPage,
+            page.request,
+            invite.invite_token,
+            memberAccount,
+        );
+        const bonus = await post<{ id: string }>("/v1/earnings/adjustments", {
+            staff_id: staffId,
+            amount_cents: 25000,
+            reason: "Season bonus",
+        });
+        await post("/v1/earnings/approve", { ids: [bonus.id] }, 200);
+        await post("/v1/earnings/pay", { ids: [bonus.id] }, 200);
+        return {
+            account,
+            businessId,
+            member: {
+                id: staffId,
+                name: memberAccount.name,
+                page: memberPage,
+                close: () => memberContext.close(),
+            },
+        };
+    } catch (error) {
+        await memberContext.close();
+        throw error;
+    }
+}
+
+/** What each report must hold, worked out by hand from the fixture's sales, refund and pay. */
+export function bookkeeperCsvs(f: BookkeeperFixture): Record<ReportTab | "payouts", string[][]> {
+    return {
+        income: [
+            ["metric", "amount_cents"],
+            ["sales", "11000"],
+            ["refunds", "2000"],
+            ["net_sales", "9000"],
+            ["tax:GST", "450"],
+            ["tax:PST", "280"],
+            ["sales_with_tax", "9730"],
+            ["tips", "0"],
+            ["received", "9730"],
+            ["method:cash", "9730"],
+        ],
+        salesByItem: [
+            ["item", "kind", "quantity", "sales_cents", "tax_cents", "refunded_cents"],
+            [`'${BOOKKEEPER_PRODUCT}`, "product", "3", "6000", "720", "2000"],
+            [BOOKKEEPER_SERVICE, "service", "1", "5000", "250", "0"],
+        ],
+        gstHst: [
+            [
+                "tax_collected_cents",
+                "pst_cents",
+                "qst_cents",
+                "taxable_sales_cents",
+                "gst_hst_number",
+            ],
+            ["450", "280", "0", "9000", ""],
+        ],
+        pst: [
+            ["code", "rate_bps", "taxable_sales_cents", "collected_cents", "number"],
+            ["PST", "700", "4000", "280", ""],
+        ],
+        t4a: [
+            ["staff_id", "name", "fees_cents", "tips_cents", "total_cents"],
+            [f.member.id, f.member.name, "25000", "0", "25000"],
+        ],
+        payouts: [["payout", "arrival", "amount_cents", "status"]],
+    };
+}
+
+/** The figures on each report tab for the bookkeeper fixture. */
+export async function bookkeeperUi(page: Page, f: BookkeeperFixture): Promise<void> {
+    const money = (cents: number): string => formatMoney(cents, "CAD");
+    const line = (label: string) =>
+        page
+            .locator("dl > div")
+            .filter({ has: page.getByText(label, { exact: true }) })
+            .locator("dd");
+    // a tax line's term carries its rate after the label
+    const taxLine = (label: string) =>
+        page
+            .locator("dl > div")
+            .filter({ has: page.locator("dt", { hasText: label }) })
+            .locator("dd");
+    await page.getByRole("tab", { name: s.library.income, exact: true }).click();
+    for (const [label, text] of [
+        [s.sales, money(11000)],
+        [s.refunds, formatCredit(2000, "CAD")],
+        [s.netSales, money(9000)],
+        [s.salesWithTax, money(9730)],
+    ] as const)
+        await expect(line(label)).toHaveText(text);
+    await expect(taxLine(s.taxCollected(taxName("GST")))).toHaveText(money(450));
+    await expect(taxLine(s.taxCollected(taxName("PST")))).toHaveText(money(280));
+    await expect(page.getByText(s.received(money(9730)), { exact: true })).toBeVisible();
+    await page.getByRole("tab", { name: s.library.salesByItem, exact: true }).click();
+    await expect(page.getByRole("row", { name: BOOKKEEPER_PRODUCT })).toContainText(money(4000));
+    await expect(page.getByRole("row", { name: BOOKKEEPER_SERVICE })).toContainText(money(5000));
+    await page.getByRole("tab", { name: s.library.gstHst, exact: true }).click();
+    await expect(line(s.taxableSales)).toHaveText(money(9000));
+    await expect(line(s.gstLine105(taxName("GST")))).toHaveText(money(450));
+    await page.getByRole("tab", { name: taxName("PST"), exact: true }).click();
+    await expect(line(s.provincialSales)).toHaveText(money(4000));
+    await expect(taxLine(s.taxCollected(taxName("PST")))).toHaveText(money(280));
+    await page.getByRole("tab", { name: s.library.t4a, exact: true }).click();
+    await expect(page.getByRole("row", { name: f.member.name })).toContainText(money(25000));
 }

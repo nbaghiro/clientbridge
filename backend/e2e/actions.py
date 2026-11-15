@@ -40,9 +40,9 @@ from clientbridge.core.namespaces import confine_to_namespace
 from clientbridge.core.zones import zone
 from clientbridge.integrations.expo import get_push_sender
 from clientbridge.integrations.resend import get_email_sender
-from clientbridge.integrations.stripe import PlanSubscription, SubscribedItem
+from clientbridge.integrations.stripe import PlanSubscription, SubscribedItem, get_payment_gateway
 from clientbridge.integrations.twilio import get_sms_sender, twilio_signature
-from clientbridge.models.billing import Invoice
+from clientbridge.models.billing import Invoice, Line, Order
 from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import GiftCard, Item, Package
 from clientbridge.models.clients import Client, Subject
@@ -51,9 +51,11 @@ from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking, Recurrence, Slot
 from clientbridge.services import ledger
 from clientbridge.services.billing import sweep_overdue
+from clientbridge.services.bookings import settle_deposit
 from clientbridge.services.entitlements import run_expiry_sweeps
 from clientbridge.services.forms import run_intake_forms
 from clientbridge.services.notifications import Notifier, inbound_message_alert_text
+from clientbridge.services.payments import sync_order
 from clientbridge.services.plans import PLAN_PRICES, apply_plan_subscription
 from clientbridge.services.reports import add_months, period_of
 from clientbridge.services.tax import TaxResult
@@ -245,6 +247,95 @@ async def card_attempt(invoice_id: str, state: str) -> dict[str, object]:
             )
         await db.commit()
         return {"invoice": invoice.id, "state": state}
+
+
+async def card_deposit(booking_id: str) -> dict[str, object]:
+    """A visit's deposit paid by card, booked as the lane's absent Stripe would confirm it."""
+    business_id = run_id(FIXTURE_BUSINESS)
+    if business_id == FIXTURE_BUSINESS or get_settings().stripe_secret_key:
+        raise RuntimeError("only a run's own business on a lane without Stripe keys")
+    async with SessionLocal() as db:
+        booking = await db.get(Booking, booking_id, with_for_update=True)
+        if (
+            booking is None
+            or booking.business_id != business_id
+            or booking.deposit_status != "pending"
+            or booking.deposit_amount_cents <= 0
+            or not _fresh(booking.created_at)
+        ):
+            raise RuntimeError("only a pending deposit on a visit this case booked")
+        payment = Payment(
+            id=new_id("payment"),
+            business_id=business_id,
+            client_id=booking.client_id,
+            kind="deposit",
+            booking_id=booking.id,
+            amount_cents=booking.deposit_amount_cents,
+            currency=ledger.BUSINESS_CURRENCY,
+            method="card",
+            provider="stripe",
+            provider_ref=f"pi_lane_{booking.id}",
+            status="succeeded",
+            paid_at=clock.now(),
+        )
+        db.add(payment)
+        await db.flush()
+        await ledger.post_payment(db, payment)
+        await settle_deposit(db, get_payment_gateway(), booking.id)
+        await db.commit()
+        return {"booking": booking.id, "deposit_status": booking.deposit_status}
+
+
+async def card_pickup(order_id: str) -> dict[str, object]:
+    """A desk order turned into a shop order the lane's absent Stripe confirmed as paid."""
+    business_id = run_id(FIXTURE_BUSINESS)
+    if business_id == FIXTURE_BUSINESS or get_settings().stripe_secret_key:
+        raise RuntimeError("only a run's own business on a lane without Stripe keys")
+    async with SessionLocal() as db:
+        order = await db.get(Order, order_id, with_for_update=True)
+        paid = await db.scalar(select(func.count(Payment.id)).where(Payment.order_id == order_id))
+        if (
+            order is None
+            or order.business_id != business_id
+            or order.source != "pos"
+            or order.status != "open"
+            or order.client_id is None
+            or paid
+            or not _fresh(order.created_at)
+        ):
+            raise RuntimeError("only an unpaid desk order this case opened")
+        order.source = "online"
+        order.status_token = secrets.token_urlsafe(32)
+        await db.execute(update(Line).where(Line.order_id == order.id).values(for_pickup=True))
+        payment = Payment(
+            id=new_id("payment"),
+            business_id=business_id,
+            client_id=order.client_id,
+            kind="payment",
+            order_id=order.id,
+            amount_cents=order.total_cents,
+            currency=order.currency,
+            method="card",
+            provider="stripe",
+            provider_ref=f"pi_lane_{order.id}",
+            status="succeeded",
+            paid_at=clock.now(),
+        )
+        db.add(payment)
+        await db.flush()
+        await ledger.post_payment(db, payment)
+        await sync_order(db, order.id)
+        await db.commit()
+        return {"order": order.id, "pickup_status": order.pickup_status}
+
+
+def card_paid_main(argv: list[str]) -> None:
+    parser = argparse.ArgumentParser(prog="python -m e2e.actions card-paid")
+    parser.add_argument("kind", choices=("deposit", "pickup"))
+    parser.add_argument("id")
+    args = parser.parse_args(argv)
+    paid = card_deposit if args.kind == "deposit" else card_pickup
+    print(json.dumps(asyncio.run(paid(args.id))))
 
 
 def billing_main(argv: list[str]) -> None:
@@ -1016,6 +1107,7 @@ COMMANDS: dict[str, Callable[[list[str]], None]] = {
     "native-push": native_push_main,
     "payment-account": payment_account_main,
     "billing": billing_main,
+    "card-paid": card_paid_main,
     "outreach": lambda argv: asyncio.run(outreach_main(argv)),
     "files": lambda argv: asyncio.run(files_main(argv)),
     "notes": notes_main,

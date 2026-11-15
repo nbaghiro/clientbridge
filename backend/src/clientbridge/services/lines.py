@@ -155,7 +155,7 @@ async def replace_lines(
             description=inp.description,
             item_id=inp.item_id,
             booking_id=inp.booking_id,
-            quantity=inp.quantity,
+            quantity=Decimal(str(inp.quantity)),
             unit_amount_cents=inp.unit_amount_cents,
             tax_class=inp.tax_class or (item.tax_class if item else "standard"),
             position=i,

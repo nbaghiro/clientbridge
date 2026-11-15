@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.config import get_settings
+from clientbridge.models.business import User
 from clientbridge.models.clients import Client, Consent
 from clientbridge.schemas.messaging import BroadcastAudience
 from clientbridge.services.consents import (
@@ -20,7 +21,7 @@ from clientbridge.services.consents import (
     stopped_clients,
 )
 from clientbridge.services.messaging import broadcast_recipients
-from tests.conftest import Factory, FakeSmsSender
+from tests.conftest import STAFF_USER, Factory, FakeSmsSender
 from tests.google_business import configure_google_review_profile
 from tests.helpers import new_client, ok, text_in, texted
 
@@ -73,6 +74,18 @@ async def test_export_lists_every_change(as_owner: httpx.AsyncClient, db: AsyncS
         ("withdrawn", "reply"),
     ]
     assert mine[0][0] == "'=HYPERLINK(1)"  # a spreadsheet won't run it as a formula
+
+
+async def test_export_writes_every_text_cell_that_starts_a_formula_as_text(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await db.execute(update(User).where(User.id == STAFF_USER).values(email="=cmd@example.com"))
+    cid = await _client(db, name="-2+3")
+    await record_consent(db, BIZ, cid, status="granted", source="in_person", recorded_by=STAFF_USER)
+    await db.commit()
+    content = ok(await as_owner.post("/v1/consents/export")).json()["content"]
+    (row,) = [r for r in csv.reader(io.StringIO(content)) if r[1] == PHONE]
+    assert (row[0], row[1], row[6]) == ("'-2+3", PHONE, "'=cmd@example.com")
 
 
 async def test_export_pseudo_localizes_headers_and_keeps_data(

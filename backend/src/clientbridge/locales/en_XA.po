@@ -446,9 +446,6 @@ msgstr "[éåŕñîñĝ_îð~~~~]"
 msgid "report_csv.fees_cents"
 msgstr "[ƒééš_çéñţš~~~~]"
 
-msgid "report_csv.gross"
-msgstr "[ĝŕöšš~~]"
-
 msgid "report_csv.gst_hst_number"
 msgstr "[ĝšţ_ĥšţ_ñûɱƀéŕ~~~~~]"
 
@@ -464,8 +461,8 @@ msgstr "[ɱéţŕîç~~~]"
 msgid "report_csv.name"
 msgstr "[ñåɱé~~]"
 
-msgid "report_csv.net"
-msgstr "[ñéţ~~]"
+msgid "report_csv.net_sales"
+msgstr "[ñéţ_šåļéš~~~~]"
 
 msgid "report_csv.number"
 msgstr "[ñûɱƀéŕ~~~]"
@@ -488,6 +485,9 @@ msgstr "[ǫûåñţîţý~~~]"
 msgid "report_csv.rate_bps"
 msgstr "[ŕåţé_ƀþš~~~]"
 
+msgid "report_csv.received"
+msgstr "[ŕéçéîṽéð~~~]"
+
 msgid "report_csv.refunded_cents"
 msgstr "[ŕéƒûñðéð_çéñţš~~~~~]"
 
@@ -497,14 +497,23 @@ msgstr "[ŕéƒûñðš~~~]"
 msgid "report_csv.run"
 msgstr "[ŕûñ~~]"
 
+msgid "report_csv.sales"
+msgstr "[šåļéš~~]"
+
 msgid "report_csv.sales_cents"
 msgstr "[šåļéš_çéñţš~~~~]"
+
+msgid "report_csv.sales_with_tax"
+msgstr "[šåļéš_ŵîţĥ_ţåẋ~~~~~]"
 
 msgid "report_csv.staff_id"
 msgstr "[šţåƒƒ_îð~~~]"
 
 msgid "report_csv.status"
 msgstr "[šţåţûš~~~]"
+
+msgid "report_csv.tax"
+msgstr "[ţåẋ:{code}~~]"
 
 msgid "report_csv.tax_cents"
 msgstr "[ţåẋ_çéñţš~~~~]"
@@ -514,6 +523,9 @@ msgstr "[ţåẋ_çöļļéçţéð_çéñţš~~~~~~~]"
 
 msgid "report_csv.taxable_sales_cents"
 msgstr "[ţåẋåƀļé_šåļéš_çéñţš~~~~~~~]"
+
+msgid "report_csv.tips"
+msgstr "[ţîþš~~]"
 
 msgid "report_csv.tips_cents"
 msgstr "[ţîþš_çéñţš~~~~]"

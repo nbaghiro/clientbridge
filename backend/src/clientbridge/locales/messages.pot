@@ -446,9 +446,6 @@ msgstr ""
 msgid "report_csv.fees_cents"
 msgstr ""
 
-msgid "report_csv.gross"
-msgstr ""
-
 msgid "report_csv.gst_hst_number"
 msgstr ""
 
@@ -464,7 +461,7 @@ msgstr ""
 msgid "report_csv.name"
 msgstr ""
 
-msgid "report_csv.net"
+msgid "report_csv.net_sales"
 msgstr ""
 
 msgid "report_csv.number"
@@ -488,6 +485,9 @@ msgstr ""
 msgid "report_csv.rate_bps"
 msgstr ""
 
+msgid "report_csv.received"
+msgstr ""
+
 msgid "report_csv.refunded_cents"
 msgstr ""
 
@@ -497,13 +497,22 @@ msgstr ""
 msgid "report_csv.run"
 msgstr ""
 
+msgid "report_csv.sales"
+msgstr ""
+
 msgid "report_csv.sales_cents"
+msgstr ""
+
+msgid "report_csv.sales_with_tax"
 msgstr ""
 
 msgid "report_csv.staff_id"
 msgstr ""
 
 msgid "report_csv.status"
+msgstr ""
+
+msgid "report_csv.tax"
 msgstr ""
 
 msgid "report_csv.tax_cents"
@@ -513,6 +522,9 @@ msgid "report_csv.tax_collected_cents"
 msgstr ""
 
 msgid "report_csv.taxable_sales_cents"
+msgstr ""
+
+msgid "report_csv.tips"
 msgstr ""
 
 msgid "report_csv.tips_cents"
