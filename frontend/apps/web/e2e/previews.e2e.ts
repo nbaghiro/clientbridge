@@ -1,5 +1,5 @@
 import { formatMoney, formatPhone, strings } from "@clientbridge/app-core/public";
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page, type Request } from "@playwright/test";
 import { paymentEvidence } from "./support/evidence";
 import {
     composeDocument,
@@ -181,10 +181,10 @@ test("BILL-DOC-20 a lost estimate send response reads as unconfirmed, then shows
     await editor.getByRole("button", { name: strings.common.close, exact: true }).click();
     await openDocument(page, client, "estimate", draft.id);
     const keys: (string | undefined)[] = [];
+    const sent: Request[] = [];
     await page.route(`**/v1/estimates/${draft.id}/send`, async (route) => {
         keys.push(route.request().headers()["idempotency-key"]);
-        const committed = await route.fetch();
-        expect(committed.status()).toBe(200);
+        sent.push(route.request());
         await route.abort("connectionreset");
     });
     const { review } = await reviewSend(
@@ -194,13 +194,26 @@ test("BILL-DOC-20 a lost estimate send response reads as unconfirmed, then shows
     );
     await review.getByRole("button", { name: strings.billing.sendEstimate, exact: true }).click();
 
-    await expect(page.getByText(strings.billing.actionUnconfirmed, { exact: true })).toBeVisible();
+    const unconfirmed = page.getByText(strings.billing.actionUnconfirmed, { exact: true });
+    await expect(unconfirmed).toBeVisible();
+    expect((await documentEvidence("estimate", draft.id)).document).toMatchObject({
+        status: "draft",
+        number: null,
+    });
+    // the notice clears once the replica shows the send, so the send lands only after it shows
+    const [lost] = sent;
+    if (lost === undefined) throw new Error("the send never left the browser");
+    const landed = await page.request.fetch(lost, {
+        headers: { ...lost.headers(), origin: new URL(page.url()).origin },
+    });
+    expect(landed.status(), await landed.text()).toBe(200);
     const committed = (await documentEvidence("estimate", draft.id)).document;
     expect(committed).toMatchObject({ status: "sent", number: expect.any(Number) });
     // the replica brings the send down, so the panel shows it without a retry
     await expect(page.getByText(strings.billing.event.sent, { exact: true })).toBeVisible({
         timeout: 30_000,
     });
+    await expect(unconfirmed).toHaveCount(0);
     await expect(
         page.getByRole("button", { name: strings.billing.sendEstimate, exact: true }),
     ).toHaveCount(0);
