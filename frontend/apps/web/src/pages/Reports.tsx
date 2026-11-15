@@ -161,7 +161,7 @@ export function Reports() {
                                 onRetry={r.load.retry}
                                 retrying={r.load.retrying}
                             />
-                        ) : r.load.state === "empty" || v === null ? (
+                        ) : !r.shows(open) || v === null ? (
                             <Empty icon="dollar" message={s.noSales} body={s.noSalesBody} />
                         ) : (
                             <ReportBody report={open} v={v} />

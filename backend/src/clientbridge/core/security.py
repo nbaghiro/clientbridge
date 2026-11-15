@@ -15,6 +15,11 @@ def hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
+def spreadsheet_cell(value: str) -> str:
+    """Text for a CSV cell that a spreadsheet shows as written instead of running as a formula."""
+    return f"'{value}" if value.startswith(("=", "+", "-", "@", "\t", "\r")) else value
+
+
 def issue_powersync_token(user_id: str) -> str:
     """Short-lived PowerSync token; `sub` is the user, the sync streams derive their businesses."""
     s = get_settings()

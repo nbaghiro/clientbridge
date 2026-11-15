@@ -63,7 +63,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 7. Gift cards, packages and memberships | Memberships: renewals and failed payments                   | [CB-40](https://linear.app/clientbridgeca/issue/CB-40) | Partly automated |
 | 8. Refunds and the books                | Refunds and credit notes                                    | [CB-42](https://linear.app/clientbridgeca/issue/CB-42) | Automated        |
 | 8. Refunds and the books                | Disputes and chargebacks                                    | [CB-43](https://linear.app/clientbridgeca/issue/CB-43) | Partly automated |
-| 8. Refunds and the books                | Bookkeeper reports and exports                              | [CB-45](https://linear.app/clientbridgeca/issue/CB-45) | Partly automated |
+| 8. Refunds and the books                | Bookkeeper reports and exports                              | [CB-45](https://linear.app/clientbridgeca/issue/CB-45) | Automated        |
 | 8. Refunds and the books                | GST/HST returns                                             | [CB-46](https://linear.app/clientbridgeca/issue/CB-46) | Automated        |
 | 8. Refunds and the books                | Payouts and fee reconciliation                              | [CB-47](https://linear.app/clientbridgeca/issue/CB-47) | Partly automated |
 | 8. Refunds and the books                | Staff pay and T4A                                           | [CB-48](https://linear.app/clientbridgeca/issue/CB-48) | Partly automated |
@@ -1930,10 +1930,10 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 
 **QA steps**
 
-1. Run income, sales by item, GST/HST, PST, T4A, payouts and staff pay for the week.
-   **Expect:** totals match the sales and payments made.
+1. Run income, sales by item, GST/HST, PST, T4A, payouts and staff pay for this month, which holds the test week.
+   **Expect:** totals match the sales and payments made; a refunded sale leaves the GST/HST and PST sales along with its tax.
 2. Download each CSV and the bookkeeper ZIP and open them in a spreadsheet.
-   **Expect:** the same cents as on screen; empty periods disable export.
+   **Expect:** the same cents as on screen, the income CSV included; an item or person named like a formula shows as text; the T4A file is named for its year; a period with no sales, payments, payouts or staff pay disables export, even when the year has T4A payees.
 3. Run the reports from a laptop in another time zone.
    **Expect:** the same day boundaries, in the business zone.
 4. As staff, open Reports.
@@ -1945,11 +1945,8 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 
 - `FIN-REPORT-01 (web)`
 - `FIN-EXPORT-02 (web)`
-
-**To automate**
-
-- `FIN-REPORT-12` in `apps/web/e2e/reports.e2e.ts`: Sales by item, GST/HST with PST apart and T4A CSVs against hand totals.
-- A backend test in `tests/test_reports.py` after the fix: the sales by item CSV writes an item named `=HYPERLINK(...)` as text. `sales_by_item_csv` (`services/reports.py`) writes names as they are today, so a spreadsheet would run a leading `=`, `+`, `-` or `@` as a formula; the consent export already guards its cells with `_cell` (`services/consents.py`), and the report CSVs need the same.
+- `FIN-REPORT-12 (web)`
+- `NATIVE-REPORT-01 (native-ios, native-android)`
 
 **Depends on:** Nothing
 

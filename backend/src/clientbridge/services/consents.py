@@ -13,6 +13,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.core.locale import locale_for, message
 from clientbridge.core.phones import e164
 from clientbridge.core.scoping import scoped
+from clientbridge.core.security import spreadsheet_cell
 from clientbridge.models.business import Business, User
 from clientbridge.models.clients import Client, Consent, ConsentSource, ConsentStatus
 from clientbridge.schemas.consents import ConsentExport
@@ -170,11 +171,6 @@ async def record_text_reply(
     return True
 
 
-def _cell(value: str) -> str:
-    # a spreadsheet would run a leading =, +, - or @ as a formula
-    return f"'{value}" if value[:1] in ("=", "+", "-", "@") else value
-
-
 def _export_header(locale: str) -> list[str]:
     return [
         message(locale, "consent_csv.client"),
@@ -222,7 +218,7 @@ class ConsentService:
         for consent, name, phone, recorded_by in rows:
             writer.writerow(
                 [
-                    _cell(name or ""),
+                    spreadsheet_cell(name or ""),
                     consent.phone or phone or "",
                     consent.status,
                     consent.source,

@@ -117,35 +117,48 @@ export function Reports() {
                         onRetry={r.load.retry}
                         retrying={r.load.retrying}
                     />
-                ) : r.load.state === "empty" || v === null ? (
+                ) : v === null ? (
                     <Empty variant="card" icon="dollar" message={s.noSales} body={s.noSalesBody} />
                 ) : (
                     <>
-                        <Text style={styles.caption}>{spanLabel(r.span)}</Text>
-                        <Panel flush>
-                            {REPORTS.map((key) => (
-                                <ListRow
-                                    key={key}
-                                    icon={ICONS[key]}
-                                    title={name(key)}
-                                    detail={s.libraryHint[key]}
-                                    meta={figure(key, v)}
-                                    onPress={() => {
-                                        setOpen(key);
-                                    }}
-                                />
-                            ))}
-                        </Panel>
-                        <Button
-                            full
-                            variant="outline"
-                            icon="mail"
-                            onPress={() => {
-                                setPacking(true);
-                            }}
-                        >
-                            {s.bookkeeperPack}
-                        </Button>
+                        {r.load.ready ? (
+                            <Text style={styles.caption}>{spanLabel(r.span)}</Text>
+                        ) : (
+                            <Empty
+                                variant="card"
+                                icon="dollar"
+                                message={s.noSales}
+                                body={s.noSalesBody}
+                            />
+                        )}
+                        {REPORTS.some(r.shows) ? (
+                            <Panel flush>
+                                {REPORTS.filter(r.shows).map((key) => (
+                                    <ListRow
+                                        key={key}
+                                        icon={ICONS[key]}
+                                        title={name(key)}
+                                        detail={s.libraryHint[key]}
+                                        meta={figure(key, v)}
+                                        onPress={() => {
+                                            setOpen(key);
+                                        }}
+                                    />
+                                ))}
+                            </Panel>
+                        ) : null}
+                        {r.load.ready ? (
+                            <Button
+                                full
+                                variant="outline"
+                                icon="mail"
+                                onPress={() => {
+                                    setPacking(true);
+                                }}
+                            >
+                                {s.bookkeeperPack}
+                            </Button>
+                        ) : null}
                     </>
                 )}
             </ScrollView>
@@ -164,6 +177,7 @@ export function Reports() {
                         <Button
                             grow
                             variant="outline"
+                            disabled={!r.load.ready}
                             busy={file.busyKind === open}
                             onPress={() => {
                                 file.download(open);

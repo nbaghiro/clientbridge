@@ -18,9 +18,8 @@ class DashboardSummary(BaseModel):
 
 
 class IncomeReport(BaseModel):
-    gross_cents: int = Field(description="Payments and deposits received in the period")
-    refunds_cents: int = Field(description="Refunds paid out in the period")
-    net_cents: int = Field(description="Gross minus refunds")
+    refunds_cents: int = Field(description="Refunds and disputes paid out in the period")
+    net_cents: int = Field(description="Payments received less refunds and disputes")
     by_method: dict[str, int] = Field(description="Net received per payment method")
 
 

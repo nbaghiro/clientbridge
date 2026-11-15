@@ -6,7 +6,8 @@ import zipfile
 from datetime import UTC, datetime
 
 import httpx
-from sqlalchemy import update
+import pytest
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
@@ -23,8 +24,10 @@ YEAR = "start=2015-01-01&end=2015-12-31"
 MARCH = datetime(2015, 3, 10, 18, tzinfo=UTC)
 
 
-async def _sale(db: AsyncSession, business_id: str = BIZ, client: str | None = None) -> None:
-    """A $100 retail invoice with GST $5 and PST $7, paid by card, $56 refunded, a $8 tip."""
+async def _sale(
+    db: AsyncSession, business_id: str = BIZ, client: str | None = None, provincial: str = "PST"
+) -> None:
+    """A $100 retail invoice, GST $5 and $7 provincial tax, paid by card, $56 back, a $8 tip."""
     payer = client or await client_id(db)
     invoice = Invoice(
         id=new_id("invoice"),
@@ -52,7 +55,7 @@ async def _sale(db: AsyncSession, business_id: str = BIZ, client: str | None = N
         )
     )
     await ledger.post_invoice(
-        db, invoice, TaxResult(10000, 1200, 11200, {"GST": 500, "PST": 700}, [])
+        db, invoice, TaxResult(10000, 1200, 11200, {"GST": 500, provincial: 700}, [])
     )
     payment = Payment(
         id=new_id("payment"),
@@ -129,7 +132,7 @@ async def test_summary_reads_every_report(as_owner: httpx.AsyncClient, db: Async
     assert income["by_method"] == {"card": 5600}
     assert body["gst_hst"]["tax_collected_cents"] == 250
     assert body["provincial"]["collected_cents"] == 350
-    assert body["provincial"]["taxable_cents"] == 10000
+    assert body["provincial"]["taxable_cents"] == 5000  # half refunded, like its PST
     assert [m["month"] for m in body["months"]][:3] == ["2015-01", "2015-02", "2015-03"]
     assert len(body["months"]) == 12
     assert body["months"][2]["net_cents"] == 5000
@@ -162,9 +165,100 @@ async def test_export_zip_holds_one_csv_per_report(
             "payouts-2015-01-01-to-2015-12-31.csv",
         ]
         pst = list(csv.reader(io.StringIO(zf.read(names[1]).decode())))
-        assert pst[1][2:4] == ["10000", "350"]
+        assert pst[1][2:4] == ["5000", "350"]
         payouts = list(csv.reader(io.StringIO(zf.read(names[2]).decode())))
         assert payouts[1][1:] == ["2015-03-10", "5000", "paid"]
+
+
+async def test_the_zip_names_the_t4a_for_its_year(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _sale(db)
+    res = await as_owner.post(
+        "/v1/reports/export",
+        json={"kinds": ["income", "t4a"], "start": "2015-03-01", "end": "2015-03-31"},
+    )
+    assert res.status_code == 200, res.text
+    with zipfile.ZipFile(io.BytesIO(res.content)) as zf:
+        assert zf.namelist() == ["income-2015-03-01-to-2015-03-31.csv", "t4a-2015.csv"]
+
+
+async def test_income_csv_carries_the_income_report_as_on_screen(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _sale(db)
+    income = (await as_owner.get(f"/v1/reports/summary?{YEAR}")).json()["income"]
+    res = await as_owner.get(f"/v1/reports/income.csv?{YEAR}")
+    assert res.status_code == 200, res.text
+    assert list(csv.reader(io.StringIO(res.text))) == [
+        ["metric", "amount_cents"],
+        ["sales", str(income["sales_cents"])],
+        ["refunds", str(income["refunds_cents"])],
+        ["net_sales", str(income["net_cents"])],
+        ["tax:GST", "250"],
+        ["tax:PST", "350"],
+        ["sales_with_tax", "5600"],
+        ["tips", "800"],
+        ["received", "5600"],
+        ["method:card", "5600"],
+    ]
+    assert (income["sales_cents"], income["refunds_cents"], income["net_cents"]) == (
+        10000,
+        5000,
+        5000,
+    )
+
+
+@pytest.mark.parametrize(
+    ("province", "provincial", "how"),
+    [("BC", "PST", "refund"), ("BC", "PST", "lost dispute"), ("QC", "QST", "refund")],
+)
+async def test_money_back_in_a_later_month_takes_its_sale_out_of_that_months_provincial_base(
+    as_owner: httpx.AsyncClient, db: AsyncSession, province: str, provincial: str, how: str
+) -> None:
+    await db.execute(update(Business).where(Business.id == BIZ).values(province=province))
+    await _sale(db, provincial=provincial)
+    paid = (
+        await db.execute(
+            select(Payment)
+            .join(Invoice, Invoice.id == Payment.invoice_id)
+            .where(Invoice.number == 99001, Payment.kind == "payment")
+        )
+    ).scalar_one()
+    april = datetime(2015, 4, 2, 18, tzinfo=UTC)
+    if how == "refund":
+        rest = Payment(
+            id=new_id("payment"),
+            business_id=BIZ,
+            client_id=paid.client_id,
+            kind="refund",
+            parent_payment_id=paid.id,
+            invoice_id=paid.invoice_id,
+            amount_cents=5600,
+            method="card",
+            provider="stripe",
+            provider_ref=f"re_{new_id('payment')}",
+            status="succeeded",
+            paid_at=april,
+        )
+        db.add(rest)
+        await db.flush()
+        await ledger.post_refund(db, rest, paid)
+    else:
+        dispute = f"dp_{new_id('payment')}"
+        await ledger.post_dispute(
+            db, paid, dispute_id=dispute, amount=5600, fee=0, occurred_at=april
+        )
+        await ledger.lose_dispute(db, paid, dispute_id=dispute, amount=5600, occurred_at=april)
+    await db.commit()
+
+    async def base_and_tax(start: str, end: str) -> tuple[int, int]:
+        body = (await as_owner.get(f"/v1/reports/summary?start={start}&end={end}")).json()
+        return body["provincial"]["taxable_cents"], body["provincial"]["collected_cents"]
+
+    assert await base_and_tax("2015-03-01", "2015-03-31") == (5000, 350)
+    assert await base_and_tax("2015-04-01", "2015-04-30") == (-5000, -350)
+    assert await base_and_tax("2015-01-01", "2015-12-31") == (0, 0)
 
 
 async def test_every_kind_exports(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
