@@ -53,6 +53,8 @@ const MAESTRO_GLOBALS = {
         "STAFF_ID",
         "NAME",
         "SURNAME",
+        "ANSWERS",
+        "SIGNER",
     ]),
     output: "writable",
 };

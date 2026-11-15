@@ -6,7 +6,7 @@ import { StyleSheet, Text, View, type ViewStyle } from "react-native";
 import type { NativeProps } from "./props";
 
 const c = theme.colors;
-const WIDTH = { 2: "50%", 3: "33.333%", 4: "25%" } as const;
+const WIDTH = { 1: "100%", 2: "50%", 3: "33.333%", 4: "25%" } as const;
 
 export function KeyValueList({
     rows,
@@ -22,9 +22,17 @@ export function KeyValueList({
                 return layout === "stack" ? (
                     <View key={row.label} style={[styles.cell, cell]}>
                         <Text style={styles.stackLabel}>{row.label}</Text>
-                        <Text style={[styles.value, tint]} numberOfLines={1}>
-                            {row.value}
-                        </Text>
+                        {typeof row.value === "string" || typeof row.value === "number" ? (
+                            <Text
+                                style={[styles.value, tint]}
+                                numberOfLines={columns === 1 ? undefined : 1}
+                            >
+                                {row.value}
+                            </Text>
+                        ) : (
+                            // a control inside Text is hidden from VoiceOver, so it sits on its own
+                            <View style={styles.control}>{row.value}</View>
+                        )}
                     </View>
                 ) : (
                     <View key={row.label} style={[styles.row, i > 0 && styles.divider]}>
@@ -65,4 +73,5 @@ const styles = StyleSheet.create({
         marginTop: 3,
     },
     right: { textAlign: "right", flexShrink: 1, marginTop: 0 },
+    control: { marginTop: 3, alignItems: "flex-start" },
 });

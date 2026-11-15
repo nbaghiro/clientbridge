@@ -1,11 +1,17 @@
-import { useBusinessQuery as useQuery } from "../hooks";
-import { usePeoplePhotos } from "./files";
+import { useBusinessQuery as useQuery, useRemote } from "../hooks";
+import { useFileLinks, usePeoplePhotos } from "./files";
 import { afterReview, outgoing } from "./previews";
 
 import { useMemo, useState } from "react";
 
-import { formatLongDate, parseTimestamp, readDate, useBusinessZone } from "../datetime";
-import { formatList, formatPhone } from "../format";
+import {
+    formatClock,
+    formatLongDate,
+    parseTimestamp,
+    readDate,
+    useBusinessZone,
+} from "../datetime";
+import { BUSINESS_CURRENCY, formatList, formatMoney, formatNumber, formatPhone } from "../format";
 import { type Load, useAsyncAction } from "../hooks";
 import { type ClientRow, clientOption, useClients } from "./clients";
 import { type PublicFormField, optionPair } from "./publicForm";
@@ -275,6 +281,8 @@ export function useFormEditor(
     formId: string,
     initial: FormDraft,
     onCreated: (id: string) => void,
+    // the screen reopens a form it just created under its new id, still saved
+    created = false,
 ): FormEditor {
     const [name, setNameRaw] = useState(initial.name);
     const [requireSignature, setSig] = useState(initial.requireSignature);
@@ -284,7 +292,7 @@ export function useFormEditor(
     const [dirty, setDirty] = useState(false);
     const [problem, setProblem] = useState<FormEditorError | null>(null);
     const [problemKey, setProblemKey] = useState<string | null>(null);
-    const [saved, setSaved] = useState(false);
+    const [saved, setSaved] = useState(created);
     const action = useAsyncAction();
 
     const touch = (): void => {
@@ -531,7 +539,8 @@ function answerText(field: PublicFormField, value: unknown, zone: string): strin
         const match = field.options.map(optionPair).find((o) => o.value === String(v));
         return match?.label ?? String(v);
     };
-    if (value === undefined || value === null || value === "") return f.noAnswer;
+    if (value === undefined || value === null || (typeof value === "string" && value.trim() === ""))
+        return f.noAnswer;
     if (typeof value === "boolean") return value ? f.answerYes : f.answerNo;
     if (Array.isArray(value))
         return value.length === 0 ? f.noAnswer : formatList(value.map(label), "unit");
@@ -539,20 +548,80 @@ function answerText(field: PublicFormField, value: unknown, zone: string): strin
     if (field.input === "date" && typeof value === "string")
         return formatLongDate(readDate(value, zone), zone);
     if (field.input === "select") return label(value);
+    if (field.input === "time" && typeof value === "string") return formatClock(value);
+    if (field.input === "phone" && typeof value === "string") return formatPhone(value);
+    const amount = exactNumber(value);
+    if (field.input === "number" && amount !== null)
+        return formatNumber(amount, { useGrouping: false, maximumFractionDigits: 20 });
+    if (field.input === "currency" && amount !== null)
+        return formatMoney(Math.round(amount * 100), BUSINESS_CURRENCY);
     return typeof value === "string" ? value : JSON.stringify(value);
 }
+
+// an answer a double can't hold exactly, such as a 20-digit ID, is shown as the client typed it
+function exactNumber(value: unknown): number | null {
+    if (typeof value === "number") return Number.isFinite(value) ? value : null;
+    if (typeof value !== "string") return null;
+    const parts = /^[-+]?(\d*)(?:\.(\d*))?$/.exec(value.trim());
+    if (parts === null || !/\d/.test(value)) return null;
+    const whole = parts[1] ?? "";
+    const fraction = (parts[2] ?? "").replace(/0+$/, "");
+    return `${whole}${fraction}`.replace(/^0+/, "").length <= 15 ? Number(value) : null;
+}
+
+const inOrder = (fields: readonly PublicFormField[]): PublicFormField[] =>
+    [...fields].sort((a, b) => a.position - b.position);
 
 /** Each question with its answer as read, in the order the form asked them. */
 export function answerRows(
     response: Pick<FormAnswers, "fields" | "answers">,
     zone: string,
 ): KeyValueRow[] {
-    return [...response.fields]
-        .sort((a, b) => a.position - b.position)
-        .map((field) => ({
+    return inOrder(response.fields).map((field) => ({
+        label: field.label,
+        value: answerText(field, response.answers[field.name], zone),
+    }));
+}
+
+interface FormAnswerRow {
+    label: string;
+    value: string;
+    // a download link for an attached file, once it has loaded
+    fileUrl: string | null;
+}
+
+function attachedFile(field: PublicFormField, value: unknown): string | null {
+    const upload = field.input === "file" || field.input === "image";
+    return upload && typeof value === "string" && value !== "" ? value : null;
+}
+
+/** A client's submitted form as read: its answers, each attached file's link, and who signed it. */
+export function formAnswerRows(
+    response: FormAnswers,
+    zone: string,
+    links: Readonly<Record<string, string>>,
+): FormAnswerRow[] {
+    const rows = inOrder(response.fields).map((field) => {
+        const value = response.answers[field.name];
+        const file = attachedFile(field, value);
+        return {
             label: field.label,
-            value: answerText(field, response.answers[field.name], zone),
-        }));
+            value: answerText(field, value, zone),
+            fileUrl: file === null ? null : (links[file] ?? null),
+        };
+    });
+    return response.signer_name === null
+        ? rows
+        : [...rows, { label: strings.forms.signedBy, value: response.signer_name, fileUrl: null }];
+}
+
+export function useFormAnswerRows(api: ApiLike, response: FormAnswers): FormAnswerRow[] {
+    const zone = useBusinessZone();
+    const files = response.fields.flatMap((field) => {
+        const file = attachedFile(field, response.answers[field.name]);
+        return file === null ? [] : [file];
+    });
+    return formAnswerRows(response, zone, useFileLinks(api, files));
 }
 
 export const CLIENT_FORMS_SQL = `
@@ -580,45 +649,48 @@ export function useFormQuestions(formId: string): PublicFormField[] {
     );
 }
 
-interface ClientForms {
-    forms: { id: string; name: string; submittedAt: string }[];
-    open: FormAnswers | null;
-    busy: boolean;
-    error: string | null;
-    view: (responseId: string) => void;
-    close: () => void;
-}
-
-/** A client's submitted forms, such as a health history, and the answers of the one opened. */
-export function useClientForms(api: ApiLike, clientId: string): ClientForms {
+/** A client's submitted forms, such as a health history, newest first. */
+export function useClientForms(
+    clientId: string,
+): { id: string; name: string; submittedAt: string }[] {
     const zone = useBusinessZone();
     const rows = useQuery<{ id: string; name: string; submitted_at: string | null }>(
         CLIENT_FORMS_SQL,
         [clientId],
     ).data;
-    const [open, setOpen] = useState<FormAnswers | null>(null);
-    const { busy, error, setError, run } = useAsyncAction();
+    return rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        submittedAt:
+            r.submitted_at === null ? "" : formatLongDate(parseTimestamp(r.submitted_at), zone),
+    }));
+}
+
+interface LoadedAnswers {
+    answers: FormAnswers | null;
+    busy: boolean;
+    error: string | null;
+    reload: () => void;
+}
+
+/** One submitted form read back from the server; nothing loads until a response is picked. */
+export function useFormAnswers(api: ApiLike, responseId: string | null): LoadedAnswers {
+    const remote = useRemote<FormAnswers | null>(
+        () =>
+            responseId === null
+                ? Promise.resolve(null)
+                : api.get<FormAnswers>(`/v1/forms/responses/${responseId}`),
+        responseId ?? "",
+    );
     return {
-        forms: rows.map((r) => ({
-            id: r.id,
-            name: r.name,
-            submittedAt:
-                r.submitted_at === null ? "" : formatLongDate(parseTimestamp(r.submitted_at), zone),
-        })),
-        open,
-        busy,
-        error,
-        view: (responseId) => {
-            run(
-                async () => {
-                    setOpen(await api.get<FormAnswers>(`/v1/forms/responses/${responseId}`));
-                },
-                { errorMessage: (e) => failureMessage(e, strings.forms.answersLoadError) },
-            );
-        },
-        close: () => {
-            setOpen(null);
-            setError(null);
+        answers: remote.data,
+        busy: responseId !== null && remote.isLoading,
+        error:
+            remote.error === null
+                ? null
+                : failureMessage(remote.error, strings.forms.answersLoadError),
+        reload: () => {
+            remote.refresh().catch(() => undefined);
         },
     };
 }

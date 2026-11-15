@@ -1,16 +1,20 @@
+import asyncio
 from datetime import UTC, datetime, timedelta
 from itertools import count
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
+from clientbridge.core.db import SessionLocal
 from clientbridge.core.ids import new_id
+from clientbridge.integrations.twilio import Sms
 from clientbridge.models.catalog import Item
+from clientbridge.models.clients import Client
 from clientbridge.models.documents import Form, FormField, FormResponse
 from clientbridge.models.scheduling import Booking, Slot
-from clientbridge.services.forms import run_intake_forms, snapshot_form
+from clientbridge.services.forms import run_intake_forms, send_intake, snapshot_form
 from clientbridge.services.notifications import Notifier
 from tests.conftest import (
     DownEmailSender,
@@ -20,7 +24,7 @@ from tests.conftest import (
     FakePushSender,
     FakeSmsSender,
 )
-from tests.helpers import key, new_client, ok
+from tests.helpers import delete_bookings, key, new_client, ok
 
 BIZ = "bz_birchbark"
 
@@ -320,6 +324,31 @@ async def test_canceled_or_deleted_first_bookings_get_no_intake(
     assert [cid for form_id, cid in sent if form_id == form["id"]] == [control]
 
 
+async def test_archived_or_merged_clients_get_no_intake(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+    push: FakePushSender,
+) -> None:
+    form = ok(await as_owner.post("/v1/forms", json=INTAKE), 201).json()
+    now = clock.now()
+    control = await new_client(db, name="Kept Pup", phone=None)
+    archived = await new_client(db, name="Archived Pup", phone="+16045550283")
+    merged = await new_client(db, name="Merged Pup", phone=None)
+    for client in (control, archived, merged):
+        await _book(db, client, now - timedelta(hours=1))
+    ok(await as_owner.post(f"/v1/clients/{archived}/archive", headers=key()))
+    gone = await db.get(Client, merged)
+    assert gone is not None
+    gone.deleted_at = now
+    await db.flush()
+    await run_intake_forms(db, Notifier(email, sms, push), now)
+    sent = await _intake_responses(db, {control, archived, merged})
+    assert [cid for form_id, cid in sent if form_id == form["id"]] == [control]
+    assert all(m.to != "+16045550283" for m in sms.sent)
+
+
 async def test_another_business_form_never_reaches_our_client(
     db: AsyncSession,
     factory: Factory,
@@ -336,3 +365,57 @@ async def test_another_business_form_never_reaches_our_client(
     await _book(db, ours, now - timedelta(hours=1))
     await run_intake_forms(db, Notifier(email, sms, push), now)
     assert all(form_id != theirs.id for form_id, _ in await _intake_responses(db, {ours}))
+
+
+class _SlowSms(FakeSmsSender):
+    """A provider that takes a moment, so two runs overlap while the first text is out."""
+
+    async def send(self, sms: Sms) -> str | None:
+        await asyncio.sleep(0.2)
+        return await super().send(sms)
+
+
+async def test_two_runs_reaching_a_new_client_together_text_the_form_once(
+    db: AsyncSession, email: FakeEmailSender, push: FakePushSender
+) -> None:
+    now = clock.now()
+    # committed rows other workers can see, so an inactive form and client stay out of their runs
+    async with SessionLocal() as setup:
+        form = Form(
+            id=new_id("form"),
+            business_id=BIZ,
+            name="Overlap intake",
+            send_on="booking",
+            active=False,
+        )
+        setup.add(form)
+        await setup.flush()
+        client = await new_client(setup, name="Overlap Pup", phone="+16045550284")
+        booking = await _book(setup, client, now - timedelta(hours=1))
+        await setup.execute(update(Client).where(Client.id == client).values(status="inactive"))
+        await setup.commit()
+    sms = _SlowSms()
+    ready = asyncio.Barrier(2)
+
+    async def run() -> bool:
+        async with SessionLocal() as session:
+            mine = await session.get(Form, form.id)
+            assert mine is not None
+            await ready.wait()
+            return await send_intake(session, Notifier(email, sms, push), mine, client, booking)
+
+    try:
+        assert sorted(await asyncio.gather(run(), run())) == [False, True]
+        async with SessionLocal() as check:
+            issued = await check.scalars(
+                select(FormResponse.id).where(FormResponse.form_id == form.id)
+            )
+            assert len(issued.all()) == 1
+        assert [m.to for m in sms.sent] == ["+16045550284"]
+    finally:
+        async with SessionLocal() as cleanup:
+            await cleanup.execute(delete(FormResponse).where(FormResponse.form_id == form.id))
+            await delete_bookings(cleanup, [booking])
+            await cleanup.execute(delete(Form).where(Form.id == form.id))
+            await cleanup.execute(delete(Client).where(Client.id == client))
+            await cleanup.commit()

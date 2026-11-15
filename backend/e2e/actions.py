@@ -46,11 +46,13 @@ from clientbridge.models.billing import Invoice
 from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import GiftCard, Item, Package
 from clientbridge.models.clients import Client, Subject
+from clientbridge.models.documents import Form
 from clientbridge.models.payments import Payment
-from clientbridge.models.scheduling import Recurrence, Slot
+from clientbridge.models.scheduling import Booking, Recurrence, Slot
 from clientbridge.services import ledger
 from clientbridge.services.billing import sweep_overdue
 from clientbridge.services.entitlements import run_expiry_sweeps
+from clientbridge.services.forms import run_intake_forms
 from clientbridge.services.notifications import Notifier, inbound_message_alert_text
 from clientbridge.services.plans import PLAN_PRICES, apply_plan_subscription
 from clientbridge.services.reports import add_months, period_of
@@ -666,6 +668,31 @@ async def expiry_main(argv: list[str]) -> None:
         await engine.dispose()
 
 
+async def intake(form_id: str, client_id: str) -> Row:
+    """The intake-form job as the run's worker runs it, narrowed to a case's own form and client."""
+    namespace = _run_namespace(form_id, client_id)
+    notifier = Notifier(get_email_sender(), get_sms_sender(), get_push_sender())
+    async with SessionLocal() as db:
+        _confine(
+            db,
+            namespace,
+            with_loader_criteria(Form, Form.id == form_id),
+            with_loader_criteria(Booking, Booking.client_id == client_id),
+        )
+        return {"issued": await run_intake_forms(db, notifier, clock.now())}
+
+
+async def intake_main(argv: list[str]) -> None:
+    parser = argparse.ArgumentParser(prog="python -m e2e.actions intake")
+    parser.add_argument("form_id")
+    parser.add_argument("client_id")
+    args = parser.parse_args(argv)
+    try:
+        print(json.dumps(await intake(args.form_id, args.client_id)))
+    finally:
+        await engine.dispose()
+
+
 async def invite_age(seconds: int, ids: list[str]) -> Row:
     namespace = _run_namespace(*ids)
     async with SessionLocal() as db:
@@ -998,6 +1025,7 @@ COMMANDS: dict[str, Callable[[list[str]], None]] = {
     "text-in": text_in_main,
     "expiry": lambda argv: asyncio.run(expiry_main(argv)),
     "invite-age": lambda argv: asyncio.run(invite_age_main(argv)),
+    "intake": lambda argv: asyncio.run(intake_main(argv)),
 }
 
 

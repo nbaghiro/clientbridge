@@ -4814,6 +4814,15 @@
     "forms.answerAttached": {
         "message": "[Ƒîļé åţţåçĥéð one two]"
     },
+    "forms.openFile": {
+        "message": "[Öþéñ ƒîļé one]"
+    },
+    "forms.viewAnswersOf": {
+        "message": "[Ṽîéŵ åñšŵéŕš ţö {form} one two]"
+    },
+    "forms.signedBy": {
+        "message": "[Šîĝñéð ƀý one]"
+    },
     "forms.answersLoadError": {
         "message": "[Ţĥé åñšŵéŕš çöûļð ñöţ ƀé ļöåðéð. Þļéåšé ţŕý åĝåîñ. one two three four]"
     },

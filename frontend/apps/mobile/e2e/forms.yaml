@@ -1,0 +1,160 @@
+appId: ${APP_ID}
+name: NATIVE-DOC-01 A form built on the phone with a text, a choice and a file question saves, reaches a client by text as built, and its answers, file and signature open from their record as a sheet of its own
+---
+- evalScript: ${output.phone = "250" + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000))}
+- evalScript: ${output.title = "Puppy intake " + String(Math.floor(Math.random() * 1000000))}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/clients
+          BODY: "${JSON.stringify({ name: 'Hazel Pennington', phone: output.phone })}"
+- runFlow: helpers/owner.yaml
+- tapOn:
+      id: "tab-inbox"
+- tapOn: "Forms"
+- tapOn: "New form"
+- tapOn: "When it goes out"
+- runFlow:
+      file: helpers/type-field.yaml
+      env:
+          FIELD: "Form name"
+          VALUE: ${output.title}
+- tapOn: "When a new client books.*"
+- tapOn:
+      text: "Ask for a signature at the end"
+      checked: false
+      rightOf: "Ask for a signature at the end"
+- tapOn: "Questions"
+# the question sheet's own Done button would sit under the keyboard, so Return puts it away
+- tapOn: "Add question"
+- tapOn:
+      text: "Question"
+      index: 1
+- inputText: "Dog's name"
+- pressKey: Enter
+- tapOn:
+      text: "Required"
+      checked: false
+      rightOf: "Required"
+- tapOn: "Done"
+- tapOn: "Add question"
+- tapOn:
+      text: "Question"
+      index: 1
+- inputText: "Coat"
+- pressKey: Enter
+- tapOn: "Dropdown"
+- tapOn: "Choice 1"
+- inputText: "Short"
+- pressKey: Enter
+- tapOn: "Choice 2"
+- inputText: "Long"
+- pressKey: Enter
+- tapOn: "Done"
+- tapOn: "Add question"
+- tapOn:
+      text: "Question"
+      index: 1
+- inputText: "Vaccine record"
+- pressKey: Enter
+- tapOn: "File"
+- tapOn: "Done"
+- assertVisible: "1, Dog's name, Short text · Required"
+- assertVisible: "2, Coat, Dropdown"
+- assertVisible: "3, Vaccine record, File"
+- tapOn: "Save form"
+# the editor reopens under the new form's id, still saved
+- extendedWaitUntil:
+      visible: "Saved"
+      timeout: 30000
+- takeScreenshot: form-saved
+- tapOn: "Send to a client"
+- runFlow:
+      when:
+          platform: iOS
+      commands:
+          - tapOn:
+                text: "Client"
+                index: 1
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - tapOn: "Choose a client"
+- tapOn: "Search"
+- inputText: "Pennington"
+# a row reads its initials, name and phone as one label; the surname alone skips pets named Hazel
+- extendedWaitUntil:
+      visible: ".*Hazel Pennington, .*"
+      timeout: 60000
+# the keyboard takes the first tap, so Return puts it away first
+- pressKey: Enter
+- tapOn: ".*Hazel Pennington, .*"
+- tapOn: "Send link"
+- extendedWaitUntil:
+      visible: "Check it before it goes out"
+      timeout: 30000
+- tapOn:
+      text: "Send"
+      index: 0
+- extendedWaitUntil:
+      visible: "Sent to Hazel Pennington."
+      timeout: 30000
+- tapOn: "Done"
+- runScript:
+      file: helpers/form-answer.js
+      env:
+          PHONE: ${output.phone}
+          ANSWERS: '{"Dog''s name": "Biscuit", "Coat": "Long"}'
+          SIGNER: "Hazel Pennington"
+# the client got the questions as the phone built them
+- assertTrue: ${output.form.form_name === output.title && output.form.require_signature}
+- assertTrue: ${output.form.fields.map(function (f) { return f.label + ":" + f.input + ":" + f.required; }).join("|") === "Dog's name:text:true|Coat:select:false|Vaccine record:file:false"}
+- assertTrue: ${output.form.fields[1].options.join("|") === "Short|Long"}
+- tapOn:
+      id: "tab-clients"
+- tapOn: "Search name, phone or pet"
+- inputText: "Pennington"
+- extendedWaitUntil:
+      visible: ".*Hazel Pennington, .*"
+      timeout: 60000
+- pressKey: Enter
+- tapOn: ".*Hazel Pennington, .*"
+- scrollUntilVisible:
+      element: "View answers to ${output.title}"
+      direction: DOWN
+      timeout: 60000
+- tapOn: "View answers to ${output.title}"
+- extendedWaitUntil:
+      visible: "Biscuit"
+      timeout: 30000
+- assertVisible: "Long"
+# the answers replace the record, which comes back on Close
+- assertNotVisible: "Book"
+- scrollUntilVisible:
+      element: "Signed by"
+      direction: DOWN
+- assertVisible: "Hazel Pennington"
+- assertVisible: "Open file"
+- takeScreenshot: form-answers
+# the file opens in the browser, outside the app, and the answers are still open on return
+- tapOn: "Open file"
+- extendedWaitUntil:
+      notVisible: "Signed by"
+      timeout: 15000
+- takeScreenshot: form-file-opened
+- launchApp:
+      stopApp: false
+      permissions:
+          notifications: allow
+- extendedWaitUntil:
+      visible: "Signed by"
+      timeout: 15000
+# the first Close is the backdrop behind the sheet; the second is its button
+- tapOn:
+      text: "Close"
+      index: 1
+- extendedWaitUntil:
+      visible: "Book"
+      timeout: 15000

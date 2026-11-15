@@ -70,7 +70,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 9. Talk to clients                      | Inbox: two-way texting                                      | [CB-49](https://linear.app/clientbridgeca/issue/CB-49) | Partly automated |
 | 9. Talk to clients                      | STOP and texting consent                                    | [CB-50](https://linear.app/clientbridgeca/issue/CB-50) | Automated        |
 | 9. Talk to clients                      | Broadcasts to consenting clients                            | [CB-51](https://linear.app/clientbridgeca/issue/CB-51) | Partly automated |
-| 9. Talk to clients                      | Intake forms                                                | [CB-53](https://linear.app/clientbridgeca/issue/CB-53) | Partly automated |
+| 9. Talk to clients                      | Intake forms                                                | [CB-53](https://linear.app/clientbridgeca/issue/CB-53) | Automated        |
 | 9. Talk to clients                      | Contracts and signatures                                    | [CB-54](https://linear.app/clientbridgeca/issue/CB-54) | Partly automated |
 | 9. Talk to clients                      | Google review requests                                      | [CB-55](https://linear.app/clientbridgeca/issue/CB-55) | Partly automated |
 | 10. Work anywhere                       | Offline mode and reconnect                                  | [CB-56](https://linear.app/clientbridgeca/issue/CB-56) | Partly automated |
@@ -2226,26 +2226,26 @@ The business texts clients from one inbox, respects consent, and sends forms, co
    **Expect:** the form is texted by the intake job once.
 3. Fill it on a phone with a PDF and an oversized file.
    **Expect:** the PDF uploads; the oversized file is refused.
-4. Submit twice.
-   **Expect:** one response, with consent recorded.
+4. Submit twice, then again from a second tab.
+   **Expect:** one response, with consent recorded; the second tab shows it sent.
 5. Edit the form while the client has it open.
    **Expect:** their answers keep the questions they saw; the next send asks the new ones.
 6. Open the answers on web and mobile.
-   **Expect:** on the client's record.
+   **Expect:** on the client's record, with the attached file opening and the name they signed with.
 
 **Done when:** The business has every new client's answers before the visit.
 
 **Automated by**
 
 - `DOC-E2E-01 (connect)`
+- `DOC-E2E-08 (connect)`
+- `DOC-E2E-09 (journeys)`
+- `DOC-E2E-10 (connect)`
+- `DOC-E2E-11 (journeys)`
 - `FLOW-05-B (journeys)`
+- `NATIVE-DOC-01 (native-ios, native-android)`
 - `connect: publicForm.e2e.ts › a client starts a form and a contract`
 - `mobile: messaging.yaml (form editor walk, unregistered)`
-
-**To automate**
-
-- `DOC-E2E-08` in `apps/connect/e2e/publicForm.e2e.ts`: Real file upload and the size and type matrix.
-- `DOC-E2E-09` in `apps/web/e2e/journeys/documents.journey.ts`: Intake job sends once to a new client.
 
 **Depends on:** Nothing
 

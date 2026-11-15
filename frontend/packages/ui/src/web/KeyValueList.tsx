@@ -3,7 +3,12 @@ import { INTENT_COLORS, cssVar } from "@clientbridge/tokens";
 
 import { type WebProps, cx } from "./props";
 
-const COLS = { 2: "grid-cols-2", 3: "grid-cols-3", 4: "grid-cols-2 sm:grid-cols-4" } as const;
+const COLS = {
+    1: "grid-cols-1",
+    2: "grid-cols-2",
+    3: "grid-cols-3",
+    4: "grid-cols-2 sm:grid-cols-4",
+} as const;
 
 export function KeyValueList({
     rows,
@@ -11,6 +16,7 @@ export function KeyValueList({
     columns = 2,
     className,
 }: WebProps<KeyValueListProps>) {
+    const stackValue = columns === 1 ? "mt-1 whitespace-pre-line break-words" : "mt-1 truncate";
     return (
         <dl
             className={cx(
@@ -44,7 +50,7 @@ export function KeyValueList({
                                 ? { color: cssVar(INTENT_COLORS[row.intent].ink) }
                                 : undefined
                         }
-                        className={`text-sm font-medium text-ink ${layout === "inline" ? "text-right" : "mt-1 truncate"}`}
+                        className={`text-sm font-medium text-ink ${layout === "inline" ? "text-right" : stackValue}`}
                     >
                         {row.value}
                     </dd>

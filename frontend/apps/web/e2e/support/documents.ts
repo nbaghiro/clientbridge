@@ -1,4 +1,9 @@
+import { execFile } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import { formatPhone, strings } from "@clientbridge/app-core/public";
+import { runUrl } from "@clientbridge/config/e2e/run";
 import { expect, type Page } from "@playwright/test";
 import { select } from "./db";
 import { type DocumentClient } from "./billing";
@@ -96,4 +101,54 @@ export async function sendToClient(
     await expect(dialog.getByText(f.sent(client.name), { exact: true })).toBeVisible();
     await dialog.getByRole("button", { name: f.done, exact: true }).click();
     return (await sent.json()) as { id: string; token: string };
+}
+
+export interface SavedFormQuestion {
+    input: string;
+    label: string;
+    required: boolean;
+    options: string[];
+}
+
+/** Saves a form as the signed-in owner, with the body the phone's form editor sends. */
+export async function saveForm(
+    page: Page,
+    name: string,
+    questions: SavedFormQuestion[],
+): Promise<{ id: string }> {
+    const saved = await page.request.post(`${runUrl("VITE_API_URL")}/v1/forms`, {
+        data: {
+            name,
+            require_signature: true,
+            send_on: "booking",
+            active: true,
+            fields: questions.map((q) => ({ ...q, help: null })),
+        },
+        headers: { "Idempotency-Key": randomUUID(), Origin: new URL(page.url()).origin },
+    });
+    expect(saved.status(), await saved.text()).toBe(201);
+    return (await saved.json()) as { id: string };
+}
+
+/** Runs the intake-form job as the run's worker would, for this case's form and client only. */
+export async function runIntake(formId: string, clientId: string): Promise<number> {
+    const { stdout } = await promisify(execFile)(
+        "uv",
+        ["run", "python", "-m", "e2e.actions", "intake", formId, clientId],
+        {
+            cwd: fileURLToPath(new URL("../../../../../backend", import.meta.url)),
+            timeout: 60_000,
+        },
+    );
+    return (JSON.parse(stdout) as { issued: number }).issued;
+}
+
+/** The responses a form has for one client: its id, link token and where it stands. */
+export function formResponses(
+    formId: string,
+    clientId: string,
+): Promise<{ id: string; token: string; status: string; parent_type: string | null }[]> {
+    return select`
+        SELECT id, token, status, parent_type FROM responses
+        WHERE form_id = ${formId} AND client_id = ${clientId} ORDER BY created_at`;
 }

@@ -1702,6 +1702,9 @@ interface Strings {
         readonly answerYes: string;
         readonly answerNo: string;
         readonly answerAttached: string;
+        readonly openFile: string;
+        readonly viewAnswersOf: (form: string) => string;
+        readonly signedBy: string;
         readonly answersLoadError: string;
         readonly clientForms: string;
         readonly noClientForms: string;

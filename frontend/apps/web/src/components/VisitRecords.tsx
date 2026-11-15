@@ -9,6 +9,8 @@ import {
     strings,
     useBusinessZone,
     useClientForms,
+    useFormAnswerRows,
+    useFormAnswers,
     useVisitRecordForm,
     useVisitRecords,
 } from "@clientbridge/app-core";
@@ -33,6 +35,29 @@ const v = strings.visitRecords;
 function AnswerList({ response }: { response: Pick<FormAnswers, "fields" | "answers"> }) {
     const zone = useBusinessZone();
     return <KeyValueList layout="stack" rows={answerRows(response, zone)} />;
+}
+
+/** A client's submitted form, with a link to each file they attached and who signed it. */
+function SubmittedAnswers({ response }: { response: FormAnswers }) {
+    const rows = useFormAnswerRows(api, response).map(({ label, value, fileUrl }) => ({
+        label,
+        value:
+            fileUrl === null ? (
+                value
+            ) : (
+                <Button
+                    size="sm"
+                    variant="link"
+                    icon="external"
+                    onPress={() => {
+                        window.open(fileUrl, "_blank", "noopener,noreferrer");
+                    }}
+                >
+                    {f.openFile}
+                </Button>
+            ),
+    }));
+    return <KeyValueList layout="stack" columns={1} rows={rows} />;
 }
 
 function RecordCard({
@@ -201,17 +226,22 @@ export function BookingVisitRecords({ event }: { event: ScheduleEvent }) {
 
 /** A client's submitted forms for managers, and the records of their visits the viewer may read. */
 export function ClientFormsSection({ clientId, manager }: { clientId: string; manager: boolean }) {
-    const forms = useClientForms(api, clientId);
+    const forms = useClientForms(clientId);
+    const [viewing, setViewing] = useState<string | null>(null);
+    const answers = useFormAnswers(api, viewing);
     const records = useVisitRecords(api, { clientId });
-    const open = forms.open;
+    const open = viewing === null ? null : answers.answers;
+    const close = (): void => {
+        setViewing(null);
+    };
     return (
         <DetailSection title={f.clientForms}>
             {manager ? (
-                forms.forms.length === 0 ? (
+                forms.length === 0 ? (
                     <p className="text-sm text-muted">{f.noClientForms}</p>
                 ) : (
                     <ul className="divide-y divide-line-soft rounded-md border border-line">
-                        {forms.forms.map((x) => (
+                        {forms.map((x) => (
                             <li
                                 key={x.id}
                                 className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
@@ -222,8 +252,11 @@ export function ClientFormsSection({ clientId, manager }: { clientId: string; ma
                                     <Button
                                         size="sm"
                                         variant="link"
+                                        label={f.viewAnswersOf(x.name)}
+                                        busy={answers.busy && viewing === x.id}
                                         onPress={() => {
-                                            forms.view(x.id);
+                                            if (viewing === x.id) answers.reload();
+                                            else setViewing(x.id);
                                         }}
                                     >
                                         {f.viewAnswers}
@@ -254,16 +287,16 @@ export function ClientFormsSection({ clientId, manager }: { clientId: string; ma
                 </ul>
             )}
             {records.error !== null ? <Notice tone="danger">{records.error}</Notice> : null}
-            {forms.error !== null ? <Notice tone="danger">{forms.error}</Notice> : null}
+            {answers.error !== null ? <Notice tone="danger">{answers.error}</Notice> : null}
             {open !== null ? (
-                <Modal onClose={forms.close} size="lg">
+                <Modal onClose={close} size="lg">
                     <div className="space-y-4">
                         <h2 className="font-display text-lg font-bold text-ink">
                             {open.form_name}
                         </h2>
-                        <AnswerList response={open} />
+                        <SubmittedAnswers response={open} />
                         <div className="flex justify-end">
-                            <Button variant="outline" onPress={forms.close}>
+                            <Button variant="outline" onPress={close}>
                                 {strings.common.close}
                             </Button>
                         </div>

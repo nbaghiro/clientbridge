@@ -5232,6 +5232,19 @@
     "forms.answerAttached": {
         "message": "File attached"
     },
+    "forms.openFile": {
+        "message": "Open file",
+        "description": "Opens a file the client attached to a form, from its answers"
+    },
+    "forms.viewAnswersOf": {
+        "message": "View answers to {form}",
+        "description": "Accessible name of the View answers button beside a client's submitted form",
+        "args": ["form"]
+    },
+    "forms.signedBy": {
+        "message": "Signed by",
+        "description": "Label for the name the client signed a form with, under its answers"
+    },
     "forms.answersLoadError": {
         "message": "The answers could not be loaded. Please try again."
     },
