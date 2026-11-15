@@ -1,18 +1,10 @@
-import { randomUUID } from "node:crypto";
 import { saleNumber, strings } from "@clientbridge/app-core/public";
 import { axeIssues, unmarkedFocus, unreadableHover } from "@clientbridge/config/e2e/accessibility";
 import { demoId, runEmail, runUrl } from "@clientbridge/config/e2e/run";
 import { expect, type Locator, type Page } from "@playwright/test";
 import { test } from "./support/session";
 import { appConsoleError } from "./support/shell";
-import {
-    createDocumentClient,
-    createInvoice,
-    openDocument,
-    openInvoice,
-    paymentDrawer,
-    showOnly,
-} from "./support/billing";
+import { createInvoice, openInvoice, paymentDrawer, showOnly } from "./support/billing";
 import { paymentPanel } from "./support/pos";
 import {
     bookingApi,
@@ -680,27 +672,10 @@ test("owner: payments desk, records and their dialogs", async ({ page }) => {
         await openAndClose(page, /new estimate/i);
         for (const label of Object.values(s.estimateSegments))
             await showOnly(page, startsWith(label));
+        // a waiting estimate can still be converted; an accepted one may already be
         await showOnly(page, startsWith(s.estimateSegments.sent));
-        // other cases accept, decline and convert the newest sent estimates, so this one is its own
-        const client = await createDocumentClient(page);
-        const estimate = await page.request.post(`${runUrl("VITE_API_URL")}/v1/estimates`, {
-            headers: { Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() },
-            data: {
-                client_id: client.id,
-                lines: [
-                    {
-                        description: "Paw care consultation",
-                        quantity: 1,
-                        unit_amount_cents: 1000,
-                        tax_class: "exempt",
-                    },
-                ],
-                send: true,
-            },
-        });
-        expect(estimate.status(), await estimate.text()).toBe(201);
-        const { id } = (await estimate.json()) as { id: string };
-        const record = await openDocument(page, client, "estimate", id);
+        await main.locator("button.block").first().click();
+        const record = page.getByRole("dialog");
         await cancelConfirm(page, record.getByRole("button", { name: s.convert }), s.convertTitle);
         await escapeDialog(page);
     });
@@ -1301,8 +1276,7 @@ test.describe("in another time zone than the business", () => {
         const { main } = walk;
         const b = strings.bookings;
         const h = strings.hours;
-        // copies of this case close the same day, so each finds its own closure by its reason
-        const reason = `Staff training ${randomUUID().slice(0, 6).toUpperCase()}`;
+        const reason = "Staff training";
         let closureId: string | undefined;
         const composer = page.getByRole("form", { name: b.newBooking });
         const panel = main.getByRole("complementary").filter({

@@ -50,10 +50,9 @@ test.use({ actionTimeout: 15_000 });
 test("CRM-E2E-05 verified returning customer books the selected existing pet and retains original contact data", async ({
     page,
     browser,
-    request,
 }) => {
-    test.setTimeout(240_000);
-    const fixture = await returningFixture(page, request);
+    await signIn(page);
+    const fixture = await returningFixture(page);
     const initial = await returningEvidence(fixture);
     const customerContext = await browser.newContext();
     let bookingId: string | undefined;
@@ -71,7 +70,7 @@ test("CRM-E2E-05 verified returning customer books the selected existing pet and
         ).toHaveValue(fixture.clientPhone);
         const submitted = customer.waitForResponse(
             (r) =>
-                new URL(r.url()).pathname === `/book/${fixture.slug}` &&
+                new URL(r.url()).pathname === `/book/${demoSlug("birchbark")}` &&
                 r.request().method() === "POST",
         );
         await customer
@@ -120,7 +119,7 @@ test("CRM-E2E-05 verified returning customer books the selected existing pet and
         const observerContext = await browser.newContext();
         try {
             const observer = await observerContext.newPage();
-            await signIn(observer, fixture.owner);
+            await signIn(observer);
             await navigate(observer, `/schedule?open=${bookingId}`);
             const heading = observer.getByRole("heading", {
                 name: formatParts(["Clover", fixture.clientName]),
@@ -149,10 +148,9 @@ test("CRM-E2E-05 verified returning customer books the selected existing pet and
 test("CRM-E2E-06 archiving a verified customer revokes their proof before public booking", async ({
     page,
     browser,
-    request,
 }) => {
-    test.setTimeout(240_000);
-    const fixture = await returningFixture(page, request);
+    await signIn(page);
+    const fixture = await returningFixture(page);
     const customerContext = await browser.newContext();
     try {
         const customer = await customerContext.newPage();
@@ -178,7 +176,7 @@ test("CRM-E2E-06 archiving a verified customer revokes their proof before public
         expect(before.slots).toEqual([]);
         const submitted = customer.waitForResponse(
             (r) =>
-                new URL(r.url()).pathname === `/book/${fixture.slug}` &&
+                new URL(r.url()).pathname === `/book/${demoSlug("birchbark")}` &&
                 r.request().method() === "POST",
         );
         await customer
@@ -202,10 +200,9 @@ test("CRM-E2E-06 archiving a verified customer revokes their proof before public
 test("CRM-E2E-07 editing a verified phone clears proof, so the visit is booked for the number typed", async ({
     page,
     browser,
-    request,
 }) => {
-    test.setTimeout(240_000);
-    const fixture = await returningFixture(page, request);
+    await signIn(page);
+    const fixture = await returningFixture(page);
     const phone = freshPhone();
     const evidence = () => contactEvidence([fixture.clientPhone, phone], fixture.itemId);
     const customerContext = await browser.newContext();
@@ -221,7 +218,7 @@ test("CRM-E2E-07 editing a verified phone clears proof, so the visit is booked f
             .fill(phone);
         const submitting = customer.waitForResponse(
             (r) =>
-                new URL(r.url()).pathname === `/book/${fixture.slug}` &&
+                new URL(r.url()).pathname === `/book/${demoSlug("birchbark")}` &&
                 r.request().method() === "POST",
         );
         await customer
@@ -336,10 +333,10 @@ async function openMerge(page: Page, search: string, kept: ClientFixture, other:
 test("FLOW-04-A a verified returning client's pet, note, photo and booking stay on their timeline after archive and reload", async ({
     page,
     browser,
-    request,
 }, testInfo) => {
     test.setTimeout(240_000);
-    const fixture = await returningFixture(page, request);
+    await signIn(page);
+    const fixture = await returningFixture(page);
     const note = "Clover is nervous around the dryer. Use the quiet room and towel dry.";
     await addClientNote(page, fixture.client, note, "Clover");
     const photo = await portrait();
@@ -367,7 +364,7 @@ test("FLOW-04-A a verified returning client's pet, note, photo and booking stay 
         await verifyReturning(visitor, fixture, 0, photo.sha256);
         const submitted = visitor.waitForResponse(
             (r) =>
-                new URL(r.url()).pathname === `/book/${fixture.slug}` &&
+                new URL(r.url()).pathname === `/book/${demoSlug("birchbark")}` &&
                 r.request().method() === "POST",
         );
         await visitor
@@ -414,7 +411,7 @@ test("FLOW-04-A a verified returning client's pet, note, photo and booking stay 
         const observer = await browser.newContext({ baseURL: new URL(page.url()).origin });
         try {
             const other = await observer.newPage();
-            await signIn(other, fixture.owner);
+            await signIn(other);
             await expectClientSegment(other, fixture.client, true);
             await expectTimeline(other, fixture.client, [visit, note]);
             await other.reload();
