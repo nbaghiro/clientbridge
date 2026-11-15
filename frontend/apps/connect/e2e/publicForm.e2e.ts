@@ -107,78 +107,90 @@ test("DOC-E2E-08 a client on a phone attaches a real PDF; a file over 10 MB or o
         isMobile: true,
         hasTouch: true,
     });
-    await ownAddress(phone, info);
-    const page = await phone.newPage();
-    const errors = watchErrors(page);
-    const puts: string[] = [];
-    let dropUploads = false;
-    await page.route("**/*", (route) => {
-        if (route.request().method() !== "PUT") return route.continue();
-        puts.push(route.request().url());
-        return dropUploads ? route.abort("internetdisconnected") : route.continue();
-    });
-    await page.goto(on("book", `/form/${issued.token}`));
-    const record = page.getByLabel("Vaccine record", { exact: true });
-    const chosen = page.locator("label").filter({ has: record });
+    try {
+        await ownAddress(phone, info);
+        const page = await phone.newPage();
+        const errors = watchErrors(page);
+        const puts: string[] = [];
+        let dropUploads = false;
+        await page.route("**/*", (route) => {
+            // fallback, unlike continue, still reaches the context's own route that sets the address
+            if (route.request().method() !== "PUT") return route.fallback();
+            puts.push(route.request().url());
+            return dropUploads ? route.abort("internetdisconnected") : route.fallback();
+        });
+        await page.goto(on("book", `/form/${issued.token}`));
+        const record = page.getByLabel("Vaccine record", { exact: true });
+        const chosen = page.locator("label").filter({ has: record });
 
-    await record.setInputFiles({ name: "notes.txt", mimeType: "text/plain", buffer: PDF });
-    await expect(page.getByText(f.uploadWrongType, { exact: true })).toBeVisible();
-    const tenMegabytes = 10 * 1024 * 1024;
-    await record.setInputFiles({
-        name: "scan.pdf",
-        mimeType: "application/pdf",
-        buffer: Buffer.alloc(tenMegabytes + 1),
-    });
-    await expect(page.getByText(f.uploadTooBig, { exact: true })).toBeVisible();
-    expect(puts).toEqual([]);
-    expect(await formFiles(issued.id)).toEqual([]);
-    // the server holds the same line for a page that skips its own check
-    const upload = `${documentApi}/form/${issued.token}/upload`;
-    const big = await request.post(upload, {
-        data: { content_type: "application/pdf", size: tenMegabytes + 1 },
-    });
-    expect([big.status(), ((await big.json()) as { error: string }).error]).toEqual([
-        422,
-        "file_too_large",
-    ]);
-    const text = await request.post(upload, { data: { content_type: "text/plain", size: 10 } });
-    expect(text.status()).toBe(422);
+        await record.setInputFiles({ name: "notes.txt", mimeType: "text/plain", buffer: PDF });
+        await expect(page.getByText(f.uploadWrongType, { exact: true })).toBeVisible();
+        const tenMegabytes = 10 * 1024 * 1024;
+        await record.setInputFiles({
+            name: "scan.pdf",
+            mimeType: "application/pdf",
+            buffer: Buffer.alloc(tenMegabytes + 1),
+        });
+        await expect(page.getByText(f.uploadTooBig, { exact: true })).toBeVisible();
+        expect(puts).toEqual([]);
+        expect(await formFiles(issued.id)).toEqual([]);
+        // the server holds the same line for a page that skips its own check
+        const upload = `${documentApi}/form/${issued.token}/upload`;
+        const big = await request.post(upload, {
+            data: { content_type: "application/pdf", size: tenMegabytes + 1 },
+        });
+        expect([big.status(), ((await big.json()) as { error: string }).error]).toEqual([
+            422,
+            "file_too_large",
+        ]);
+        const text = await request.post(upload, { data: { content_type: "text/plain", size: 10 } });
+        expect(text.status()).toBe(422);
 
-    dropUploads = true;
-    await record.setInputFiles({ name: "vaccines.pdf", mimeType: "application/pdf", buffer: PDF });
-    await expect(page.getByText(f.fileUploadOffline, { exact: true })).toBeVisible();
-    await expect(chosen).toContainText(f.chooseFile);
-    // cleared, so the browser fires a change when the same file is picked again
-    expect(await record.inputValue()).toBe("");
-    dropUploads = false;
-    const completed = page.waitForResponse((response) =>
-        /\/upload\/[^/]+\/complete$/.test(new URL(response.url()).pathname),
-    );
-    await record.setInputFiles({ name: "vaccines.pdf", mimeType: "application/pdf", buffer: PDF });
-    expect((await completed).status()).toBe(200);
-    await expect(chosen).toContainText("vaccines.pdf");
-    await expect(page.getByText(f.fileUploadOffline, { exact: true })).toHaveCount(0);
+        dropUploads = true;
+        await record.setInputFiles({
+            name: "vaccines.pdf",
+            mimeType: "application/pdf",
+            buffer: PDF,
+        });
+        await expect(page.getByText(f.fileUploadOffline, { exact: true })).toBeVisible();
+        await expect(chosen).toContainText(f.chooseFile);
+        // cleared, so the browser fires a change when the same file is picked again
+        expect(await record.inputValue()).toBe("");
+        dropUploads = false;
+        const completed = page.waitForResponse((response) =>
+            /\/upload\/[^/]+\/complete$/.test(new URL(response.url()).pathname),
+        );
+        await record.setInputFiles({
+            name: "vaccines.pdf",
+            mimeType: "application/pdf",
+            buffer: PDF,
+        });
+        expect((await completed).status()).toBe(200);
+        await expect(chosen).toContainText("vaccines.pdf");
+        await expect(page.getByText(f.fileUploadOffline, { exact: true })).toHaveCount(0);
 
-    await page.getByRole("textbox", { name: /Pet's name/ }).fill("Pepper");
-    await page.getByRole("button", { name: f.sendAnswers }).click();
-    await expect(page.getByRole("heading", { name: f.doneTitle })).toBeVisible();
-    const files = await formFiles(issued.id);
-    const attached = files.filter((file) => file.uploaded);
-    expect(attached).toEqual([
-        {
-            id: expect.any(String),
-            content_type: "application/pdf",
-            size: PDF.length,
-            uploaded: true,
-        },
-    ]);
-    expect(await formEvidence(issued.id)).toMatchObject({
-        status: "submitted",
-        answers: { [issued.field]: "Pepper", [fileField.name]: attached[0]?.id },
-    });
-    // only the upload this case cut off may fail to load
-    expect(errors.filter((e) => !e.includes("net::ERR_INTERNET_DISCONNECTED"))).toEqual([]);
-    await phone.close();
+        await page.getByRole("textbox", { name: /Pet's name/ }).fill("Pepper");
+        await page.getByRole("button", { name: f.sendAnswers }).click();
+        await expect(page.getByRole("heading", { name: f.doneTitle })).toBeVisible();
+        const files = await formFiles(issued.id);
+        const attached = files.filter((file) => file.uploaded);
+        expect(attached).toEqual([
+            {
+                id: expect.any(String),
+                content_type: "application/pdf",
+                size: PDF.length,
+                uploaded: true,
+            },
+        ]);
+        expect(await formEvidence(issued.id)).toMatchObject({
+            status: "submitted",
+            answers: { [issued.field]: "Pepper", [fileField.name]: attached[0]?.id },
+        });
+        // only the upload this case cut off may fail to load
+        expect(errors.filter((e) => !e.includes("net::ERR_INTERNET_DISCONNECTED"))).toEqual([]);
+    } finally {
+        await phone.close();
+    }
 });
 
 test("DOC-E2E-10 a form sent from another tab shows as done in the first, which keeps the answers that went first", async ({

@@ -1,5 +1,5 @@
 import { useBusinessQuery as useQuery, useRemote } from "../hooks";
-import { useFileLinks, usePeoplePhotos } from "./files";
+import { failedFileLinks, useFileLinks, usePeoplePhotos } from "./files";
 import { afterReview, outgoing } from "./previews";
 
 import { useMemo, useState } from "react";
@@ -600,14 +600,17 @@ export function formAnswerRows(
     response: FormAnswers,
     zone: string,
     links: Readonly<Record<string, string>>,
+    failed: readonly string[] = [],
 ): FormAnswerRow[] {
     const rows = inOrder(response.fields).map((field) => {
         const value = response.answers[field.name];
         const file = attachedFile(field, value);
+        const url = file === null ? null : (links[file] ?? null);
+        const unavailable = file !== null && url === null && failed.includes(file);
         return {
             label: field.label,
-            value: answerText(field, value, zone),
-            fileUrl: file === null ? null : (links[file] ?? null),
+            value: unavailable ? strings.forms.fileUnavailable : answerText(field, value, zone),
+            fileUrl: url,
         };
     });
     return response.signer_name === null
@@ -621,7 +624,8 @@ export function useFormAnswerRows(api: ApiLike, response: FormAnswers): FormAnsw
         const file = attachedFile(field, response.answers[field.name]);
         return file === null ? [] : [file];
     });
-    return formAnswerRows(response, zone, useFileLinks(api, files));
+    const links = useFileLinks(api, files);
+    return formAnswerRows(response, zone, links, failedFileLinks(files));
 }
 
 export const CLIENT_FORMS_SQL = `

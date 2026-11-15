@@ -127,6 +127,16 @@ describe("formAnswerRows", () => {
         );
     });
 
+    it("says a file could not be loaded when its link failed, instead of only that one is attached", () => {
+        const rows = formAnswerRows(submitted, ZONE, { fl_record: "https://files.test/record" }, [
+            "fl_photo",
+        ]);
+        expect(rows.slice(0, 2)).toEqual([
+            { label: "RECORD", value: f.answerAttached, fileUrl: "https://files.test/record" },
+            { label: "PHOTO", value: f.fileUnavailable, fileUrl: null },
+        ]);
+    });
+
     it("adds no signer row to a form nobody signed", () => {
         const rows = formAnswerRows({ ...submitted, signer_name: null }, ZONE, {});
         expect(rows.map((r) => r.label)).toEqual(["RECORD", "PHOTO", "NAME"]);

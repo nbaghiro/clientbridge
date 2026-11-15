@@ -20,7 +20,7 @@ export function KeyValueList({
             {rows.map((row, i) => {
                 const tint = row.intent ? { color: c[INTENT_COLORS[row.intent].ink] } : undefined;
                 return layout === "stack" ? (
-                    <View key={row.label} style={[styles.cell, cell]}>
+                    <View key={`${String(i)}:${row.label}`} style={[styles.cell, cell]}>
                         <Text style={styles.stackLabel}>{row.label}</Text>
                         {typeof row.value === "string" || typeof row.value === "number" ? (
                             <Text
@@ -35,7 +35,10 @@ export function KeyValueList({
                         )}
                     </View>
                 ) : (
-                    <View key={row.label} style={[styles.row, i > 0 && styles.divider]}>
+                    <View
+                        key={`${String(i)}:${row.label}`}
+                        style={[styles.row, i > 0 && styles.divider]}
+                    >
                         <Text style={styles.label}>{row.label}</Text>
                         <Text style={[styles.value, styles.right, tint]}>{row.value}</Text>
                     </View>

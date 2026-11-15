@@ -20,6 +20,7 @@ import {
     DetailSection,
     FormQuestion,
     KeyValueList,
+    LoadFailed,
     Loading,
     Modal,
     Notice,
@@ -85,7 +86,11 @@ export function FormAnswersSheet({
                         <SubmittedAnswers response={open} />
                     </>
                 ) : answers.error !== null ? (
-                    <Notice tone="danger">{answers.error}</Notice>
+                    <LoadFailed
+                        message={answers.error}
+                        onRetry={answers.reload}
+                        retrying={answers.busy}
+                    />
                 ) : (
                     <Loading />
                 )}

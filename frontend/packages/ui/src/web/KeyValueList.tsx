@@ -26,9 +26,9 @@ export function KeyValueList({
                 className,
             )}
         >
-            {rows.map((row: KeyValueRow) => (
+            {rows.map((row: KeyValueRow, i) => (
                 <div
-                    key={row.label}
+                    key={`${String(i)}:${row.label}`}
                     className={
                         layout === "inline"
                             ? "flex items-baseline justify-between gap-4 py-2.5"

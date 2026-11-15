@@ -70,7 +70,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 9. Talk to clients                      | Inbox: two-way texting                                      | [CB-49](https://linear.app/clientbridgeca/issue/CB-49) | Partly automated |
 | 9. Talk to clients                      | STOP and texting consent                                    | [CB-50](https://linear.app/clientbridgeca/issue/CB-50) | Automated        |
 | 9. Talk to clients                      | Broadcasts to consenting clients                            | [CB-51](https://linear.app/clientbridgeca/issue/CB-51) | Partly automated |
-| 9. Talk to clients                      | Intake forms                                                | [CB-53](https://linear.app/clientbridgeca/issue/CB-53) | Automated        |
+| 9. Talk to clients                      | Intake forms                                                | [CB-53](https://linear.app/clientbridgeca/issue/CB-53) | Partly automated |
 | 9. Talk to clients                      | Contracts and signatures                                    | [CB-54](https://linear.app/clientbridgeca/issue/CB-54) | Partly automated |
 | 9. Talk to clients                      | Google review requests                                      | [CB-55](https://linear.app/clientbridgeca/issue/CB-55) | Partly automated |
 | 10. Work anywhere                       | Offline mode and reconnect                                  | [CB-56](https://linear.app/clientbridgeca/issue/CB-56) | Partly automated |
@@ -2248,6 +2248,11 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 - `NATIVE-DOC-01 (native-ios, native-android)`
 - `connect: publicForm.e2e.ts › a client starts a form and a contract`
 - `mobile: messaging.yaml (form editor walk, unregistered)`
+
+**To automate**
+
+- `DOC-E2E-12` in `apps/web/e2e/journeys/documents.journey.ts`: A form built in the phone's editor opens on web with the same questions. DOC-E2E-11 posts the editor's request from the web lane, and NATIVE-DOC-01 checks the questions a client receives.
+- `NATIVE-DOC-02` in `apps/mobile/e2e/forms.yaml`: The file a client attached opens on the phone and shows the PDF. NATIVE-DOC-01 checks only that Open file leaves the app and the answers are still open on return.
 
 **Depends on:** Nothing
 

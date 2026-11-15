@@ -2,13 +2,14 @@ appId: ${APP_ID}
 name: NATIVE-DOC-01 A form built on the phone with a text, a choice and a file question saves, reaches a client by text as built, and its answers, file and signature open from their record as a sheet of its own
 ---
 - evalScript: ${output.phone = "250" + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000))}
+- evalScript: ${output.name = "Hazel Pennington " + output.phone.slice(-4)}
 - evalScript: ${output.title = "Puppy intake " + String(Math.floor(Math.random() * 1000000))}
 - runScript:
       file: helpers/client-api.js
       env:
           METHOD: POST
           PATH: /v1/clients
-          BODY: "${JSON.stringify({ name: 'Hazel Pennington', phone: output.phone })}"
+          BODY: "${JSON.stringify({ name: output.name, phone: output.phone })}"
 - runFlow: helpers/owner.yaml
 - tapOn:
       id: "tab-inbox"
@@ -20,7 +21,10 @@ name: NATIVE-DOC-01 A form built on the phone with a text, a choice and a file q
       env:
           FIELD: "Form name"
           VALUE: ${output.title}
-- tapOn: "When a new client books.*"
+# sent by hand: an active on-booking form would text every new client the run books at Birchbark
+- scrollUntilVisible:
+      element: "Ask for a signature at the end"
+      direction: DOWN
 - tapOn:
       text: "Ask for a signature at the end"
       checked: false
@@ -33,6 +37,9 @@ name: NATIVE-DOC-01 A form built on the phone with a text, a choice and a file q
       index: 1
 - inputText: "Dog's name"
 - pressKey: Enter
+- scrollUntilVisible:
+      element: "Required"
+      direction: DOWN
 - tapOn:
       text: "Required"
       checked: false
@@ -44,7 +51,13 @@ name: NATIVE-DOC-01 A form built on the phone with a text, a choice and a file q
       index: 1
 - inputText: "Coat"
 - pressKey: Enter
+- scrollUntilVisible:
+      element: "Dropdown"
+      direction: DOWN
 - tapOn: "Dropdown"
+- scrollUntilVisible:
+      element: "Choice 2"
+      direction: DOWN
 - tapOn: "Choice 1"
 - inputText: "Short"
 - pressKey: Enter
@@ -58,6 +71,9 @@ name: NATIVE-DOC-01 A form built on the phone with a text, a choice and a file q
       index: 1
 - inputText: "Vaccine record"
 - pressKey: Enter
+- scrollUntilVisible:
+      element: "File"
+      direction: DOWN
 - tapOn: "File"
 - tapOn: "Done"
 - assertVisible: "1, Dog's name, Short text · Required"
@@ -83,14 +99,14 @@ name: NATIVE-DOC-01 A form built on the phone with a text, a choice and a file q
       commands:
           - tapOn: "Choose a client"
 - tapOn: "Search"
-- inputText: "Pennington"
-# a row reads its initials, name and phone as one label; the surname alone skips pets named Hazel
+- inputText: ${output.name}
+# a row reads its initials, name and phone as one label
 - extendedWaitUntil:
-      visible: ".*Hazel Pennington, .*"
+      visible: ".*${output.name}, .*"
       timeout: 60000
 # the keyboard takes the first tap, so Return puts it away first
 - pressKey: Enter
-- tapOn: ".*Hazel Pennington, .*"
+- tapOn: ".*${output.name}, .*"
 - tapOn: "Send link"
 - extendedWaitUntil:
       visible: "Check it before it goes out"
@@ -99,7 +115,7 @@ name: NATIVE-DOC-01 A form built on the phone with a text, a choice and a file q
       text: "Send"
       index: 0
 - extendedWaitUntil:
-      visible: "Sent to Hazel Pennington."
+      visible: "Sent to ${output.name}."
       timeout: 30000
 - tapOn: "Done"
 - runScript:
@@ -107,7 +123,7 @@ name: NATIVE-DOC-01 A form built on the phone with a text, a choice and a file q
       env:
           PHONE: ${output.phone}
           ANSWERS: '{"Dog''s name": "Biscuit", "Coat": "Long"}'
-          SIGNER: "Hazel Pennington"
+          SIGNER: ${output.name}
 # the client got the questions as the phone built them
 - assertTrue: ${output.form.form_name === output.title && output.form.require_signature}
 - assertTrue: ${output.form.fields.map(function (f) { return f.label + ":" + f.input + ":" + f.required; }).join("|") === "Dog's name:text:true|Coat:select:false|Vaccine record:file:false"}
@@ -115,12 +131,12 @@ name: NATIVE-DOC-01 A form built on the phone with a text, a choice and a file q
 - tapOn:
       id: "tab-clients"
 - tapOn: "Search name, phone or pet"
-- inputText: "Pennington"
+- inputText: ${output.name}
 - extendedWaitUntil:
-      visible: ".*Hazel Pennington, .*"
+      visible: ".*${output.name}, .*"
       timeout: 60000
 - pressKey: Enter
-- tapOn: ".*Hazel Pennington, .*"
+- tapOn: ".*${output.name}, .*"
 - scrollUntilVisible:
       element: "View answers to ${output.title}"
       direction: DOWN
@@ -129,19 +145,25 @@ name: NATIVE-DOC-01 A form built on the phone with a text, a choice and a file q
 - extendedWaitUntil:
       visible: "Biscuit"
       timeout: 30000
-- assertVisible: "Long"
+- scrollUntilVisible:
+      element: "Long"
+      direction: DOWN
 # the answers replace the record, which comes back on Close
 - assertNotVisible: "Book"
 - scrollUntilVisible:
-      element: "Signed by"
+      element: ${output.name}
       direction: DOWN
-- assertVisible: "Hazel Pennington"
-- assertVisible: "Open file"
+      centerElement: true
+- assertVisible: "Signed by"
+- scrollUntilVisible:
+      element: "Open file"
+      direction: UP
+      centerElement: true
 - takeScreenshot: form-answers
 # the file opens in the browser, outside the app, and the answers are still open on return
 - tapOn: "Open file"
 - extendedWaitUntil:
-      notVisible: "Signed by"
+      notVisible: "Open file"
       timeout: 15000
 - takeScreenshot: form-file-opened
 - launchApp:
@@ -149,9 +171,14 @@ name: NATIVE-DOC-01 A form built on the phone with a text, a choice and a file q
       permissions:
           notifications: allow
 - extendedWaitUntil:
-      visible: "Signed by"
+      visible: "Open file"
       timeout: 15000
 # the first Close is the backdrop behind the sheet; the second is its button
+- scrollUntilVisible:
+      element:
+          text: "Close"
+          index: 1
+      direction: DOWN
 - tapOn:
       text: "Close"
       index: 1

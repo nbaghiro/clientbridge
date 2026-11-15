@@ -1,6 +1,6 @@
 import { strings } from "@clientbridge/app-core/public";
-import { demoId, demoSlug } from "@clientbridge/config/e2e/run";
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { newBusiness } from "../support/business";
 import { openClient } from "../support/clients";
 import { select } from "../support/db";
 import {
@@ -18,6 +18,7 @@ import {
     connectUrl,
     fillConnectDetails,
     onlineBooker,
+    ownBookingPage,
     pastExtras,
     stackUrl,
 } from "../support/visit";
@@ -362,9 +363,14 @@ async function addQuestion(main: Locator, label: string, type: string, choices: 
 test("DOC-E2E-09 a new client's online booking gets the intake form texted once by the job, and their answers, file and signature reach their record", async ({
     page,
     browser,
+    request,
 }) => {
     test.setTimeout(300_000);
-    await signIn(page);
+    // an active on-booking form texts every new client, so it lives on a business of its own
+    const own = await ownBookingPage(page, request, "intake");
+    const [business] = await select<{ id: string }>`
+        SELECT id FROM businesses WHERE slug = ${own.slug}`;
+    if (business === undefined) throw new Error("The new business has no row");
     const booker = onlineBooker("Pepper");
     const name = `New client intake for ${booker.name}`;
     await navigate(page, "/inbox?segment=forms");
@@ -405,12 +411,15 @@ test("DOC-E2E-09 a new client's online booking gets the intake form texted once 
     const context = await customerContext(browser);
     try {
         const customer = await context.newPage();
-        const slug = demoSlug("birchbark");
+        const slug = own.slug;
         const openings = customer.waitForResponse(
             (response) => response.url().includes(`/book/${slug}/days?`) && response.ok(),
         );
         await customer.goto(connectUrl(slug));
-        await customer.getByRole("button", { name: /^Bath & Tidy/ }).click();
+        await customer
+            .getByRole("button")
+            .filter({ has: customer.getByText(own.itemName, { exact: true }) })
+            .click();
         await pastExtras(customer);
         const days = (
             (await (await openings).json()) as { days: { count: number; closed: boolean }[] }
@@ -439,7 +448,7 @@ test("DOC-E2E-09 a new client's online booking gets the intake form texted once 
         expect((await booking).status()).toBe(200);
         const [client] = await select<{ id: string }>`
             SELECT id FROM clients
-            WHERE business_id = ${demoId("bz_birchbark")} AND name = ${booker.name}`;
+            WHERE business_id = ${business.id} AND name = ${booker.name}`;
         if (client === undefined) throw new Error("The online booking made no client");
 
         // the run's worker may also reach this form on its quarter hour; either way it goes once
@@ -481,6 +490,9 @@ test("DOC-E2E-09 a new client's online booking gets the intake form texted once 
         });
         const fileId = answered.answers[record.name];
         expect(typeof fileId).toBe("string");
+        const [stored] = await select<{ s3_key: string }>`
+            SELECT s3_key FROM files WHERE id = ${String(fileId)} AND uploaded_at IS NOT NULL`;
+        if (stored === undefined) throw new Error("The attached file is not in storage");
 
         const shown = await openClient(page, {
             id: client.id,
@@ -493,11 +505,11 @@ test("DOC-E2E-09 a new client's online booking gets the intake form texted once 
         const answers = page.getByRole("dialog").filter({ hasText: name });
         for (const text of ["Pet's name", booker.subject, "Coat", "Long", f.signedBy, booker.name])
             await expect(answers.getByText(text, { exact: true }).first()).toBeVisible();
-        // the new tab asks storage for the business's own copy of the file through a signed link
+        // the new tab asks storage for this exact file through a signed link
         const fetching = page
             .context()
-            .waitForEvent("request", (request) =>
-                request.url().includes(`/${demoId("bz_birchbark")}/fl_`),
+            .waitForEvent("request", (sent) =>
+                new URL(sent.url()).pathname.endsWith(`/${stored.s3_key}`),
             );
         await answers.getByRole("button", { name: f.openFile, exact: true }).click();
         const file = await fetching;
@@ -509,10 +521,13 @@ test("DOC-E2E-09 a new client's online booking gets the intake form texted once 
     }
 });
 
-test("DOC-E2E-11 a form the phone saved shows on web with its questions, send rule and signature, and opens unchanged", async ({
+test("DOC-E2E-11 a form saved with the phone editor's request shows on web with its questions, send rule and signature, and opens unchanged", async ({
     page,
+    request,
 }) => {
-    await signIn(page);
+    test.setTimeout(180_000);
+    // an active on-booking form texts every new client, so it lives on a business of its own
+    await newBusiness(page, request, "phone-form", "petGrooming");
     const name = `Phone-built intake ${String(Date.now())}`;
     const form = await saveForm(page, name, [
         { input: "text", label: "Dog's name", required: true, options: [] },
