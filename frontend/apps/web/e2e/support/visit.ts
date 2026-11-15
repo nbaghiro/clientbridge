@@ -359,6 +359,7 @@ export interface RaceContact {
     pet: string;
 }
 export interface RaceFixture {
+    slug: string;
     itemId: string;
     itemName: string;
     staffId: string;
@@ -449,6 +450,7 @@ export async function raceFixture(page: Page): Promise<RaceFixture> {
     });
     expect(item.status(), await item.text()).toBe(201);
     return {
+        slug: demoSlug("birchbark"),
         itemId: ((await item.json()) as { id: string }).id,
         itemName,
         staffId: staff.id,
@@ -462,11 +464,9 @@ export async function ownBookingPage(
     page: Page,
     request: APIRequestContext,
     prefix: string,
-): Promise<{ slug: string; itemName: string }> {
+): Promise<RaceFixture & { businessId: string; email: string; password: string }> {
     const business = await newBusiness(page, request, prefix, "petGrooming");
-    const [owner] = await select<{ id: string }>`
-        SELECT id FROM staff WHERE business_id = ${business.id} AND role = 'owner'`;
-    if (owner === undefined) throw new Error("the new business has no owner");
+    const owner = await teamMember(page, business.email);
     await apiCall(
         page,
         "POST",
@@ -490,7 +490,7 @@ export async function ownBookingPage(
         200,
     );
     const itemName = `Paw care with ${demoPerson(randomUUID())}`;
-    await apiCall(
+    const item = await apiCall<{ id: string }>(
         page,
         "POST",
         "/v1/items",
@@ -504,7 +504,17 @@ export async function ownBookingPage(
         },
         201,
     );
-    return { slug: business.slug, itemName };
+    return {
+        businessId: business.id,
+        slug: business.slug,
+        itemId: item.id,
+        itemName,
+        staffId: owner.id,
+        staffName: owner.name,
+        url: connectUrl(business.slug),
+        email: business.email,
+        password: business.password,
+    };
 }
 
 // a service with add-ons offers them in its own step before the time
@@ -532,7 +542,7 @@ export async function raceTimePicker(
     await pastExtras(page);
     const staffDays = page.waitForResponse(
         (response) =>
-            response.url().includes(`/book/${demoSlug("birchbark")}/days?`) &&
+            response.url().includes(`/book/${fixture.slug}/days?`) &&
             new URL(response.url()).searchParams.get("staff_id") === fixture.staffId &&
             response.ok(),
     );
@@ -548,7 +558,7 @@ export async function raceTimePicker(
     for (let week = 0; week < weeksAhead; week++) {
         const loaded = page.waitForResponse(
             (response) =>
-                response.url().includes(`/book/${demoSlug("birchbark")}/days?`) &&
+                response.url().includes(`/book/${fixture.slug}/days?`) &&
                 new URL(response.url()).searchParams.get("staff_id") === fixture.staffId &&
                 response.ok(),
         );

@@ -47,6 +47,7 @@ export function bookingApi(): string {
 export async function createBookingFixture(
     page: Page,
     overrides: Record<string, unknown> = {},
+    ownerEmail = runEmail("hannah@birchbark.example"),
 ): Promise<BookingFixture> {
     requireLocalMail();
     const api = bookingApi();
@@ -60,9 +61,9 @@ export async function createBookingFixture(
     const { members } = (await team.json()) as {
         members: { id: string; email: string; name: string; status: string }[];
     };
-    const staff = members.find((member) => member.email === runEmail("hannah@birchbark.example"));
+    const staff = members.find((member) => member.email === ownerEmail);
     expect(staff?.status).toBe("active");
-    if (!staff) throw new Error("The Birch & Bark owner fixture is missing");
+    if (!staff) throw new Error(`The owner ${ownerEmail} is missing`);
     const client = await page.request.post(`${api}/v1/clients`, {
         headers,
         data: { name: clientName, phone: clientPhone },
