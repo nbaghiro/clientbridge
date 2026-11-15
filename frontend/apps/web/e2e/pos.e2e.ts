@@ -645,7 +645,7 @@ test("SALE-E2E-18 front-desk staff take half off a sale with no approval", async
     test.setTimeout(180_000);
     await signIn(page);
     const product = await stockProduct(page, {
-        name: "Detangling spray, large",
+        name: `Detangling spray, large ${randomUUID().slice(0, 6).toUpperCase()}`,
         prefix: "BB-DS",
         priceCents: 4000,
         taxClass: "exempt",
@@ -683,68 +683,60 @@ test("SALE-E2E-19 a member's perk takes a whole percent and comes off their prod
     test.setTimeout(180_000);
     const c = strings.catalog;
     await signIn(page);
-    // the seed's one active member is David; no other case sells him anything, and the perk resets
+    // David, the only member, buys in no other case; a reset would race a copy of this case mid-sale
     const membership = demoId("it_daycare");
-    try {
-        await navigate(page, "/setup/services");
-        await page.getByRole("tab", { name: c.views.plans, exact: true }).click();
-        await page
-            .getByRole("main")
-            .getByRole("button")
-            .filter({ hasText: "Monthly Daycare" })
-            .click({ timeout: 60_000 });
-        const editor = page.getByRole("dialog", { name: "Monthly Daycare", exact: true });
-        const perk = editor.getByRole("textbox", { name: c.memberPerk, exact: true });
-        await perk.fill("12.5");
-        await editor.getByRole("button", { name: c.save, exact: true }).click();
-        await expect(editor.getByText(c.perkInvalid, { exact: true })).toBeVisible();
-        await perk.fill("10");
-        await editor.getByRole("button", { name: c.save, exact: true }).click();
-        await expect(editor).toBeHidden();
-        expect(
-            await select`SELECT member_discount_bps FROM items WHERE id = ${membership}`,
-        ).toEqual([{ member_discount_bps: 1000 }]);
+    await navigate(page, "/setup/services");
+    await page.getByRole("tab", { name: c.views.plans, exact: true }).click();
+    await page
+        .getByRole("main")
+        .getByRole("button")
+        .filter({ hasText: "Monthly Daycare" })
+        .click({ timeout: 60_000 });
+    const editor = page.getByRole("dialog", { name: "Monthly Daycare", exact: true });
+    const perk = editor.getByRole("textbox", { name: c.memberPerk, exact: true });
+    await perk.fill("12.5");
+    await editor.getByRole("button", { name: c.save, exact: true }).click();
+    await expect(editor.getByText(c.perkInvalid, { exact: true })).toBeVisible();
+    await perk.fill("10");
+    await editor.getByRole("button", { name: c.save, exact: true }).click();
+    await expect(editor).toBeHidden();
+    expect(await select`SELECT member_discount_bps FROM items WHERE id = ${membership}`).toEqual([
+        { member_discount_bps: 1000 },
+    ]);
 
-        const balm = await stockProduct(page, {
-            name: "Paw balm, member size",
-            prefix: "BB-MB",
-            priceCents: 2400,
-            taxClass: "standard",
-            stock: 2,
-        });
-        await navigate(page, "/payments/sales");
-        await addToTicket(page, balm.name);
-        const ticket = saleTicket(page);
-        await ticket.getByRole("button").filter({ hasText: d.chooseClient }).click();
-        await ticket.getByRole("searchbox", { name: d.clientSearch, exact: true }).fill("David");
-        await ticket.getByRole("button").filter({ hasText: "David Okafor" }).click();
-        await expect(
-            ticket.getByRole("button", { name: d.discountLine(balm.name), exact: true }),
-        ).toContainText(MEMBER_DISCOUNT_REASON);
-        // $24 less 10% is $21.60, with GST $1.08 and PST $1.51
-        await ticket.getByRole("button", { name: d.charge("$24.19"), exact: true }).click();
-        await paymentPanel(page)
-            .getByRole("group", { name: d.tip, exact: true })
-            .getByRole("button", { name: d.tipNone, exact: true })
-            .click();
-        await payExactCash(page, "$24.19");
-        expect(
-            await select`
+    const balm = await stockProduct(page, {
+        name: `Paw balm, member size ${randomUUID().slice(0, 6).toUpperCase()}`,
+        prefix: "BB-MB",
+        priceCents: 2400,
+        taxClass: "standard",
+        stock: 2,
+    });
+    await navigate(page, "/payments/sales");
+    await addToTicket(page, balm.name);
+    const ticket = saleTicket(page);
+    await ticket.getByRole("button").filter({ hasText: d.chooseClient }).click();
+    await ticket.getByRole("searchbox", { name: d.clientSearch, exact: true }).fill("David");
+    await ticket.getByRole("button").filter({ hasText: "David Okafor" }).click();
+    await expect(
+        ticket.getByRole("button", { name: d.discountLine(balm.name), exact: true }),
+    ).toContainText(MEMBER_DISCOUNT_REASON);
+    // $24 less 10% is $21.60, with GST $1.08 and PST $1.51
+    await ticket.getByRole("button", { name: d.charge("$24.19"), exact: true }).click();
+    await paymentPanel(page)
+        .getByRole("group", { name: d.tip, exact: true })
+        .getByRole("button", { name: d.tipNone, exact: true })
+        .click();
+    await payExactCash(page, "$24.19");
+    expect(
+        await select`
                 SELECT amount_cents, discount_kind, discount_value, discount_reason
                 FROM lines WHERE item_id = ${balm.id}`,
-        ).toEqual([
-            {
-                amount_cents: 2160,
-                discount_kind: "percent",
-                discount_value: 10,
-                discount_reason: MEMBER_DISCOUNT_REASON,
-            },
-        ]);
-    } finally {
-        const reset = await page.request.patch(`${bookingApi()}/v1/items/${membership}`, {
-            headers: apiHeaders(page),
-            data: { member_discount_bps: null },
-        });
-        expect(reset.status(), await reset.text()).toBe(200);
-    }
+    ).toEqual([
+        {
+            amount_cents: 2160,
+            discount_kind: "percent",
+            discount_value: 10,
+            discount_reason: MEMBER_DISCOUNT_REASON,
+        },
+    ]);
 });

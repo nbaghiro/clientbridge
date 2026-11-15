@@ -457,3 +457,19 @@ export async function billingAction(
     );
     return JSON.parse(stdout) as { swept?: number };
 }
+
+/** Pays a visit's deposit or a desk order by card, as the lane's absent Stripe would confirm it. */
+export async function cardPaid(
+    kind: "deposit" | "pickup",
+    id: string,
+): Promise<Record<string, string | null>> {
+    const { stdout } = await promisify(execFile)(
+        "uv",
+        ["run", "python", "-m", "e2e.actions", "card-paid", kind, id],
+        {
+            cwd: fileURLToPath(new URL("../../../../../backend", import.meta.url)),
+            timeout: 60_000,
+        },
+    );
+    return JSON.parse(stdout) as Record<string, string | null>;
+}

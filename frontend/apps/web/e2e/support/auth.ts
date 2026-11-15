@@ -65,6 +65,16 @@ export function freshPhone(): string {
     return `+1250${String(exchange)}${String(randomInt(0, 10_000)).padStart(4, "0")}`;
 }
 
+// area codes the seed gives its 555-01xx clients, which a fictional number here must not match
+const SEEDED_AREAS = new Set([204, 236, 250, 403, 416, 514, 587, 604, 613, 672, 778, 780, 905]);
+
+/** A fresh 555-0100 to 555-0199 number, set aside for fiction, that no other client holds. */
+export function fictionalPhone(): string {
+    let area = randomInt(200, 1000);
+    while (SEEDED_AREAS.has(area) || area % 100 === 11) area = randomInt(200, 1000);
+    return `+1${String(area)}55501${String(randomInt(0, 100)).padStart(2, "0")}`;
+}
+
 /** The dev inbox the API's text transport mails `phone`'s texts to, under this run. */
 export function textInbox(phone: string): string {
     return runEmail(`${phone.replace(/\D/g, "")}@sms.test`);
