@@ -52,12 +52,12 @@ import {
     moveFromManageLink,
     ownBookingPage,
 } from "../support/visit";
-import { textInbox, textsTo } from "../support/auth";
+import { newAccount, textInbox, textsTo } from "../support/auth";
 import { customerContext, navigate, signIn } from "../support/session";
 import { demoId, demoSlug, runUrl, runEmail } from "@clientbridge/config/e2e/run";
 import { createClient } from "../support/clients";
 import { select } from "../support/db";
-import { joinHoursStaff } from "../support/hours";
+import { acceptInvite, joinHoursStaff } from "../support/hours";
 import { messageEvidence } from "../support/messaging";
 
 // how the text acknowledging a booking request begins (booking_requested.body_link)
@@ -1525,12 +1525,21 @@ test("SCH-E2E-19 the lead time, horizon and start step set in Setup bound the ti
 test("SCH-E2E-21 a client moves a visit from its manage link until the limit while the owner sees each new time, a cancel inside the cut-off is refused with its reason, and one outside it frees the time", async ({
     page,
     browser,
+    request,
 }) => {
+    test.setTimeout(240_000);
     const b = strings.publicBooking;
     const m = strings.publicManage;
     const s = strings.bookings;
-    await signIn(page);
-    const fixture = await raceFixture(page);
+    // the cut-off is business-wide, and copies of this case would restore each other's widened one
+    const fixture = await ownBookingPage(page, request, "manage-limits");
+    await apiCall(
+        page,
+        "PATCH",
+        "/v1/online-booking",
+        { policy: { approve_new_clients: true } },
+        200,
+    );
     const contact = raceContact("Juniper");
     const context = await customerContext(browser);
     const client = await context.newPage();
@@ -1549,7 +1558,7 @@ test("SCH-E2E-21 a client moves a visit from its manage link until the limit whi
     const posted = client.waitForResponse(
         (response) =>
             response.request().method() === "POST" &&
-            new URL(response.url()).pathname.endsWith(`/book/${demoSlug("birchbark")}`),
+            new URL(response.url()).pathname.endsWith(`/book/${fixture.slug}`),
     );
     await client.getByRole("button", { name: b.confirm, exact: true }).click();
     const booked = (await (await posted).json()) as { booking_id: string; manage_token: string };
@@ -1574,7 +1583,15 @@ test("SCH-E2E-21 a client moves a visit from its manage link until the limit whi
     const phones = { owner: `e2e-owner-${randomUUID()}`, diego: `e2e-diego-${randomUUID()}` };
     const staff = await browser.newContext({ baseURL: new URL(page.url()).origin });
     const diego = await staff.newPage();
-    await signIn(diego, { email: runEmail("diego@birchbark.example"), password: "demo1234" });
+    const joiner = newAccount("manage-staff");
+    const invite = await apiCall<{ invite_token: string }>(
+        page,
+        "POST",
+        "/v1/staff/invites",
+        { email: joiner.email, role: "staff" },
+        201,
+    );
+    await acceptInvite(diego, request, invite.invite_token, joiner);
     const devices = [
         { owner: page, token: phones.owner },
         { owner: diego, token: phones.diego },
@@ -1650,45 +1667,38 @@ test("SCH-E2E-21 a client moves a visit from its manage link until the limit whi
             expect.stringContaining(`/m/${booked.manage_token}`),
         ]);
 
-    // widened with the dialog open; other journeys' link cancels are classes 14+ days out
+    // widened with the dialog open
     const hours = Math.ceil((at(second) - Date.now()) / 3_600_000) + 1;
     expect(hours).toBeLessThanOrEqual(168);
-    const policy = await page.request.get(`${bookingApi()}/v1/online-booking`);
-    expect(policy.status()).toBe(200);
-    const before = ((await policy.json()) as { policy: Record<string, unknown> }).policy;
-    const restore = { policy: { ...before, step_min: before.step_min ?? 0 } };
-    try {
-        await client.getByRole("button", { name: m.cancel, exact: true }).click();
-        await apiCall(
-            page,
-            "PATCH",
-            "/v1/online-booking",
-            { policy: { ...restore.policy, cancel_cutoff_hours: hours } },
-            200,
-        );
-        await client.getByRole("button", { name: m.cancelConfirm, exact: true }).click();
-        await expect(
-            client.getByRole("dialog").getByText(m.blocked.cutoff(hours), { exact: true }),
-        ).toBeVisible();
-        await client.getByRole("button", { name: m.keep, exact: true }).click();
-        await expect(client.getByRole("button", { name: m.cancel, exact: true })).toBeDisabled();
-        // the refusal's alert stays beside the reason the reloaded visit gives
-        await expect(client.getByText(m.blocked.cutoff(hours), { exact: true })).toHaveCount(2);
-        await client.reload();
-        await expect(client.getByText(m.blocked.cutoff(hours), { exact: true })).toBeVisible();
-        const refused = await client.request.post(
-            `${bookingApi()}/manage/${booked.manage_token}/cancel`,
-            { data: {}, headers: { "Idempotency-Key": randomUUID() } },
-        );
-        expect(refused.status()).toBe(409);
-        expect(await refused.json()).toMatchObject({ error: "change_blocked" });
-        expect(
-            await select<{ status: string }>`
-                SELECT status FROM bookings WHERE id = ${booked.booking_id}`,
-        ).toEqual([{ status: "pending" }]);
-    } finally {
-        await apiCall(page, "PATCH", "/v1/online-booking", restore, 200);
-    }
+    await client.getByRole("button", { name: m.cancel, exact: true }).click();
+    await apiCall(
+        page,
+        "PATCH",
+        "/v1/online-booking",
+        { policy: { cancel_cutoff_hours: hours } },
+        200,
+    );
+    await client.getByRole("button", { name: m.cancelConfirm, exact: true }).click();
+    await expect(
+        client.getByRole("dialog").getByText(m.blocked.cutoff(hours), { exact: true }),
+    ).toBeVisible();
+    await client.getByRole("button", { name: m.keep, exact: true }).click();
+    await expect(client.getByRole("button", { name: m.cancel, exact: true })).toBeDisabled();
+    // the refusal's alert stays beside the reason the reloaded visit gives
+    await expect(client.getByText(m.blocked.cutoff(hours), { exact: true })).toHaveCount(2);
+    await client.reload();
+    await expect(client.getByText(m.blocked.cutoff(hours), { exact: true })).toBeVisible();
+    const refused = await client.request.post(
+        `${bookingApi()}/manage/${booked.manage_token}/cancel`,
+        { data: {}, headers: { "Idempotency-Key": randomUUID() } },
+    );
+    expect(refused.status()).toBe(409);
+    expect(await refused.json()).toMatchObject({ error: "change_blocked" });
+    expect(
+        await select<{ status: string }>`
+            SELECT status FROM bookings WHERE id = ${booked.booking_id}`,
+    ).toEqual([{ status: "pending" }]);
+    await apiCall(page, "PATCH", "/v1/online-booking", { policy: { cancel_cutoff_hours: 0 } }, 200);
 
     await client.reload();
     await client.getByRole("button", { name: m.cancel, exact: true }).click();
@@ -1699,16 +1709,13 @@ test("SCH-E2E-21 a client moves a visit from its manage link until the limit whi
     await expect(client.getByText(m.canceledNoDeposit, { exact: true })).toBeVisible();
     const freed = await slotOf();
     expect(freed.status).toBe("canceled");
-    const reopened = await client.request.get(
-        `${bookingApi()}/book/${demoSlug("birchbark")}/slots`,
-        {
-            params: {
-                date: dateKey(new Date(second), "America/Vancouver"),
-                item_id: fixture.itemId,
-                staff_id: fixture.staffId,
-            },
+    const reopened = await client.request.get(`${bookingApi()}/book/${fixture.slug}/slots`, {
+        params: {
+            date: dateKey(new Date(second), "America/Vancouver"),
+            item_id: fixture.itemId,
+            staff_id: fixture.staffId,
         },
-    );
+    });
     expect(reopened.status()).toBe(200);
     const open = ((await reopened.json()) as { slots: { starts_at: string }[] }).slots;
     expect(open.map((slot) => at(slot.starts_at))).toContain(at(second));
