@@ -67,12 +67,12 @@ name: NATIVE-CFG-05 A product set up on the phone with its photo sells once and 
 
 - tapOn: "Search name, category or SKU"
 - inputText: ${output.sku}
+# the card sits behind the keyboard, where a tap on Android types into the search; Return closes it
+- pressKey: Enter
 - extendedWaitUntil:
       visible: ${output.name}
       timeout: 30000
-# the list keeps the keyboard up, so the first tap may only close it
 - tapOn: ${output.name}
-- runFlow: { when: { notVisible: "Add photo" }, commands: [{ tapOn: "${output.name}" }] }
 - extendedWaitUntil:
       visible: "Add photo"
       timeout: 20000
@@ -208,9 +208,8 @@ name: NATIVE-CFG-05 A product set up on the phone with its photo sells once and 
 - tapOn: "Search name, category or SKU"
 - eraseText
 - inputText: ${output.sku}
-# the card sits behind the keyboard, which iOS's search closes with Return
-- runFlow: { when: { platform: iOS }, commands: [{ pressKey: Enter }] }
-- runFlow: { when: { platform: Android }, commands: [hideKeyboard] }
+# the card sits behind the keyboard, which the search closes with Return
+- pressKey: Enter
 - extendedWaitUntil:
       visible: ${output.name + "( · .*)?"}
       timeout: 30000
@@ -259,9 +258,8 @@ name: NATIVE-CFG-05 A product set up on the phone with its photo sells once and 
 - tapOn: "Search name, category or SKU"
 - eraseText
 - inputText: ${output.sku}
-# the card sits behind the keyboard, which iOS's search closes with Return
-- runFlow: { when: { platform: iOS }, commands: [{ pressKey: Enter }] }
-- runFlow: { when: { platform: Android }, commands: [hideKeyboard] }
+# the card sits behind the keyboard, which the search closes with Return
+- pressKey: Enter
 - extendedWaitUntil:
       visible: ${output.name + "( · .*)?"}
       timeout: 30000
