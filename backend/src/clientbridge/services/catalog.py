@@ -290,7 +290,6 @@ class CatalogService:
             )
 
     async def _assert_sku_free(self, sku: str | None, keep: str) -> None:
-        """A SKU is one code however it is typed, so another item's in any case takes it."""
         if sku is None:
             return
         # the unique index is case-sensitive, so callers of one SKU in any case take turns

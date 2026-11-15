@@ -186,18 +186,30 @@ describe("product editor", () => {
 });
 
 describe("a count correction", () => {
-    it("can't take the shelf below zero, and doesn't ask the server to", () => {
+    it("leaves the shelf count to the server and shows its refusal below zero", async () => {
         const api = stubApi(() => false);
-        const post = vi.spyOn(api, "post");
-        const { result } = renderHook(() => useRestockForm(api, shampoo, vi.fn()), { wrapper });
+        const post = vi
+            .spyOn(api, "post")
+            .mockRejectedValue(
+                Object.assign(new Error("refused"), { status: 409, code: "stock_below_zero" }),
+            );
+        const done = vi.fn();
+        const { result } = renderHook(() => useRestockForm(api, shampoo, done), { wrapper });
         act(() => {
             result.current.setQuantity("-4");
         });
         act(() => {
             result.current.submit();
         });
-        expect(result.current.error).toBe(strings.api.stockBelowZero);
-        expect(post).not.toHaveBeenCalled();
+        await waitFor(() => {
+            expect(result.current.error).toBe(strings.api.stockBelowZero);
+        });
+        expect(post).toHaveBeenCalledWith(
+            "/v1/items/it_shampoo/restock",
+            { quantity: -4, note: null },
+            expect.anything(),
+        );
+        expect(done).not.toHaveBeenCalled();
     });
 
     it("may empty the shelf", async () => {

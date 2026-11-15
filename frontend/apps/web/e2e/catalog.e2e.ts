@@ -18,6 +18,7 @@ import {
     offeredAddon,
     openProduct,
     registerTile,
+    retireSellingProduct,
     saveItem,
     sellingProduct,
     shopCard,
@@ -554,33 +555,52 @@ test("CFG-E2E-14 an archived product leaves Sales, invoices, the shop and add-on
         await expect(await invoicePick(page, product)).toHaveCount(1);
         await page.keyboard.press("Escape");
         await expect(await shopCard(shopper, product)).toBeVisible();
-        expect(await offeredAddon(page, product)).toBe(true);
+        expect(await offeredAddon(page, product)).toEqual([product.serviceId]);
     };
     const item = async () =>
         (
-            await select<{ active: boolean; stock_on_hand: number; addon: boolean }>`
-                SELECT active, stock_on_hand, addon FROM items WHERE id = ${product.id}`
+            await select<{
+                active: boolean;
+                stock_on_hand: number;
+                addon: boolean;
+                addon_for: string[];
+            }>`
+                SELECT active, stock_on_hand, addon, addon_for FROM items WHERE id = ${product.id}`
         )[0];
-    await offered();
+    try {
+        await offered();
 
-    let editor = await openProduct(page, product);
-    await editor.getByRole("button", { name: s.archive, exact: true }).click();
-    await expect(editor).toBeHidden();
-    expect(await item()).toEqual({ active: false, stock_on_hand: 4, addon: true });
-    await registerTile(page, product, false);
-    const gone = await invoicePick(page, product);
-    await expect(page.getByText(strings.ui.noMatches, { exact: true })).toBeVisible();
-    await expect(gone).toHaveCount(0);
-    await page.keyboard.press("Escape");
-    await expect(await shopCard(shopper, product)).toHaveCount(0);
-    expect(await offeredAddon(page, product)).toBe(false);
+        let editor = await openProduct(page, product);
+        await editor.getByRole("button", { name: s.archive, exact: true }).click();
+        await expect(editor).toBeHidden();
+        expect(await item()).toEqual({
+            active: false,
+            stock_on_hand: 4,
+            addon: true,
+            addon_for: [product.serviceId],
+        });
+        await registerTile(page, product, false);
+        const gone = await invoicePick(page, product);
+        await expect(page.getByText(strings.ui.noMatches, { exact: true })).toBeVisible();
+        await expect(gone).toHaveCount(0);
+        await page.keyboard.press("Escape");
+        await expect(await shopCard(shopper, product)).toHaveCount(0);
+        expect(await offeredAddon(page, product)).toBeUndefined();
 
-    editor = await openProduct(page, product, true);
-    await expect(editor.getByText(s.archivedNote, { exact: true })).toBeVisible();
-    await editor.getByRole("button", { name: s.restore, exact: true }).click();
-    await expect(editor).toBeHidden();
-    expect(await item()).toEqual({ active: true, stock_on_hand: 4, addon: true });
-    await offered();
+        editor = await openProduct(page, product, true);
+        await expect(editor.getByText(s.archivedNote, { exact: true })).toBeVisible();
+        await editor.getByRole("button", { name: s.restore, exact: true }).click();
+        await expect(editor).toBeHidden();
+        expect(await item()).toEqual({
+            active: true,
+            stock_on_hand: 4,
+            addon: true,
+            addon_for: [product.serviceId],
+        });
+        await offered();
+    } finally {
+        await retireSellingProduct(page, product);
+    }
 });
 
 test("CFG-E2E-16 a product set up once sells with its photo everywhere and keeps its SKU in any case", async ({

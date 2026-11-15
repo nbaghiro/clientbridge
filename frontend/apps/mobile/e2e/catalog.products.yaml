@@ -27,6 +27,12 @@ name: NATIVE-CFG-05 A product set up on the phone with its photo sells once and 
 - runFlow: { when: { visible: "Done" }, commands: [{ tapOn: "Done" }] }
 - assertVisible: ".*a sale · 58%"
 # the switch shares its label's name and follows it
+- scrollUntilVisible:
+      element:
+          text: "Track stock"
+          index: 1
+      direction: DOWN
+      centerElement: true
 - tapOn:
       text: "Track stock"
       index: 1

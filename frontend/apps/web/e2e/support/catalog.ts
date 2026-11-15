@@ -187,10 +187,29 @@ export interface SellingProduct {
     sku: string;
 }
 
-/** A tracked product with stock that the shop sells and the booking page offers as an add-on. */
-export async function sellingProduct(page: Page): Promise<SellingProduct> {
+interface AddonProduct extends SellingProduct {
+    serviceId: string;
+}
+
+/** A tracked product with stock that the shop sells and the booking page offers with one new service. */
+export async function sellingProduct(page: Page): Promise<AddonProduct> {
+    const tag = randomUUID().slice(0, 8).toUpperCase();
     const name = `${demoPerson(randomUUID())}'s Bath Salts`;
-    const sku = `BB-BS-${randomUUID().slice(0, 8).toUpperCase()}`;
+    const sku = `BB-BS-${tag}`;
+    const service = await apiCall<{ id: string }>(
+        page,
+        "POST",
+        "/v1/items",
+        {
+            kind: "service",
+            name: `Salt soak ${tag}`,
+            duration_min: 30,
+            price_cents: 4000,
+            deposit_type: "none",
+            online_bookable: false,
+        },
+        201,
+    );
     const item = await apiCall<{ id: string }>(
         page,
         "POST",
@@ -207,14 +226,22 @@ export async function sellingProduct(page: Page): Promise<SellingProduct> {
         201,
     );
     await apiCall(page, "POST", `/v1/items/${item.id}/restock`, { quantity: 4 }, 200);
-    await apiCall(
-        page,
-        "PATCH",
-        "/v1/online-booking/addons",
-        { offers: [{ id: item.id, addon: true, addon_for: [] }] },
-        200,
-    );
-    return { id: item.id, name, sku };
+    expect(
+        await apiCall(
+            page,
+            "PATCH",
+            "/v1/online-booking/addons",
+            { offers: [{ id: item.id, addon: true, addon_for: [service.id] }] },
+            200,
+        ),
+    ).toEqual({ offers: [{ id: item.id, addon: true, addon_for: [service.id] }] });
+    return { id: item.id, name, sku, serviceId: service.id };
+}
+
+/** Archives the product and its service, so repeated runs leave nothing on sale. */
+export async function retireSellingProduct(page: Page, product: AddonProduct): Promise<void> {
+    for (const id of [product.id, product.serviceId])
+        await apiCall(page, "PATCH", `/v1/items/${id}`, { active: false }, 200);
 }
 
 /** The desk register, searched by SKU once the replica has the product's current state. */
@@ -249,14 +276,17 @@ export async function shopCard(page: Page, product: SellingProduct): Promise<Loc
     return page.getByRole("group", { name: product.name, exact: true });
 }
 
-/** Whether the booking page offers the product as an add-on. */
-export async function offeredAddon(page: Page, product: SellingProduct): Promise<boolean> {
+/** The services the booking page offers the product with, or undefined while it is not an add-on. */
+export async function offeredAddon(
+    page: Page,
+    product: SellingProduct,
+): Promise<string[] | undefined> {
     const response = await page.request.get(
         `${bookingApi()}/book/${demoSlug("birchbark")}/services`,
     );
     expect(response.status()).toBe(200);
-    const { addons } = (await response.json()) as { addons: { id: string }[] };
-    return addons.some((addon) => addon.id === product.id);
+    const { addons } = (await response.json()) as { addons: { id: string; addon_for: string[] }[] };
+    return addons.find((addon) => addon.id === product.id)?.addon_for;
 }
 
 /** Opens the product from the Products tab, under the Archived filter when it is archived. */

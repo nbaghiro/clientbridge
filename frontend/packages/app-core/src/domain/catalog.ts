@@ -1554,10 +1554,6 @@ export function useRestockForm(
             setError(s.restockInvalid);
             return;
         }
-        if (qty < 0 && (item.stock_on_hand ?? 0) + qty < 0) {
-            setError(strings.api.stockBelowZero);
-            return;
-        }
         const body = { quantity: qty, note: blankToNull(note) };
         const key = attemptKey(keyRef, [item.id, body]);
         run(() => restockItem(api, item.id, body, key), {
