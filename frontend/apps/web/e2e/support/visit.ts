@@ -1,9 +1,16 @@
 import { randomUUID } from "node:crypto";
 import { strings } from "@clientbridge/app-core/public";
 import { demoPerson } from "@clientbridge/config/e2e/demo";
-import { expect, type Locator, type Page, type Response } from "@playwright/test";
+import {
+    expect,
+    type APIRequestContext,
+    type Locator,
+    type Page,
+    type Response,
+} from "@playwright/test";
 import { freshPhone } from "./auth";
 import { bookingApi } from "./bookings";
+import { newBusiness } from "./business";
 import { select } from "./db";
 import { runEmail, runPort, runUrl, demoSlug } from "@clientbridge/config/e2e/run";
 import { requireLocalMail } from "./evidence";
@@ -449,6 +456,57 @@ export async function raceFixture(page: Page): Promise<RaceFixture> {
         url: `http://book.localhost:${port}/${demoSlug("birchbark")}`,
     };
 }
+
+/** A new business whose owner works every day and offers one online service. */
+export async function ownBookingPage(
+    page: Page,
+    request: APIRequestContext,
+    prefix: string,
+): Promise<{ slug: string; itemName: string }> {
+    const business = await newBusiness(page, request, prefix, "petGrooming");
+    const [owner] = await select<{ id: string }>`
+        SELECT id FROM staff WHERE business_id = ${business.id} AND role = 'owner'`;
+    if (owner === undefined) throw new Error("the new business has no owner");
+    await apiCall(
+        page,
+        "POST",
+        `/v1/hours/${owner.id}/week`,
+        {
+            request: {
+                version: 2,
+                business_id: business.id,
+                device_id: randomUUID(),
+                operation_id: randomUUID(),
+                created_at: new Date().toISOString(),
+            },
+            expected_revision: 0,
+            days: Array.from({ length: 7 }, (_, weekday) => ({
+                weekday,
+                available: true,
+                start_time: "09:00:00",
+                end_time: "17:00:00",
+            })),
+        },
+        200,
+    );
+    const itemName = `Paw care with ${demoPerson(randomUUID())}`;
+    await apiCall(
+        page,
+        "POST",
+        "/v1/items",
+        {
+            kind: "service",
+            name: itemName,
+            duration_min: 30,
+            price_cents: 2500,
+            deposit_type: "none",
+            online_bookable: true,
+        },
+        201,
+    );
+    return { slug: business.slug, itemName };
+}
+
 // a service with add-ons offers them in its own step before the time
 export async function pastExtras(page: Page): Promise<void> {
     const b = strings.publicBooking;
