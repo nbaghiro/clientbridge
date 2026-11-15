@@ -5,7 +5,10 @@ import { bookingApi } from "./bookings";
 
 export const ADMIN = runUrl("VITE_ADMIN_URL");
 
-export function operator(role: "console" | "lapse"): { email: string; password: string } {
+/** The console operator, or the one a repeated copy of OPS-E2E-03 unverifies on its own. */
+type OperatorRole = "console" | `lapse_${string}`;
+
+export function operator(role: OperatorRole): { email: string; password: string } {
     const email = process.env[`E2E_OPERATOR_${role.toUpperCase()}_EMAIL`];
     const password = process.env[`E2E_OPERATOR_${role.toUpperCase()}_PASSWORD`];
     if (!email || !password) throw new Error("the stack grants no platform operator");
@@ -13,7 +16,7 @@ export function operator(role: "console" | "lapse"): { email: string; password: 
 }
 
 /** Signs in through the web app's admin login, as the console's cross-host redirect sends you. */
-export async function operatorConsole(browser: Browser, role: "console" | "lapse"): Promise<Page> {
+export async function operatorConsole(browser: Browser, role: OperatorRole): Promise<Page> {
     const { email, password } = operator(role);
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
     const page = await context.newPage();
