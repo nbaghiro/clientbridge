@@ -369,10 +369,7 @@ test("DOC-E2E-09 a new client's online booking gets the intake form texted once 
     test.setTimeout(300_000);
     // an active on-booking form texts every new client, so it lives on a business of its own
     const own = await ownBookingPage(page, request, "intake");
-    const [business] = await select<{ id: string }>`
-        SELECT id FROM businesses WHERE slug = ${own.slug}`;
-    if (business === undefined) throw new Error("The new business has no row");
-    await assignSmsNumber(business.id);
+    await assignSmsNumber(own.businessId);
     const booker = onlineBooker("Pepper");
     const name = `New client intake for ${booker.name}`;
     await navigate(page, "/inbox?segment=forms");
@@ -450,7 +447,7 @@ test("DOC-E2E-09 a new client's online booking gets the intake form texted once 
         expect((await booking).status()).toBe(200);
         const [client] = await select<{ id: string }>`
             SELECT id FROM clients
-            WHERE business_id = ${business.id} AND name = ${booker.name}`;
+            WHERE business_id = ${own.businessId} AND name = ${booker.name}`;
         if (client === undefined) throw new Error("The online booking made no client");
 
         // the run's worker may also reach this form on its quarter hour; either way it goes once
