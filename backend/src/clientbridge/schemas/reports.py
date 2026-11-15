@@ -17,13 +17,6 @@ class DashboardSummary(BaseModel):
     )
 
 
-class IncomeReport(BaseModel):
-    gross_cents: int = Field(description="Payments and deposits received in the period")
-    refunds_cents: int = Field(description="Refunds paid out in the period")
-    net_cents: int = Field(description="Gross minus refunds")
-    by_method: dict[str, int] = Field(description="Net received per payment method")
-
-
 class GstHstReport(BaseModel):
     tax_collected_cents: int = Field(description="GST and HST booked in the period")
     pst_cents: int = Field(description="PST booked in the period, filed with the province")
@@ -39,7 +32,9 @@ class SalesByItemRow(BaseModel):
     quantity: float
     sales_cents: int = Field(description="Sales before tax, including sales later refunded")
     tax_cents: int
-    refunded_cents: int = Field(description="Sales in the period that were refunded in full")
+    refunded_cents: int = Field(
+        description="Revenue that refunds and lost disputes in the period gave back"
+    )
 
 
 class StaffPayRow(BaseModel):

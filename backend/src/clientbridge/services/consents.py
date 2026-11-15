@@ -1,5 +1,3 @@
-import csv
-import io
 from collections.abc import Collection, Sequence
 from datetime import datetime
 
@@ -13,6 +11,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.core.locale import locale_for, message
 from clientbridge.core.phones import e164
 from clientbridge.core.scoping import scoped
+from clientbridge.core.security import spreadsheet_csv
 from clientbridge.models.business import Business, User
 from clientbridge.models.clients import Client, Consent, ConsentSource, ConsentStatus
 from clientbridge.schemas.consents import ConsentExport
@@ -170,11 +169,6 @@ async def record_text_reply(
     return True
 
 
-def _cell(value: str) -> str:
-    # a spreadsheet would run a leading =, +, - or @ as a formula
-    return f"'{value}" if value[:1] in ("=", "+", "-", "@") else value
-
-
 def _export_header(locale: str) -> list[str]:
     return [
         message(locale, "consent_csv.client"),
@@ -216,13 +210,11 @@ class ConsentService:
             business=await self.db.get(Business, self.biz),
             user=await self.db.get(User, self.principal.user_id),
         )
-        out = io.StringIO()
-        writer = csv.writer(out)
-        writer.writerow(_export_header(locale))
-        for consent, name, phone, recorded_by in rows:
-            writer.writerow(
+        content = spreadsheet_csv(
+            _export_header(locale),
+            [
                 [
-                    _cell(name or ""),
+                    name or "",
                     consent.phone or phone or "",
                     consent.status,
                     consent.source,
@@ -230,6 +222,8 @@ class ConsentService:
                     consent.expires_at.isoformat() if consent.expires_at else "",
                     recorded_by or "",
                 ]
-            )
+                for consent, name, phone, recorded_by in rows
+            ],
+        )
         day = clock.now().date().isoformat()
-        return ConsentExport(filename=f"consent-log-{day}.csv", content=out.getvalue())
+        return ConsentExport(filename=f"consent-log-{day}.csv", content=content)

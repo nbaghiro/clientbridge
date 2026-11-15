@@ -19,10 +19,9 @@ from clientbridge.models.billing import Invoice
 from clientbridge.models.ledger import Entry
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Audit
-from clientbridge.schemas.reports import IncomeReport
 from clientbridge.services import ledger
 from clientbridge.services.payments import assert_payable
-from clientbridge.services.reports import ReportService
+from clientbridge.services.reports import Received, ReportService
 from tests.conftest import BIZ, OWNER_USER, Factory, FakePaymentGateway, book_invoice
 from tests.helpers import (
     business_balance,
@@ -114,7 +113,7 @@ async def test_refund_that_fails_after_succeeding_returns_the_money(
     )  # the reversal carries the refund's source, so reports net it
 
 
-async def _income(db: AsyncSession) -> IncomeReport:
+async def _income(db: AsyncSession) -> Received:
     owner = Principal(user_id=OWNER_USER, business_id=BIZ, staff_id="st_owner", role="owner")
     lo, hi = datetime(2026, 1, 1, tzinfo=UTC), datetime(2027, 1, 1, tzinfo=UTC)
     return await ReportService(db, owner).income_summary_between(lo, hi)
