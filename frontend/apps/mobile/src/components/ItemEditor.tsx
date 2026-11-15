@@ -37,7 +37,7 @@ import type { ReactNode } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { api, apiBaseUrl } from "../lib/api";
-import { pickedPhoto, pickFromLibrary } from "../lib/photos";
+import { pickedPhoto, pickFromLibrary, takePhoto } from "../lib/photos";
 
 const s = strings.catalog;
 const c = theme.colors;
@@ -73,7 +73,7 @@ function TaxField({
     ed,
     hint,
 }: {
-    ed: { form: ItemForm; tax: string; taxOptions: { key: string; label: string }[] };
+    ed: { form: ItemForm; tax: string | null; taxOptions: { key: string; label: string }[] };
     hint: string;
 }) {
     return (
@@ -87,7 +87,7 @@ function TaxField({
                     ed.form.set("taxClass", x);
                 }}
             />
-            <Text style={styles.facts}>{ed.tax}</Text>
+            {ed.tax === null ? null : <Text style={styles.facts}>{ed.tax}</Text>}
             <Text style={styles.hint}>{hint}</Text>
         </View>
     );
@@ -263,13 +263,15 @@ function ServiceFields({ ed }: { ed: ServiceEditor }) {
 function ProductFields({ ed }: { ed: ProductEditor }) {
     const word = kindWord(useSubjectKind());
     const picker = useAsyncAction();
-    const pick = (): void => {
+    const pick = (camera: boolean): void => {
         picker.run(
             async () => {
-                const result = await pickFromLibrary({
-                    mediaTypes: ["images"],
-                    quality: 0.85,
-                });
+                const options = { mediaTypes: ["images" as const], quality: 0.85 };
+                const result = camera ? await takePhoto(options) : await pickFromLibrary(options);
+                if (result === null) {
+                    picker.setError(strings.common.photoCameraDenied);
+                    return;
+                }
                 const asset = result.assets?.[0];
                 if (!asset) return;
                 ed.photo.upload(pickedPhoto(asset));
@@ -288,10 +290,22 @@ function ProductFields({ ed }: { ed: ProductEditor }) {
                             src={mediaUrl(apiBaseUrl, ed.photo.fileId)}
                             name={v.name}
                             label={ed.photo.fileId === null ? s.photo : s.changePhoto}
-                            hint={s.photoHint}
+                            hint={s.photoHintPhone}
                             busy={ed.photo.busy || picker.busy}
-                            onPick={pick}
+                            onPick={() => {
+                                pick(false);
+                            }}
                         />
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={ed.photo.busy || picker.busy}
+                            onPress={() => {
+                                pick(true);
+                            }}
+                        >
+                            {s.photoTake}
+                        </Button>
                         {ed.photo.error || picker.error ? (
                             <Notice tone="danger">{ed.photo.error ?? picker.error}</Notice>
                         ) : null}
@@ -336,7 +350,7 @@ function ProductFields({ ed }: { ed: ProductEditor }) {
                 <View style={[styles.margin, ed.margin?.low === true && styles.marginLow]}>
                     <Text style={styles.hintInline}>{s.margin}</Text>
                     <Text style={styles.marginValue}>
-                        {ed.margin === null ? s.marginUnknown : ed.margin.label}
+                        {ed.margin === null ? ed.marginMissing : ed.margin.label}
                     </Text>
                 </View>
                 {ed.margin?.warning != null ? (
@@ -591,6 +605,7 @@ function Frame({
             subtitle={kindLabel}
             status={archived ? { status: s.archived, intent: "neutral" } : undefined}
             onClose={onClose}
+            footer={form.error !== null ? <Notice tone="danger">{form.error}</Notice> : undefined}
             actions={
                 <>
                     {item === null ? null : (
@@ -614,7 +629,6 @@ function Frame({
                 </Notice>
             ) : null}
             {children}
-            {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
         </DetailView>
     );
 }

@@ -19,6 +19,7 @@ export function DetailView({
     leading,
     onClose,
     actions,
+    footer,
     children,
     className,
 }: WebProps<DetailViewProps>) {
@@ -81,11 +82,14 @@ export function DetailView({
                     ) : null}
                 </div>
                 <div className="flex-1 space-y-6 overflow-y-auto px-6 py-5">{children}</div>
-                <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-6 py-4">
-                    {actions}
-                    <Button variant="quiet" onPress={onClose}>
-                        {strings.common.close}
-                    </Button>
+                <div className="space-y-3 border-t border-line px-6 py-4">
+                    {footer}
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                        {actions}
+                        <Button variant="quiet" onPress={onClose}>
+                            {strings.common.close}
+                        </Button>
+                    </div>
                 </div>
             </aside>
         </div>

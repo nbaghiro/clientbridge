@@ -20,11 +20,14 @@ export function DetailView({
     leading,
     onClose,
     actions,
+    footer,
     children,
     style,
 }: NativeProps<DetailViewProps>) {
     const inFlow = useModalFlow();
     const tablet = useTabletLayout();
+    const hasActions = actions !== undefined && actions !== null;
+    const hasFooter = footer !== undefined && footer !== null;
     const body = useRef<ScrollView>(null);
     const scrollOffset = useRef(0);
     const scrolling = useRef(false);
@@ -93,8 +96,11 @@ export function DetailView({
             >
                 {children}
             </ScrollView>
-            {actions !== undefined && actions !== null ? (
-                <View style={styles.footer}>{actions}</View>
+            {hasActions || hasFooter ? (
+                <View style={styles.footer}>
+                    {footer}
+                    {hasActions ? <View style={styles.actions}>{actions}</View> : null}
+                </View>
             ) : null}
         </View>
     );
@@ -149,14 +155,17 @@ const styles = StyleSheet.create({
     fillBody: { flexGrow: 1 },
     bodyContent: { paddingBottom: 20 },
     footer: {
+        gap: 12,
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: c.border,
+        paddingTop: 16,
+    },
+    actions: {
         flexDirection: "row",
         flexWrap: "wrap",
         alignItems: "center",
         justifyContent: "flex-end",
         gap: 8,
-        borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: c.border,
-        paddingTop: 16,
     },
     close: { width: 44, height: 44 },
     section: { marginTop: 14 },

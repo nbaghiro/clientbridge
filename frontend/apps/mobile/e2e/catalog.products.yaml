@@ -1,0 +1,279 @@
+appId: ${APP_ID}
+name: NATIVE-CFG-05 A product set up on the phone with its photo sells once and again by its SKU, reads low, refuses a correction below zero, leaves the sale and invoice pickers while archived and sells again once restored
+---
+- evalScript: ${output.tag = String(100000 + Math.floor(Math.random() * 900000))}
+- evalScript: ${output.name = "Oat shampoo " + output.tag}
+- evalScript: ${output.sku = "OS-" + output.tag}
+- addMedia:
+      - "assets/logo.png"
+- runFlow: helpers/owner.yaml
+- tapOn: "Setup"
+- tapOn: "Services & products"
+- tapOn: "Products"
+- tapOn: "Add"
+- extendedWaitUntil:
+      visible: "New product"
+      timeout: 20000
+- assertVisible: "Save the product first, then add its photo."
+- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Name", VALUE: "${output.name}" } }
+- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "SKU", VALUE: "${output.sku}" } }
+- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Your cost", VALUE: "10" } }
+- assertVisible: "Add a price to see the margin"
+# the section header and the label come before the price input
+- tapOn:
+      text: "Price"
+      index: 2
+- inputText: "24"
+- runFlow: { when: { visible: "Done" }, commands: [{ tapOn: "Done" }] }
+- assertVisible: ".*a sale · 58%"
+# the switch shares its label's name and follows it
+- tapOn:
+      text: "Track stock"
+      index: 1
+- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "On hand now", VALUE: "3" } }
+- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Warn at", VALUE: "1" } }
+- scrollUntilVisible:
+      element: "GST 5% \\+ PST 7%: a client pays \\$26.88"
+      direction: DOWN
+      timeout: 60000
+# a tap while the scroll settles only stops it
+- waitForAnimationToEnd
+- takeScreenshot: native-product-editor
+- tapOn: "Add to catalog"
+- extendedWaitUntil:
+      notVisible: "New product"
+      timeout: 30000
+
+# the same SKU in lower case is taken, and the refusal shows beside the button without scrolling
+- tapOn: "Add"
+- extendedWaitUntil:
+      visible: "New product"
+      timeout: 20000
+- runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Name", VALUE: "${output.name} refill" } }
+- runFlow:
+      file: helpers/type-field.yaml
+      env: { FIELD: "SKU", VALUE: "${output.sku.toLowerCase()}" }
+- tapOn: "Add to catalog"
+- extendedWaitUntil:
+      visible: "Another item already uses that SKU. Choose a different one."
+      timeout: 30000
+- runFlow: helpers/close-sheet.yaml
+
+- tapOn: "Search name, category or SKU"
+- inputText: ${output.sku}
+- extendedWaitUntil:
+      visible: ${output.name}
+      timeout: 30000
+# the list keeps the keyboard up, so the first tap may only close it
+- tapOn: ${output.name}
+- runFlow: { when: { notVisible: "Add photo" }, commands: [{ tapOn: "${output.name}" }] }
+- extendedWaitUntil:
+      visible: "Add photo"
+      timeout: 20000
+# the camera is offered beside the library; the simulator has none, so the photo comes from the library
+- assertVisible: "Take photo"
+- runFlow:
+      file: helpers/pick-photo.yaml
+      env:
+          OPENS: "Add photo"
+- extendedWaitUntil:
+      visible: "Photo updated."
+      timeout: 60000
+- takeScreenshot: native-product-photo
+- runFlow: helpers/close-sheet.yaml
+- tapOn: "Back|Go back|Navigate up"
+- tapOn: "Back|Go back|Navigate up"
+
+# one at the desk and one more in a second sale, each found by the SKU typed in lower case
+- tapOn: "Create"
+- tapOn: "Sale"
+- tapOn: "Add a product or service"
+- inputText: ${output.sku.toLowerCase()}
+- extendedWaitUntil:
+      visible: ${output.name + ", .*24.00"}
+      timeout: 60000
+- tapOn: ${output.name + ", .*24.00"}
+- tapOn: "Charge \\$26.88"
+- scrollUntilVisible:
+      element: "Cash, Count change"
+      direction: DOWN
+      centerElement: true
+- tapOn: "Cash, Count change"
+- scrollUntilVisible:
+      element: "Exact"
+      direction: DOWN
+      centerElement: true
+- tapOn: "Exact"
+- scrollUntilVisible:
+      element: "Charge \\$26.88"
+      direction: DOWN
+- tapOn: "Charge \\$26.88"
+- extendedWaitUntil:
+      visible: "Payment received"
+      timeout: 60000
+- scrollUntilVisible:
+      element: "New sale"
+      direction: DOWN
+- tapOn: "New sale"
+# a new sale closes the paid sheet, so the second one starts from Create again
+- tapOn: "Create"
+- tapOn: "Sale"
+- tapOn: "Add a product or service"
+- inputText: ${output.sku.toLowerCase()}
+- extendedWaitUntil:
+      visible: ${output.name + ", .*24.00"}
+      timeout: 60000
+- tapOn: ${output.name + ", .*24.00"}
+- tapOn: "Charge \\$26.88"
+- scrollUntilVisible:
+      element: "Cash, Count change"
+      direction: DOWN
+      centerElement: true
+- tapOn: "Cash, Count change"
+- scrollUntilVisible:
+      element: "Exact"
+      direction: DOWN
+      centerElement: true
+- tapOn: "Exact"
+- scrollUntilVisible:
+      element: "Charge \\$26.88"
+      direction: DOWN
+- tapOn: "Charge \\$26.88"
+- extendedWaitUntil:
+      visible: "Payment received"
+      timeout: 60000
+- scrollUntilVisible:
+      element: "New sale"
+      direction: DOWN
+- tapOn: "New sale"
+
+- tapOn: "Setup"
+- tapOn: "Services & products"
+- tapOn: "Products"
+- tapOn: "Search name, category or SKU"
+- inputText: ${output.sku}
+# the card reads its stock tag after its name
+- extendedWaitUntil:
+      visible: "${output.name + ' · Low: 1 left'}"
+      timeout: 60000
+# the search keeps the keyboard up, so the first tap may only close it
+- tapOn: "Inventory"
+- runFlow: { when: { visible: "Online shop link" }, commands: [{ tapOn: "Inventory" }] }
+- scrollUntilVisible:
+      element: ${output.name}
+      direction: DOWN
+      centerElement: true
+- assertVisible:
+      text: ".*Low: 1 left.*"
+      below: ${output.name}
+- tapOn:
+      text: "Restock"
+      rightOf: ${output.name}
+- assertVisible: ${"Restock " + output.name}
+- assertVisible: "1 on hand after this"
+# a miscount is corrected with a negative number, which the phone's keyboard can type
+- tapOn:
+      text: "Units received"
+      index: 1
+- inputText: "-2"
+# its keyboard closes with Return, not a Done bar
+- pressKey: Enter
+- tapOn: "Add to stock"
+- assertVisible: "A count correction can’t take what’s on hand below zero."
+- tapOn:
+      text: "Units received"
+      index: 1
+- eraseText
+- inputText: "-1"
+- pressKey: Enter
+- assertVisible: "0 on hand after this"
+- tapOn: "Add to stock"
+- extendedWaitUntil:
+      notVisible: "Add to stock"
+      timeout: 30000
+- scrollUntilVisible:
+      element: ${output.name + " −1"}
+      direction: DOWN
+
+- scrollUntilVisible:
+      element: "Products"
+      direction: UP
+- tapOn: "Products"
+- tapOn: "Search name, category or SKU"
+- eraseText
+- inputText: ${output.sku}
+# the card sits behind the keyboard, which iOS's search closes with Return
+- runFlow: { when: { platform: iOS }, commands: [{ pressKey: Enter }] }
+- runFlow: { when: { platform: Android }, commands: [hideKeyboard] }
+- extendedWaitUntil:
+      visible: ${output.name + "( · .*)?"}
+      timeout: 30000
+- tapOn: ${output.name + "( · .*)?"}
+- extendedWaitUntil:
+      visible: "Archive"
+      timeout: 20000
+- tapOn: "Archive"
+- extendedWaitUntil:
+      notVisible: "Archive"
+      timeout: 30000
+- tapOn: "Back|Go back|Navigate up"
+- tapOn: "Back|Go back|Navigate up"
+- tapOn: "Create"
+- tapOn: "Sale"
+- tapOn: "Add a product or service"
+- inputText: ${output.sku}
+- extendedWaitUntil:
+      visible: "Nothing matches."
+      timeout: 60000
+- takeScreenshot: native-archived-product
+# the picker has no close button, so the app starts again from Today
+- runFlow: helpers/owner.yaml
+# the invoice editor's catalog leaves it out too
+- tapOn: "Create"
+- extendedWaitUntil:
+      visible: "Booking"
+      timeout: 15000
+- tapOn: "Invoice"
+- scrollUntilVisible:
+      element: "Add from catalog"
+      direction: DOWN
+- tapOn: "Add from catalog"
+- inputText: ${output.sku}
+- extendedWaitUntil:
+      visible: "Nothing matches."
+      timeout: 30000
+- runFlow: helpers/owner.yaml
+
+# restored, it is back in the sale picker
+- tapOn: "Setup"
+- tapOn: "Services & products"
+- tapOn: "Products"
+- tapOn: "Show.*"
+- tapOn: "Archived"
+- tapOn: "Search name, category or SKU"
+- eraseText
+- inputText: ${output.sku}
+# the card sits behind the keyboard, which iOS's search closes with Return
+- runFlow: { when: { platform: iOS }, commands: [{ pressKey: Enter }] }
+- runFlow: { when: { platform: Android }, commands: [hideKeyboard] }
+- extendedWaitUntil:
+      visible: ${output.name + "( · .*)?"}
+      timeout: 30000
+- tapOn: ${output.name + "( · .*)?"}
+- extendedWaitUntil:
+      visible: "Restore"
+      timeout: 20000
+- tapOn: "Restore"
+- extendedWaitUntil:
+      notVisible: "Restore"
+      timeout: 30000
+- tapOn: "Back|Go back|Navigate up"
+- tapOn: "Back|Go back|Navigate up"
+- tapOn: "Create"
+- tapOn: "Sale"
+- tapOn: "Add a product or service"
+- inputText: ${output.sku.toLowerCase()}
+- extendedWaitUntil:
+      visible: ${output.name + ", .*24.00"}
+      timeout: 60000
+- takeScreenshot: native-restored-product

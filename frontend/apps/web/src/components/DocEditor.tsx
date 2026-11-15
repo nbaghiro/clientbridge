@@ -13,7 +13,7 @@ import {
     useDocComposer,
     useDocDraft,
     useLetterhead,
-    formatParts,
+    itemOption,
     BUSINESS_CURRENCY,
     currencyAffix,
     usePeoplePhotos,
@@ -317,18 +317,7 @@ function DocForm({ kind, draft, clientId, onClose }: DocFormProps) {
                                             name={s.addFromCatalog}
                                             value=""
                                             placeholder={s.addFromCatalog}
-                                            options={[
-                                                ...catalog.map((i) => ({
-                                                    key: i.id,
-                                                    label: formatParts([
-                                                        i.name,
-                                                        formatMoney(
-                                                            i.price_cents,
-                                                            BUSINESS_CURRENCY,
-                                                        ),
-                                                    ]),
-                                                })),
-                                            ]}
+                                            options={catalog.map(itemOption)}
                                             onChange={(id) => {
                                                 const item = catalog.find((i) => i.id === id);
                                                 if (item !== undefined) c.addCatalogItem(item);

@@ -7,7 +7,8 @@ appId: ${APP_ID}
 - tapOn: "Add from catalog"
 # a long catalog runs past the sheet; searching would raise a keyboard that hides a short one
 - scrollUntilVisible:
-      element: ${ITEM + " · .*"}
+      element: ${"(., )?" + ITEM + ", .*"}
       direction: DOWN
       timeout: 60000
-- tapOn: ${ITEM + " · .*"}
+# a row reads as its name and price, after the initial of an item without a photo
+- tapOn: ${"(., )?" + ITEM + ", .*"}

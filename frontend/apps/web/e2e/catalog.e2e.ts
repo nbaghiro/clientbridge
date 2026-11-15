@@ -4,16 +4,23 @@ import { demoPerson } from "@clientbridge/config/e2e/demo";
 import { demoSlug, runEmail } from "@clientbridge/config/e2e/run";
 import { expect, test, type Page, type Route } from "@playwright/test";
 import { bookingApi, cancelOwnedBooking } from "./support/bookings";
+import { brandAsset } from "./support/business";
 import {
     catalogEvidence,
     catalogFixture,
     expectCatalogCommitted,
     expectStockReplica,
     fillProduct,
+    invoicePick,
     itemCurrency,
     newBookable,
     newProduct,
+    offeredAddon,
+    openProduct,
+    registerTile,
     saveItem,
+    sellingProduct,
+    shopCard,
 } from "./support/catalog";
 import { customerContext, signIn } from "./support/session";
 import { select } from "./support/db";
@@ -92,7 +99,7 @@ test("CFG-E2E-02 retry after opening-stock transport failure cannot duplicate a 
     });
     const submit = editor.getByRole("button", { name: s.add, exact: true });
     await submit.click();
-    await expect(editor.getByText(s.addError, { exact: true })).toBeVisible();
+    await expect(editor.getByText(s.addUnfinished, { exact: true })).toBeVisible();
     const partial = await expectCatalogCommitted(fixture, 0, s.openingStockNote);
     await submit.click();
     await expect(editor).toBeHidden();
@@ -144,7 +151,7 @@ test("CFG-E2E-03 lost committed opening-stock response preserves edited quantity
     });
     const submit = editor.getByRole("button", { name: s.add, exact: true });
     await submit.click();
-    await expect(editor.getByText(s.addError, { exact: true })).toBeVisible();
+    await expect(editor.getByText(s.addUnfinished, { exact: true })).toBeVisible();
     const initial = await expectCatalogCommitted(fixture, 7, s.openingStockNote);
     const description = "Unscented care for sensitive paws.";
     await editor.getByRole("textbox", { name: s.stockOnHand, exact: true }).fill("9");
@@ -533,4 +540,114 @@ test("CFG-E2E-15 a class needs a size and a program room for more than one, and 
         for (const id of booked) await cancelOwnedBooking(page, id);
         await context.close();
     }
+});
+
+test("CFG-E2E-14 an archived product leaves Sales, invoices, the shop and add-ons until it is restored", async ({
+    page,
+}) => {
+    test.setTimeout(240_000);
+    await signIn(page);
+    const product = await sellingProduct(page);
+    const shopper = await page.context().newPage();
+    const offered = async (): Promise<void> => {
+        await registerTile(page, product, true);
+        await expect(await invoicePick(page, product)).toHaveCount(1);
+        await page.keyboard.press("Escape");
+        await expect(await shopCard(shopper, product)).toBeVisible();
+        expect(await offeredAddon(page, product)).toBe(true);
+    };
+    const item = async () =>
+        (
+            await select<{ active: boolean; stock_on_hand: number; addon: boolean }>`
+                SELECT active, stock_on_hand, addon FROM items WHERE id = ${product.id}`
+        )[0];
+    await offered();
+
+    let editor = await openProduct(page, product);
+    await editor.getByRole("button", { name: s.archive, exact: true }).click();
+    await expect(editor).toBeHidden();
+    expect(await item()).toEqual({ active: false, stock_on_hand: 4, addon: true });
+    await registerTile(page, product, false);
+    const gone = await invoicePick(page, product);
+    await expect(page.getByText(strings.ui.noMatches, { exact: true })).toBeVisible();
+    await expect(gone).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(await shopCard(shopper, product)).toHaveCount(0);
+    expect(await offeredAddon(page, product)).toBe(false);
+
+    editor = await openProduct(page, product, true);
+    await expect(editor.getByText(s.archivedNote, { exact: true })).toBeVisible();
+    await editor.getByRole("button", { name: s.restore, exact: true }).click();
+    await expect(editor).toBeHidden();
+    expect(await item()).toEqual({ active: true, stock_on_hand: 4, addon: true });
+    await offered();
+});
+
+test("CFG-E2E-16 a product set up once sells with its photo everywhere and keeps its SKU in any case", async ({
+    page,
+}) => {
+    test.setTimeout(240_000);
+    await signIn(page);
+    const fixture = catalogFixture(page);
+    const sku = `BB-SH-${randomUUID().slice(0, 8).toUpperCase()}`;
+    let editor = await newProduct(page);
+    await expect(editor.getByText(s.photoAfterSave, { exact: true })).toBeVisible();
+    await editor.getByRole("textbox", { name: s.name, exact: true }).fill(fixture.name);
+    await editor.getByRole("textbox", { name: s.sku, exact: true }).fill(sku);
+    await editor.getByRole("textbox", { name: s.cost, exact: true }).fill("10");
+    await expect(editor.getByText(s.marginNeedsPrice, { exact: true })).toBeVisible();
+    await editor.getByRole("textbox", { name: s.price, exact: true }).fill("24");
+    await editor.getByRole("switch", { name: s.trackStock, exact: false }).check();
+    await editor.getByRole("textbox", { name: s.stockOnHand, exact: true }).fill("3");
+    await editor.getByRole("textbox", { name: s.lowAt, exact: true }).fill("1");
+    await editor.getByRole("switch", { name: s.sellOnline, exact: false }).check();
+    // GST 5% and PST 7% in B.C., once the business's tax setup has synced
+    await expect(editor.getByText(/\$26\.88$/)).toBeVisible({ timeout: 60_000 });
+    await editor.getByRole("button", { name: s.add, exact: true }).click();
+    await expect(editor).toBeHidden();
+    const { items, movements } = await catalogEvidence(fixture);
+    expect(items).toEqual([
+        expect.objectContaining({ sku, price_cents: 2400, cost_cents: 1000, stock_on_hand: 3 }),
+    ]);
+    expect(movements.map(({ reason, quantity }) => ({ reason, quantity }))).toEqual([
+        { reason: "restock", quantity: 3 },
+    ]);
+    const product = { id: items[0]?.id ?? "", name: fixture.name, sku };
+
+    editor = await openProduct(page, product);
+    await editor.locator('input[type="file"]').setInputFiles({
+        name: "shampoo.jpg",
+        mimeType: "image/jpeg",
+        buffer: await brandAsset("bw_it_bottle.jpg"),
+    });
+    await expect(editor.getByText(s.photoUploaded, { exact: true })).toBeVisible();
+    const [photo] = await select<{ id: string }>`
+        SELECT id FROM files WHERE parent_type = 'item' AND parent_id = ${product.id}
+            AND purpose = 'image' AND uploaded_at IS NOT NULL`;
+    const src = new RegExp(`/media/${photo?.id ?? "missing"}$`);
+    await editor.getByRole("button", { name: strings.common.close, exact: true }).last().click();
+
+    const tile = await registerTile(page, { ...product, sku: sku.toLowerCase() }, true);
+    await expect(tile.locator("img")).toHaveAttribute("src", src, { timeout: 60_000 });
+    const option = await invoicePick(page, product);
+    await expect(option).toHaveCount(1);
+    await expect(option.locator("img")).toHaveAttribute("src", src);
+    await page.keyboard.press("Escape");
+    const shopper = await page.context().newPage();
+    await expect((await shopCard(shopper, product)).locator("img")).toHaveAttribute("src", src);
+
+    const copy = `${fixture.name} refill`;
+    editor = await newProduct(page);
+    await editor.getByRole("textbox", { name: s.name, exact: true }).fill(copy);
+    await editor.getByRole("textbox", { name: s.sku, exact: true }).fill(` ${sku.toLowerCase()} `);
+    await editor.getByRole("textbox", { name: s.price, exact: true }).fill("12");
+    await editor.getByRole("button", { name: s.add, exact: true }).click();
+    // the refusal sits beside the button that was pressed, not below the fold of a long form
+    await expect(editor.getByText(strings.api.skuTaken, { exact: true })).toBeInViewport();
+    expect(await select`SELECT id FROM items WHERE name = ${copy}`).toEqual([]);
+    // the corrected form is a new command, not a replay of the refused one
+    await editor.getByRole("textbox", { name: s.sku, exact: true }).fill(`${sku}-R`);
+    await editor.getByRole("button", { name: s.add, exact: true }).click();
+    await expect(editor).toBeHidden();
+    expect(await select`SELECT sku FROM items WHERE name = ${copy}`).toEqual([{ sku: `${sku}-R` }]);
 });

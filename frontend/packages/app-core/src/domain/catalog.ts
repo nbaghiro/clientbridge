@@ -215,15 +215,25 @@ export function useCatalogItems(): ItemRow[] {
     return useQuery<ItemRow>(ITEMS_SQL).data;
 }
 
-function filterItems(rows: readonly ItemRow[], q: string): ItemRow[] {
+function itemMatches(i: ItemRow, q: string): boolean {
     const t = q.trim().toLowerCase();
-    if (!t) return [...rows];
-    return rows.filter(
-        (i) =>
-            i.name.toLowerCase().includes(t) ||
-            (i.category ?? "").toLowerCase().includes(t) ||
-            (i.sku ?? "").toLowerCase().includes(t),
-    );
+    return [i.name, i.category ?? "", i.sku ?? ""].some((v) => v.toLowerCase().includes(t));
+}
+
+function filterItems(rows: readonly ItemRow[], q: string): ItemRow[] {
+    return q.trim() === "" ? [...rows] : rows.filter((i) => itemMatches(i, q));
+}
+
+/** An item in a picker, with its photo and price, found by name, category, SKU or price. */
+export function itemOption(i: ItemRow): SelectOption<string> {
+    const price = formatMoney(i.price_cents ?? 0, BUSINESS_CURRENCY);
+    return {
+        key: i.id,
+        label: i.name,
+        media: itemMedia(i),
+        detail: price,
+        match: (q) => itemMatches(i, q) || price.toLowerCase().includes(q.trim().toLowerCase()),
+    };
 }
 
 // `active` is the SQLite 0/1 boolean column; normalize the check in one place.
@@ -771,12 +781,10 @@ function useItemForm(
                         pendingCreate.current = null;
                     } catch (error) {
                         const status = failedStatus(error);
-                        const code = failedCode(error);
+                        // run_command rolls back every 4xx, so the corrected form is a new command
                         if (
-                            (status === 422 &&
-                                (code === "invalid_request" || code === "unprocessable")) ||
-                            (status === 409 && code === "conflict") ||
-                            (status === 404 && code === "not_found")
+                            (status === 404 || status === 409 || status === 422) &&
+                            failedCode(error) !== "idempotency_key_reused"
                         )
                             pendingCreate.current = null;
                         throw error;
@@ -811,7 +819,15 @@ function useItemForm(
             },
             {
                 onSuccess: onDone,
-                errorMessage: (e) => failureMessage(e, editing ? s.saveError : s.addError),
+                errorMessage: (e) =>
+                    failureMessage(
+                        e,
+                        editing
+                            ? s.saveError
+                            : created.current === null
+                              ? s.addError
+                              : s.addUnfinished,
+                    ),
             },
         );
     };
@@ -945,7 +961,8 @@ function marginFacts(price: string, cost: string): MarginFacts | null {
 
 interface Taxed {
     form: ItemForm;
-    tax: string;
+    // null until the business row syncs, so no rate is claimed before it is known
+    tax: string | null;
     taxOptions: { key: string; label: string }[];
 }
 
@@ -953,7 +970,7 @@ function useTaxed(form: ItemForm): Taxed {
     const setup = useTaxSetup();
     return {
         form,
-        tax: taxFacts(form.values, setup.rates, setup.registered),
+        tax: setup.ready ? taxFacts(form.values, setup.rates, setup.registered) : null,
         taxOptions: taxOptions(setup.rates),
     };
 }
@@ -1048,6 +1065,8 @@ interface ProductPhoto {
 export interface ProductEditor extends Taxed {
     parentOptions: SelectOption<string>[];
     margin: MarginFacts | null;
+    // what the margin waits for while it can't be worked out
+    marginMissing: string;
     photo: ProductPhoto;
     sold30: number;
     // an add-on's duration field reads as the time it adds to the visit
@@ -1084,6 +1103,10 @@ export function useProductEditor(
                 })),
         ],
         margin: marginFacts(form.values.price, form.values.cost),
+        marginMissing:
+            (parseCents(form.values.price, BUSINESS_CURRENCY) ?? 0) === 0
+                ? s.marginNeedsPrice
+                : s.marginUnknown,
         sold30: item === null ? 0 : (sold.get(item.id) ?? 0),
         addsToVisit: addsToVisit(form.values),
         photo: {
@@ -1531,6 +1554,10 @@ export function useRestockForm(
             setError(s.restockInvalid);
             return;
         }
+        if (qty < 0 && (item.stock_on_hand ?? 0) + qty < 0) {
+            setError(strings.api.stockBelowZero);
+            return;
+        }
         const body = { quantity: qty, note: blankToNull(note) };
         const key = attemptKey(keyRef, [item.id, body]);
         run(() => restockItem(api, item.id, body, key), {
@@ -1540,7 +1567,7 @@ export function useRestockForm(
                 setNote("");
                 onDone(qty);
             },
-            errorMessage: s.restockError,
+            errorMessage: (e) => failureMessage(e, s.restockError),
         });
     };
 

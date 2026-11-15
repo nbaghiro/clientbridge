@@ -1,4 +1,4 @@
-from sqlalchemy import distinct, func, or_
+from sqlalchemy import distinct, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,6 +19,8 @@ from clientbridge.schemas.catalog import (
     TaxClassResult,
 )
 from clientbridge.services import ledger
+
+_SKU_TAKEN = "another item already uses that SKU"
 
 
 class CatalogService:
@@ -125,6 +127,7 @@ class CatalogService:
             await self._assert_variant(item)
             await self._assert_staff(item.staff_ids)
             await self._assert_resources(item.resource_ids)
+            await self._assert_sku_free(item.sku, item.id)
             self.db.add(item)
             await self.db.flush()
             await self.db.refresh(item)
@@ -158,6 +161,9 @@ class CatalogService:
             or changes.get("covers_item_id", item.covers_item_id) != item.covers_item_id
         ):
             await self._assert_package_unsold(item)
+        # the editor sends the SKU with every save; only a new one can clash
+        if "sku" in changes and (data.sku or "").lower() != (item.sku or "").lower():
+            await self._assert_sku_free(data.sku, item.id)
         offered_before = set(item.staff_ids)
         pool_before = set(item.resource_ids)
         for listed in ("staff_ids", "resource_ids"):
@@ -283,6 +289,22 @@ class CatalogService:
                 "a product with variants must stay a standalone product in their currency"
             )
 
+    async def _assert_sku_free(self, sku: str | None, keep: str) -> None:
+        """A SKU is one code however it is typed, so another item's in any case takes it."""
+        if sku is None:
+            return
+        # the unique index is case-sensitive, so callers of one SKU in any case take turns
+        key = f"sku:{self.principal.business_id}:{sku.lower()}"
+        await self.db.execute(select(func.pg_advisory_xact_lock(func.hashtextextended(key, 0))))
+        taken = await self.db.scalar(
+            scoped(Item, self.principal.business_id)
+            .with_only_columns(Item.id)
+            .where(func.lower(Item.sku) == sku.lower(), Item.id != keep)
+            .limit(1)
+        )
+        if taken is not None:
+            raise Conflict(_SKU_TAKEN, code="sku_taken")
+
     async def _assert_covers(self, item: Item) -> None:
         if item.covers_item_id is None:
             return
@@ -309,7 +331,7 @@ class CatalogService:
 
 def _raise_if_sku_taken(exc: IntegrityError) -> None:
     if "ux_items_business_sku" in str(exc.orig):
-        raise Conflict("another item already uses that SKU", code="sku_taken") from exc
+        raise Conflict(_SKU_TAKEN, code="sku_taken") from exc
 
 
 async def load_item(

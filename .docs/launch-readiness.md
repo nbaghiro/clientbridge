@@ -669,10 +669,10 @@ The business loads its clients, what they book for, and the services and product
    **Expect:** it shows in Sales, the invoice editor and the shop with its image.
 2. Reuse its SKU on another product.
    **Expect:** refused as taken.
-3. Sell 2 at the desk.
-   **Expect:** 1 left and flagged low.
-4. Refund one.
-   **Expect:** 2 left. Restock 5: 7 left, no longer low.
+3. Sell 1 at the desk, then 1 more in a second sale.
+   **Expect:** 1 left and flagged low in Inventory and Products.
+4. Refund the second sale in full.
+   **Expect:** 2 left; a part refund leaves its units sold. Restock 5: 7 left, no longer low. Restock −2 for a miscount on the phone: 5 left.
 5. Lose the network while saving opening stock, then retry.
    **Expect:** one product and one stock movement.
 6. Archive the product.
@@ -690,14 +690,14 @@ The business loads its clients, what they book for, and the services and product
 - `CFG-E2E-02 (web)`
 - `CFG-E2E-03 (web)`
 - `CFG-E2E-04 (web)`
+- `CFG-E2E-14 (web)`
+- `CFG-E2E-16 (web)`
 - `SALE-E2E-01 (web)`
 - `SALE-E2E-10 (web)`
 - `FLOW-03-A (journeys)`
 - `FLOW-03-B (journeys)`
-
-**To automate**
-
-- `CFG-E2E-14` in `apps/web/e2e/catalog.e2e.ts`: Archive and restore a product: it leaves Sales, invoices, the shop and add-ons.
+- `FLOW-03-C (journeys)`
+- `NATIVE-CFG-05 (native-ios, native-android)`
 
 **Depends on:** Nothing
 

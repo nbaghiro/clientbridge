@@ -8,6 +8,14 @@ appId: ${APP_ID}
       when:
           platform: iOS
       commands:
+          # a first pick may show iOS's private access note above the photos, closed from its corner
+          - runFlow:
+                when:
+                    visible: "Private Access to Photos"
+                commands:
+                    - tapOn:
+                          point: "91%,19%"
+                    - waitForAnimationToEnd
           - tapOn:
                 point: "17%,43%"
 - runFlow:
