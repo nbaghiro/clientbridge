@@ -204,7 +204,6 @@ def main() -> None:
                 "pseudo" if args.project == "pseudo" else "default",
                 seed_as_of=anchor,
                 native=args.platform,
-                repeat_each=args.repeat_each,
             )
             stack.configure()
             record["namespace"] = lease.namespace

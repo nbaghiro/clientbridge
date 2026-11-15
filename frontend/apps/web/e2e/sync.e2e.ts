@@ -3,7 +3,7 @@ import { replicaFilename } from "@clientbridge/sync";
 import { expect } from "@playwright/test";
 import { newAccount } from "./support/auth";
 import { signUp } from "./support/business";
-import { createInvoice, openInvoice } from "./support/billing";
+import { showOnly } from "./support/billing";
 import { requireLocalMail } from "./support/evidence";
 import { navigate, opfsEntries, signIn, test } from "./support/session";
 import { appConsoleError } from "./support/shell";
@@ -103,9 +103,8 @@ test("a recorded payment holds the invoice until its new balance reaches this de
     await expect(main.getByRole("combobox", { name: strings.ui.listShow })).toBeVisible({
         timeout: 60_000,
     });
-    // other cases pay and void the newest open invoices, so this one is its own
-    const invoice = await createInvoice(page);
-    await openInvoice(page, invoice);
+    await showOnly(page, new RegExp(`^${s.segments.open}`));
+    await main.locator("button.block").first().click();
     const record = page.getByRole("dialog");
     await record.getByRole("button", { name: s.recordPayment }).click();
     await page.getByRole("button", { name: new RegExp(`^${s.rec.cash} `) }).click();
