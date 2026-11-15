@@ -7,15 +7,16 @@ import { createClient, type ClientFixture } from "../support/clients";
 import { requireLocalMail } from "../support/evidence";
 import { openRefund } from "../support/refunds";
 import {
+    pickupEvidence,
+    readyPickupOrder,
     ringUpCash,
     saleEvidence,
     saleTicket,
     type SaleEvidence,
-    pickupEvidence,
 } from "../support/pos";
 import { customerContext, signIn, navigate } from "../support/session";
 import { apiCall, shopUrl, visitEvidence } from "../support/visit";
-import { demoSlug, demoId, runUrl } from "@clientbridge/config/e2e/run";
+import { demoSlug, runUrl } from "@clientbridge/config/e2e/run";
 import { bookingApi } from "../support/bookings";
 
 test.describe(() => {
@@ -31,9 +32,12 @@ test.describe(() => {
     }
 
     // $25 a unit with 5% GST and 7% PST, so one unit is $28 at the desk
-    async function stockedProduct(page: Page, name: string, units: number): Promise<Product> {
+    async function stockedProduct(page: Page, label: string, units: number): Promise<Product> {
         requireLocalMail();
-        const sku = `BB-${randomUUID().slice(0, 6).toUpperCase()}`;
+        // repeated copies of a case share the shop, so each copy names its own product
+        const tag = randomUUID().slice(0, 6).toUpperCase();
+        const sku = `BB-${tag}`;
+        const name = `${label} ${tag}`;
         const item = await apiCall<{ id: string }>(
             page,
             "POST",
@@ -352,7 +356,7 @@ test.describe(() => {
         const s = strings.catalog;
         await signIn(page);
         const client = await createClient(page);
-        const product = await stockedProduct(page, `${demoPerson(randomUUID())}'s Oat Shampoo`, 3);
+        const product = await stockedProduct(page, "Oat Shampoo", 3);
         await apiCall(page, "PATCH", `/v1/items/${product.id}`, { low_stock_at: 1 }, 200);
         const stockRow = async (tab: string): Promise<Locator> => {
             await navigate(page, "/setup/services");
@@ -413,7 +417,6 @@ test.describe(() => {
 test.describe(() => {
     const d = strings.pos.desk;
     const p = strings.publicOrder;
-    const ORDER = demoId("ord_demo_ready");
 
     function shopUrl(): string {
         return runUrl("SHOP_BASE_URL");
@@ -424,9 +427,11 @@ test.describe(() => {
         browser,
     }, testInfo) => {
         test.setTimeout(180_000);
-        const before = await pickupEvidence(ORDER);
+        await signIn(page);
+        const orderId = await readyPickupOrder(page);
+        const before = await pickupEvidence(orderId);
         const order = before.order[0];
-        if (order === undefined) throw new Error("the seeded ready pickup order is missing");
+        if (order === undefined) throw new Error("the case's ready pickup order is missing");
         expect(order).toMatchObject({
             source: "online",
             pickup_status: "ready",
@@ -442,7 +447,6 @@ test.describe(() => {
             const current = status.locator('[aria-current="step"]').filter({ visible: true });
             await expect(current).toContainText(p.ready, { timeout: 30_000 });
 
-            await signIn(page);
             await navigate(page, "/payments/sales?view=history");
             await page
                 .getByRole("searchbox", { name: d.historySearch, exact: true })
@@ -461,7 +465,7 @@ test.describe(() => {
             await expect(detail.getByText(strings.pos.pickup.ready, { exact: true })).toBeVisible();
             const marking = page.waitForResponse(
                 (r) =>
-                    new URL(r.url()).pathname === `/v1/orders/${ORDER}/pickup` &&
+                    new URL(r.url()).pathname === `/v1/orders/${orderId}/pickup` &&
                     r.request().method() === "POST",
             );
             await detail.getByRole("button", { name: d.markPickedUp, exact: true }).click();
@@ -471,7 +475,7 @@ test.describe(() => {
             await expect(
                 page.getByText(d.markedPickedUp(order.client_name), { exact: true }),
             ).toBeVisible();
-            const after = await pickupEvidence(ORDER);
+            const after = await pickupEvidence(orderId);
             expect(after.order[0]).toEqual({
                 ...order,
                 pickup_status: "picked_up",
@@ -486,7 +490,7 @@ test.describe(() => {
             await expect(current).toHaveCount(0);
             for (const back of ["preparing", "ready", "picked_up"]) {
                 const refused = await page.request.post(
-                    `${bookingApi()}/v1/orders/${ORDER}/pickup`,
+                    `${bookingApi()}/v1/orders/${orderId}/pickup`,
                     {
                         headers: { Origin: new URL(page.url()).origin },
                         data: { status: back },
@@ -494,7 +498,7 @@ test.describe(() => {
                 );
                 expect(refused.status(), back).toBe(409);
             }
-            expect(await pickupEvidence(ORDER)).toEqual(after);
+            expect(await pickupEvidence(orderId)).toEqual(after);
             await status.reload();
             await expect(collected).toBeVisible();
             await expect(status.getByText(p.collectedBody, { exact: true })).toBeVisible();

@@ -1,0 +1,170 @@
+appId: ${APP_ID}
+name: NATIVE-REPORT-01 Reports show last quarter's sale and tax, share its CSV and ZIP, offer nothing for a quiet month, and stay hidden from staff
+onFlowComplete:
+    - runFlow: helpers/restore-owner.yaml
+---
+- runScript:
+      file: helpers/tax-business.js
+      env:
+          PROVINCE: BC
+# a $100 sale with $5.00 GST and $7.00 PST, invoiced in the last quarter and not yet paid
+- runScript: helpers/tax-quarter.js
+- launchApp:
+      # the default "all" pulls the whole APK over adb to read its manifest, which can stall for minutes
+      permissions:
+          notifications: allow
+- extendedWaitUntil:
+      visible: "Today|Sign in"
+      timeout: 60000
+# a session left by an earlier run shows Today from the replica, then signs itself out midway
+- runFlow:
+      when:
+          visible: "Today"
+      commands:
+          - tapOn:
+                text: "Setup"
+                optional: true
+          - scrollUntilVisible:
+                element: "Sign out"
+                direction: DOWN
+                optional: true
+          - tapOn:
+                text: "Sign out"
+                optional: true
+- extendedWaitUntil:
+      visible: "Sign in"
+      timeout: 30000
+- tapOn: "you@business.ca"
+- inputText: ${output.tax.email}
+- tapOn: "••••••••"
+- eraseText
+- inputText: ${output.tax.password}
+- runFlow: helpers/sign-in.yaml
+- runFlow: helpers/decline-save-password.yaml
+- extendedWaitUntil:
+      visible: "Today"
+      timeout: 60000
+- tapOn: "Setup"
+- tapOn: "Payments"
+- swipe:
+      from:
+          text: "Refunds"
+      direction: LEFT
+- tapOn: "Reports"
+# Reports open on the last quarter
+- extendedWaitUntil:
+      visible: "Income, Sales and how clients paid, \\$100\\.00"
+      timeout: 60000
+- assertVisible: "GST/HST, Remit to the CRA, \\$5\\.00"
+- assertVisible: "PST, Filed with the province, \\$7\\.00"
+- takeScreenshot: reports-quarter
+- tapOn: "Income, Sales and how clients paid, \\$100\\.00"
+- assertVisible: "Net sales"
+- assertVisible: "\\$112\\.00"
+- tapOn: "CSV"
+- runFlow:
+      when:
+          platform: iOS
+      commands:
+          - extendedWaitUntil:
+                visible: "income-.*"
+                timeout: 30000
+          - takeScreenshot: income-csv-shared
+          # the share sheet has no Close button; a tap above it closes it, and the report with it
+          - tapOn:
+                point: "50%,20%"
+          - assertNotVisible: "Net sales"
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - waitForAnimationToEnd
+          - takeScreenshot: income-csv-shared
+          # back closes only the share sheet
+          - back
+          - assertVisible: "Net sales"
+          - runFlow: helpers/close-sheet.yaml
+# the pack button sits below a phone-height screen's fold on Android
+- scrollUntilVisible:
+      element: "Bookkeeper pack"
+      direction: DOWN
+- tapOn: "Bookkeeper pack"
+# sales, refunds, net sales, GST, PST, sales with tax, tips and received; nothing paid yet
+- assertVisible: "Income · 8 rows"
+- assertVisible: "T4A · 0 rows"
+- tapOn: "Download ZIP"
+- runFlow:
+      when:
+          platform: iOS
+      commands:
+          - extendedWaitUntil:
+                visible: "bookkeeper-.*"
+                timeout: 30000
+          - takeScreenshot: pack-shared
+          - tapOn:
+                point: "50%,20%"
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - waitForAnimationToEnd
+          - takeScreenshot: pack-shared
+          - back
+- runFlow:
+      when:
+          visible: "Cancel"
+      commands:
+          - tapOn: "Cancel"
+# nothing happened this month, so there is nothing to download
+- tapOn: "This month"
+- extendedWaitUntil:
+      visible: "No sales in this period yet"
+      timeout: 60000
+# scrolled to its end, the quiet month still has no pack button below the fold
+- scroll
+- assertVisible: "No sales in this period yet"
+- assertNotVisible: "Bookkeeper pack"
+- takeScreenshot: quiet-month
+# staff see Sales and My pay, and no Reports
+- runFlow:
+      when:
+          platform: iOS
+      commands:
+          - tapOn: "Back"
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - back
+- scrollUntilVisible:
+      element: "Sign out"
+      direction: DOWN
+- tapOn: "Sign out"
+- extendedWaitUntil:
+      visible: "Sign in"
+      timeout: 30000
+- tapOn: "you@business.ca"
+- inputText: "diego+${E2E_NAMESPACE}@birchbark.example"
+- tapOn: "••••••••"
+- eraseText
+- inputText: "demo1234"
+- runFlow: helpers/sign-in.yaml
+- runFlow: helpers/decline-save-password.yaml
+- extendedWaitUntil:
+      visible: "Today"
+      timeout: 60000
+- tapOn: "Setup"
+- tapOn: "Payments"
+- extendedWaitUntil:
+      visible: "My pay"
+      timeout: 30000
+- assertVisible: "Sales"
+# the tab row scrolled to its end still holds only Sales and My pay
+- swipe:
+      from:
+          text: "My pay"
+      direction: LEFT
+- assertVisible: "My pay"
+- assertNotVisible: "Refunds"
+- assertNotVisible: "Reports"
+- takeScreenshot: staff-payments

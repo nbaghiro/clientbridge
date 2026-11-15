@@ -2,6 +2,7 @@ import { formatCredit, formatMoney, formatPhone, strings } from "@clientbridge/a
 import { expect, type Locator, type Page } from "@playwright/test";
 import {
     billingAction,
+    cardPaid,
     createInvoice,
     expectPaid,
     paymentDrawer,
@@ -28,6 +29,7 @@ import {
 } from "./support/billing";
 import { businessEvidence, newBusiness, patchBusiness, type NewBusiness } from "./support/business";
 import {
+    bookFreeVisit,
     cancelOwnedBooking,
     chooseFreeBookingTime,
     createBookingFixture,
@@ -556,10 +558,22 @@ test.describe(() => {
     test("BILL-DOC-03 editing a visit's draft invoice keeps its visit, staff and deposit", async ({
         page,
     }) => {
-        // a seeded upcoming large-dog groom (25% of $110 held as a deposit) no other case touches
-        const visit = demoId("bk_rex_2");
-        const deposit = 2750;
         await signIn(page);
+        // a large-dog groom of the case's own with Diego, 25% of $110 paid ahead as a deposit
+        const fixture = await createBookingFixture(page, {
+            duration_min: 60,
+            price_cents: 11000,
+            deposit_type: "percent",
+            deposit_value: 25,
+        });
+        const diego = demoId("st_diego");
+        const ahead = Array.from({ length: 14 }, (_, i) => i + 15);
+        const visit = (await bookFreeVisit(page, fixture, diego, ahead)).id;
+        const deposit = 2750;
+        expect(await cardPaid("deposit", visit)).toEqual({
+            booking: visit,
+            deposit_status: "collected",
+        });
         const api = runUrl("VITE_API_URL");
         const headers = { Origin: new URL(page.url()).origin };
         const addon = await page.request.post(`${api}/v1/bookings/${visit}/addons`, {
@@ -577,12 +591,12 @@ test.describe(() => {
         const refs = draft.lines.map((l) => [l.booking_id, l.staff_id]);
         expect(refs).toEqual([
             [visit, null],
-            [visit, demoId("st_diego")],
+            [visit, diego],
         ]);
         const client = {
-            id: demoId("cl_marcus"),
-            name: "Marcus Bennett",
-            phone: "+12505550181",
+            id: fixture.clientId,
+            name: fixture.clientName,
+            phone: fixture.clientPhone,
         };
         expect(draft.client_id).toBe(client.id);
 
@@ -593,10 +607,10 @@ test.describe(() => {
         });
         await editing
             .getByRole("textbox", { name: strings.billing.messageToClient })
-            .fill("Thanks for bringing Rex in. His next groom is due in six weeks.");
+            .fill("Thanks for coming in. The next groom is due in six weeks.");
         const saved = await saveDocument(page, editing, "invoice", draft.id);
         expect(saved).toMatchObject({
-            notes: "Thanks for bringing Rex in. His next groom is due in six weeks.",
+            notes: "Thanks for coming in. The next groom is due in six weeks.",
             total_cents: draft.total_cents,
         });
         const edited = await documentEvidence("invoice", draft.id);

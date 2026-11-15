@@ -9,7 +9,7 @@ from clientbridge.schemas.reports import (
     ReportExportIn,
     ReportSummary,
 )
-from clientbridge.services.reports import DashboardService, ReportService
+from clientbridge.services.reports import DashboardService, ReportService, csv_name
 
 dashboard_router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -35,7 +35,7 @@ async def income_csv(
     principal: CurrentPrincipal, db: DbSession, start: date, end: date
 ) -> Response:
     content = await ReportService(db, principal).income_csv(start, end)
-    return _csv_response(content, "income.csv")
+    return _csv_response(content, csv_name("income", start, end))
 
 
 @reports_router.get("/gst-hst", response_model=GstHstReport)
@@ -50,13 +50,13 @@ async def gst_hst_csv(
     principal: CurrentPrincipal, db: DbSession, start: date, end: date
 ) -> Response:
     content = await ReportService(db, principal).gst_hst_csv(start, end)
-    return _csv_response(content, "gst-hst.csv")
+    return _csv_response(content, csv_name("gst-hst", start, end))
 
 
 @reports_router.get("/t4a.csv")
 async def t4a_csv(principal: CurrentPrincipal, db: DbSession, year: int) -> Response:
     content = await ReportService(db, principal).t4a_csv(year)
-    return _csv_response(content, "t4a.csv")
+    return _csv_response(content, csv_name("t4a", date(year, 1, 1), date(year, 12, 31)))
 
 
 @reports_router.get("/sales-by-item.csv")
@@ -64,7 +64,7 @@ async def sales_by_item_csv(
     principal: CurrentPrincipal, db: DbSession, start: date, end: date
 ) -> Response:
     content = await ReportService(db, principal).sales_by_item_csv(start, end)
-    return _csv_response(content, "sales-by-item.csv")
+    return _csv_response(content, csv_name("sales-by-item", start, end))
 
 
 @reports_router.get("/summary", response_model=ReportSummary)
@@ -77,7 +77,7 @@ async def report_summary(
 @reports_router.get("/pst.csv")
 async def pst_csv(principal: CurrentPrincipal, db: DbSession, start: date, end: date) -> Response:
     content = await ReportService(db, principal).pst_csv(start, end)
-    return _csv_response(content, "pst.csv")
+    return _csv_response(content, csv_name("pst", start, end))
 
 
 @reports_router.get("/payouts.csv")
@@ -85,7 +85,7 @@ async def payouts_csv(
     principal: CurrentPrincipal, db: DbSession, start: date, end: date
 ) -> Response:
     content = await ReportService(db, principal).payouts_csv(start, end)
-    return _csv_response(content, "payouts.csv")
+    return _csv_response(content, csv_name("payouts", start, end))
 
 
 @reports_router.get("/staff-pay.csv")
@@ -93,7 +93,7 @@ async def staff_pay_csv(
     principal: CurrentPrincipal, db: DbSession, start: date, end: date, run: str | None = None
 ) -> Response:
     content = await ReportService(db, principal).staff_pay_csv(start, end, run)
-    return _csv_response(content, "staff-pay.csv")
+    return _csv_response(content, csv_name("staff-pay", start, end))
 
 
 @reports_router.post(

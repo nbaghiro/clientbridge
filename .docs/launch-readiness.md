@@ -1932,10 +1932,10 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 
 **QA steps**
 
-1. Run income, sales by item, GST/HST, PST, T4A, payouts and staff pay for the week.
-   **Expect:** totals match the sales and payments made.
+1. Run income, sales by item, GST/HST, PST, T4A, payouts and staff pay for this month, which holds the test week.
+   **Expect:** totals match the sales and payments made; a refunded sale leaves the GST/HST and PST sales along with its tax.
 2. Download each CSV and the bookkeeper ZIP and open them in a spreadsheet.
-   **Expect:** the same cents as on screen; empty periods disable export.
+   **Expect:** the same cents as on screen, the income CSV included; an item or person named like a formula shows as text; the T4A file is named for its year; a period with no sales, payments, payouts or staff pay disables export, even when the year has T4A payees.
 3. Run the reports from a laptop in another time zone.
    **Expect:** the same day boundaries, in the business zone.
 4. As staff, open Reports.
@@ -1947,11 +1947,13 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 
 - `FIN-REPORT-01 (web)`
 - `FIN-EXPORT-02 (web)`
+- `FIN-REPORT-12 (web)`
+- `NATIVE-REPORT-01 (native-ios, native-android)`
 
 **To automate**
 
-- `FIN-REPORT-12` in `apps/web/e2e/reports.e2e.ts`: Sales by item, GST/HST with PST apart and T4A CSVs against hand totals.
-- A backend test in `tests/test_reports.py` after the fix: the sales by item CSV writes an item named `=HYPERLINK(...)` as text. `sales_by_item_csv` (`services/reports.py`) writes names as they are today, so a spreadsheet would run a leading `=`, `+`, `-` or `@` as a formula; the consent export already guards its cells with `_cell` (`services/consents.py`), and the report CSVs need the same.
+- `FIN-REPORT-13` in `apps/web/e2e/reports.e2e.ts`: A paid and a failed payout in the period show the same amounts and statuses in the payouts CSV and the bookkeeper ZIP. The cases above sell for cash, so their payouts CSV holds only its header.
+- `NATIVE-REPORT-01` in `apps/mobile/e2e/reports.yaml` on iOS in CI. Pull requests run it on Android; the iOS lane runs by hand from the `native-ios` workflow on a self-hosted Mac.
 
 **Depends on:** Nothing
 

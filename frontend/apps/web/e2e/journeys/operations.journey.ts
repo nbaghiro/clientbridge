@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { demoPerson } from "@clientbridge/config/e2e/demo";
 import { expect, test, type APIRequestContext } from "@playwright/test";
-import { nativeSession } from "../support/auth";
+import { fictionalPhone, nativeSession } from "../support/auth";
 import { bookingApi } from "../support/bookings";
 import { communicationEvidence, emailEvent } from "../support/communication";
 import { paymentEvidence } from "../support/evidence";
@@ -87,7 +87,7 @@ test("FLOW-10-A a desk payment is traceable in the operator console's ledger and
         data: {
             name: demoPerson(randomUUID()),
             // a number set aside for fiction, which the dev text transport refuses
-            phone: "+18675550143",
+            phone: fictionalPhone(),
         },
     });
     expect(created.status(), await created.text()).toBe(201);

@@ -50,6 +50,7 @@ import {
     watchOpenings,
     manageUrl,
     moveFromManageLink,
+    ownBookingPage,
 } from "../support/visit";
 import { textInbox, textsTo } from "../support/auth";
 import { customerContext, navigate, signIn } from "../support/session";
@@ -1465,71 +1466,60 @@ test("SCH-E2E-18 the owner approves one new client's request from Today and decl
 test("SCH-E2E-19 the lead time, horizon and start step set in Setup bound the times Connect offers", async ({
     page,
     browser,
+    request,
 }) => {
+    test.setTimeout(240_000);
     const b = strings.publicBooking;
     const o = strings.onlineBooking;
-    await signIn(page);
-    const policy = await page.request.get(`${bookingApi()}/v1/online-booking`);
-    expect(policy.status()).toBe(200);
-    const before = ((await policy.json()) as { policy: Record<string, unknown> }).policy;
-    try {
-        await navigate(page, "/setup/online-booking");
-        for (const [label, option] of [
-            [o.leadTime, o.leadOptions["48"]],
-            [o.advance, o.advanceOptions["14"]],
-            [o.step, o.stepOptions["60"]],
-        ] as const) {
-            await page.getByRole("combobox", { name: label, exact: true }).click();
-            await page.getByRole("option", { name: option, exact: true }).click();
-        }
-        await page.getByRole("button", { name: o.save, exact: true }).click();
-        await expect(page.getByText(o.saved, { exact: true }).first()).toBeVisible();
-        const savedAt = Date.now();
-
-        const context = await customerContext(browser);
-        const client = await context.newPage();
-        const openings = await openConnectService(client, demoSlug("birchbark"), "Bath & Tidy");
-        await expect.poll(() => openings.days.length).toBeGreaterThan(0);
-        const firstWeek = (
-            (await openings.days[0]?.json()) as {
-                days: { date: string; count: number }[];
-            }
-        ).days;
-        const firstOpen = firstWeek.find((day) => day.count > 0);
-        if (firstOpen === undefined) throw new Error("no day in the first week is open");
-        const times = await openConnectDay(client, openings, firstOpen.date);
-        expect(times.length).toBeGreaterThan(0);
-        for (const time of times) {
-            expect(at(time.starts_at)).toBeGreaterThanOrEqual(savedAt + 48 * 3_600_000 - 60_000);
-            expect(new Date(time.starts_at).getUTCMinutes()).toBe(0);
-        }
-        const lastDay = new Date(savedAt + 15 * 86_400_000).toISOString().slice(0, 10);
-        for (let week = 0; week < 3; week++) {
-            const count = openings.days.length;
-            const next = client.getByRole("button", { name: b.nextWeek, exact: true }).first();
-            if (await next.isDisabled()) break;
-            await next.click();
-            await expect.poll(() => openings.days.length).toBeGreaterThan(count);
-        }
-        const offered = await Promise.all(
-            openings.days.map(
-                async (response) =>
-                    ((await response.json()) as { days: { date: string; count: number }[] }).days,
-            ),
-        );
-        const beyond = offered.flat().filter((day) => day.date > lastDay);
-        expect(beyond.every((day) => day.count === 0)).toBe(true);
-        await context.close();
-    } finally {
-        // a null step in the patch means "unchanged", so the service-length default goes back as 0
-        await apiCall(
-            page,
-            "PATCH",
-            "/v1/online-booking",
-            { policy: { ...before, step_min: before.step_min ?? 0 } },
-            200,
-        );
+    // the policy is business-wide, so a shared demo business would bound every other test's times
+    const own = await ownBookingPage(page, request, "booking-window");
+    await navigate(page, "/setup/online-booking");
+    for (const [label, option] of [
+        [o.leadTime, o.leadOptions["48"]],
+        [o.advance, o.advanceOptions["14"]],
+        [o.step, o.stepOptions["60"]],
+    ] as const) {
+        await page.getByRole("combobox", { name: label, exact: true }).click();
+        await page.getByRole("option", { name: option, exact: true }).click();
     }
+    await page.getByRole("button", { name: o.save, exact: true }).click();
+    await expect(page.getByText(o.saved, { exact: true }).first()).toBeVisible();
+    const savedAt = Date.now();
+
+    const context = await customerContext(browser);
+    const client = await context.newPage();
+    const openings = await openConnectService(client, own.slug, own.itemName);
+    await expect.poll(() => openings.days.length).toBeGreaterThan(0);
+    const firstWeek = (
+        (await openings.days[0]?.json()) as {
+            days: { date: string; count: number }[];
+        }
+    ).days;
+    const firstOpen = firstWeek.find((day) => day.count > 0);
+    if (firstOpen === undefined) throw new Error("no day in the first week is open");
+    const times = await openConnectDay(client, openings, firstOpen.date);
+    expect(times.length).toBeGreaterThan(0);
+    for (const time of times) {
+        expect(at(time.starts_at)).toBeGreaterThanOrEqual(savedAt + 48 * 3_600_000 - 60_000);
+        expect(new Date(time.starts_at).getUTCMinutes()).toBe(0);
+    }
+    const lastDay = new Date(savedAt + 15 * 86_400_000).toISOString().slice(0, 10);
+    for (let week = 0; week < 3; week++) {
+        const count = openings.days.length;
+        const next = client.getByRole("button", { name: b.nextWeek, exact: true }).first();
+        if (await next.isDisabled()) break;
+        await next.click();
+        await expect.poll(() => openings.days.length).toBeGreaterThan(count);
+    }
+    const offered = await Promise.all(
+        openings.days.map(
+            async (response) =>
+                ((await response.json()) as { days: { date: string; count: number }[] }).days,
+        ),
+    );
+    const beyond = offered.flat().filter((day) => day.date > lastDay);
+    expect(beyond.every((day) => day.count === 0)).toBe(true);
+    await context.close();
 });
 
 test("SCH-E2E-21 a client moves a visit from its manage link until the limit while the owner sees each new time, a cancel inside the cut-off is refused with its reason, and one outside it frees the time", async ({

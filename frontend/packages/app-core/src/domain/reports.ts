@@ -204,7 +204,11 @@ const PROVINCIAL = ["PST", "QST", "RST"];
 function buildView(r: ReportSummary, span: ReportSpan, now: Date, zone: string): ReportsView {
     const rate = new Map(r.rates.map((x) => [x.code, x.rate_bps]));
     const taxLines = Object.entries(r.income.tax_by_code)
-        .sort(([a], [b]) => (PROVINCIAL.includes(a) ? 1 : PROVINCIAL.includes(b) ? -1 : 0))
+        .sort(
+            ([a], [b]) =>
+                Number(PROVINCIAL.includes(a)) - Number(PROVINCIAL.includes(b)) ||
+                (a < b ? -1 : a > b ? 1 : 0),
+        )
         .map(([code, cents]) => ({
             code,
             label: strings.reports.taxCollected(taxName(code)),
@@ -276,7 +280,10 @@ function buildView(r: ReportSummary, span: ReportSpan, now: Date, zone: string):
             inSpan: m.month >= span.start.slice(0, 7) && m.month <= span.end.slice(0, 7),
         })),
         rows: {
-            income: 3 + Object.keys(r.income.by_method).length,
+            income:
+                6 +
+                Object.keys(r.income.tax_by_code).length +
+                Object.keys(r.income.by_method).length,
             salesByItem: r.sales_by_item.length,
             gstHst: 1,
             pst: provincialCode === null ? 0 : 1,
@@ -293,6 +300,7 @@ interface MoneyReports {
     span: ReportSpan;
     load: Load;
     view: ReportsView | null;
+    shows: (key: ReportKey) => boolean;
 }
 
 /** Every report for one period from one server read, so the figures always share the dates. */
@@ -312,17 +320,24 @@ export function useMoneyReports(
         () => (remote.data === null ? null : buildView(remote.data, span, now, zone)),
         [remote.data, span, now, zone],
     );
+    // the T4A covers the whole year, so it never makes a quiet period worth exporting
     const empty =
         view !== null &&
         view.salesCents === 0 &&
+        view.refundsCents === 0 &&
+        view.taxLines.length === 0 &&
         view.receivedCents === 0 &&
         view.items.length === 0 &&
-        view.t4a.length === 0;
+        view.rows.payouts === 0 &&
+        view.rows.staffPay === 0;
     const load = useLoad([remote], empty);
-    return { period, setPeriod, span, load, view };
+    const shows = (key: ReportKey): boolean =>
+        load.ready || (load.state === "empty" && key === "t4a" && (view?.t4a.length ?? 0) > 0);
+    return { period, setPeriod, span, load, view, shows };
 }
 
 function fileName(kind: ExportKind, span: ReportSpan): string {
+    if (kind === "t4a") return `t4a-${span.end.slice(0, 4)}.csv`;
     return `${SERVER_KIND[kind]}-${span.start}-to-${span.end}.csv`;
 }
 

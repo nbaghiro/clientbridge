@@ -1,5 +1,8 @@
 import base64
+import csv
 import hashlib
+import io
+import re
 from functools import lru_cache
 
 import jwt
@@ -9,10 +12,31 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 
+# a phone number or a signed amount is a value, never a formula
+_SIGNED_NUMBER = re.compile(r"[+-]?\d+(\.\d+)?")
+
 
 def hash_token(token: str) -> str:
     """SHA-256 of an opaque high-entropy token (invite / one-time) — stored instead of the raw."""
     return hashlib.sha256(token.encode()).hexdigest()
+
+
+def spreadsheet_cell(value: str) -> str:
+    """Text for a CSV cell that a spreadsheet shows as written instead of running as a formula."""
+    if _SIGNED_NUMBER.fullmatch(value):
+        return value
+    return f"'{value}" if value.startswith(("=", "+", "-", "@", "\t", "\r")) else value
+
+
+def spreadsheet_csv(header: list[str], rows: list[list[object]]) -> str:
+    """A CSV whose every text cell goes through `spreadsheet_cell`."""
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(header)
+    writer.writerows(
+        [spreadsheet_cell(cell) if isinstance(cell, str) else cell for cell in row] for row in rows
+    )
+    return buf.getvalue()
 
 
 def issue_powersync_token(user_id: str) -> str:
