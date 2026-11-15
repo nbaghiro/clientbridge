@@ -981,7 +981,18 @@ invoice's, and a sale that stops being paid reverses pending earnings. Other way
   visit and set `bookings.package_id` or `subscription_id`. The item's `covers_item_id` names the service it
   covers (none means any). A package posts one session's consumption; a membership needs
   `visits_per_period` and counts the visits it covered since its current period began (409
-  `membership_visits_used`). Either way the member earns the visit's share of the price.
+  `membership_visits_used`). Either way the member earns the visit's share of the price. A package refuses
+  with its own code: `package_other_client`, `package_other_subject` (422), `package_other_service`,
+  `package_inactive` (unpaid or refunded), `package_expired` (past its date even before the nightly sweep;
+  `consume` refuses it too) and `package_used_up`; the visit with `cover_before_start`,
+  `visit_already_covered`, `visit_settled` or `visit_deposit_paid`. The
+  desk shows each refusal, and what is left after a cover, on the visit's own row, and says why it offers
+  no cover: a paid deposit to apply or refund first, or packages that are for the client's other subjects.
+  A covered visit is never billed for its service again: an invoice or draft that carries it refuses with
+  `visit_covered`, so only its add-ons can be invoiced, and a desk sale refuses it with
+  `visit_already_covered`. Once a package is sold its item's kind and `covers_item_id` can't change while
+  one is live (409 `package_item_sold`), since sold packages read them from the item; a sale holds the item
+  row so an edit waits for it. Their sessions, expiry and value are copied at the sale.
 - **Member discount.** A membership's `member_discount_bps` gives its active members that discount on product
   lines at the register, as a named line discount staff can change; the best one wins.
 - **A gift card pays part of a sale.** `POST /v1/orders/{id}/gift-card` redeems up to what the sale owes, in a

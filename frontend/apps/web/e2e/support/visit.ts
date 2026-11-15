@@ -339,6 +339,13 @@ export async function connectStaff(
         .sort();
 }
 
+/** The time zone the business shows its times in, from its booking page. */
+export async function businessZone(page: Page, slug: string): Promise<string> {
+    const response = await page.request.get(`${bookingApi()}/book/${slug}/services`);
+    expect(response.status()).toBe(200);
+    return ((await response.json()) as { timezone: string }).timezone;
+}
+
 export interface RaceContact {
     name: string;
     phone: string;
@@ -527,15 +534,30 @@ export function manageUrl(token: string): string {
     return connectUrl(`m/${encodeURIComponent(token)}`);
 }
 
-/** From an open manage page, moves the visit to the first other time its day offers. */
+/** From an open manage page, moves the visit to the first open time from its day on. */
 export async function moveFromManageLink(page: Page, token: string): Promise<string> {
     const m = strings.publicManage;
     await page.getByRole("button", { name: m.reschedule, exact: true }).click();
-    await page
+    const times = page
         .getByRole("radiogroup", { name: b.openTimes, exact: true })
-        .getByRole("radio")
-        .first()
-        .click();
+        .getByRole("radio");
+    const none = page.getByText(m.noTimes, { exact: true });
+    // other journeys can take the rest of the visit's day on this shared copy
+    const days = page
+        .getByRole("radiogroup", { name: b.date, exact: true })
+        .locator('[role="radio"]:not([disabled])');
+    await expect(times.first().or(none)).toBeVisible();
+    while (await none.isVisible()) {
+        const checked = await days.evaluateAll((all) =>
+            all.findIndex((day) => day.getAttribute("aria-checked") === "true"),
+        );
+        expect(checked + 1, "no later day this week has an open time").toBeLessThan(
+            await days.count(),
+        );
+        await days.nth(checked + 1).click();
+        await expect(times.first().or(none)).toBeVisible();
+    }
+    await times.first().click();
     const moved = page.waitForResponse(
         (response) =>
             new URL(response.url()).pathname === `/manage/${token}/reschedule` &&

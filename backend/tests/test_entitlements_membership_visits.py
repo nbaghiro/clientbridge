@@ -99,6 +99,26 @@ async def test_an_included_visit_settles_a_started_visit(
     assert (covered.status, covered.subscription_id) == ("completed", sub.id)
 
 
+async def test_a_visit_a_membership_covered_bills_only_its_add_ons(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await enable_payments(db)
+    sub = await _membership(db)
+    sub_id, visit_id = sub.id, (await _started_visit(db, sub.client_id)).id
+    assert (await _cover(as_owner, sub_id, visit_id)).status_code == 200
+    again = await _cover(as_owner, sub_id, visit_id)
+    assert (again.status_code, again.json()["error"]) == (409, "visit_already_covered")
+    refused = await as_owner.post(f"/v1/invoices/from-booking/{visit_id}", headers=key())
+    assert (refused.status_code, refused.json()["error"]) == (409, "visit_covered")
+    added = await as_owner.post(
+        f"/v1/bookings/{visit_id}/addons", json={"item_id": "it_shampoo"}, headers=key()
+    )
+    assert added.status_code == 201, added.text
+    draft = await as_owner.post(f"/v1/invoices/from-booking/{visit_id}", headers=key())
+    assert draft.status_code == 201, draft.text
+    assert [line["item_id"] for line in draft.json()["lines"]] == ["it_shampoo"]
+
+
 async def test_the_included_visits_run_out_for_the_period(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:

@@ -1,0 +1,122 @@
+appId: ${APP_ID}
+name: NATIVE-ENT-03 A package sold on the phone for one pet covers that pet's started visit at the desk, says what is left, and says why the sibling's visit can't use it
+onFlowComplete:
+    - runScript: helpers/restore-week.js
+---
+- evalScript: ${output.tag = String(100000 + Math.floor(Math.random() * 900000))}
+- evalScript: ${output.name = "Aaliyah Packwood " + output.tag}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/clients
+          BODY: "${JSON.stringify({ name: output.name })}"
+- evalScript: ${output.clientId = output.response.id}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/subjects
+          BODY: "${JSON.stringify({ client_id: output.clientId, name: 'Biscuit ' + output.tag, attributes: { species: 'dog' } })}"
+- evalScript: ${output.biscuitId = output.response.id}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/subjects
+          BODY: "${JSON.stringify({ client_id: output.clientId, name: 'Juniper ' + output.tag, attributes: { species: 'dog' } })}"
+- evalScript: ${output.juniperId = output.response.id}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/items
+          BODY: "${JSON.stringify({ kind: 'service', name: 'Tidy bath ' + output.tag, duration_min: 1, price_cents: 3000, tax_class: 'exempt', deposit_type: 'none', online_bookable: false })}"
+- evalScript: ${output.serviceId = output.response.id}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/items
+          BODY: "${JSON.stringify({ kind: 'package', name: 'Tidy pack ' + output.tag, price_cents: 6000, tax_class: 'exempt', session_count: 3, validity_days: 365, covers_item_id: output.serviceId })}"
+# Biscuit takes Priya's latest started minute, so Juniper's visit sorts just above it on the desk
+- runScript:
+      file: helpers/book-today.js
+      env:
+          STARTED: "1"
+          BODY: "${JSON.stringify({ client_id: output.clientId, subject_id: output.biscuitId, item_id: output.serviceId, staff_id: 'st_priya_' + E2E_NAMESPACE })}"
+# restore-week.js puts back the week as it was before the first booking opened the day
+- evalScript: ${output.seededWeek = output.week}
+- runScript:
+      file: helpers/book-today.js
+      env:
+          STARTED: "1"
+          BODY: "${JSON.stringify({ client_id: output.clientId, subject_id: output.juniperId, item_id: output.serviceId, staff_id: 'st_priya_' + E2E_NAMESPACE })}"
+- evalScript: ${output.week = output.seededWeek}
+- runFlow: helpers/owner.yaml
+- scrollUntilVisible:
+      element: "View payments"
+      direction: DOWN
+- tapOn: "View payments"
+- tapOn: "Gift cards"
+- tapOn: "Sell package, plan or gift card"
+- extendedWaitUntil:
+      visible: "What are you selling\\?"
+      timeout: 20000
+- tapOn: "Tidy pack ${output.tag}.*"
+- runFlow:
+      file: helpers/pick-client.yaml
+      env:
+          NAME: ".*${output.name}"
+- extendedWaitUntil:
+      visible: "Biscuit ${output.tag}"
+      timeout: 20000
+# the pet rule sits under the pet choices, below the fold on a phone
+- scrollUntilVisible:
+      element: "A package for one pet covers only that pet's visits\\..*"
+      direction: DOWN
+      centerElement: true
+- scrollUntilVisible:
+      element: "Biscuit ${output.tag}"
+      direction: UP
+- tapOn: "Biscuit ${output.tag}"
+- scrollUntilVisible:
+      element: "Record \\$60.00 cash"
+      direction: DOWN
+- tapOn: "Record \\$60.00 cash"
+- extendedWaitUntil:
+      visible: "Sold\\..*Tidy pack ${output.tag} is on ${output.name}'s account\\."
+      timeout: 30000
+- runFlow: helpers/close-sheet.yaml
+- tapOn: "Sales"
+# find Juniper's row, the first of the two, while the package reaches the phone
+- scrollUntilVisible:
+      element: "${output.name}"
+      direction: DOWN
+      centerElement: true
+      timeout: 60000
+# the sibling's visit can't use Biscuit's package, and the desk says so instead of hiding why
+- extendedWaitUntil:
+      visible: "Their package is for Biscuit ${output.tag} only\\."
+      timeout: 60000
+- takeScreenshot: native-package-sibling-note
+# no centring: its swipe would push the note this button is found below off the screen
+- scrollUntilVisible:
+      element:
+          text: "Use package"
+          below: "Their package is for Biscuit ${output.tag} only\\."
+      direction: DOWN
+- tapOn:
+      text: "Use package"
+      below: "Their package is for Biscuit ${output.tag} only\\."
+- extendedWaitUntil:
+      visible: "Covered by the package\\. 2 visits left\\."
+      timeout: 30000
+- takeScreenshot: native-package-covered
+- tapOn: "Gift cards"
+- tapOn: "${output.name}"
+- scrollUntilVisible:
+      element: "Biscuit ${output.tag}: 2 of 3 left"
+      direction: DOWN
+      centerElement: true
+      timeout: 30000

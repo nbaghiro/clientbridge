@@ -608,7 +608,7 @@ def _fresh(created_at: datetime) -> bool:
     return created_at > clock.now() - timedelta(hours=2)
 
 
-async def expiry(offset: int, ids: list[str]) -> Row:
+async def expiry(offset: int, ids: list[str], sweeps: int) -> Row:
     namespace = _run_namespace(*ids)
     cards = [id_ for id_ in ids if id_.startswith("gc_")]
     packages = [id_ for id_ in ids if id_.startswith("pkg_")]
@@ -633,7 +633,7 @@ async def expiry(offset: int, ids: list[str]) -> Row:
         for row in owned:
             row.expires_at = expires_at
         await db.commit()
-        swept = [await run_expiry_sweeps(db, clock.now()), await run_expiry_sweeps(db, clock.now())]
+        swept = [await run_expiry_sweeps(db, clock.now()) for _ in range(sweeps)]
     rows = await _rows(
         "SELECT id, status FROM gift_cards WHERE id = ANY(:ids) "
         "UNION ALL SELECT id, status FROM packages WHERE id = ANY(:ids) ORDER BY id",
@@ -654,13 +654,14 @@ async def expiry(offset: int, ids: list[str]) -> Row:
 
 
 async def expiry_main(argv: list[str]) -> None:
-    """Move expiry for gift cards and packages a case sold, then run the expiry sweep twice."""
+    """Move expiry for gift cards and packages a case sold, then sweep `--sweeps` times (twice)."""
     parser = argparse.ArgumentParser(prog="python -m e2e.actions expiry")
     parser.add_argument("offset", type=int, help="seconds from now; negative has passed")
     parser.add_argument("ids", nargs="+")
+    parser.add_argument("--sweeps", type=int, default=2)
     args = parser.parse_args(argv)
     try:
-        print(json.dumps(await expiry(args.offset, list(args.ids))))
+        print(json.dumps(await expiry(args.offset, list(args.ids), args.sweeps)))
     finally:
         await engine.dispose()
 

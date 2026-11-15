@@ -453,7 +453,7 @@ export function useProgramForm(
     const today = startOfDay(new Date(), zone);
     const nextMonday = addDays(today, (8 - wallTime(today, zone).weekday) % 7 || 7, zone);
     const [itemId, setItemId] = useState("");
-    const [chosenStaff, setStaffId] = useState(viewer?.staffId ?? "");
+    const [chosenStaff, setStaffId] = useState("");
     const [firstDay, setFirstDay] = useState(dateKey(nextMonday, zone));
     const [time, setTime] = useState("09:00");
     const [weekdays, setWeekdays] = useState<ProgramWeekday[]>([...WORK_WEEK]);
@@ -465,16 +465,22 @@ export function useProgramForm(
     const offered = item === null ? [] : idList(item.staff_ids);
     const staff = team.filter((x) => offered.length === 0 || offered.includes(x.id));
     const count = item?.session_count ?? 0;
-    const staffId = staff.some((x) => x.id === chosenStaff) ? chosenStaff : (staff[0]?.id ?? "");
+    // the viewer loads after the first render; they're the default only if the class names them
+    const mine = viewer !== null && offered.includes(viewer.staffId) ? viewer.staffId : "";
+    const only = staff.length > 1 ? "" : (staff[0]?.id ?? "");
+    const staffId =
+        [chosenStaff, mine, only].find((id) => id !== "" && staff.some((x) => x.id === id)) ?? "";
     const dates = item === null ? [] : scheduleDays(firstDay, weekdays, count, zone);
     const blocker =
         item === null
             ? s.pickProgram
-            : staffId === ""
+            : staff.length === 0
               ? s.pickInstructor
-              : dates.length !== count
-                ? s.pickDays(count)
-                : null;
+              : staffId === ""
+                ? s.chooseInstructor
+                : dates.length !== count
+                  ? s.pickDays(count)
+                  : null;
     const ready = blocker === null;
     const order = weekOrder().map((n) => CODES[n] ?? "SU");
     const first = dates[0];
@@ -491,18 +497,28 @@ export function useProgramForm(
             detail: s.daysCount(i.session_count ?? 0),
         })),
         staffId,
-        setStaffId,
+        setStaffId: (id) => {
+            setStaffId(id);
+            setError(null);
+        },
         staffOptions: staff.map((x) => ({ key: x.id, label: staffName(x) })),
         firstDay,
-        setFirstDay,
+        setFirstDay: (key) => {
+            setFirstDay(key);
+            setError(null);
+        },
         time,
-        setTime,
+        setTime: (hhmm) => {
+            setTime(hhmm);
+            setError(null);
+        },
         timeOptions: clockOptions(30, "06:00", "21:00"),
         weekdays,
         toggleWeekday: (day) => {
             setWeekdays((prev) =>
                 prev.includes(day) ? prev.filter((x) => x !== day) : [...prev, day],
             );
+            setError(null);
         },
         weekdayOptions: order.map((code) => ({
             key: code,
@@ -518,7 +534,8 @@ export function useProgramForm(
                 ? null
                 : s.rooms(pool.length, formatList(pool.map((id) => resourceName(rooms, id) ?? id))),
         canSubmit: ready,
-        blocker: item === null ? null : blocker,
+        // the empty program and instructor fields already prompt for themselves
+        blocker: item === null || (staff.length > 0 && staffId === "") ? null : blocker,
         busy,
         error,
         submit: () => {

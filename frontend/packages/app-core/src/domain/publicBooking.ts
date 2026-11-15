@@ -1070,6 +1070,16 @@ export function usePublicBookingFlow(
         ? (page?.staff.find((x) => x.id === slot.staff_id) ?? null)
         : null;
 
+    const timeRange = slot
+        ? formatTimeRange(parseTimestamp(slot.starts_at), parseTimestamp(slot.ends_at), zone)
+        : null;
+    // a program's days are booked together, so it reads as the whole run, not the first day
+    const programRun =
+        program && slot
+            ? (programChoices(programs ?? [], zone).find((x) => x.key === slot.starts_at)?.label ??
+              null)
+            : null;
+
     const taxStart = page?.tax_starts_on ?? null;
     const visitDay = slot === null ? null : dateKey(parseTimestamp(slot.starts_at), zone);
     const visitIsTaxed =
@@ -1284,16 +1294,13 @@ export function usePublicBookingFlow(
         currency,
         programs: program ? programChoices(programs ?? [], zone) : null,
         programNote: program ? s.programNote : null,
-        when: slot
-            ? program
-                ? (programChoices(programs ?? [], zone).find((x) => x.key === slot.starts_at)
-                      ?.label ?? null)
-                : whenLabel(slot.starts_at, today, zone)
+        when: slot ? (program ? programRun : whenLabel(slot.starts_at, today, zone)) : null,
+        whenTitle: slot
+            ? programRun === null
+                ? whenTitle(slot.starts_at, today, zone)
+                : formatParts([programRun, timeRange])
             : null,
-        whenTitle: slot ? whenTitle(slot.starts_at, today, zone) : null,
-        timeRange: slot
-            ? formatTimeRange(parseTimestamp(slot.starts_at), parseTimestamp(slot.ends_at), zone)
-            : null,
+        timeRange,
         result,
         waitlistBody:
             result?.status === "waitlisted" && slot

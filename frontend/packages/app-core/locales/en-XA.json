@@ -305,6 +305,39 @@
     "api.packageOtherSubject": {
         "message": "[Ţĥîš þåçķåĝé îš ƒöŕ å ðîƒƒéŕéñţ šţûðéñţ, þéţ, ṽéĥîçļé öŕ þļåçé öñ ţĥîš çļîéñţ'š åççöûñţ. Çĥööšé å šĥåŕéð þåçķåĝé öŕ ţĥé öñé ƒöŕ ţĥîš ṽîšîţ. one two three four five six seven eight]"
     },
+    "api.packageOtherService": {
+        "message": "[Ţĥîš þåçķåĝé çöṽéŕš å ðîƒƒéŕéñţ šéŕṽîçé. Ŕîñĝ ţĥé ṽîšîţ ûþ îñšţéåð. one two three four five]"
+    },
+    "api.packageOtherClient": {
+        "message": "[Ţĥîš þåçķåĝé ƀéļöñĝš ţö åñöţĥéŕ çļîéñţ, šö îţ çåñ'ţ çöṽéŕ ţĥîš ṽîšîţ. one two three four five]"
+    },
+    "api.packageExpired": {
+        "message": "[Ţĥîš þåçķåĝé ĥåš éẋþîŕéð, šö îţ çåñ'ţ ƀé ûšéð. one two three]"
+    },
+    "api.packageUsedUp": {
+        "message": "[Ţĥîš þåçķåĝé ĥåš ñö ṽîšîţš ļéƒţ. one two three]"
+    },
+    "api.packageInactive": {
+        "message": "[Ţĥîš þåçķåĝé îšñ'ţ þåîð ƒöŕ, öŕ îţ ŵåš ŕéƒûñðéð, šö îţ çåñ'ţ ƀé ûšéð. one two three four]"
+    },
+    "api.packageItemSold": {
+        "message": "[Çļîéñţš åļŕéåðý ĥöļð ţĥîš þåçķåĝé, šö îţš ţýþé åñð ţĥé šéŕṽîçé îţ çöṽéŕš çåñ'ţ çĥåñĝé. Åŕçĥîṽé îţ åñð åðð å ñéŵ îţéɱ îñšţéåð. one two three four five six seven eight]"
+    },
+    "api.visitSettled": {
+        "message": "[Ţĥîš ṽîšîţ çåñ'ţ ƀé çöṽéŕéð ñöŵ. Îţ'š åļŕéåðý þåîð, ƀîļļéð öŕ çļöšéð, öŕ ñöţ ýéţ çöñƒîŕɱéð. one two three four five six]"
+    },
+    "api.coverBeforeStart": {
+        "message": "[Ţĥîš ṽîšîţ ĥåšñ'ţ šţåŕţéð ýéţ. Å þåçķåĝé öŕ ɱéɱƀéŕšĥîþ çåñ çöṽéŕ îţ öñçé îţ ƀéĝîñš. one two three four five six]"
+    },
+    "api.visitCovered": {
+        "message": "[Å þåçķåĝé öŕ ɱéɱƀéŕšĥîþ åļŕéåðý çöṽéŕéð ţĥîš ṽîšîţ, šö öñļý îţš åðð-öñš çåñ ƀé îñṽöîçéð. one two three four five six]"
+    },
+    "api.visitAlreadyCovered": {
+        "message": "[Å þåçķåĝé öŕ ɱéɱƀéŕšĥîþ åļŕéåðý çöṽéŕéð ţĥîš ṽîšîţ. one two three four]"
+    },
+    "api.visitDepositPaid": {
+        "message": "[Ţĥîš ṽîšîţ'š ðéþöšîţ îš þåîð. Åþþļý îţ åţ çĥéçķöûţ öŕ ŕéƒûñð îţ ƀéƒöŕé ûšîñĝ å þåçķåĝé öŕ ɱéɱƀéŕšĥîþ. one two three four five six seven]"
+    },
     "api.serviceNotOffered": {
         "message": "[Ţĥåţ ţéåɱ ɱéɱƀéŕ ðöéšñ'ţ öƒƒéŕ ţĥîš šéŕṽîçé. Çĥööšé šöɱéöñé ŵĥö ðöéš. one two three four five]"
     },
@@ -370,6 +403,12 @@
     },
     "api.schedulePast": {
         "message": "[Çĥööšé å ƒîŕšţ ðåý ţĥåţ'š šţîļļ åĥéåð. one two three]"
+    },
+    "api.classSize": {
+        "message": "[Šéţ ĥöŵ ɱåñý çļîéñţš çåñ ƀööķ öñé çļåšš, ţĥéñ šåṽé îţ åĝåîñ. one two three four]"
+    },
+    "api.programSize": {
+        "message": "[Å þŕöĝŕåɱ ñééðš ŕööɱ ƒöŕ ɱöŕé ţĥåñ öñé çļîéñţ. Ŕåîšé îţš çļåšš šîžé, ţĥéñ šåṽé îţ åĝåîñ. one two three four five six]"
     },
     "api.classSchedule": {
         "message": "[Ţĥîš îš å çļåšš šçĥéðûļé. Çĥåñĝé öŕ çåñçéļ îţ ûñðéŕ Çļåššéš. one two three four]"
@@ -1678,6 +1717,18 @@
     },
     "pos.desk.coverError": {
         "message": "[Çöûļðñ’ţ çöṽéŕ ţĥé ṽîšîţ. Ţŕý åĝåîñ. one two three]"
+    },
+    "pos.desk.packageForOther": {
+        "message": "[{count,plural,one{Ţĥéîŕ þåçķåĝé îš ƒöŕ {subjects} öñļý.} other{Ţĥéîŕ þåçķåĝéš åŕé ƒöŕ {subjects} öñļý.}} one two three four]"
+    },
+    "pos.desk.coverAfterDeposit": {
+        "message": "[Ţĥé ðéþöšîţ îš þåîð. Çĥéçķ öûţ ţö åþþļý îţ, öŕ ŕéƒûñð îţ ƀéƒöŕé ûšîñĝ ţĥéîŕ {cover,select,other{ɱéɱƀéŕšĥîþ} package{þåçķåĝé}}. one two three four five six]"
+    },
+    "pos.desk.coveredPackage": {
+        "message": "[Çöṽéŕéð ƀý ţĥé þåçķåĝé. {left,plural,one{# ṽîšîţ ļéƒţ.} other{# ṽîšîţš ļéƒţ.} =0{Ñö ṽîšîţš ļéƒţ.}} one two three four]"
+    },
+    "pos.desk.coveredMembership": {
+        "message": "[Çöṽéŕéð ƀý ţĥé ɱéɱƀéŕšĥîþ. one two three]"
     },
     "pos.desk.giftCardPaid": {
         "message": "[Ĝîƒţ çåŕð one]"
@@ -4234,6 +4285,9 @@
     },
     "programs.pickInstructor": {
         "message": "[Ñö åçţîṽé ţéåɱ ɱéɱƀéŕ ţéåçĥéš ţĥîš þŕöĝŕåɱ. Çĥööšé ŵĥö öƒƒéŕš îţ öñ ţĥé çļåšš îñ ţĥé çåţåļöĝ. one two three four five six]"
+    },
+    "programs.chooseInstructor": {
+        "message": "[Çĥööšé ŵĥö ţéåçĥéš ţĥîš þŕöĝŕåɱ one two three]"
     },
     "programs.instructor": {
         "message": "[Îñšţŕûçţöŕ one two]"
@@ -8471,6 +8525,12 @@
     "catalog.programDaysInvalid": {
         "message": "[Šéţ ţĥé þŕöĝŕåɱ'š ðåýš åš å ŵĥöļé ñûɱƀéŕ, öŕ ļéåṽé îţ éɱþţý ƒöŕ ðŕöþ-îñ šéššîöñš. one two three four five]"
     },
+    "catalog.capacityRequired": {
+        "message": "[Šéţ ĥöŵ ɱåñý çļîéñţš çåñ ƀööķ öñé çļåšš, åš å ŵĥöļé ñûɱƀéŕ. one two three four]"
+    },
+    "catalog.programCapacity": {
+        "message": "[Å þŕöĝŕåɱ ñééðš ŕööɱ ƒöŕ ɱöŕé ţĥåñ öñé çļîéñţ. Ŕåîšé ţĥé çļåšš šîžé öŕ ļéåṽé ţĥé ðåýš éɱþţý. one two three four five six]"
+    },
     "catalog.onlineBookable": {
         "message": "[Çļîéñţš çåñ ƀööķ ţĥîš öñļîñé one two three]"
     },
@@ -8983,6 +9043,9 @@
     },
     "catalog.durationRequired": {
         "message": "[Šéţ ĥöŵ ļöñĝ îţ ţåķéš, îñ ɱîñûţéš one two three]"
+    },
+    "catalog.bufferInvalid": {
+        "message": "[Šéţ šéţûþ åñð çļéåñ-ûþ îñ ŵĥöļé ɱîñûţéš, 0 öŕ ɱöŕé one two three four]"
     },
     "catalog.depositRequired": {
         "message": "[Éñţéŕ ţĥé ðéþöšîţ åɱöûñţ one two three]"

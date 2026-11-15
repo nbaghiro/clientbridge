@@ -13,10 +13,23 @@ export async function ownAddress(context: BrowserContext, info: TestInfo): Promi
         .slice(0, 16);
     const address = `2001:db8:${suffix.match(/.{4}/g)?.join(":")}::1`;
     await context.route(`${runUrl("VITE_API_URL")}/**`, async (route) => {
-        await route.continue({
-            headers: { ...route.request().headers(), "X-Forwarded-For": address },
-        });
+        try {
+            await route.continue({
+                headers: { ...route.request().headers(), "X-Forwarded-For": address },
+            });
+        } catch (error) {
+            // a refetch still in flight when the test ends meets a page that has already closed
+            if (!closedPage(route)) throw error;
+        }
     });
+}
+
+function closedPage(route: Route): boolean {
+    try {
+        return route.request().frame().page().isClosed();
+    } catch {
+        return false;
+    }
 }
 
 export type Json = Record<string, unknown>;

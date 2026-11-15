@@ -32,7 +32,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 2. Clients and catalog                  | Client subjects: who or what is booked                      | [CB-9](https://linear.app/clientbridgeca/issue/CB-9)   | Automated        |
 | 2. Clients and catalog                  | Client notes, photos and history                            | [CB-10](https://linear.app/clientbridgeca/issue/CB-10) | Automated        |
 | 2. Clients and catalog                  | Client tags and duplicate merge                             | [CB-11](https://linear.app/clientbridgeca/issue/CB-11) | Partly automated |
-| 2. Clients and catalog                  | Services, classes and resources                             | [CB-13](https://linear.app/clientbridgeca/issue/CB-13) | Partly automated |
+| 2. Clients and catalog                  | Services, classes and resources                             | [CB-13](https://linear.app/clientbridgeca/issue/CB-13) | Automated        |
 | 2. Clients and catalog                  | Products and stock                                          | [CB-14](https://linear.app/clientbridgeca/issue/CB-14) | Partly automated |
 | 3. Run the day                          | Today screen                                                | [CB-44](https://linear.app/clientbridgeca/issue/CB-44) | Partly automated |
 | 3. Run the day                          | Hours, time off and closures                                | [CB-16](https://linear.app/clientbridgeca/issue/CB-16) | Partly automated |
@@ -59,7 +59,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 6. Invoice and get paid                 | Deposits applied to the bill                                | [CB-37](https://linear.app/clientbridgeca/issue/CB-37) | Partly automated |
 | 7. Gift cards, packages and memberships | Package, membership and gift card items                     | [CB-15](https://linear.app/clientbridgeca/issue/CB-15) | Automated        |
 | 7. Gift cards, packages and memberships | Gift cards: sell and redeem                                 | [CB-38](https://linear.app/clientbridgeca/issue/CB-38) | Automated        |
-| 7. Gift cards, packages and memberships | Packages: sell, use and expire                              | [CB-39](https://linear.app/clientbridgeca/issue/CB-39) | Partly automated |
+| 7. Gift cards, packages and memberships | Packages: sell, use and expire                              | [CB-39](https://linear.app/clientbridgeca/issue/CB-39) | Automated        |
 | 7. Gift cards, packages and memberships | Memberships: renewals and failed payments                   | [CB-40](https://linear.app/clientbridgeca/issue/CB-40) | Partly automated |
 | 8. Refunds and the books                | Refunds and credit notes                                    | [CB-42](https://linear.app/clientbridgeca/issue/CB-42) | Automated        |
 | 8. Refunds and the books                | Disputes and chargebacks                                    | [CB-43](https://linear.app/clientbridgeca/issue/CB-43) | Partly automated |
@@ -642,14 +642,14 @@ The business loads its clients, what they book for, and the services and product
 
 **Automated by**
 
+- `CFG-E2E-13 (web)`
+- `CFG-E2E-15 (web)`
+- `CLS-E2E-02 (journeys)`
 - `SCH-E2E-05 (journeys)`
 - `SCH-E2E-06 (journeys)`
+- `SCH-E2E-23 (journeys)`
 - `STR-E10 (web)`
-- `CLS-E2E-02 (journeys)`
-
-**To automate**
-
-- `CFG-E2E-13` in `apps/web/e2e/catalog.e2e.ts`: Buffers and deposit percentage on a service match the slots and deposit Connect offers.
+- `NATIVE-CFG-04 (native-ios, native-android)`
 
 **Depends on:** Nothing
 
@@ -945,6 +945,7 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 - `MSG-E2E-14 (journeys)`
 - `FIN-DEPOSIT-10 (stripe)`
 - `CLS-E2E-03 (journeys)`
+- `CLS-E2E-04 (web)`
 - `FIN-DEPOSIT-15 (stripe)`
 
 **Depends on:** Nothing
@@ -1771,9 +1772,9 @@ The business sells gift cards, packages and memberships, and each is used, renew
 1. Sell a 5-visit package for one pet; use two visits.
    **Expect:** 3 remain.
 2. Try to cover the sibling's visit.
-   **Expect:** refused in words.
+   **Expect:** refused in words: the desk offers no Use package and says the package is for the other pet only.
 3. Use the final session from two desks at once.
-   **Expect:** settled once.
+   **Expect:** settled once; the other desk says the package has no visits left, or, when both pressed on the same visit, that it is already covered.
 4. Change the item's price after selling.
    **Expect:** the sold package keeps its benefits.
 5. Run the expiry job on an expired package and an expired gift card.
@@ -1788,6 +1789,7 @@ The business sells gift cards, packages and memberships, and each is used, renew
 - `FLOW-07-A (journeys)`
 - `FLOW-07-B (journeys)`
 - `ENT-E2E-07 (web)`
+- `NATIVE-ENT-03 (native-ios, native-android)`
 
 **Depends on:** Nothing
 

@@ -2909,7 +2909,9 @@ export const ADDONS_SQL = `
 SELECT id, description, quantity, unit_amount_cents FROM addons
 WHERE booking_id = ? ORDER BY created_at`;
 
-export const BOOKING_INVOICE_SQL = "SELECT invoice_id, order_id FROM bookings WHERE id = ?";
+export const BOOKING_INVOICE_SQL = `
+SELECT invoice_id, order_id, package_id IS NOT NULL OR subscription_id IS NOT NULL AS covered
+FROM bookings WHERE id = ?`;
 
 export const ADDON_CHOICES_SQL = `
 SELECT id, name, price_cents, duration_min, addon_for FROM items
@@ -2948,9 +2950,10 @@ export function useBookingAddons(
     const bookingId = event.bookingId ?? "";
     const addons = useQuery<BookingAddonRow>(ADDONS_SQL, [bookingId]).data;
     const offered = useQuery<AddonChoiceRow>(ADDON_CHOICES_SQL).data;
-    const invoiceId =
-        useQuery<{ invoice_id: string | null }>(BOOKING_INVOICE_SQL, [bookingId]).data.at(0)
-            ?.invoice_id ?? null;
+    const billing = useQuery<{ invoice_id: string | null; covered: number }>(BOOKING_INVOICE_SQL, [
+        bookingId,
+    ]).data.at(0);
+    const invoiceId = billing?.invoice_id ?? null;
     const { busy, error, run } = useAsyncAction();
     // the new draft opens over the visit once it reaches this device, and stays busy until then
     const invoicing = useArrival(`visit-invoice:${bookingId}`, invoiceId === null ? 0 : 1);
@@ -2965,7 +2968,8 @@ export function useBookingAddons(
         totalCents: addons.reduce((sum, a) => sum + a.quantity * a.unit_amount_cents, 0),
         invoiceId,
         canEdit: open && (admin || viewer?.staffId === event.staffId),
-        canInvoice: open && admin,
+        // a package or membership settled the service, so only add-ons are left to bill
+        canInvoice: open && admin && (billing?.covered !== 1 || addons.length > 0),
         choices: offered
             .filter((x) => {
                 const only = idList(x.addon_for);
@@ -3010,7 +3014,7 @@ export function useBookingAddons(
                     expectArrival(`visit-invoice:${bookingId}`, (current) => current > 0);
                     openRecord("invoice", invoice.id);
                 },
-                { errorMessage: s.invoiceVisitError },
+                { errorMessage: (e) => failureMessage(e, s.invoiceVisitError) },
             );
         },
         openInvoice: () => {

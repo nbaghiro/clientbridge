@@ -53,6 +53,7 @@ import { TEXTS_STOPPED_SQL } from "./broadcasts";
 import type { IconName } from "../icons";
 import { type ItemRow, ITEMS_SQL, sellableItems, stockState } from "./catalog";
 import { type Checkout, NEW_CARD, useCheckout } from "./checkout";
+import { parseTags } from "./clients";
 import { giftCardAppliedSql, orderStatusSql } from "./ledger";
 import { canManagePayments, type SavedCardRow, savedCardLabel } from "./payments";
 import { discountReason, saleNumber } from "./printing";
@@ -1733,7 +1734,15 @@ SELECT b.id AS booking_id, b.client_id, c.name AS client_name, b.staff_id, ${sta
           AND (pi.covers_item_id IS NULL OR pi.covers_item_id = s.item_id)
           AND (p.subject_id IS NULL OR p.subject_id = b.subject_id)
           AND (p.expires_at IS NULL OR ${utcSql("p.expires_at")} > datetime('now'))
-        ORDER BY p.subject_id IS NULL, p.created_at LIMIT 1) AS cover_package_id
+        ORDER BY p.subject_id IS NULL, p.created_at LIMIT 1) AS cover_package_id,
+       (SELECT json_group_array(name) FROM (
+          SELECT DISTINCT sj.name FROM packages p JOIN items pi ON pi.id = p.item_id
+          JOIN subjects sj ON sj.id = p.subject_id
+          WHERE p.client_id = b.client_id AND p.status = 'active' AND b.status = 'confirmed'
+            AND (pi.covers_item_id IS NULL OR pi.covers_item_id = s.item_id)
+            AND p.subject_id IS NOT b.subject_id
+            AND (p.expires_at IS NULL OR ${utcSql("p.expires_at")} > datetime('now'))
+          ORDER BY sj.name)) AS other_subject_names
 FROM bookings b JOIN slots s ON s.id = b.slot_id
 LEFT JOIN clients c ON c.id = b.client_id LEFT JOIN items i ON i.id = s.item_id
 LEFT JOIN staff st ON st.id = b.staff_id
@@ -1768,6 +1777,7 @@ interface QueueRow {
     subscription_id: string | null;
     cover_package_id: string | null;
     cover_subscription_id: string | null;
+    other_subject_names: string | null;
 }
 
 /** What can settle a started visit instead of a sale: a package session or an included visit. */
@@ -1799,6 +1809,8 @@ export interface CheckoutVisit {
     state: VisitState;
     depositCents: number;
     cover: VisitCover | null;
+    // why the desk offers no cover: a paid deposit comes first, or the package is another subject's
+    coverNote: string | null;
     line: SaleLine;
 }
 
@@ -1816,6 +1828,10 @@ function checkoutVisit(row: QueueRow, now: Date): CheckoutVisit {
                   ? "inProgress"
                   : "upcoming";
     const price = row.price_cents ?? row.item_price_cents ?? 0;
+    const offered = visitCover(row);
+    const held = row.deposit_status === "collected" ? offered : null;
+    const cover = held === null ? offered : null;
+    const others = parseTags(row.other_subject_names);
     return {
         bookingId: row.booking_id,
         clientId: row.client_id,
@@ -1832,7 +1848,13 @@ function checkoutVisit(row: QueueRow, now: Date): CheckoutVisit {
         end,
         state,
         depositCents: row.deposit_status === "collected" ? (row.deposit_amount_cents ?? 0) : 0,
-        cover: visitCover(row),
+        cover,
+        coverNote:
+            held !== null
+                ? d.coverAfterDeposit(held.via)
+                : cover === null && others.length > 0
+                  ? d.packageForOther(formatList(others), others.length)
+                  : null,
         line: {
             key: nextKey(),
             itemId: row.item_id,
@@ -1901,32 +1923,87 @@ export function useLinkedVisit(
     }, [visit, addVisit]);
 }
 
+export interface CoverOutcome {
+    bookingId: string;
+    tone: "success" | "danger";
+    message: string;
+}
+
 interface VisitCovering {
     busy: string | null;
-    error: string | null;
+    outcomeFor: (bookingId: string) => CoverOutcome | null;
+    // a started visit with a cover, until this desk has covered it
+    canCover: (visit: CheckoutVisit) => boolean;
+    // another visit's cover is in flight, so this one waits
+    blocked: (bookingId: string) => boolean;
+    // a visit just covered keeps its place, so its outcome shows where the desk pressed
+    listed: (visits: CheckoutVisit[]) => CheckoutVisit[];
     cover: (visit: CheckoutVisit, onDone: () => void) => void;
 }
 
 /** Settles a started visit with the client's package or membership instead of ringing it up. */
 export function useVisitCover(api: ApiLike): VisitCovering {
-    const [busy, setBusy] = useState<string | null>(null);
+    const [target, setTarget] = useState<{ bookingId: string; was: VisitState } | null>(null);
+    const [covered, setCovered] = useState<string | null>(null);
     const attempt = useRef<Attempt | null>(null);
     const action = useAsyncAction();
+    const message = action.busy ? null : (action.error ?? covered);
+    const outcome: CoverOutcome | null =
+        target === null || message === null
+            ? null
+            : {
+                  bookingId: target.bookingId,
+                  tone: action.error === null ? "success" : "danger",
+                  message,
+              };
     return {
-        busy: action.busy ? busy : null,
-        error: action.error,
+        busy: action.busy ? (target?.bookingId ?? null) : null,
+        outcomeFor: (bookingId) => (outcome?.bookingId === bookingId ? outcome : null),
+        canCover: (visit) =>
+            visit.cover !== null &&
+            (visit.state === "ready" || visit.state === "inProgress") &&
+            !(outcome?.bookingId === visit.bookingId && outcome.tone === "success"),
+        blocked: (bookingId) => action.busy && target?.bookingId !== bookingId,
+        listed: (visits) => {
+            const waiting = visits.filter((v) => v.state !== "paid");
+            const settled = visits.find(
+                (v) => v.state === "paid" && v.bookingId === outcome?.bookingId,
+            );
+            if (settled === undefined || target === null) return waiting;
+            const rank = QUEUE_RANK[target.was];
+            const at = waiting.findIndex(
+                (v) =>
+                    QUEUE_RANK[v.state] > rank ||
+                    (QUEUE_RANK[v.state] === rank && v.start > settled.start),
+            );
+            return at < 0
+                ? [...waiting, settled]
+                : [...waiting.slice(0, at), settled, ...waiting.slice(at)];
+        },
         cover: (visit, onDone) => {
             const by = visit.cover;
-            if (by === null) return;
-            setBusy(visit.bookingId);
-            const path = by.via === "package" ? "packages" : "subscriptions";
+            if (by === null || action.busy) return;
+            setTarget({ bookingId: visit.bookingId, was: visit.state });
+            setCovered(null);
+            const key = attemptKey(attempt, [visit.bookingId, by.via, by.id]);
             action.run(
-                () =>
-                    api.post(
-                        `/v1/${path}/${by.id}/cover`,
+                async () => {
+                    if (by.via === "membership") {
+                        await api.post(
+                            `/v1/subscriptions/${by.id}/cover`,
+                            { booking_id: visit.bookingId },
+                            { idempotencyKey: key },
+                        );
+                        setCovered(d.coveredMembership);
+                        return;
+                    }
+                    const left = await api.post<{ sessions_total: number; sessions_used: number }>(
+                        `/v1/packages/${by.id}/cover`,
                         { booking_id: visit.bookingId },
-                        { idempotencyKey: attemptKey(attempt, visit.bookingId) },
-                    ),
+                        { idempotencyKey: key },
+                    );
+                    setCovered(d.coveredPackage(left.sessions_total - left.sessions_used));
+                },
                 {
                     onSuccess: onDone,
                     errorMessage: (e) => failureMessage(e, d.coverError),

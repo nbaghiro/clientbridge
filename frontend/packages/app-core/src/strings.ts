@@ -117,6 +117,17 @@ interface Strings {
         readonly invoiceHasPayments: string;
         readonly businessUnavailable: string;
         readonly packageOtherSubject: string;
+        readonly packageOtherService: string;
+        readonly packageOtherClient: string;
+        readonly packageExpired: string;
+        readonly packageUsedUp: string;
+        readonly packageInactive: string;
+        readonly packageItemSold: string;
+        readonly visitSettled: string;
+        readonly coverBeforeStart: string;
+        readonly visitCovered: string;
+        readonly visitAlreadyCovered: string;
+        readonly visitDepositPaid: string;
         readonly serviceNotOffered: string;
         readonly visitNoRoom: string;
         readonly crewBusy: string;
@@ -139,6 +150,8 @@ interface Strings {
         readonly programDays: string;
         readonly scheduleConflict: string;
         readonly schedulePast: string;
+        readonly classSize: string;
+        readonly programSize: string;
         readonly classSchedule: string;
         readonly enrolmentPaid: string;
         readonly paymentDisputed: string;
@@ -609,6 +622,10 @@ interface Strings {
             readonly memberDiscount: string;
             readonly useMembership: string;
             readonly coverError: string;
+            readonly packageForOther: (subjects: string, count: number) => string;
+            readonly coverAfterDeposit: (cover: string) => string;
+            readonly coveredPackage: (left: number) => string;
+            readonly coveredMembership: string;
             readonly giftCardPaid: string;
             readonly giftCardReturned: string;
             readonly giftCardBeforeTip: string;
@@ -1503,6 +1520,7 @@ interface Strings {
         readonly programHint: string;
         readonly noPrograms: string;
         readonly pickInstructor: string;
+        readonly chooseInstructor: string;
         readonly instructor: string;
         readonly firstDay: string;
         readonly time: string;
@@ -3097,6 +3115,8 @@ interface Strings {
         readonly programDays: string;
         readonly programDaysHint: string;
         readonly programDaysInvalid: string;
+        readonly capacityRequired: string;
+        readonly programCapacity: string;
         readonly onlineBookable: string;
         readonly onlineBookableHint: string;
         readonly offeredBy: string;
@@ -3277,6 +3297,7 @@ interface Strings {
         readonly nameRequired: string;
         readonly priceInvalid: string;
         readonly durationRequired: string;
+        readonly bufferInvalid: string;
         readonly depositRequired: string;
         readonly depositPercentMax: string;
         readonly sessionsRequired: string;

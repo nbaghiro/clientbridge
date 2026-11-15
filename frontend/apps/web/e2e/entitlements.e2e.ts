@@ -275,6 +275,7 @@ test("ENT-E2E-02 cash package confirmation cancellation preserves sessions and f
             },
         );
         expect(rejected.status(), await rejected.text()).toBe(409);
+        expect(((await rejected.json()) as { error: string }).error).toBe("package_used_up");
         expect(await entitlementEvidence(fixture.client.id)).toEqual(exhausted);
         await other.reload();
         await openEntitlement(other, fixture.client.name, pack.id);
@@ -395,6 +396,13 @@ test("ENT-E2E-03 a package for one pet covers that pet's visit at the desk and i
         await expect(
             row(sibling).getByRole("button", { name: strings.pos.desk.usePackage, exact: true }),
         ).toHaveCount(0);
+        // the desk says why the client's package leaves the sibling's visit to be rung up
+        await expect(
+            row(sibling).getByText(strings.pos.desk.packageForOther("Biscuit", 1), { exact: true }),
+        ).toBeVisible();
+        await expect(
+            row(mine).getByText(strings.pos.desk.packageForOther("Biscuit", 1)),
+        ).toHaveCount(0);
         const covering = page.waitForResponse(
             (response) =>
                 new URL(response.url()).pathname === `/v1/packages/${pack.id}/cover` &&
@@ -406,8 +414,13 @@ test("ENT-E2E-03 a package for one pet covers that pet's visit at the desk and i
         const covered = await covering;
         expect(covered.status(), await covered.text()).toBe(200);
         expect(covered.request().postDataJSON()).toEqual({ booking_id: mine.id });
-        // a covered visit leaves the queue; its sibling still waits to be rung up
-        await expect(row(mine)).toHaveCount(0, { timeout: 60_000 });
+        // the covered visit stays on its row to say what is left; its sibling still waits
+        await expect(
+            row(mine).getByText(strings.pos.desk.coveredPackage(2), { exact: true }),
+        ).toBeVisible({ timeout: 60_000 });
+        await expect(
+            row(mine).getByText(strings.pos.desk.visitPaid, { exact: true }),
+        ).toBeVisible();
         await expect(row(sibling)).toBeVisible();
         await expect(
             page.getByRole("button", { name: strings.pos.desk.usePackage, exact: true }),
@@ -727,6 +740,34 @@ test("ENT-E2E-07 a gift card and a package stay usable until they expire, and th
         timeout: 60_000,
     });
     await expect(page.getByRole("button", { name: w.action.use, exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toBeHidden();
+
+    // past its date but before the nightly sweep, the package already reads and acts expired
+    const lapsing = await expirySweep(-60, ids, 0);
+    expect(lapsing).toMatchObject({
+        swept: [],
+        rows: [
+            { id: gift.id, status: "active" },
+            { id: pack.id, status: "active" },
+        ],
+    });
+    await openEntitlement(page, packSale.client.name, pack.id);
+    await expect(page.getByRole("dialog")).toContainText(w.statusLabel.expired, {
+        timeout: 60_000,
+    });
+    await expect(page.getByRole("button", { name: w.action.use, exact: true })).toHaveCount(0);
+    const lapsed = await page.request.post(
+        `${runUrl("VITE_API_URL")}/v1/packages/${pack.id}/consume`,
+        { headers: { Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() } },
+    );
+    expect(lapsed.status(), await lapsed.text()).toBe(409);
+    expect(((await lapsed.json()) as { error: string }).error).toBe("package_expired");
+    expect((await entitlementEvidence(packSale.client.id)).packages[0]?.status).toBe("active");
+    await openEntitlement(page, giftSale.client.name, gift.id);
+    await expect(page.getByRole("dialog")).toContainText(w.statusLabel.expired, {
+        timeout: 60_000,
+    });
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog")).toBeHidden();
 

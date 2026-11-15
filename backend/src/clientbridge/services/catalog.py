@@ -1,14 +1,15 @@
-from sqlalchemy import distinct, func
+from sqlalchemy import distinct, func, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.models.business import Staff
-from clientbridge.models.catalog import BOOKABLE_KINDS, Item
+from clientbridge.models.catalog import BOOKABLE_KINDS, Item, Package
 from clientbridge.models.scheduling import Addon, Booking, Resource
 from clientbridge.schemas.catalog import (
     ItemCreate,
@@ -152,6 +153,11 @@ class CatalogService:
             item.duration_min
         ):
             await self._assert_length_unused(item)
+        if item.kind == "package" and (
+            changes.get("kind", item.kind) != item.kind
+            or changes.get("covers_item_id", item.covers_item_id) != item.covers_item_id
+        ):
+            await self._assert_package_unsold(item)
         offered_before = set(item.staff_ids)
         pool_before = set(item.resource_ids)
         for listed in ("staff_ids", "resource_ids"):
@@ -193,6 +199,30 @@ class CatalogService:
                 f"this add-on is on {visits} upcoming visits; its length can't change until then",
                 code="addon_length_in_use",
                 detail={"count": visits},
+            )
+
+    async def _assert_package_unsold(self, item: Item) -> None:
+        """A live sold package reads its kind and covered service from the item, so they hold."""
+        # a sale holds the item while it commits, so one sold meanwhile is counted below
+        await self.db.execute(
+            scoped(Item, self.principal.business_id)
+            .with_only_columns(Item.id)
+            .where(Item.id == item.id)
+            .with_for_update(key_share=True)
+        )
+        sold = await self.db.scalar(
+            scoped(Package, self.principal.business_id)
+            .with_only_columns(func.count())
+            .where(
+                Package.item_id == item.id,
+                Package.status.in_(("pending", "active")),
+                or_(Package.expires_at.is_(None), Package.expires_at > clock.now()),
+            )
+        )
+        if sold:
+            raise Conflict(
+                "clients hold this package, so its kind and covered service can't change",
+                code="package_item_sold",
             )
 
     async def _assert_staff(self, staff_ids: list[str]) -> None:
@@ -295,6 +325,14 @@ async def load_item(
     return row
 
 
+def assert_class_size(item: Item) -> None:
+    """A class seats at least one client, and a program more than one."""
+    if item.capacity is None or item.capacity < 1:
+        raise Unprocessable("a class needs a size", code="class_size")
+    if item.session_count is not None and item.capacity < 2:
+        raise Unprocessable("a program seats more than one client", code="program_size")
+
+
 def _assert_shape(item: Item) -> None:
     item.currency = ledger.supported(item.currency)
     if item.online_bookable and item.kind not in BOOKABLE_KINDS:
@@ -313,6 +351,8 @@ def _assert_shape(item: Item) -> None:
         raise Unprocessable("a percentage deposit can't be over 100")
     if item.session_count is not None and item.kind not in ("package", "class"):
         raise Unprocessable("only packages and classes have a session count")
+    if item.kind == "class":
+        assert_class_size(item)
     if (item.interval is not None or item.frequency is not None) and item.kind != "subscription":
         raise Unprocessable("only subscriptions repeat")
     if item.covers_item_id is not None and item.kind not in ("package", "subscription"):

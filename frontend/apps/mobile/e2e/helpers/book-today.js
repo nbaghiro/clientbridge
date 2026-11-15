@@ -70,11 +70,23 @@ var opened = http.post(weekPath, {
 });
 if (opened.status !== 200) throw new Error("opening today's hours failed: " + opened.body);
 output.booking = null;
-var last = today + (23 * 60 + 49) * MINUTE;
+// STARTED books one that began earlier today, a minute at a time back from a minute ago
+var started = typeof STARTED !== "undefined";
+if (started && nowWall < today + 2 * MINUTE) {
+    // Maestro's scripts can't sleep, so just after midnight this spins until two minutes have begun
+    var ready = Date.now() + today + 2 * MINUTE - nowWall;
+    while (Date.now() < ready) continue;
+    nowWall = Date.now() + offsetAt(Date.now());
+}
+var step = started ? -MINUTE : 5 * MINUTE;
+var first = started
+    ? Math.floor(nowWall / MINUTE) * MINUTE - MINUTE
+    : Math.floor(nowWall / (5 * MINUTE)) * 5 * MINUTE;
+var last = started ? today : today + (23 * 60 + 49) * MINUTE;
 for (
-    var wall = Math.floor(nowWall / (5 * MINUTE)) * 5 * MINUTE;
-    wall <= last && output.booking === null;
-    wall += 5 * MINUTE
+    var wall = first;
+    (started ? wall >= last : wall <= last) && output.booking === null;
+    wall += step
 ) {
     var sent = http.request(API_URL + "/v1/bookings", {
         method: "POST",
@@ -91,7 +103,12 @@ for (
         throw new Error("POST /v1/bookings failed: " + sent.status + " " + sent.body);
 }
 if (output.booking === null)
-    throw new Error(visit.staff_id + " has no free ten minutes left today; run after midnight");
+    throw new Error(
+        visit.staff_id +
+            (started
+                ? " has no free time earlier today; run later in the day"
+                : " has no free ten minutes left today; run after midnight"),
+    );
 output.dayLabel =
     ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][new Date(today).getUTCDay()] +
     " " +

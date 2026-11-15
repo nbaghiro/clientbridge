@@ -6,7 +6,14 @@ import { useMemo, useRef, useState } from "react";
 
 import { type Load, useAsyncAction } from "../hooks";
 import { type ApiLike, type Attempt, attemptKey, failureMessage, newIdempotencyKey } from "../api";
-import { formatDate, formatMonthDay, parseTimestamp, readDate, useBusinessZone } from "../datetime";
+import {
+    formatDate,
+    formatMonthDay,
+    parseTimestamp,
+    readDate,
+    useBusinessZone,
+    utcSql,
+} from "../datetime";
 import {
     formatMoney,
     formatMoneyShort,
@@ -49,9 +56,14 @@ export interface PackageRow {
     status: string;
 }
 
+// the nightly sweep expires what lapsed, so until then a lapsed row reads as expired here
+const lapsedSql = (alias: string): string =>
+    `(${alias}.expires_at IS NOT NULL AND ${utcSql(`${alias}.expires_at`)} <= datetime('now'))`;
+
 export const CLIENT_PACKAGES_SQL = `
 SELECT p.id, p.client_id, p.item_id, i.name AS item_name, sj.name AS subject_name,
-       p.sessions_total, ${sessionsUsedSql("p.id")} AS sessions_used, p.status
+       p.sessions_total, ${sessionsUsedSql("p.id")} AS sessions_used,
+       CASE WHEN p.status = 'active' AND ${lapsedSql("p")} THEN 'expired' ELSE p.status END AS status
 FROM packages p LEFT JOIN items i ON i.id = p.item_id
 LEFT JOIN subjects sj ON sj.id = p.subject_id
 WHERE p.client_id = ? ORDER BY p.created_at DESC`;
@@ -103,7 +115,7 @@ export function usePackageConsumption(api: ApiLike, packageId: string) {
                     await consumeSession(api, packageId, key);
                     attempt.current = null;
                 },
-                { errorMessage: strings.clients.consumeSessionError },
+                { errorMessage: (e) => failureMessage(e, strings.clients.consumeSessionError) },
             );
         },
     };
@@ -308,7 +320,8 @@ SELECT 'package' AS kind, p.id, p.client_id, i.name AS item_name, p.status, p.se
        pay.amount_cents AS paid_cents, p.created_at AS created_at, sj.name AS subject_name,
        (SELECT -SUM(de.amount_cents) FROM entries de JOIN accounts da ON da.id = de.account_id
         WHERE da.category = 'deferred' AND de.event = 'payment'
-          AND de.subject_type = 'package' AND de.subject_id = p.id) AS deferred_paid_cents
+          AND de.subject_type = 'package' AND de.subject_id = p.id) AS deferred_paid_cents,
+       ${lapsedSql("p")} AS lapsed
 FROM packages p LEFT JOIN items i ON i.id = p.item_id
 LEFT JOIN payments pay ON pay.id = p.payment_id
 LEFT JOIN subjects sj ON sj.id = p.subject_id
@@ -316,7 +329,7 @@ WHERE ${pkg}
 UNION ALL
 SELECT 'membership', s.id, s.client_id, i.name, s.status, NULL, NULL, NULL, NULL, NULL,
        i.price_cents, NULL, s.current_period_end, pm.brand, pm.last4, NULL, NULL, s.created_at,
-       NULL, NULL
+       NULL, NULL, 0
 FROM subscriptions s LEFT JOIN items i ON i.id = s.item_id
 LEFT JOIN payment_methods pm ON pm.id = s.payment_method_id
 WHERE ${sub}
@@ -324,7 +337,7 @@ UNION ALL
 SELECT 'gift_card', g.id, g.purchaser_client_id, NULL, g.status, NULL, NULL, g.expires_at,
        g.code, g.recipient, g.initial_cents,
        ${ownedLiabilitySql("gift_card", "gift_card", "g.id")}, NULL, NULL, NULL,
-       g.payment_id, pay.amount_cents, g.created_at, NULL, NULL
+       g.payment_id, pay.amount_cents, g.created_at, NULL, NULL, ${lapsedSql("g")}
 FROM gift_cards g LEFT JOIN payments pay ON pay.id = g.payment_id
 WHERE ${gift}`;
 
@@ -361,6 +374,7 @@ interface WalletRow {
     created_at: string;
     subject_name: string | null;
     deferred_paid_cents: number | null;
+    lapsed: number;
 }
 
 export const ENTITLEMENT_ICON: Record<WalletKind, IconName> = {
@@ -372,7 +386,7 @@ export const ENTITLEMENT_ICON: Record<WalletKind, IconName> = {
 function walletStatus(r: WalletRow): string {
     if (r.kind === "gift_card" && r.status === "active" && (r.balance_cents ?? 0) <= 0)
         return "redeemed";
-    return r.status;
+    return r.status === "active" && r.lapsed === 1 ? "expired" : r.status;
 }
 
 function entitlementIntent(status: string): Intent {
@@ -694,7 +708,7 @@ export function useEntitlementDetail(
                         await call();
                         keyRef.current = null;
                     },
-                    { errorMessage: w.actionError },
+                    { errorMessage: (e) => failureMessage(e, w.actionError) },
                 );
             };
             if (action !== "use") {

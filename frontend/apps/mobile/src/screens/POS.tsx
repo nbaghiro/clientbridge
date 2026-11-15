@@ -1,5 +1,6 @@
 import {
     type CheckoutVisit,
+    type CoverOutcome,
     type OrderOut,
     type SaleTicket,
     type SalesView,
@@ -102,12 +103,16 @@ function VisitCard({
     onCheckOut,
     onCover,
     covering,
+    coverBlocked,
+    outcome,
 }: {
     v: CheckoutVisit;
     onTicket: boolean;
     onCheckOut: () => void;
     onCover: (() => void) | null;
     covering: boolean;
+    coverBlocked: boolean;
+    outcome: CoverOutcome | null;
 }) {
     const zone = useBusinessZone();
     const st = VISIT_STATE[v.state];
@@ -134,21 +139,27 @@ function VisitCard({
                             : null,
                     ])}
                 </Text>
+                {outcome !== null ? (
+                    <Notice tone={outcome.tone}>{outcome.message}</Notice>
+                ) : v.coverNote !== null ? (
+                    <Notice tone="info">{v.coverNote}</Notice>
+                ) : null}
+                {onCover === null ? null : (
+                    <Button
+                        style={styles.cover}
+                        size="sm"
+                        variant="outline"
+                        busy={covering}
+                        disabled={coverBlocked}
+                        onPress={onCover}
+                    >
+                        {v.cover?.label}
+                    </Button>
+                )}
             </View>
-            {onCover === null ? null : (
-                <Button
-                    style={{ alignSelf: "center" }}
-                    size="sm"
-                    variant="outline"
-                    busy={covering}
-                    onPress={onCover}
-                >
-                    {v.cover?.label}
-                </Button>
-            )}
             {onTicket ? (
                 <Text style={styles.accent}>{d.onTicket}</Text>
-            ) : v.state === "upcoming" ? (
+            ) : v.state === "upcoming" || v.state === "paid" ? (
                 <StatusPill style={{ alignSelf: "center" }} status={st.label} intent={st.intent} />
             ) : (
                 <Button style={{ alignSelf: "center" }} size="sm" onPress={onCheckOut}>
@@ -200,7 +211,7 @@ function Register({
     const [selling, setSelling] = useState<WalletKind | null>(null);
     const onTicket = (id: string): number =>
         sale.lines.filter((l) => l.itemId === id).reduce((n, l) => n + l.quantity, 0);
-    const waiting = queue.visits.filter((v) => v.state !== "paid");
+    const waiting = cover.listed(queue.visits);
     const noCatalog = catalog.load.state === "empty";
     return (
         <View style={styles.screen}>
@@ -226,7 +237,6 @@ function Register({
                 ) : waiting.length > 0 ? (
                     <>
                         <Text style={styles.heading}>{d.todaysVisits}</Text>
-                        {cover.error !== null ? <Notice tone="danger">{cover.error}</Notice> : null}
                         <Panel flush>
                             {waiting.map((v) => (
                                 <VisitCard
@@ -237,9 +247,10 @@ function Register({
                                         sale.addVisit(v);
                                     }}
                                     covering={cover.busy === v.bookingId}
+                                    coverBlocked={cover.blocked(v.bookingId)}
+                                    outcome={cover.outcomeFor(v.bookingId)}
                                     onCover={
-                                        v.cover !== null &&
-                                        (v.state === "ready" || v.state === "inProgress")
+                                        cover.canCover(v)
                                             ? () => {
                                                   cover.cover(v, () => {
                                                       const line = sale.lines.find(
@@ -381,6 +392,7 @@ const styles = StyleSheet.create({
     wrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     left: { flexDirection: "row" },
     grow: { flex: 1 },
+    cover: { alignSelf: "flex-start", marginTop: 6 },
     heading: {
         color: c.muted,
         fontFamily: theme.fonts.ui,
