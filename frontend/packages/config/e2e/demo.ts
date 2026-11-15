@@ -106,9 +106,7 @@ const LAST = [
 // Run identity belongs in fixture IDs and email aliases, not the demo's visible names.
 export function demoPerson(run: string): string {
     const digest = createHash("sha256").update(run).digest();
-    const pick = (names: readonly string[], byte: number) => digest.readUInt8(byte) % names.length;
-    const middle = pick(MIDDLE, 1);
-    // a run creates hundreds of people in one business, too many for 32,768 names to stay apart
-    const second = (middle + 1 + pick(MIDDLE.slice(1), 2)) % MIDDLE.length;
-    return [FIRST[pick(FIRST, 0)], MIDDLE[middle], MIDDLE[second], LAST[pick(LAST, 3)]].join(" ");
+    return [FIRST, MIDDLE, LAST]
+        .map((names, index) => names[digest.readUInt8(index) % names.length])
+        .join(" ");
 }
