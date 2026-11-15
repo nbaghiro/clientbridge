@@ -176,7 +176,7 @@ export async function requestWithDeposit(
     const b = strings.publicBooking;
     const slug = demoSlug("birchbark");
     const { visit } = setup;
-    const day = await raceTimePicker(page, { ...visit, url: connectUrl(slug) }, weeksAhead);
+    const day = await raceTimePicker(page, { ...visit, slug, url: connectUrl(slug) }, weeksAhead);
     await page
         .getByRole("radiogroup", { name: b.date, exact: true })
         .getByRole("radio")
