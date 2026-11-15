@@ -27,14 +27,15 @@ test("FIN-REPORT-01 recognized income and cash CSV reconcile after a real full r
     page,
     browser,
 }, info) => {
+    const span = periodDates("thisMonth");
     const f = await financeFixture(page, true);
     const initial = await financeEvidence(f.businessId);
     expectFinance(initial, f, false);
     await reports(page);
     await incomeUi(page, true, false);
     expectCsv(
-        await downloadReport(page, info, "income", "before"),
-        await downloadReport(page, info, "salesByItem", "before"),
+        await downloadReport(page, info, "income", "before", span),
+        await downloadReport(page, info, "salesByItem", "before", span),
         f,
         false,
     );
@@ -46,8 +47,8 @@ test("FIN-REPORT-01 recognized income and cash CSV reconcile after a real full r
     await reports(page);
     await incomeUi(page, true, true);
     expectCsv(
-        await downloadReport(page, info, "income", "after"),
-        await downloadReport(page, info, "salesByItem", "after"),
+        await downloadReport(page, info, "income", "after", span),
+        await downloadReport(page, info, "salesByItem", "after", span),
         f,
         true,
     );
@@ -61,8 +62,8 @@ test("FIN-REPORT-01 recognized income and cash CSV reconcile after a real full r
         await reports(other);
         await incomeUi(other, true, true);
         expectCsv(
-            await downloadReport(other, info, "income", "second-owner-session"),
-            await downloadReport(other, info, "salesByItem", "second-owner-session"),
+            await downloadReport(other, info, "income", "second-owner-session", span),
+            await downloadReport(other, info, "salesByItem", "second-owner-session", span),
             f,
             true,
         );
@@ -83,16 +84,16 @@ test("FIN-EXPORT-02 selected bookkeeper ZIP matches exact CSV cents and empty pe
     page,
     browser,
 }, info) => {
+    const span = periodDates("thisMonth");
     const f = await financeFixture(page, false);
     const initial = await financeEvidence(f.businessId);
     expectFinance(initial, f, false);
     await reports(page);
     await incomeUi(page, false, false);
-    const income = await downloadReport(page, info, "income", "individual");
-    const items = await downloadReport(page, info, "salesByItem", "individual");
+    const income = await downloadReport(page, info, "income", "individual", span);
+    const items = await downloadReport(page, info, "salesByItem", "individual", span);
     expectCsv(income, items, f, false);
-    const pack = await downloadPack(page, info, "selected-bookkeeper", true);
-    const span = periodDates("thisMonth");
+    const pack = await downloadPack(page, info, "selected-bookkeeper", span, { rejectEmpty: true });
     const incomeName = `income-${span.start}-to-${span.end}.csv`;
     const itemsName = `sales-by-item-${span.start}-to-${span.end}.csv`;
     expect(pack.members.sort()).toEqual([incomeName, itemsName].sort());
@@ -109,7 +110,7 @@ test("FIN-EXPORT-02 selected bookkeeper ZIP matches exact CSV cents and empty pe
         const other = await observer.newPage();
         await signIn(other, f.account);
         await reports(other);
-        const again = await downloadPack(other, info, "second-session-pack");
+        const again = await downloadPack(other, info, "second-session-pack", span);
         expect(again).toEqual(pack);
         await other.reload();
         await reports(other, "lastMonth");
@@ -136,15 +137,22 @@ test("FIN-REPORT-12 every report and its CSV match hand totals, in the business 
 }, info) => {
     test.slow();
     const origin = baseURL ?? "";
+    const span = periodDates("thisMonth");
+    const quiet = periodDates("lastMonth");
     const f = await bookkeeperFixture(page, browser, origin);
     try {
         const expected = bookkeeperCsvs(f);
-        const span = periodDates("thisMonth");
         await reports(page);
         await bookkeeperUi(page, f);
         for (const kind of ["income", "salesByItem", "gstHst", "pst", "t4a"] as const)
-            expect(await downloadReport(page, info, kind, "bookkeeper")).toEqual(expected[kind]);
-        const pack = await downloadPack(page, info, "bookkeeper-pack", false, PACK_KINDS);
+            expect(await downloadReport(page, info, kind, "bookkeeper", span)).toEqual(
+                expected[kind],
+            );
+        // staff pay shows on screen only as the pack's row count
+        const pack = await downloadPack(page, info, "bookkeeper-pack", span, {
+            kinds: PACK_KINDS,
+            rows: { staffPay: 1, t4a: 1, payouts: 0 },
+        });
         expect(pack.members).toEqual(PACK_KINDS.map((kind) => reportFile(kind, span)));
         for (const kind of PACK_KINDS)
             if (kind !== "staffPay")
@@ -169,7 +177,13 @@ test("FIN-REPORT-12 every report and its CSV match hand totals, in the business 
             await expect(page.getByRole("button", { name, exact: true })).toBeDisabled();
         await expect(page.getByText(s.noSales, { exact: true })).toBeVisible();
         await page.getByRole("tab", { name: s.library.t4a, exact: true }).click();
-        await expect(page.getByRole("row", { name: f.member.name })).toBeVisible();
+        const payee = page.getByRole("row", { name: f.member.name });
+        // the T4A follows the period's year, so in January last month's has no payee
+        if (quiet.end.slice(0, 4) === span.end.slice(0, 4)) await expect(payee).toBeVisible();
+        else {
+            await expect(page.getByText(s.noSales, { exact: true })).toBeVisible();
+            await expect(payee).toHaveCount(0);
+        }
         await expect(page.getByRole("button", { name: s.downloadCsv, exact: true })).toBeDisabled();
 
         // UTC+14 is a calendar day ahead of Vancouver for most of the day
@@ -188,7 +202,9 @@ test("FIN-REPORT-12 every report and its CSV match hand totals, in the business 
             await reports(laptop);
             expect(Object.fromEntries(reads.at(-1)?.searchParams ?? [])).toEqual(span);
             await bookkeeperUi(laptop, f);
-            expect(await downloadReport(laptop, info, "income", "away")).toEqual(expected.income);
+            expect(await downloadReport(laptop, info, "income", "away", span)).toEqual(
+                expected.income,
+            );
         } finally {
             await away.close();
         }

@@ -342,3 +342,152 @@ async def test_the_provincial_report_names_the_period_province_tax(
     await db.flush()
     body = (await as_owner.get("/v1/reports/summary?start=2025-01-01&end=2025-03-31")).json()
     assert (body["provincial"]["code"], body["provincial"]["rate_bps"]) == ("RST", 700)
+
+
+async def _paid_invoice(
+    db: AsyncSession, lines: list[tuple[str | None, int]], tax: dict[str, int]
+) -> Payment:
+    payer = await client_id(db)
+    subtotal, tax_total = sum(cents for _, cents in lines), sum(tax.values())
+    invoice = Invoice(
+        id=new_id("invoice"),
+        business_id=BIZ,
+        client_id=payer,
+        number=99002,
+        status="sent",
+        currency="CAD",
+        subtotal_cents=subtotal,
+        tax_total_cents=tax_total,
+        total_cents=subtotal + tax_total,
+        issued_at=MARCH,
+    )
+    db.add(invoice)
+    await db.flush()
+    for position, (item_id, cents) in enumerate(lines):
+        db.add(
+            Line(
+                id=new_id("line"),
+                business_id=BIZ,
+                invoice_id=invoice.id,
+                item_id=item_id,
+                description="Line",
+                position=position,
+                unit_amount_cents=cents,
+                amount_cents=cents,
+                tax_amount_cents=1,
+            )
+        )
+    await ledger.post_invoice(
+        db, invoice, TaxResult(subtotal, tax_total, subtotal + tax_total, tax, [])
+    )
+    payment = Payment(
+        id=new_id("payment"),
+        business_id=BIZ,
+        client_id=payer,
+        invoice_id=invoice.id,
+        amount_cents=subtotal + tax_total,
+        method="card",
+        provider="stripe",
+        provider_ref=f"pi_{new_id('payment')}",
+        status="succeeded",
+        paid_at=MARCH,
+    )
+    db.add(payment)
+    await db.flush()
+    await ledger.post_payment(db, payment)
+    return payment
+
+
+async def _refund(db: AsyncSession, paid: Payment, amount: int, at: datetime) -> None:
+    refund = Payment(
+        id=new_id("payment"),
+        business_id=BIZ,
+        client_id=paid.client_id,
+        kind="refund",
+        parent_payment_id=paid.id,
+        invoice_id=paid.invoice_id,
+        amount_cents=amount,
+        method="card",
+        provider="stripe",
+        provider_ref=f"re_{new_id('payment')}",
+        status="succeeded",
+        paid_at=at,
+    )
+    db.add(refund)
+    await db.flush()
+    await ledger.post_refund(db, refund, paid)
+
+
+async def test_part_refunds_in_two_months_give_back_the_provincial_base_once(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    paid = await _paid_invoice(db, [(None, 4001)], {"GST": 201, "PST": 280})
+    await _refund(db, paid, 2241, datetime(2015, 4, 2, 18, tzinfo=UTC))
+    await _refund(db, paid, 2241, datetime(2015, 5, 2, 18, tzinfo=UTC))
+    await db.commit()
+
+    async def base(start: str, end: str) -> int:
+        body = (await as_owner.get(f"/v1/reports/summary?start={start}&end={end}")).json()
+        return body["provincial"]["taxable_cents"]
+
+    april, may = await base("2015-04-01", "2015-04-30"), await base("2015-05-01", "2015-05-31")
+    assert april + may == await base("2015-04-01", "2015-05-31") == -4001
+    assert await base("2015-03-01", "2015-03-31") == 4001
+    assert await base("2015-01-01", "2015-12-31") == 0
+
+
+async def test_sales_by_item_books_a_part_refund_in_its_own_month(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    paid = await _paid_invoice(
+        db, [("it_groom_sm", 6000), ("it_bath", 4000), (None, 0)], {"GST": 500}
+    )
+    await _refund(db, paid, 2100, datetime(2015, 4, 2, 18, tzinfo=UTC))
+    await db.commit()
+
+    async def items(start: str, end: str) -> tuple[dict[str, tuple[int, int]], int]:
+        body = (await as_owner.get(f"/v1/reports/summary?start={start}&end={end}")).json()
+        rows = {
+            r["item_id"]: (r["sales_cents"], r["refunded_cents"]) for r in body["sales_by_item"]
+        }
+        csv_rows = list(
+            csv.DictReader(
+                io.StringIO(
+                    (
+                        await as_owner.get(f"/v1/reports/sales-by-item.csv?start={start}&end={end}")
+                    ).text
+                )
+            )
+        )
+        assert [(r["sales_cents"], r["refunded_cents"]) for r in csv_rows] == [
+            (str(r["sales_cents"]), str(r["refunded_cents"])) for r in body["sales_by_item"]
+        ]
+        return rows, body["income"]["refunds_cents"]
+
+    assert await items("2015-03-01", "2015-03-31") == (
+        {"it_groom_sm": (6000, 0), "it_bath": (4000, 0)},
+        0,
+    )
+    assert await items("2015-04-01", "2015-04-30") == (
+        {"it_groom_sm": (0, 1200), "it_bath": (0, 800)},
+        2000,
+    )
+    assert await items("2015-01-01", "2015-12-31") == (
+        {"it_groom_sm": (6000, 1200), "it_bath": (4000, 800)},
+        2000,
+    )
+
+
+async def test_sales_by_item_and_income_agree_on_a_lost_dispute(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    paid = await _paid_invoice(db, [("it_groom_sm", 3333), ("it_bath", 6667)], {"GST": 500})
+    dispute = f"dp_{new_id('payment')}"
+    april = datetime(2015, 4, 2, 18, tzinfo=UTC)
+    await ledger.post_dispute(db, paid, dispute_id=dispute, amount=10500, fee=0, occurred_at=april)
+    await ledger.lose_dispute(db, paid, dispute_id=dispute, amount=10500, occurred_at=april)
+    await db.commit()
+    body = (await as_owner.get("/v1/reports/summary?start=2015-04-01&end=2015-04-30")).json()
+    refunded = {r["item_id"]: r["refunded_cents"] for r in body["sales_by_item"]}
+    assert refunded == {"it_groom_sm": 3333, "it_bath": 6667}
+    assert sum(refunded.values()) == body["income"]["refunds_cents"] == 10000

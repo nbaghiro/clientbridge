@@ -117,8 +117,6 @@ export function Reports() {
                         onRetry={r.load.retry}
                         retrying={r.load.retrying}
                     />
-                ) : v === null ? (
-                    <Empty variant="card" icon="dollar" message={s.noSales} body={s.noSalesBody} />
                 ) : (
                     <>
                         {r.load.ready ? (
@@ -131,7 +129,7 @@ export function Reports() {
                                 body={s.noSalesBody}
                             />
                         )}
-                        {REPORTS.some(r.shows) ? (
+                        {v !== null && REPORTS.some(r.shows) ? (
                             <Panel flush>
                                 {REPORTS.filter(r.shows).map((key) => (
                                     <ListRow

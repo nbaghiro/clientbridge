@@ -1,12 +1,12 @@
-import csv
 import io
 import zipfile
 from calendar import monthrange
+from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import ColumnElement, Select, func
+from sqlalchemy import ColumnElement, Select, case, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
@@ -14,7 +14,7 @@ from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import NotFound
 from clientbridge.core.locale import locale_for, message
 from clientbridge.core.scoping import scoped
-from clientbridge.core.security import spreadsheet_cell
+from clientbridge.core.security import spreadsheet_csv
 from clientbridge.core.zones import zone
 from clientbridge.models.billing import Invoice, Line, Order
 from clientbridge.models.business import Business, Staff, User
@@ -25,7 +25,6 @@ from clientbridge.schemas.reports import (
     DashboardSummary,
     ExportKind,
     GstHstReport,
-    IncomeReport,
     IncomeSummary,
     MonthNet,
     PayoutRow,
@@ -39,10 +38,18 @@ from clientbridge.schemas.reports import (
 from clientbridge.services import ledger
 from clientbridge.services.business import staff_name
 from clientbridge.services.ledger import BUSINESS_CURRENCY
+from clientbridge.services.lines import allocate
 from clientbridge.services.tax import FAMILY_CODES, rates_on
 
 _CASH = ("stripe", "bank", "cash")
 _MONEY_BACK = ("payment", "refund", "dispute")
+
+
+@dataclass(frozen=True)
+class Received:
+    refunds_cents: int
+    net_cents: int
+    by_method: dict[str, int]
 
 
 def period_bounds(start: date, end: date, tz: ZoneInfo) -> tuple[datetime, datetime]:
@@ -51,6 +58,11 @@ def period_bounds(start: date, end: date, tz: ZoneInfo) -> tuple[datetime, datet
         datetime.combine(start, time.min, tzinfo=tz).astimezone(UTC),
         datetime.combine(end + timedelta(days=1), time.min, tzinfo=tz).astimezone(UTC),
     )
+
+
+def csv_name(kind: ExportKind, start: date, end: date) -> str:
+    """A report's file name, the same in a single download and in the ZIP."""
+    return f"t4a-{end.year}.csv" if kind == "t4a" else f"{kind}-{start}-to-{end}.csv"
 
 
 _PERIOD_MONTHS = {"monthly": 1, "quarterly": 3, "annual": 12}
@@ -97,7 +109,7 @@ class ReportService:
         user = await self.db.get(User, self.principal.user_id)
         return locale_for(business=await self._business(), user=user)
 
-    async def income_summary_between(self, lo: datetime, hi: datetime) -> IncomeReport:
+    async def income_summary_between(self, lo: datetime, hi: datetime) -> Received:
         rows = await self.db.execute(
             self._legs(Account.category.in_(_CASH), Entry.event.in_(_MONEY_BACK), lo, hi)
             .with_only_columns(Entry.event, Payment.method, func.sum(Entry.amount_cents))
@@ -106,11 +118,11 @@ class ReportService:
         )
         refunds = 0
         by_method: dict[str, int] = {}
-        for entry_type, method, cents in rows.tuples().all():
-            if entry_type != "payment":
+        for event, method, cents in rows.tuples().all():
+            if event != "payment":
                 refunds -= int(cents)
             by_method[method] = by_method.get(method, 0) + int(cents)
-        return IncomeReport(
+        return Received(
             refunds_cents=refunds, net_cents=sum(by_method.values()), by_method=by_method
         )
 
@@ -161,10 +173,9 @@ class ReportService:
         return stmt if entry is None else stmt.where(entry)
 
     async def sales_by_item(self, start: date, end: date) -> list[SalesByItemRow]:
-        """Catalog lines on paid sales and invoices in the period, with full refunds apart."""
+        """Catalog lines on sales paid in the period, and what refunds in the period gave back."""
         lo, hi = period_bounds(start, end, zone((await self._business()).timezone))
-        sold: dict[str, list[int]] = {}
-        quantities: dict[str, Decimal] = {}
+        sold: dict[str, tuple[Decimal, int, int]] = {}
         for fk, parent, status, at in (
             (Line.order_id, Order, ledger.order_status_expr(), ledger.order_paid_at_expr()),
             (Line.invoice_id, Invoice, ledger.invoice_status_expr(), Invoice.issued_at),
@@ -172,7 +183,10 @@ class ReportService:
             rows = await self.db.execute(
                 scoped(Line, self.biz)
                 .with_only_columns(
-                    Line.item_id, Line.quantity, Line.amount_cents, Line.tax_amount_cents, status
+                    Line.item_id,
+                    func.sum(Line.quantity),
+                    func.sum(Line.amount_cents),
+                    func.sum(Line.tax_amount_cents),
                 )
                 .join(parent, parent.id == fk)
                 .where(
@@ -181,38 +195,85 @@ class ReportService:
                     at >= lo,
                     at < hi,
                 )
+                .group_by(Line.item_id)
             )
-            for item_id, quantity, amount, tax, parent_status in rows.tuples().all():
+            for item_id, quantity, amount, tax in rows.tuples().all():
                 assert item_id is not None
-                # a quantity is stored from a float, so take its shortest form and add decimals
-                as_typed = Decimal(str(float(quantity)))
-                quantities[item_id] = quantities.get(item_id, Decimal(0)) + as_typed
-                totals = sold.setdefault(item_id, [0, 0, 0])
-                totals[0] += amount
-                totals[1] += tax
-                if parent_status == "refunded":
-                    totals[2] += amount
-        if not sold:
+                units, sales, taxed = sold.get(item_id, (Decimal(0), 0, 0))
+                sold[item_id] = (units + Decimal(str(quantity)), sales + amount, taxed + tax)
+        refunded = await self._refunded_by_item(lo, hi)
+        shown = sold.keys() | {item_id for item_id, cents in refunded.items() if cents}
+        if not shown:
             return []
-        items = await self.db.execute(scoped(Item, self.biz).where(Item.id.in_(sold)))
+        items = await self.db.execute(scoped(Item, self.biz).where(Item.id.in_(shown)))
         names = {item.id: (item.name, item.kind) for item in items.scalars().all()}
-        out = [
-            SalesByItemRow(
-                item_id=item_id,
-                name=names[item_id][0],
-                kind=names[item_id][1],
-                quantity=float(quantities[item_id]),
-                sales_cents=t[0],
-                tax_cents=t[1],
-                refunded_cents=t[2],
+        out: list[SalesByItemRow] = []
+        for item_id in shown:
+            units, sales, taxed = sold.get(item_id, (Decimal(0), 0, 0))
+            out.append(
+                SalesByItemRow(
+                    item_id=item_id,
+                    name=names[item_id][0],
+                    kind=names[item_id][1],
+                    quantity=float(units),
+                    sales_cents=sales,
+                    tax_cents=taxed,
+                    refunded_cents=refunded.get(item_id, 0),
+                )
             )
-            for item_id, t in sold.items()
-        ]
-        return sorted(out, key=lambda r: (-r.sales_cents, r.name))
+        return sorted(out, key=lambda r: (-r.sales_cents, r.name, r.item_id))
+
+    async def _refunded_by_item(self, lo: datetime, hi: datetime) -> dict[str, int]:
+        """Revenue that refunds and lost disputes in the window gave back, split over the lines."""
+        back = await self._given_back(Account.category == "revenue", lo, hi)
+        if not back:
+            return {}
+        lines: dict[str, list[tuple[str | None, int]]] = {}
+        for fk in (Line.order_id, Line.invoice_id):
+            rows = await self.db.execute(
+                scoped(Line, self.biz)
+                .with_only_columns(fk, Line.item_id, Line.amount_cents)
+                .where(fk.in_(back))
+                .order_by(Line.position, Line.id)
+            )
+            for parent, item_id, cents in rows.tuples().all():
+                lines.setdefault(str(parent), []).append((item_id, cents))
+        refunded: dict[str, int] = {}
+        for subject, (before, by_end) in back.items():
+            parts = lines.get(subject, [])
+            weights = [max(cents, 0) for _, cents in parts]
+            # each window takes the running split at its end less the one at its start
+            for (item_id, _), then, now in zip(
+                parts, _split(before, weights), _split(by_end, weights), strict=True
+            ):
+                if item_id is not None:
+                    refunded[item_id] = refunded.get(item_id, 0) + now - then
+        return refunded
+
+    async def _given_back(
+        self, account: ColumnElement[bool], lo: datetime, hi: datetime
+    ) -> dict[str, tuple[int, int]]:
+        """Per sale with money back in the window: what went back before it, and by its end."""
+        before = func.sum(case((Entry.occurred_at < lo, Entry.amount_cents), else_=0))
+        rows = await self.db.execute(
+            scoped(Entry, self.biz)
+            .join(Account, Account.id == Entry.account_id)
+            .with_only_columns(Entry.subject_id, before, func.sum(Entry.amount_cents))
+            .where(
+                account,
+                Entry.currency == BUSINESS_CURRENCY,
+                Entry.event.in_(("refund", "dispute")),
+                Entry.subject_type.in_(("invoice", "order")),
+                Entry.occurred_at < hi,
+            )
+            .group_by(Entry.subject_id)
+            .having(func.bool_or(Entry.occurred_at >= lo))
+        )
+        return {str(subject): (int(a), int(b)) for subject, a, b in rows.tuples().all()}
 
     async def sales_by_item_csv(self, start: date, end: date) -> str:
         locale = await self._locale()
-        return _csv(
+        return spreadsheet_csv(
             [
                 message(locale, "report_csv.item"),
                 message(locale, "report_csv.kind"),
@@ -239,14 +300,16 @@ class ReportService:
         lo, hi = period_bounds(start, end, zone((await self._business()).timezone))
         income = await self._income(lo, hi, await self._tax_by_code(lo, hi))
         locale = await self._locale()
-        taxes = sorted(income.tax_by_code.items(), key=lambda t: t[0] in FAMILY_CODES["provincial"])
-        return _csv(
+        return spreadsheet_csv(
             [message(locale, "report_csv.metric"), message(locale, "report_csv.amount_cents")],
             [
                 [message(locale, "report_csv.sales"), income.sales_cents],
                 [message(locale, "report_csv.refunds"), income.refunds_cents],
                 [message(locale, "report_csv.net_sales"), income.net_cents],
-                *([message(locale, "report_csv.tax", code=code), cents] for code, cents in taxes),
+                *(
+                    [message(locale, "report_csv.tax", code=code), cents]
+                    for code, cents in income.tax_by_code.items()
+                ),
                 [
                     message(locale, "report_csv.sales_with_tax"),
                     income.net_cents + sum(income.tax_by_code.values()),
@@ -263,7 +326,7 @@ class ReportService:
     async def gst_hst_csv(self, start: date, end: date) -> str:
         report = await self.gst_hst_return(start, end)
         locale = await self._locale()
-        return _csv(
+        return spreadsheet_csv(
             [
                 message(locale, "report_csv.tax_collected_cents"),
                 message(locale, "report_csv.pst_cents"),
@@ -284,7 +347,7 @@ class ReportService:
 
     async def t4a_csv(self, year: int) -> str:
         locale = await self._locale()
-        return _csv(
+        return spreadsheet_csv(
             [
                 message(locale, "report_csv.staff_id"),
                 message(locale, "report_csv.name"),
@@ -347,7 +410,9 @@ class ReportService:
             .with_only_columns(Account.code, func.sum(Entry.amount_cents))
             .group_by(Account.code)
         )
-        return {code: -int(cents) for code, cents in rows.tuples().all() if cents}
+        tax = {code: -int(cents) for code, cents in rows.tuples().all() if cents}
+        # federal codes first, then provincial, each by code
+        return dict(sorted(tax.items(), key=lambda t: (t[0] in FAMILY_CODES["provincial"], t[0])))
 
     async def _income(self, lo: datetime, hi: datetime, tax: dict[str, int]) -> IncomeSummary:
         is_refund = Entry.event.in_(("refund", "dispute"))
@@ -402,13 +467,7 @@ class ReportService:
     async def _provincial_refunded(self, lo: datetime, hi: datetime) -> int:
         """The provincial base that refunds and lost disputes in the window gave back."""
         provincial_tax = (Account.category == "tax") & Account.code.in_(FAMILY_CODES["provincial"])
-        refunded = await self.db.execute(
-            self._legs(provincial_tax, Entry.event.in_(("refund", "dispute")), lo, hi)
-            .with_only_columns(Entry.subject_id, func.sum(Entry.amount_cents))
-            .where(Entry.subject_type.in_(("invoice", "order")))
-            .group_by(Entry.subject_id)
-        )
-        back = {str(subject): int(cents) for subject, cents in refunded.tuples().all() if cents}
+        back = await self._given_back(provincial_tax, lo, hi)
         if not back:
             return 0
         charged = await self.db.execute(
@@ -437,13 +496,15 @@ class ReportService:
                 .group_by(fk)
             )
             base.update({str(parent): int(cents) for parent, cents in lines.tuples().all()})
+
+        def share(subject: str, cents: int) -> int:
+            exact = Decimal(base.get(subject, 0)) * cents / sold[subject]
+            return int(exact.quantize(Decimal(1), rounding=ROUND_HALF_UP))
+
+        # the running share at the window's end less the one at its start, so windows add up
         return sum(
-            int(
-                (Decimal(base.get(subject, 0)) * cents / sold[subject]).quantize(
-                    Decimal(1), rounding=ROUND_HALF_UP
-                )
-            )
-            for subject, cents in back.items()
+            share(subject, by_end) - share(subject, before)
+            for subject, (before, by_end) in back.items()
             if sold.get(subject)
         )
 
@@ -497,8 +558,7 @@ class ReportService:
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
             for kind in dict.fromkeys(kinds):
-                name = f"t4a-{end.year}" if kind == "t4a" else f"{kind}-{start}-to-{end}"
-                zf.writestr(f"{name}.csv", await self.csv(kind, start, end))
+                zf.writestr(csv_name(kind, start, end), await self.csv(kind, start, end))
         return buf.getvalue()
 
     async def csv(self, kind: ExportKind, start: date, end: date) -> str:
@@ -578,7 +638,7 @@ class ReportService:
 
     async def staff_pay_csv(self, start: date, end: date, run: str | None = None) -> str:
         locale = await self._locale()
-        return _csv(
+        return spreadsheet_csv(
             [
                 message(locale, "report_csv.paid_on"),
                 message(locale, "report_csv.staff_id"),
@@ -605,7 +665,7 @@ class ReportService:
     async def pst_csv(self, start: date, end: date) -> str:
         provincial = (await self.summary(start, end)).provincial
         locale = await self._locale()
-        return _csv(
+        return spreadsheet_csv(
             [
                 message(locale, "report_csv.code"),
                 message(locale, "report_csv.rate_bps"),
@@ -627,7 +687,7 @@ class ReportService:
     async def payouts_csv(self, start: date, end: date) -> str:
         lo, hi = period_bounds(start, end, zone((await self._business()).timezone))
         locale = await self._locale()
-        return _csv(
+        return spreadsheet_csv(
             [
                 message(locale, "report_csv.payout"),
                 message(locale, "report_csv.arrival"),
@@ -718,11 +778,6 @@ class DashboardService:
         )
 
 
-def _csv(header: list[str], rows: list[list[object]]) -> str:
-    buf = io.StringIO()
-    writer = csv.writer(buf)
-    writer.writerow(header)
-    writer.writerows(
-        [spreadsheet_cell(cell) if isinstance(cell, str) else cell for cell in row] for row in rows
-    )
-    return buf.getvalue()
+def _split(total: int, weights: list[int]) -> list[int]:
+    sign = -1 if total < 0 else 1
+    return [sign * part for part in allocate(abs(total), weights)]

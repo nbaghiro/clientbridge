@@ -555,7 +555,11 @@ export async function incomeUi(page: Page, unpaid: boolean, refunded: boolean): 
         page.getByText(s.received(formatMoney(refunded ? 0 : 11200, "CAD")), { exact: true }),
     ).toBeVisible();
 }
-export function periodDates(period: "thisMonth" | "lastMonth"): { start: string; end: string } {
+export interface Span {
+    start: string;
+    end: string;
+}
+export function periodDates(period: "thisMonth" | "lastMonth"): Span {
     const parts = new Intl.DateTimeFormat("en-CA", {
         timeZone: "America/Vancouver",
         year: "numeric",
@@ -597,7 +601,7 @@ const FILE: Record<PackKind, string> = {
     staffPay: "staff-pay",
 };
 
-export function reportFile(kind: PackKind, span: { start: string; end: string }): string {
+export function reportFile(kind: PackKind, span: Span): string {
     return kind === "t4a"
         ? `t4a-${span.end.slice(0, 4)}.csv`
         : `${FILE[kind]}-${span.start}-to-${span.end}.csv`;
@@ -608,13 +612,14 @@ export async function downloadReport(
     info: TestInfo,
     kind: ReportTab,
     tag: string,
+    span: Span,
 ): Promise<string[][]> {
     const tab = kind === "pst" ? taxName("PST") : s.library[kind];
     await page.getByRole("tab", { name: tab, exact: true }).click();
     const pending = page.waitForEvent("download");
     await page.getByRole("button", { name: s.downloadCsv, exact: true }).click();
     const download = await pending;
-    const name = reportFile(kind, periodDates("thisMonth"));
+    const name = reportFile(kind, span);
     expect(download.suggestedFilename()).toBe(name);
     const path = info.outputPath(`${tag}-${name}`);
     await download.saveAs(path);
@@ -681,11 +686,23 @@ export async function downloadPack(
     page: Page,
     info: TestInfo,
     tag: string,
-    rejectEmpty = false,
-    kinds: readonly PackKind[] = ["income", "salesByItem"],
+    span: Span,
+    {
+        rejectEmpty = false,
+        kinds = ["income", "salesByItem"],
+        rows = {},
+    }: {
+        rejectEmpty?: boolean;
+        kinds?: readonly PackKind[];
+        rows?: Partial<Record<PackKind, number>>;
+    } = {},
 ): Promise<Artifact> {
     await page.getByRole("button", { name: s.bookkeeperPack, exact: true }).click();
     const dialog = page.getByRole("dialog");
+    for (const [key, count] of Object.entries(rows) as [PackKind, number][])
+        await expect(
+            dialog.getByRole("listitem").filter({ hasText: s.libraryHint[key] }),
+        ).toContainText(s.packRows(count));
     for (const checkbox of await dialog.getByRole("checkbox").all()) await checkbox.uncheck();
     if (rejectEmpty) {
         let downloads = 0,
@@ -718,7 +735,6 @@ export async function downloadPack(
     const pending = page.waitForEvent("download");
     await dialog.getByRole("button", { name: s.packDownload, exact: true }).click();
     const download = await pending;
-    const span = periodDates("thisMonth");
     expect(download.suggestedFilename()).toBe(`bookkeeper-${span.start}-to-${span.end}.zip`);
     const path = info.outputPath(`${tag}.zip`);
     await download.saveAs(path);

@@ -9938,7 +9938,7 @@ export interface components {
             tax_cents: number;
             /**
              * Refunded Cents
-             * @description Sales in the period that were refunded in full
+             * @description Revenue that refunds and lost disputes in the period gave back
              */
             refunded_cents: number;
         };

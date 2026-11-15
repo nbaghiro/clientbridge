@@ -280,6 +280,7 @@ async def test_t4a_sums_earnings_paid_in_year(
     await _earn(db, staff_id=staff_id, amount=8888, at=IN_2024, stage="approved")
 
     res = await as_owner.get("/v1/reports/t4a.csv?year=2025")
+    assert res.headers["content-disposition"] == "attachment; filename=t4a-2025.csv"
     row = next(r for r in csv.reader(io.StringIO(res.text)) if r[0] == staff_id)
     assert row[4] == "6000"  # paid only; approved-unpaid, pending and prior-year excluded
     assert row[1] == "Wade Payee"
@@ -327,7 +328,10 @@ async def test_staff_pay_csv_lists_what_was_paid_in_the_period(
 
     res = await as_owner.get("/v1/reports/staff-pay.csv?start=2025-01-01&end=2025-12-31")
     assert res.status_code == 200, res.text
-    assert "attachment; filename=staff-pay.csv" in res.headers["content-disposition"]
+    assert (
+        res.headers["content-disposition"]
+        == "attachment; filename=staff-pay-2025-01-01-to-2025-12-31.csv"
+    )
     header, *rows = list(csv.reader(io.StringIO(res.text)))
     assert header == ["paid_on", "staff_id", "name", "earning_id", "basis", "run", "amount_cents"]
     mine = [r for r in rows if r[1] == staff_id]
@@ -370,7 +374,10 @@ async def test_income_csv_returns_text_csv(as_owner: httpx.AsyncClient) -> None:
     res = await as_owner.get(f"/v1/reports/income.csv?{WIDE}")
     assert res.status_code == 200
     assert res.headers["content-type"].startswith("text/csv")
-    assert "attachment; filename=income.csv" in res.headers["content-disposition"]
+    assert (
+        res.headers["content-disposition"]
+        == "attachment; filename=income-2000-01-01-to-2100-01-01.csv"
+    )
     reader = list(csv.reader(io.StringIO(res.text)))
     assert reader[0] == ["metric", "amount_cents"]
     assert {row[0] for row in reader[1:]} >= {
@@ -387,7 +394,10 @@ async def test_gst_hst_csv_returns_text_csv(as_owner: httpx.AsyncClient) -> None
     res = await as_owner.get(f"/v1/reports/gst-hst.csv?{WIDE}")
     assert res.status_code == 200
     assert res.headers["content-type"].startswith("text/csv")
-    assert "attachment; filename=gst-hst.csv" in res.headers["content-disposition"]
+    assert (
+        res.headers["content-disposition"]
+        == "attachment; filename=gst-hst-2000-01-01-to-2100-01-01.csv"
+    )
     reader = list(csv.reader(io.StringIO(res.text)))
     assert reader[0] == [
         "tax_collected_cents",
@@ -512,6 +522,8 @@ async def test_sales_by_item_adds_part_quantities_as_decimals(
     sale = (await as_owner.post("/v1/orders", json={"lines": lines})).json()
     pay = (await as_owner.post(f"/v1/orders/{sale['id']}/pay", json={})).json()
     await settle(as_owner, db, pay["payment_id"], "evt_rep_decimal")
+    stored = await db.scalars(select(Line.quantity).where(Line.order_id == sale["id"]))
+    assert sorted(str(q) for q in stored) == ["0.1", "0.2"]  # as typed, not a float's expansion
     order = await db.get(Order, sale["id"])
     assert order is not None
     _, paid_at = await ledger.order_state(db, order)

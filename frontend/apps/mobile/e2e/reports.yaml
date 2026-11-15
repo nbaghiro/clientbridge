@@ -120,6 +120,9 @@ onFlowComplete:
 - extendedWaitUntil:
       visible: "No sales in this period yet"
       timeout: 60000
+# scrolled to its end, the quiet month still has no pack button below the fold
+- scroll
+- assertVisible: "No sales in this period yet"
 - assertNotVisible: "Bookkeeper pack"
 - takeScreenshot: quiet-month
 # staff see Sales and My pay, and no Reports
@@ -155,5 +158,13 @@ onFlowComplete:
 - extendedWaitUntil:
       visible: "My pay"
       timeout: 30000
+- assertVisible: "Sales"
+# the tab row scrolled to its end still holds only Sales and My pay
+- swipe:
+      from:
+          text: "My pay"
+      direction: LEFT
+- assertVisible: "My pay"
+- assertNotVisible: "Refunds"
 - assertNotVisible: "Reports"
 - takeScreenshot: staff-payments

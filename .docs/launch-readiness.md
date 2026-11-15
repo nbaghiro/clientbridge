@@ -63,7 +63,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 7. Gift cards, packages and memberships | Memberships: renewals and failed payments                   | [CB-40](https://linear.app/clientbridgeca/issue/CB-40) | Partly automated |
 | 8. Refunds and the books                | Refunds and credit notes                                    | [CB-42](https://linear.app/clientbridgeca/issue/CB-42) | Automated        |
 | 8. Refunds and the books                | Disputes and chargebacks                                    | [CB-43](https://linear.app/clientbridgeca/issue/CB-43) | Partly automated |
-| 8. Refunds and the books                | Bookkeeper reports and exports                              | [CB-45](https://linear.app/clientbridgeca/issue/CB-45) | Automated        |
+| 8. Refunds and the books                | Bookkeeper reports and exports                              | [CB-45](https://linear.app/clientbridgeca/issue/CB-45) | Partly automated |
 | 8. Refunds and the books                | GST/HST returns                                             | [CB-46](https://linear.app/clientbridgeca/issue/CB-46) | Automated        |
 | 8. Refunds and the books                | Payouts and fee reconciliation                              | [CB-47](https://linear.app/clientbridgeca/issue/CB-47) | Partly automated |
 | 8. Refunds and the books                | Staff pay and T4A                                           | [CB-48](https://linear.app/clientbridgeca/issue/CB-48) | Partly automated |
@@ -1949,6 +1949,11 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 - `FIN-EXPORT-02 (web)`
 - `FIN-REPORT-12 (web)`
 - `NATIVE-REPORT-01 (native-ios, native-android)`
+
+**To automate**
+
+- `FIN-REPORT-13` in `apps/web/e2e/reports.e2e.ts`: A paid and a failed payout in the period show the same amounts and statuses in the payouts CSV and the bookkeeper ZIP. The cases above sell for cash, so their payouts CSV holds only its header.
+- `NATIVE-REPORT-01` in `apps/mobile/e2e/reports.yaml` on iOS in CI. Pull requests run it on Android; the iOS lane runs by hand from the `native-ios` workflow on a self-hosted Mac.
 
 **Depends on:** Nothing
 

@@ -4,6 +4,7 @@ import { createElement, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ApiLike } from "../api";
+import { strings } from "../strings";
 import { BusinessZoneContext, zonedDate } from "../datetime";
 import { periodSpan, spanLabel, useMoneyReports, useReportFile } from "./reports";
 
@@ -161,6 +162,35 @@ describe("useMoneyReports", () => {
         // sales, refunds, net, two taxes, sales with tax, tips, received and one method
         expect(view?.rows.income).toBe(9);
         expect(view?.salesWithTaxCents).toBe(9730);
+    });
+
+    it("lists federal taxes first, then provincial, each by code", async () => {
+        const income = {
+            sales_cents: 10000,
+            refunds_cents: 0,
+            net_cents: 10000,
+            tax_by_code: { PST: 700, HST: 300, GST: 200 },
+            tips_cents: 0,
+            received_cents: 0,
+            by_method: {},
+        };
+        const view = (await loaded(summary({ income }))).view;
+        expect(view?.taxLines.map((t) => t.code)).toEqual(["GST", "HST", "PST"]);
+    });
+
+    it("shows part quantities added up without float noise", async () => {
+        const row = { kind: "product", sales_cents: 240, tax_cents: 0, refunded_cents: 0 };
+        const view = (
+            await loaded(
+                summary({
+                    sales_by_item: [
+                        { ...row, item_id: "it_1", name: "Tea", quantity: 0.1 },
+                        { ...row, item_id: "it_2", name: "Coffee", quantity: 0.2 },
+                    ],
+                }),
+            )
+        ).view;
+        expect(strings.reports.sold(view?.unitsSold ?? 0)).toBe(strings.reports.sold(0.3));
     });
 });
 
