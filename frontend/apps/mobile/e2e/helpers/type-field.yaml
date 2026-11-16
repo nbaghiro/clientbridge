@@ -32,3 +32,6 @@ appId: ${APP_ID}
           platform: Android
       commands:
           - pressKey: Enter
+# the next field's search reads the layout, so it waits until the keyboard has finished closing
+- waitForAnimationToEnd:
+      timeout: 3000
