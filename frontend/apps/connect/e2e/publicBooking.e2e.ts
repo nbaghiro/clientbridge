@@ -224,11 +224,12 @@ test(
         expect(draft.name).toBe("Booking Draft");
         expect(draft.phone).toBe("+16045550225");
         expect(draft.returningToken).toBeUndefined();
+        // WebKit aborts a navigation that starts while routed API calls are still in flight
+        await page.waitForLoadState("networkidle");
         await page.reload();
         await expect(
             page.getByRole("heading", { name: strings.publicBooking.stepTime }),
         ).toBeVisible();
-        // WebKit aborts a navigation that starts while routed API calls are still in flight
         await page.waitForLoadState("networkidle");
         await page.goto(`/${otherSlug}`);
         await expect(page.getByRole("button", { name: /^Dog Walk, 30 minutes/ })).toBeVisible();
@@ -258,6 +259,7 @@ test(
         await page.getByRole("textbox", { name: b.name }).fill("Robin Typed");
         await page.getByRole("textbox", { name: b.subject("pet") }).fill("Biscuit");
         await page.getByRole("textbox", { name: b.phone }).fill("2505550188");
+        await page.waitForLoadState("networkidle");
         await page.reload();
         await expect(page.getByRole("heading", { name: b.stepDetails, level: 2 })).toBeVisible();
         await expect(page.getByRole("textbox", { name: b.name })).toHaveValue("Robin Typed");

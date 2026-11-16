@@ -149,7 +149,14 @@ test.describe(() => {
                 name: strings.plans.choose(strings.plans.team),
                 exact: true,
             });
-            await choose.click({ timeout: 60_000 });
+            await choose.waitFor({ timeout: 60_000 });
+            // Firefox has dropped this click with no request sent, so it repeats until the checkout goes out
+            await expect(async () => {
+                await Promise.all([
+                    page.waitForRequest("**/v1/plan/checkout", { timeout: 5_000 }),
+                    choose.click({ timeout: 5_000 }),
+                ]);
+            }).toPass({ timeout: 60_000 });
 
             const stuck = page.getByText(strings.sync.openStuckTitle, { exact: true });
             await expect(page).toHaveURL(/\/today$/);

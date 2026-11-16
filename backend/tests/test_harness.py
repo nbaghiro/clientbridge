@@ -859,7 +859,7 @@ def test_every_walkthrough_lands_in_exactly_one_native_shard() -> None:
     assert [shard["id"] for shard in shards] == ["1", "2", "3", "4", "5", "6", "7"]
     assert [shard["faked"] for shard in shards if shard["faked"]] == [["clients.wallet.yaml"]]
     # the workflow's matrix holds one Android job per shard the planner makes
-    workflow = (functional.ROOT / ".github" / "workflows" / "e2e-mobile.yml").read_text()
+    workflow = (functional.ROOT / ".github" / "workflows" / "ci.yml").read_text()
     assert "--count 7 " in workflow and "shard: [1, 2, 3, 4, 5, 6, 7]" in workflow
     assert native.native_flows([]) == [*(f"e2e/{flow}" for flow in present), "e2e/assets"]
     assert native.native_flows(["clients.yaml"]) == ["e2e/clients.yaml", "e2e/assets"]
@@ -2361,8 +2361,8 @@ def test_the_native_link_forwards_until_it_is_cut_and_again_once_restored() -> N
 
 
 def test_ci_builds_the_android_app_with_the_native_lanes_own_addresses() -> None:
-    workflow = (functional.ROOT / ".github" / "workflows" / "e2e-mobile.yml").read_text()
-    build = workflow[workflow.index("  build:") : workflow.index("  android:")]
+    workflow = (functional.ROOT / ".github" / "workflows" / "ci.yml").read_text()
+    build = workflow[workflow.index("  android-build:") : workflow.index("  android:")]
     assert 'native_urls("android").items()' in build and '>> "$GITHUB_ENV"' in build
     config = (native.MOBILE / "app.config.ts").read_text()
     for name, value in native.native_urls("android").items():

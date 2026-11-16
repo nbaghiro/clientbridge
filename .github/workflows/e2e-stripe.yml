@@ -103,7 +103,7 @@ jobs:
     continue-on-error: true
     permissions:
       contents: read
-      # to find this commit's ci run and fetch e2e / prepare's builds and seed from it
+      # to find this commit's ci run and fetch its prepare job's builds and seed
       actions: read
     concurrency:
       group: stripe-pool-${{ matrix.pair }}
@@ -124,7 +124,7 @@ jobs:
         with:
           app: connect
           browser: chromium
-      # this commit's ci run builds and seeds in e2e / prepare; without it the shard builds and seeds its own
+      # this commit's ci run builds and seeds in its prepare job; without it the shard builds and seeds its own
       - name: find this commit's ci run
         id: ci
         env:
@@ -143,7 +143,7 @@ jobs:
         id: prepared
         uses: ./.github/actions/await-job
         with:
-          job: e2e / prepare
+          job: prepare
           run-id: ${{ steps.ci.outputs.id }}
           required: "false"
       - if: steps.prepared.outputs.passed == 'true'

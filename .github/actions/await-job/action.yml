@@ -4,7 +4,7 @@ description: >
   declaring needs on the job that makes what it uses. Needs actions: read.
 inputs:
   job:
-    description: The job's full name, as the run lists it (e2e / mobile / build).
+    description: The job's full name, as the run lists it (android build).
     required: true
   run-id:
     description: The run the job belongs to; empty is this run.
