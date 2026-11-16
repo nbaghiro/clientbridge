@@ -17,12 +17,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # two projects to a job, one after the other: each runs in about two minutes, under a job's setup
         include:
-          - { name: chromium, artifact: connect-chromium, browser: chromium, project: default }
-          - { name: pseudo-locale, artifact: connect-pseudo, browser: chromium, project: pseudo }
+          - { name: chromium and pseudo-locale, artifact: connect-chromium, browser: chromium, projects: default pseudo }
           # Firefox and WebKit run only the cases tagged @browsers; CI keeps them on Linux
-          - { name: firefox, artifact: connect-firefox, browser: firefox, project: firefox }
-          - { name: webkit, artifact: connect-webkit, browser: webkit, project: webkit }
+          - { name: firefox and webkit, artifact: connect-browsers, browser: firefox, also: webkit, projects: firefox webkit }
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/e2e-setup
@@ -30,21 +29,21 @@ jobs:
           app: connect
           browser: ${{ matrix.browser }}
           prepared: "true"
-      - name: run the lane on the test tier
+      - if: matrix.also
+        uses: ./.github/actions/playwright
+        with:
+          app: connect
+          browser: ${{ matrix.also }}
+      - name: run the lane's projects on the test tier
         env:
-          PROJECT: ${{ matrix.project }}
-        run: make test-functional FUNCTIONAL_ARGS="--surface connect --project $PROJECT"
+          PROJECTS: ${{ matrix.projects }}
+        run: |
+          status=0
+          for project in $PROJECTS; do
+            make test-functional FUNCTIONAL_ARGS="--surface connect --project $project" || status=$?
+          done
+          exit "$status"
       - if: always()
         uses: ./.github/actions/e2e-collect
         with:
           name: ${{ matrix.artifact }}
-
-  result:
-    needs: lane
-    if: always()
-    runs-on: ubuntu-24.04
-    timeout-minutes: 2
-    steps:
-      - env:
-          RESULT: ${{ needs.lane.result }}
-        run: test "$RESULT" = success

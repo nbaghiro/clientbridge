@@ -5,7 +5,7 @@ on:
 permissions:
   contents: read
 
-# The fast checks; ci.yml starts the test groups only once all of them pass.
+# The fast checks; ci.yml starts the checks group once all of them pass, and e2e beside them.
 jobs:
   backend:
     runs-on: ubuntu-24.04
@@ -25,7 +25,7 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           pnpm: "true"
-      - run: make format-check-frontend lint-frontend
+      - run: make -j2 format-check-frontend lint-frontend
 
   infra:
     # The Pulumi program, built for the cloud, staging and prod stacks against Pulumi's mocks.

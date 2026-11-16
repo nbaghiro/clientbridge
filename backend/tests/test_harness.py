@@ -846,11 +846,14 @@ def test_a_builds_publishable_key_is_read_from_its_compiled_config(tmp_path: Pat
 
 def test_every_walkthrough_lands_in_exactly_one_native_shard() -> None:
     present = sorted(path.name for path in (native.MOBILE / "e2e").glob("*.yaml"))
-    shards = sharding.native_shards(5)
-    assert sorted(flow for shard in shards for flow in shard["flows"]) == present
-    assert [shard["id"] for shard in shards] == ["1", "2", "3", "4", "5", "stripe"]
-    assert [s["options"] for s in shards] == ["", "", "", "", "", "--fake-stripe"]
-    assert shards[-1]["flows"] == ["clients.wallet.yaml"]
+    shards = sharding.native_shards(7)
+    ran = sorted(flow for shard in shards for flow in [*shard["flows"], *shard["faked"]])
+    assert ran == present
+    assert [shard["id"] for shard in shards] == ["1", "2", "3", "4", "5", "6", "7"]
+    assert [shard["faked"] for shard in shards if shard["faked"]] == [["clients.wallet.yaml"]]
+    # the workflow's matrix holds one Android job per shard the planner makes
+    workflow = (functional.ROOT / ".github" / "workflows" / "e2e-mobile.yml").read_text()
+    assert "--count 7 " in workflow and "shard: [1, 2, 3, 4, 5, 6, 7]" in workflow
     assert native.native_flows([]) == [*(f"e2e/{flow}" for flow in present), "e2e/assets"]
     assert native.native_flows(["clients.yaml"]) == ["e2e/clients.yaml", "e2e/assets"]
     with pytest.raises(ValueError, match="use fewer shards"):

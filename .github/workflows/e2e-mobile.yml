@@ -10,22 +10,6 @@ env:
   E2E_RECORD: ${{ github.event.inputs.record == 'true' && '1' || '' }}
 
 jobs:
-  shards:
-    # Splits the walkthroughs into shards of about equal length by their measured seconds, for android.
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    outputs:
-      shards: ${{ steps.shards.outputs.shards }}
-    steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.3.0
-      - run: uv sync --frozen
-        working-directory: backend
-      - name: balance the walkthroughs into shards
-        id: shards
-        working-directory: backend
-        run: echo "shards=$(uv run python -m e2e.shards --surface native --count 5)" >> "$GITHUB_OUTPUT"
-
   build:
     # An x86_64 release APK for the emulator; when the native fingerprint is cached only the JS bundle is rebuilt.
     runs-on: ubuntu-24.04
@@ -106,19 +90,18 @@ jobs:
           retention-days: 3
 
   android:
-    # The Maestro walkthroughs on Android 14 emulators through the native lane, split into shards of about equal length.
-    needs: [shards, build]
-    name: android (${{ matrix.shard.name }})
+    # The Maestro walkthroughs on Android 14 emulators, in shards of equal measured length, set up beside the build.
+    name: android (${{ matrix.shard }}/7)
     runs-on: ubuntu-24.04
     permissions:
       contents: read
-      # to see when the prepare job's snapshot is uploaded
+      # to see when the build and the prepare job's snapshot are uploaded
       actions: read
-    timeout-minutes: 40
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        shard: ${{ fromJSON(needs.shards.outputs.shards) }}
+        shard: [1, 2, 3, 4, 5, 6, 7]
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.3.0
@@ -135,11 +118,6 @@ jobs:
         run: |
           curl -fsSL "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
-      - uses: actions/download-artifact@v8
-        with:
-          name: mobile-apk
-      - name: put the build where the lane installs it from
-        run: mkdir -p .scratchpad/native && mv app-release.apk .scratchpad/native/clientbridge-e2e.apk
       - name: clear the runner's own emulator
         id: emulator
         run: |
@@ -170,6 +148,18 @@ jobs:
             ~/.android/adbkey*
           key: ${{ steps.emulator.outputs.key }}
       - run: make test-tier
+      - name: start the emulator
+        run: frontend/apps/mobile/scripts/ci-emulator.sh start
+      # a cold native build takes the build job's whole timeout
+      - uses: ./.github/actions/await-job
+        with:
+          job: e2e / mobile / build
+          minutes: "40"
+      - uses: actions/download-artifact@v8
+        with:
+          name: mobile-apk
+      - name: put the build where the lane installs it from
+        run: mkdir -p .scratchpad/native && mv app-release.apk .scratchpad/native/clientbridge-e2e.apk
       # e2e.yml's prepare job runs beside the mobile build, so its seed snapshot is normally uploaded by now;
       # without it the lane seeds its own
       - name: wait for the prepared seed snapshot
@@ -191,9 +181,20 @@ jobs:
       - if: steps.prepared.outputs.found == 'true'
         run: mkdir -p ~/.cache/clientbridge-test && cp -R "$RUNNER_TEMP/prepared/snapshots" ~/.cache/clientbridge-test/
       - name: run the walkthroughs
+        working-directory: backend
+        env:
+          SHARD: ${{ matrix.shard }}
         run: |
-          frontend/apps/mobile/scripts/ci-emulator.sh start
-          make test-mobile PLATFORM=android DEVICE=emulator-5554 ARGS="${{ matrix.shard.options }} ${{ join(matrix.shard.flows, ' ') }}"
+          shard=$(uv run python -m e2e.shards --surface native --count 7 --shard "$SHARD")
+          flows=$(jq -r '.flows | join(" ")' <<< "$shard")
+          faked=$(jq -r '.faked | join(" ")' <<< "$shard")
+          echo "flows: $flows${faked:+, with the stand-in Stripe: $faked}"
+          status=0
+          make -C .. test-mobile PLATFORM=android DEVICE=emulator-5554 ARGS="$flows" || status=$?
+          if [ -n "$faked" ]; then
+            make -C .. test-mobile PLATFORM=android DEVICE=emulator-5554 ARGS="--fake-stripe $faked" || status=$?
+          fi
+          exit "$status"
       - name: flag walkthroughs over three times their usual time
         if: success() || failure()
         run: frontend/apps/mobile/scripts/slow-flows.sh .scratchpad/e2e-*/native.log
@@ -205,7 +206,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: mobile-walkthroughs-${{ matrix.shard.id }}
+          name: mobile-walkthroughs-${{ matrix.shard }}
           include-hidden-files: true
           path: |
             .scratchpad/logcat.txt
@@ -227,15 +228,3 @@ jobs:
           tail -200 .scratchpad/e2e-*/native-debug/maestro.log || true
           tail -300 .scratchpad/logcat.txt || true
           tail -200 .scratchpad/e2e-*/api.log || true
-
-
-  result:
-    # passes when the build and every shard passed
-    needs: [shards, build, android]
-    if: always()
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    steps:
-      - env:
-          NEEDS: ${{ toJSON(needs) }}
-        run: jq -e 'all(.[]; .result == "success")' <<< "$NEEDS"
