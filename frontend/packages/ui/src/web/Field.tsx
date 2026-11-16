@@ -168,7 +168,11 @@ export function TextField({
                     ) : null}
                     <input
                         {...shared}
-                        type={type === "number" || type === "code" ? "text" : type}
+                        type={
+                            type === "number" || type === "signed" || type === "code"
+                                ? "text"
+                                : type
+                        }
                         inputMode={type === "number" ? "decimal" : undefined}
                         autoComplete={autoComplete}
                         onChange={(e) => {
@@ -183,7 +187,7 @@ export function TextField({
             ) : (
                 <input
                     {...shared}
-                    type={type === "number" || type === "code" ? "text" : type}
+                    type={type === "number" || type === "signed" || type === "code" ? "text" : type}
                     inputMode={type === "number" ? "decimal" : undefined}
                     autoComplete={autoComplete}
                     min={min}

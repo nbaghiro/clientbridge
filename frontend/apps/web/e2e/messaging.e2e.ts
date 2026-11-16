@@ -33,7 +33,7 @@ import { signIn, navigate } from "./support/session";
 import { csvRows } from "./support/reports";
 import { newBusiness, patchBusiness } from "./support/business";
 import { clientCommand, editClient, openClient } from "./support/clients";
-import { freshPhone, textsTo } from "./support/auth";
+import { fictionalPhone, freshPhone, textsTo } from "./support/auth";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { demoId, runEmail } from "@clientbridge/config/e2e/run";
@@ -123,7 +123,7 @@ test("MSG-E2E-03 a message the provider refused keeps its draft and a retry send
     await signIn(page);
     const client = await messageFixture(page);
     // a number set aside for fiction, which the dev text transport refuses like a carrier
-    const refused = "+18675550142";
+    const refused = fictionalPhone();
     await renumber(page, client, refused);
     const dialog = await composeMessage(page, client);
     const input = dialog.getByRole("textbox", { name: s.newMessageTitle, exact: true });

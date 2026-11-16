@@ -41,6 +41,11 @@ class StockService:
             correction = data.quantity < 0
             if correction and data.unit_cost_cents is not None:
                 raise Unprocessable("a count correction has no unit cost")
+            if correction and (item.stock_on_hand or 0) + data.quantity < 0:
+                raise Conflict(
+                    "a count correction can't leave less than none on hand",
+                    code="stock_below_zero",
+                )
             if data.unit_cost_cents is not None:
                 item.cost_cents = data.unit_cost_cents
             await _move(

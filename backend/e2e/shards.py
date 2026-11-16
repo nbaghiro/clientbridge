@@ -128,43 +128,45 @@ def flow_name(flow: Path) -> str:
 
 class Shard(TypedDict):
     id: str
-    name: str
     flows: list[str]
-    options: str
+    # the flows tagged stripe, run after the shard's others against the stand-in Stripe
+    faked: list[str]
 
 
 def faked_stripe(flow: Path) -> bool:
     return "    - stripe\n" in flow.read_text()
 
 
+FAKED = "stripe"
+
+
 def native_shards(count: int) -> list[Shard]:
-    """The Maestro flows in shards of about equal length, and the stand-in Stripe's in one more."""
+    """The Maestro flows in shards of equal length; the stand-in Stripe flows ride as one unit."""
     seconds = measured_seconds()["mobile"]
     usual = usual_seconds(seconds)
     flows = sorted(FLOWS.glob("*.yaml"))
+    faked = [flow.name for flow in flows if faked_stripe(flow)]
     units = {
         flow.name: seconds.get(flow_name(flow), usual) for flow in flows if not faked_stripe(flow)
     }
-    shards = [sorted(picked) for picked in balanced(units, count, workers=1)]
-    if not all(shards):
-        raise ValueError(f"{count} shards leave one without flows; use fewer shards")
+    if faked:
+        units[FAKED] = sum(seconds.get(flow_name(FLOWS / name), usual) for name in faked)
     planned = [
         Shard(
             id=str(index),
-            name=", ".join(flow.removesuffix(".yaml") for flow in picked),
-            flows=picked,
-            options="",
+            flows=sorted(unit for unit in picked if unit != FAKED),
+            faked=faked if FAKED in picked else [],
         )
-        for index, picked in enumerate(shards, 1)
+        for index, picked in enumerate(balanced(units, count, workers=1), 1)
     ]
-    if stripe := [flow.name for flow in flows if faked_stripe(flow)]:
-        name = ", ".join(flow.removesuffix(".yaml") for flow in stripe)
-        planned.append(Shard(id="stripe", name=name, flows=stripe, options="--fake-stripe"))
+    # a shard without flows of its own would run every flow
+    if not all(shard["flows"] for shard in planned):
+        raise ValueError(f"{count} shards leave one without flows; use fewer shards")
     return planned
 
 
 def shuffled_config(stack: "Stack", args: argparse.Namespace, seed: int) -> str:
-    """Order the lane's spec files by seed: Playwright runs files by name, so numbered wrappers."""
+    """Order the lane's spec files by seed: Playwright runs files by path, so numbered folders."""
     app = ROOT / "frontend" / "apps" / playwright_app(args.surface)
     files = sorted({case.file for case in listed_cases(stack, args)})
     if not files:
@@ -174,8 +176,11 @@ def shuffled_config(stack: "Stack", args: argparse.Namespace, seed: int) -> str:
     cases = directory / "cases"
     cases.mkdir(parents=True)
     for rank, name in enumerate(files):
-        target = os.path.relpath(app / "e2e" / name, cases)
-        (cases / f"{rank:03d}-{Path(name).name}").write_text(f'import "{target}";\n')
+        # the wrapper keeps the spec's name, so a shard's /<name>:<line> filter matches it too
+        wrapper = cases / f"{rank:03d}" / name
+        wrapper.parent.mkdir(parents=True)
+        target = os.path.relpath(app / "e2e" / name, wrapper.parent)
+        wrapper.write_text(f'import "{target}";\n')
     config = directory / "playwright.config.ts"
     config.write_text(
         f'import base from "{os.path.relpath(app / playwright_config(args.surface), directory)}";\n'
@@ -183,7 +188,7 @@ def shuffled_config(stack: "Stack", args: argparse.Namespace, seed: int) -> str:
         "    ...base,\n"
         '    testDir: "cases",\n'
         "    projects: (base.projects ?? []).map((project) => ({\n"
-        '        ...project, testDir: "cases", testMatch: "*.ts", testIgnore: [],\n'
+        '        ...project, testDir: "cases", testMatch: "**/*.ts", testIgnore: [],\n'
         "    })),\n"
         "    webServer: [base.webServer ?? []].flat().map((server) => ({\n"
         f"        ...server, cwd: {json.dumps(str(app))},\n"
@@ -207,8 +212,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m e2e.shards")
     parser.add_argument("--surface", choices=("native",), required=True)
     parser.add_argument("--count", type=int, required=True)
+    parser.add_argument("--shard", type=int, required=True, help="the 1-based shard to print")
     args = parser.parse_args()
-    print(json.dumps(native_shards(args.count)))
+    print(json.dumps(native_shards(args.count)[args.shard - 1]))
 
 
 if __name__ == "__main__":

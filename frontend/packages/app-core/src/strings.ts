@@ -9,6 +9,7 @@ interface Strings {
         readonly appName: string;
         readonly somethingWrongRetry: string;
         readonly fileUploadError: string;
+        readonly photoCameraDenied: string;
         readonly fileUploadOffline: string;
         readonly loading: string;
         readonly saved: string;
@@ -115,6 +116,7 @@ interface Strings {
         readonly giftCardShort: (balance: string) => string;
         readonly invalidPhone: string;
         readonly skuTaken: string;
+        readonly stockBelowZero: string;
         readonly invoiceHasPayments: string;
         readonly businessUnavailable: string;
         readonly packageOtherSubject: string;
@@ -1164,7 +1166,6 @@ interface Strings {
         readonly photoChoose: string;
         readonly photoAdd: string;
         readonly photoAlt: (n: number) => string;
-        readonly photoCameraDenied: string;
         readonly detailDeposit: string;
         readonly detailAddons: string;
         readonly detailSeries: string;
@@ -1703,6 +1704,10 @@ interface Strings {
         readonly answerYes: string;
         readonly answerNo: string;
         readonly answerAttached: string;
+        readonly fileUnavailable: string;
+        readonly openFile: string;
+        readonly viewAnswersOf: (form: string) => string;
+        readonly signedBy: string;
         readonly answersLoadError: string;
         readonly clientForms: string;
         readonly noClientForms: string;
@@ -3156,6 +3161,8 @@ interface Strings {
         readonly photo: string;
         readonly changePhoto: string;
         readonly photoHint: string;
+        readonly photoHintPhone: string;
+        readonly photoTake: string;
         readonly photoAfterSave: string;
         readonly photoUploaded: string;
         readonly sku: string;
@@ -3169,6 +3176,7 @@ interface Strings {
         readonly margin: string;
         readonly marginSummary: (money: string, pct: number) => string;
         readonly marginUnknown: string;
+        readonly marginNeedsPrice: string;
         readonly marginLow: (threshold: string) => string;
         readonly trackStock: string;
         readonly trackStockHint: string;
@@ -3309,6 +3317,7 @@ interface Strings {
         readonly perkInvalid: string;
         readonly stockInvalid: string;
         readonly addError: string;
+        readonly addUnfinished: string;
         readonly saveError: string;
     };
     readonly refunds: {

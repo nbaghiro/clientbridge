@@ -1,0 +1,52 @@
+name: await job
+description: >
+  Waits for a job in this run or another one to finish, so a job can start its own setup instead of
+  declaring needs on the job that makes what it uses. Needs actions: read.
+inputs:
+  job:
+    description: The job's full name, as the run lists it (e2e / mobile / build).
+    required: true
+  run-id:
+    description: The run the job belongs to; empty is this run.
+    default: ""
+  minutes:
+    description: How long to wait before giving up.
+    default: "10"
+  required:
+    description: Fail when the job fails or doesn't finish in time; otherwise only report it.
+    default: "true"
+outputs:
+  passed:
+    description: true once the job finished successfully.
+    value: ${{ steps.wait.outputs.passed }}
+runs:
+  using: composite
+  steps:
+    - id: wait
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        JOB: ${{ inputs.job }}
+        RUN: ${{ inputs.run-id || github.run_id }}
+        MINUTES: ${{ inputs.minutes }}
+        REQUIRED: ${{ inputs.required }}
+      run: |
+        # one request every 20 seconds keeps a lane's polling well inside the token's hourly limit
+        deadline=$((SECONDS + MINUTES * 60))
+        while [ "$SECONDS" -lt "$deadline" ]; do
+          state=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN/jobs?per_page=100" \
+            --jq "[.jobs[] | select(.name == env.JOB) | .status + \" \" + (.conclusion // \"\")][0] // \"\"")
+          case "$state" in
+            "completed success")
+              echo "passed=true" >> "$GITHUB_OUTPUT"
+              exit 0 ;;
+            completed*)
+              echo "::warning::$JOB finished as ${state#completed }"
+              [ "$REQUIRED" = true ] && exit 1
+              exit 0 ;;
+          esac
+          sleep 20
+        done
+        echo "::warning::$JOB didn't finish within $MINUTES minutes"
+        [ "$REQUIRED" = true ] && exit 1
+        exit 0

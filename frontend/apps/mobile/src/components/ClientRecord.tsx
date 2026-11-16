@@ -50,7 +50,7 @@ import { useState } from "react";
 import { Linking, StyleSheet, Text, View } from "react-native";
 
 import { ClientEditorSheet, NoteSheet, SubjectSheet } from "./ClientSheets";
-import { ClientFormsSection } from "./VisitRecords";
+import { ClientFormsSection, FormAnswersSheet } from "./VisitRecords";
 import { api } from "../lib/api";
 import { useRole, useViewer } from "../lib/auth";
 import { useOpenLink } from "../lib/links";
@@ -59,11 +59,12 @@ import type { RootStackParamList } from "../navigation";
 const c = theme.colors;
 const r = strings.clients.record;
 
-// What a record asks the screen around it to open: the client's editor, a pet or a note.
+// What a record asks the screen around it to open: the editor, a pet, a note or form answers.
 export type RecordAsk =
     | { kind: "client"; id: string | null }
     | { kind: "subject"; clientId: string; subject: SubjectRow | null }
-    | { kind: "note"; clientId: string; subjects: readonly SubjectRow[] };
+    | { kind: "note"; clientId: string; subjects: readonly SubjectRow[] }
+    | { kind: "answers"; responseId: string };
 
 function NoteLine({ note, manager }: { note: ClientNote; manager: boolean }) {
     const zone = useBusinessZone();
@@ -456,7 +457,14 @@ export function ClientRecordView({
                     <NoteLine key={note.id} note={note} manager={manager} />
                 ))}
             </DetailSection>
-            <ClientFormsSection key={cl.id} clientId={cl.id} manager={manager} />
+            <ClientFormsSection
+                key={cl.id}
+                clientId={cl.id}
+                manager={manager}
+                onView={(responseId) => {
+                    onSheet({ kind: "answers", responseId });
+                }}
+            />
             {manager ? (
                 <DetailSection
                     title={r.wallet}
@@ -583,6 +591,8 @@ export function AskSheet({
         );
     if (ask?.kind === "note")
         return <NoteSheet clientId={ask.clientId} subjects={ask.subjects} onClose={onClose} />;
+    if (ask?.kind === "answers")
+        return <FormAnswersSheet responseId={ask.responseId} onClose={onClose} />;
     return null;
 }
 

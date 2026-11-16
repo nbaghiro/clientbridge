@@ -1,4 +1,4 @@
-import { type ItemTileProps, formatMoney, strings } from "@clientbridge/app-core";
+import { type ItemTileProps, formatMoney, formatParts, strings } from "@clientbridge/app-core";
 import { tintHex } from "@clientbridge/tokens";
 import { theme } from "@clientbridge/tokens/native";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
@@ -26,7 +26,9 @@ export function ItemTile({
     style,
 }: NativeProps<ItemTileProps>) {
     const tone = color ?? c.accent;
-    const a11y = count > 0 ? strings.ui.onTicket(name, count) : name;
+    // the label hides the tile's own text, so its stock tag is read with the name
+    const named = formatParts([name, tag?.label ?? null]);
+    const a11y = count > 0 ? strings.ui.onTicket(named, count) : named;
     if (variant === "card") {
         const content = (
             <>
@@ -85,7 +87,7 @@ export function ItemTile({
         if (actions !== undefined)
             return (
                 <View
-                    accessibilityLabel={name}
+                    accessibilityLabel={named}
                     style={[styles.card, count > 0 && styles.cardOn, disabled && styles.dim, style]}
                 >
                     {content}

@@ -8,6 +8,9 @@
     "common.fileUploadError": {
         "message": "Couldn't upload that file. Please try again."
     },
+    "common.photoCameraDenied": {
+        "message": "Camera access is off for Clientbridge. Turn it on in Settings, or choose a photo instead."
+    },
     "common.fileUploadOffline": {
         "message": "Uploading needs a connection. Try again when you're back online."
     },
@@ -329,6 +332,9 @@
     },
     "api.skuTaken": {
         "message": "Another item already uses that SKU. Choose a different one."
+    },
+    "api.stockBelowZero": {
+        "message": "A count correction can’t take what’s on hand below zero."
     },
     "api.invoiceHasPayments": {
         "message": "Money has been taken on this invoice, so it can't be voided."
@@ -3551,9 +3557,6 @@
         "message": "Job photo {n, number}",
         "args": ["n"]
     },
-    "bookings.photoCameraDenied": {
-        "message": "Camera access is off for Clientbridge. Turn it on in Settings, or choose a photo instead."
-    },
     "bookings.detailDeposit": {
         "message": "Deposit"
     },
@@ -5234,6 +5237,23 @@
     },
     "forms.answerAttached": {
         "message": "File attached"
+    },
+    "forms.fileUnavailable": {
+        "message": "The file could not be loaded. Close the answers and open them again to retry.",
+        "description": "Shown in place of Open file when the link to a file a client attached to a form failed to load"
+    },
+    "forms.openFile": {
+        "message": "Open file",
+        "description": "Opens a file the client attached to a form, from its answers"
+    },
+    "forms.viewAnswersOf": {
+        "message": "View answers to {form}",
+        "description": "Accessible name of the View answers button beside a client's submitted form",
+        "args": ["form"]
+    },
+    "forms.signedBy": {
+        "message": "Signed by",
+        "description": "Label for the name the client signed a form with, under its answers"
     },
     "forms.answersLoadError": {
         "message": "The answers could not be loaded. Please try again."
@@ -9363,6 +9383,12 @@
     "catalog.photoHint": {
         "message": "Square photos look best. JPG or PNG, up to 10 MB. Drop a file here or click."
     },
+    "catalog.photoHintPhone": {
+        "message": "Square photos look best. Take one now or choose one from your photos."
+    },
+    "catalog.photoTake": {
+        "message": "Take photo"
+    },
     "catalog.photoAfterSave": {
         "message": "Save the product first, then add its photo."
     },
@@ -9402,6 +9428,9 @@
     },
     "catalog.marginUnknown": {
         "message": "Add your cost to see the margin"
+    },
+    "catalog.marginNeedsPrice": {
+        "message": "Add a price to see the margin"
     },
     "catalog.marginLow": {
         "message": "Below {threshold}: check the price",
@@ -9848,6 +9877,9 @@
     },
     "catalog.addError": {
         "message": "Couldn’t add the item. Please try again."
+    },
+    "catalog.addUnfinished": {
+        "message": "The item is saved, but not finished. Try again to save the rest."
     },
     "catalog.saveError": {
         "message": "Couldn’t save the item. Please try again."

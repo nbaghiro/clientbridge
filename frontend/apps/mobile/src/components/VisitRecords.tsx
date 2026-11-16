@@ -9,6 +9,8 @@ import {
     strings,
     useBusinessZone,
     useClientForms,
+    useFormAnswerRows,
+    useFormAnswers,
     useVisitRecordForm,
     useVisitRecords,
 } from "@clientbridge/app-core";
@@ -18,6 +20,8 @@ import {
     DetailSection,
     FormQuestion,
     KeyValueList,
+    LoadFailed,
+    Loading,
     Modal,
     Notice,
     Panel,
@@ -25,7 +29,7 @@ import {
     SheetHeader,
 } from "@clientbridge/ui";
 import { useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Linking, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
@@ -38,6 +42,64 @@ const v = strings.visitRecords;
 function AnswerList({ response }: { response: Pick<FormAnswers, "fields" | "answers"> }) {
     const zone = useBusinessZone();
     return <KeyValueList layout="stack" rows={answerRows(response, zone)} />;
+}
+
+/** A client's submitted form, with a link to each file they attached and who signed it. */
+function SubmittedAnswers({ response }: { response: FormAnswers }) {
+    const rows = useFormAnswerRows(api, response).map(({ label, value, fileUrl }) => ({
+        label,
+        value:
+            fileUrl === null ? (
+                value
+            ) : (
+                <Button
+                    size="sm"
+                    variant="link"
+                    icon="external"
+                    onPress={() => {
+                        Linking.openURL(fileUrl).catch(() => undefined);
+                    }}
+                >
+                    {f.openFile}
+                </Button>
+            ),
+    }));
+    return <KeyValueList layout="stack" columns={1} rows={rows} />;
+}
+
+/** One submitted form's answers, opened from the client's record as its own sheet. */
+export function FormAnswersSheet({
+    responseId,
+    onClose,
+}: {
+    responseId: string;
+    onClose: () => void;
+}) {
+    const answers = useFormAnswers(api, responseId);
+    const open = answers.answers;
+    return (
+        <Modal onClose={onClose} size="xl">
+            <View style={styles.sheet}>
+                {open !== null ? (
+                    <>
+                        <SheetHeader title={open.form_name} />
+                        <SubmittedAnswers response={open} />
+                    </>
+                ) : answers.error !== null ? (
+                    <LoadFailed
+                        message={answers.error}
+                        onRetry={answers.reload}
+                        retrying={answers.busy}
+                    />
+                ) : (
+                    <Loading />
+                )}
+                <Button variant="outline" onPress={onClose}>
+                    {strings.common.close}
+                </Button>
+            </View>
+        </Modal>
+    );
 }
 
 function RecordCard({
@@ -192,17 +254,24 @@ export function BookingVisitRecords({ event }: { event: ScheduleEvent }) {
 }
 
 /** A client's submitted forms for managers, and the records of their visits the viewer may read. */
-export function ClientFormsSection({ clientId, manager }: { clientId: string; manager: boolean }) {
-    const forms = useClientForms(api, clientId);
+export function ClientFormsSection({
+    clientId,
+    manager,
+    onView,
+}: {
+    clientId: string;
+    manager: boolean;
+    onView: (responseId: string) => void;
+}) {
+    const forms = useClientForms(clientId);
     const records = useVisitRecords(api, { clientId });
-    const open = forms.open;
     return (
         <DetailSection title={f.clientForms}>
-            {manager && forms.forms.length === 0 ? (
+            {manager && forms.length === 0 ? (
                 <Text style={styles.muted}>{f.noClientForms}</Text>
             ) : null}
             {manager
-                ? forms.forms.map((x) => (
+                ? forms.map((x) => (
                       <View key={x.id} style={styles.row}>
                           <View style={styles.flex}>
                               <Text style={styles.title} numberOfLines={1}>
@@ -213,8 +282,9 @@ export function ClientFormsSection({ clientId, manager }: { clientId: string; ma
                           <Button
                               size="sm"
                               variant="link"
+                              label={f.viewAnswersOf(x.name)}
                               onPress={() => {
-                                  forms.view(x.id);
+                                  onView(x.id);
                               }}
                           >
                               {f.viewAnswers}
@@ -240,18 +310,6 @@ export function ClientFormsSection({ clientId, manager }: { clientId: string; ma
                 records.records.map((n) => <RecordCard key={n.id} record={n} visit />)
             )}
             {records.error !== null ? <Notice tone="danger">{records.error}</Notice> : null}
-            {forms.error !== null ? <Notice tone="danger">{forms.error}</Notice> : null}
-            {open !== null ? (
-                <Modal onClose={forms.close} size="xl">
-                    <ScrollView contentContainerStyle={styles.sheet}>
-                        <SheetHeader title={open.form_name} />
-                        <AnswerList response={open} />
-                        <Button variant="outline" onPress={forms.close}>
-                            {strings.common.close}
-                        </Button>
-                    </ScrollView>
-                </Modal>
-            ) : null}
         </DetailSection>
     );
 }

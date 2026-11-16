@@ -846,11 +846,14 @@ def test_a_builds_publishable_key_is_read_from_its_compiled_config(tmp_path: Pat
 
 def test_every_walkthrough_lands_in_exactly_one_native_shard() -> None:
     present = sorted(path.name for path in (native.MOBILE / "e2e").glob("*.yaml"))
-    shards = sharding.native_shards(5)
-    assert sorted(flow for shard in shards for flow in shard["flows"]) == present
-    assert [shard["id"] for shard in shards] == ["1", "2", "3", "4", "5", "stripe"]
-    assert [s["options"] for s in shards] == ["", "", "", "", "", "--fake-stripe"]
-    assert shards[-1]["flows"] == ["clients.wallet.yaml"]
+    shards = sharding.native_shards(7)
+    ran = sorted(flow for shard in shards for flow in [*shard["flows"], *shard["faked"]])
+    assert ran == present
+    assert [shard["id"] for shard in shards] == ["1", "2", "3", "4", "5", "6", "7"]
+    assert [shard["faked"] for shard in shards if shard["faked"]] == [["clients.wallet.yaml"]]
+    # the workflow's matrix holds one Android job per shard the planner makes
+    workflow = (functional.ROOT / ".github" / "workflows" / "e2e-mobile.yml").read_text()
+    assert "--count 7 " in workflow and "shard: [1, 2, 3, 4, 5, 6, 7]" in workflow
     assert native.native_flows([]) == [*(f"e2e/{flow}" for flow in present), "e2e/assets"]
     assert native.native_flows(["clients.yaml"]) == ["e2e/clients.yaml", "e2e/assets"]
     with pytest.raises(ValueError, match="use fewer shards"):
@@ -896,17 +899,20 @@ def test_a_shuffled_lane_imports_every_listed_file_in_its_seeded_order(
     stack = argparse.Namespace(project="e2e-000000000000", env={}, directory=tmp_path)
     args = argparse.Namespace(surface="web", project="default", tests=[])
     config = Path(sharding.shuffled_config(cast(run_stack.Stack, stack), args, 7))
-    wrappers = sorted((config.parent / "cases").iterdir())
-    order = [path.read_text().split("/")[-1].removesuffix('";\n') for path in wrappers]
+    cases = config.parent / "cases"
+    wrappers = sorted(cases.glob("*/*.ts"))
+    order = [path.name for path in wrappers]
     assert sorted(order) == listed
     assert order == json.loads((tmp_path / "shuffle.json").read_text())["files"]
+    assert all(path.read_text() == f'import "../../../../e2e/{path.name}";\n' for path in wrappers)
     again = sharding.shuffled_config(
         cast(run_stack.Stack, argparse.Namespace(**{**vars(stack), "project": "e2e-1"})), args, 7
     )
-    assert [p.name for p in sorted((Path(again).parent / "cases").iterdir())] == [
-        p.name for p in wrappers
+    rerun = sorted(Path(again).parent.glob("cases/*/*.ts"))
+    assert [p.relative_to(cases) for p in wrappers] == [
+        p.relative_to(Path(again).parent / "cases") for p in rerun
     ]
-    assert 'testMatch: "*.ts"' in config.read_text()
+    assert 'testMatch: "**/*.ts"' in config.read_text()
     assert str(tmp_path / "frontend" / "apps" / "web") in config.read_text()
 
 

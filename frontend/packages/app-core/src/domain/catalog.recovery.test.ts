@@ -220,6 +220,8 @@ it.each([
     [422, "invalid_request", true],
     [422, "unprocessable", true],
     [404, "not_found", true],
+    [409, "sku_taken", true],
+    [422, "unsupported_currency", true],
     [500, null, false],
     [403, "forbidden", false],
     [429, "rate_limited", false],

@@ -1,5 +1,6 @@
 import { type ItemTileProps, formatMoney, strings } from "@clientbridge/app-core/public";
 import { cssVar, tint } from "@clientbridge/tokens";
+import { useId } from "react";
 
 import { Badge } from "./Badge";
 import { ItemImage } from "./ItemImage";
@@ -23,6 +24,9 @@ export function ItemTile({
 }: WebProps<ItemTileProps>) {
     const tone = color ?? cssVar("accent");
     const label = count > 0 ? strings.ui.onTicket(name, count) : name;
+    // the label hides the tile's own text, so its stock tag is read as the description
+    const tagId = useId();
+    const described = tag ? tagId : undefined;
     if (variant === "card") {
         const content = (
             <>
@@ -42,7 +46,7 @@ export function ItemTile({
                         </span>
                     )}
                     {tag ? (
-                        <span className="absolute left-2 top-2">
+                        <span id={tagId} className="absolute left-2 top-2">
                             <Badge label={tag.label} intent={tag.intent} />
                         </span>
                     ) : null}
@@ -80,6 +84,7 @@ export function ItemTile({
                 <div
                     role="group"
                     aria-label={name}
+                    aria-describedby={described}
                     className={cx(frame, disabled ? "opacity-60" : "")}
                 >
                     {content}
@@ -91,6 +96,7 @@ export function ItemTile({
                 onClick={onPress}
                 disabled={disabled}
                 aria-label={label}
+                aria-describedby={described}
                 className={cx(frame, "hover:border-accent-line disabled:opacity-60")}
             >
                 {content}
@@ -103,6 +109,7 @@ export function ItemTile({
             onClick={onPress}
             disabled={disabled}
             aria-label={label}
+            aria-describedby={count > 0 ? undefined : described}
             className={cx(
                 `relative flex min-h-[112px] min-w-0 flex-col rounded-lg border bg-surface p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-55 ${
                     count > 0
@@ -119,7 +126,9 @@ export function ItemTile({
                         {count}
                     </span>
                 ) : tag ? (
-                    <Badge label={tag.label} intent={tag.intent} />
+                    <span id={tagId} className="flex">
+                        <Badge label={tag.label} intent={tag.intent} />
+                    </span>
                 ) : null}
             </span>
             <span className="mt-2 line-clamp-2 text-sm font-medium leading-snug text-ink">

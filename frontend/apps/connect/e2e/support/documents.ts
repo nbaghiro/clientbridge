@@ -3,6 +3,7 @@ import { demoPerson } from "@clientbridge/config/e2e/demo";
 import { expect, type APIRequestContext } from "@playwright/test";
 import { demoId, runEmail, runUrl } from "@clientbridge/config/e2e/run";
 import { committed } from "../../../web/e2e/support/documents";
+import { select } from "../../../web/e2e/support/db";
 import { freshPhone } from "../../../web/e2e/support/auth";
 import { requireLocalMail } from "../../../web/e2e/support/evidence";
 
@@ -50,6 +51,21 @@ export function formEvidence(id: string): Promise<FormEvidence> {
     return committed<FormEvidence>("form", id);
 }
 
+export interface FormFileEvidence {
+    id: string;
+    content_type: string;
+    size: number;
+    uploaded: boolean;
+}
+
+/** Every file a client started attaching to this form response, oldest first. */
+export function formFiles(responseId: string): Promise<FormFileEvidence[]> {
+    return select<FormFileEvidence>`
+        SELECT id, content_type, size, uploaded_at IS NOT NULL AS uploaded
+        FROM files WHERE parent_type = 'form_response' AND parent_id = ${responseId}
+        ORDER BY created_at, id`;
+}
+
 export function contractEvidence(id: string): Promise<ContractEvidence> {
     return committed<ContractEvidence>("contract", id);
 }
@@ -92,20 +108,29 @@ export async function documentProvider(request: APIRequestContext) {
     return { headers, name, phone, clientId: client.id };
 }
 
-export async function issueForm(request: APIRequestContext) {
+interface FormQuestion {
+    input: string;
+    label: string;
+    required?: boolean;
+}
+
+export async function issueForm(
+    request: APIRequestContext,
+    questions: FormQuestion[] = [{ input: "text", label: "Care instructions", required: true }],
+    requireSignature = true,
+) {
     const provider = await documentProvider(request);
     const name = `Pet care intake — ${provider.name}`;
-    const definition = {
-        name,
-        require_signature: true,
-        fields: [{ input: "text", label: "Care instructions", required: true }],
-    };
+    const definition = { name, require_signature: requireSignature, fields: questions };
     const created = await request.post(`${documentApi}/v1/forms`, {
         headers: { ...provider.headers, "Idempotency-Key": randomUUID() },
         data: definition,
     });
     expect(created.status(), await created.text()).toBe(201);
-    const form = (await created.json()) as { id: string; fields: { name: string }[] };
+    const form = (await created.json()) as {
+        id: string;
+        fields: { name: string; input: string }[];
+    };
     const sent = await request.post(`${documentApi}/v1/forms/send`, {
         headers: { ...provider.headers, "Idempotency-Key": randomUUID() },
         data: { form_id: form.id, client_id: provider.clientId },
@@ -114,7 +139,14 @@ export async function issueForm(request: APIRequestContext) {
     const response = (await sent.json()) as { id: string; token: string };
     const field = form.fields[0];
     if (!field) throw new Error("issued form has no answer field");
-    return { ...provider, ...response, formId: form.id, field: field.name, definition };
+    return {
+        ...provider,
+        ...response,
+        formId: form.id,
+        field: field.name,
+        fields: form.fields,
+        definition,
+    };
 }
 
 export async function issueContract(request: APIRequestContext) {

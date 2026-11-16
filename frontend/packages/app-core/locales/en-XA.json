@@ -8,6 +8,9 @@
     "common.fileUploadError": {
         "message": "[Çöûļðñ'ţ ûþļöåð ţĥåţ ƒîļé. Þļéåšé ţŕý åĝåîñ. one two three]"
     },
+    "common.photoCameraDenied": {
+        "message": "[Çåɱéŕå åççéšš îš öƒƒ ƒöŕ Çļîéñţƀŕîðĝé. Ţûŕñ îţ öñ îñ Šéţţîñĝš, öŕ çĥööšé å þĥöţö îñšţéåð. one two three four five six]"
+    },
     "common.fileUploadOffline": {
         "message": "[Ûþļöåðîñĝ ñééðš å çöññéçţîöñ. Ţŕý åĝåîñ ŵĥéñ ýöû'ŕé ƀåçķ öñļîñé. one two three four five]"
     },
@@ -298,6 +301,9 @@
     },
     "api.skuTaken": {
         "message": "[Åñöţĥéŕ îţéɱ åļŕéåðý ûšéš ţĥåţ ŠĶÛ. Çĥööšé å ðîƒƒéŕéñţ öñé. one two three four]"
+    },
+    "api.stockBelowZero": {
+        "message": "[Å çöûñţ çöŕŕéçţîöñ çåñ’ţ ţåķé ŵĥåţ’š öñ ĥåñð ƀéļöŵ žéŕö. one two three four]"
     },
     "api.invoiceHasPayments": {
         "message": "[Ṁöñéý ĥåš ƀééñ ţåķéñ öñ ţĥîš îñṽöîçé, šö îţ çåñ'ţ ƀé ṽöîðéð. one two three four]"
@@ -3260,9 +3266,6 @@
     "bookings.photoAlt": {
         "message": "[Ĵöƀ þĥöţö {n, number} one]"
     },
-    "bookings.photoCameraDenied": {
-        "message": "[Çåɱéŕå åççéšš îš öƒƒ ƒöŕ Çļîéñţƀŕîðĝé. Ţûŕñ îţ öñ îñ Šéţţîñĝš, öŕ çĥööšé å þĥöţö îñšţéåð. one two three four five six]"
-    },
     "bookings.detailDeposit": {
         "message": "[Đéþöšîţ one]"
     },
@@ -4816,6 +4819,18 @@
     },
     "forms.answerAttached": {
         "message": "[Ƒîļé åţţåçĥéð one two]"
+    },
+    "forms.fileUnavailable": {
+        "message": "[Ţĥé ƒîļé çöûļð ñöţ ƀé ļöåðéð. Çļöšé ţĥé åñšŵéŕš åñð öþéñ ţĥéɱ åĝåîñ ţö ŕéţŕý. one two three four five]"
+    },
+    "forms.openFile": {
+        "message": "[Öþéñ ƒîļé one]"
+    },
+    "forms.viewAnswersOf": {
+        "message": "[Ṽîéŵ åñšŵéŕš ţö {form} one two]"
+    },
+    "forms.signedBy": {
+        "message": "[Šîĝñéð ƀý one]"
     },
     "forms.answersLoadError": {
         "message": "[Ţĥé åñšŵéŕš çöûļð ñöţ ƀé ļöåðéð. Þļéåšé ţŕý åĝåîñ. one two three four]"
@@ -8633,6 +8648,12 @@
     "catalog.photoHint": {
         "message": "[Šǫûåŕé þĥöţöš ļööķ ƀéšţ. ĴÞĜ öŕ ÞÑĜ, ûþ ţö 10 ṀƁ. Đŕöþ å ƒîļé ĥéŕé öŕ çļîçķ. one two three four five]"
     },
+    "catalog.photoHintPhone": {
+        "message": "[Šǫûåŕé þĥöţöš ļööķ ƀéšţ. Ţåķé öñé ñöŵ öŕ çĥööšé öñé ƒŕöɱ ýöûŕ þĥöţöš. one two three four five]"
+    },
+    "catalog.photoTake": {
+        "message": "[Ţåķé þĥöţö one two]"
+    },
     "catalog.photoAfterSave": {
         "message": "[Šåṽé ţĥé þŕöðûçţ ƒîŕšţ, ţĥéñ åðð îţš þĥöţö. one two three]"
     },
@@ -8671,6 +8692,9 @@
     },
     "catalog.marginUnknown": {
         "message": "[Åðð ýöûŕ çöšţ ţö šéé ţĥé ɱåŕĝîñ one two three]"
+    },
+    "catalog.marginNeedsPrice": {
+        "message": "[Åðð å þŕîçé ţö šéé ţĥé ɱåŕĝîñ one two three]"
     },
     "catalog.marginLow": {
         "message": "[Ɓéļöŵ {threshold}: çĥéçķ ţĥé þŕîçé one two]"
@@ -9079,6 +9103,9 @@
     },
     "catalog.addError": {
         "message": "[Çöûļðñ’ţ åðð ţĥé îţéɱ. Þļéåšé ţŕý åĝåîñ. one two three]"
+    },
+    "catalog.addUnfinished": {
+        "message": "[Ţĥé îţéɱ îš šåṽéð, ƀûţ ñöţ ƒîñîšĥéð. Ţŕý åĝåîñ ţö šåṽé ţĥé ŕéšţ. one two three four]"
     },
     "catalog.saveError": {
         "message": "[Çöûļðñ’ţ šåṽé ţĥé îţéɱ. Þļéåšé ţŕý åĝåîñ. one two three]"

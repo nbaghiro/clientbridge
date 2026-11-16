@@ -68,15 +68,21 @@ const TABS: { key: Tab; label: string }[] = [
 
 export function Forms() {
     const [openId, setOpenId] = useState<string | null>(null);
+    const [created, setCreated] = useState<string | null>(null);
     if (openId === null) return <FormList onOpen={setOpenId} />;
     return (
         <EditorSource
             key={openId}
             formId={openId}
+            created={openId === created}
             onBack={() => {
                 setOpenId(null);
+                setCreated(null);
             }}
-            onCreated={setOpenId}
+            onCreated={(id) => {
+                setCreated(id);
+                setOpenId(id);
+            }}
         />
     );
 }
@@ -149,31 +155,43 @@ function FormList({ onOpen }: { onOpen: (id: string) => void }) {
 
 function EditorSource({
     formId,
+    created,
     onBack,
     onCreated,
 }: {
     formId: string;
+    created: boolean;
     onBack: () => void;
     onCreated: (id: string) => void;
 }) {
     const draft = useFormDraft(formId);
     if (draft === null) return <Loading />;
-    return <Editor formId={formId} initial={draft} onBack={onBack} onCreated={onCreated} />;
+    return (
+        <Editor
+            formId={formId}
+            initial={draft}
+            created={created}
+            onBack={onBack}
+            onCreated={onCreated}
+        />
+    );
 }
 
 function Editor({
     formId,
     initial,
+    created,
     onBack,
     onCreated,
 }: {
     formId: string;
     initial: FormDraft;
+    created: boolean;
     onBack: () => void;
     onCreated: (id: string) => void;
 }) {
     const zone = useBusinessZone();
-    const editor = useFormEditor(api, formId, initial, onCreated);
+    const editor = useFormEditor(api, formId, initial, onCreated, created);
     const [sending, setSending] = useState(false);
     const [tab, setTab] = useState<Tab>("questions");
     const selected = editor.fields.find((x) => x.key === editor.selectedKey) ?? null;

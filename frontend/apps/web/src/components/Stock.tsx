@@ -127,7 +127,7 @@ function RestockModal({
                     <div className="w-36">
                         <TextField
                             label={s.restockQuantity}
-                            type="number"
+                            type="signed"
                             value={form.quantity}
                             onChange={form.setQuantity}
                             autoFocus

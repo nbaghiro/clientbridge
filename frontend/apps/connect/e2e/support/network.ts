@@ -18,13 +18,14 @@ export async function ownAddress(context: BrowserContext, info: TestInfo): Promi
                 headers: { ...route.request().headers(), "X-Forwarded-For": address },
             });
         } catch (error) {
-            // a refetch still in flight when the test ends meets a page that has already closed
-            if (!closedPage(route)) throw error;
+            if (!dropped(route, error)) throw error;
         }
     });
 }
 
-function closedPage(route: Route): boolean {
+// a refetch the page cancels on reload, or one still in flight when the test ends, has no one to answer
+function dropped(route: Route, error: unknown): boolean {
+    if (error instanceof Error && error.message.includes("Route is already handled")) return true;
     try {
         return route.request().frame().page().isClosed();
     } catch {
@@ -38,5 +39,10 @@ export async function rewrite(route: Route, change: (body: Json) => Json): Promi
     const response = await route.fetch();
     const body = (await response.json().catch(() => null)) as Json | null;
     // null when the page dropped the request (a refetch), so there is nothing left to answer
-    if (body !== null) await route.fulfill({ json: change(body) });
+    if (body === null) return;
+    try {
+        await route.fulfill({ json: change(body) });
+    } catch (error) {
+        if (!dropped(route, error)) throw error;
+    }
 }

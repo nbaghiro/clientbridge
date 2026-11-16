@@ -73,7 +73,6 @@ import {
     Toggle,
     useTabletLayout,
 } from "@clientbridge/ui";
-import { launchCameraAsync, requestCameraPermissionsAsync } from "expo-image-picker";
 import { useEffect, useRef, useState } from "react";
 import {
     Image,
@@ -88,7 +87,7 @@ import {
 
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
-import { pickedPhoto, pickFromLibrary } from "../lib/photos";
+import { pickedPhoto, pickFromLibrary, takePhoto } from "../lib/photos";
 import { DocumentPreview } from "./DocumentPreview";
 import { BookingVisitRecords } from "./VisitRecords";
 
@@ -267,14 +266,12 @@ function Photos({ event }: { event: ScheduleEvent }) {
     const pick = (camera: boolean): void => {
         picker.run(
             async () => {
-                if (camera && !(await requestCameraPermissionsAsync()).granted) {
-                    picker.setError(s.photoCameraDenied);
+                const options = { mediaTypes: ["images" as const], quality: 0.8 };
+                const result = camera ? await takePhoto(options) : await pickFromLibrary(options);
+                if (result === null) {
+                    picker.setError(strings.common.photoCameraDenied);
                     return;
                 }
-                const options = { mediaTypes: ["images" as const], quality: 0.8 };
-                const result = camera
-                    ? await launchCameraAsync(options)
-                    : await pickFromLibrary(options);
                 const asset = result.assets?.[0];
                 if (!asset) return;
                 photos.add(pickedPhoto(asset));

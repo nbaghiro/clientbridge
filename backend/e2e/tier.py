@@ -500,6 +500,8 @@ def wait_healthy(seconds: float = 120) -> None:
 def start() -> None:
     """Bring the tier up for this checkout's migrations, sync rules and auth configuration."""
     write_config()
+    # every image at once, so auth and powersync aren't pulled one by one after the migrations
+    compose("pull", "--quiet", "--policy", "missing")
     compose(
         "up", "-d", "--wait", "postgres", "redis", "s3", "mailpit", "stripe-mock", "relay", "oidc"
     )

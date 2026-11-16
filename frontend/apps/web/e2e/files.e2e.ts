@@ -1,5 +1,6 @@
 import { strings } from "@clientbridge/app-core/public";
 import { expect, test } from "@playwright/test";
+import { newBusiness } from "./support/business";
 import { createClient, editClient } from "./support/clients";
 import { expectPhoto, filesApi, photoEvidence, portrait } from "./support/files";
 import { signIn } from "./support/session";
@@ -9,8 +10,11 @@ test.use({ actionTimeout: 15_000 });
 test("FILES-E2E-01 client photo confirms real storage bytes and survives another replica", async ({
     page,
     browser,
+    request,
 }, testInfo) => {
-    await signIn(page);
+    test.setTimeout(240_000);
+    // other pages in a shared business fetch every client photo's link, and 404 on one removed here
+    const business = await newBusiness(page, request, "client-photo");
     const client = await createClient(page);
     const fixture = await portrait();
     const origin = new URL(page.url()).origin;
@@ -107,7 +111,7 @@ test("FILES-E2E-01 client photo confirms real storage bytes and survives another
         const observer = await browser.newContext({ baseURL: new URL(page.url()).origin });
         try {
             const other = await observer.newPage();
-            await signIn(other);
+            await signIn(other, business);
             await expectPhoto(await editClient(other, client), other, fixture.sha256);
             await other.reload();
             await expectPhoto(await editClient(other, client), other, fixture.sha256);

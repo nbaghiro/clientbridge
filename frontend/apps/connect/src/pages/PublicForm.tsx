@@ -109,6 +109,7 @@ export function PublicForm() {
                         onUpload={(file, name) => {
                             uploads.upload(f.name, file, name);
                         }}
+                        busy={fill.busy}
                         fileName={uploads.fileNames[f.name] ?? null}
                         chooseFileLabel={s.chooseFile}
                         selectPlaceholder={s.selectPlaceholder}

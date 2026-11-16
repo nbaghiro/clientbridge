@@ -186,6 +186,7 @@ const FAILURES: Record<string, (detail: FailureDetail) => string> = {
         strings.api.giftCardShort(formatMoney(detailBalance(d), BUSINESS_CURRENCY)),
     invalid_phone: () => strings.api.invalidPhone,
     sku_taken: () => strings.api.skuTaken,
+    stock_below_zero: () => strings.api.stockBelowZero,
     invoice_has_payments: () => strings.api.invoiceHasPayments,
     file_type_unsupported: () => strings.api.fileTypeUnsupported,
     file_too_large: () => strings.api.fileTooLarge,

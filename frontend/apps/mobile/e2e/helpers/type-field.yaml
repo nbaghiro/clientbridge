@@ -7,6 +7,19 @@ appId: ${APP_ID}
           index: 1
       direction: DOWN
       centerElement: true
+      optional: true
+# a centring swipe can fling a short sheet past a field that sat just below the middle
+- runFlow:
+      when:
+          notVisible:
+              text: ${FIELD}
+              index: 1
+      commands:
+          - scrollUntilVisible:
+                element:
+                    text: ${FIELD}
+                    index: 1
+                direction: UP
 - tapOn:
       text: ${FIELD}
       index: 1

@@ -29,6 +29,8 @@ const c = theme.colors;
 const KEYBOARD: Partial<Record<TextFieldType, KeyboardTypeOptions>> = {
     email: "email-address",
     number: "decimal-pad",
+    // iOS's numeric keyboard is a decimal pad, which has no minus sign
+    signed: Platform.OS === "ios" ? "numbers-and-punctuation" : "numeric",
     tel: "phone-pad",
     url: "url",
 };
@@ -114,7 +116,12 @@ export function TextField({
     ref,
 }: NativeProps<TextFieldProps> & WithRef<TextInput>) {
     const [value, setValue] = useControllable(valueProp, defaultValue, onChange);
-    const plain = type === "email" || type === "password" || type === "url" || type === "code";
+    const plain =
+        type === "email" ||
+        type === "password" ||
+        type === "url" ||
+        type === "code" ||
+        type === "signed";
     const accessoryId = useId();
     // iOS's number and phone pads have no return key to put the keyboard away
     const needsDone = Platform.OS === "ios" && (type === "number" || type === "tel");

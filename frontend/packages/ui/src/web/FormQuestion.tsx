@@ -29,6 +29,7 @@ export function FormQuestion({
     value,
     onChange,
     onUpload,
+    busy = false,
     fileName,
     chooseFileLabel,
     selectPlaceholder,
@@ -54,7 +55,7 @@ export function FormQuestion({
                     <label
                         className={`flex items-center gap-3 rounded-md border border-dashed px-4 py-3 text-sm transition ${
                             invalid ? "border-danger" : "border-line"
-                        } ${preview ? "bg-bg" : "cursor-pointer bg-bg hover:border-accent"}`}
+                        } ${preview ? "bg-bg" : busy ? "cursor-wait bg-bg opacity-60" : "cursor-pointer bg-bg hover:border-accent"}`}
                     >
                         <Icon
                             name={fileName ? "check" : "upload"}
@@ -71,9 +72,12 @@ export function FormQuestion({
                                 type="file"
                                 className="sr-only"
                                 aria-label={label}
+                                disabled={busy}
                                 accept="application/pdf,image/jpeg,image/png,image/heic"
                                 onChange={(e) => {
                                     const file = e.target.files?.[0];
+                                    // cleared so a failed upload can retry the same file
+                                    e.target.value = "";
                                     if (file) onUpload?.(file, file.name);
                                 }}
                             />

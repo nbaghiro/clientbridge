@@ -18,15 +18,35 @@ concurrency:
 # Measures first-attempt outcomes of shuffled, repeated lanes; it never qualifies a lane.
 jobs:
   lane:
+    name: ${{ matrix.lane.name }}
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
-        surface: [web, connect, journeys]
+        # the web lane repeated three times outlasts one job, so it splits by measured seconds
+        lane:
+          - {
+              name: web (1/3),
+              artifact: web-1,
+              args: --surface web --shard 1/3,
+            }
+          - {
+              name: web (2/3),
+              artifact: web-2,
+              args: --surface web --shard 2/3,
+            }
+          - {
+              name: web (3/3),
+              artifact: web-3,
+              args: --surface web --shard 3/3,
+            }
+          - { name: connect, artifact: connect, args: --surface connect }
+          - { name: journeys, artifact: journeys, args: --surface journeys }
     env:
       SEED: ${{ inputs.seed || github.run_id }}
       REPEAT: ${{ inputs.repeat || '3' }}
+      ARGS: ${{ matrix.lane.args }}
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.3.0
@@ -48,14 +68,14 @@ jobs:
       - name: run the shuffled, repeated lane
         # stops short of the job limit so the steps below still collect what ran
         timeout-minutes: 105
-        run: make test-flakes FLAKE_SEED="$SEED" FLAKE_REPEAT="$REPEAT" FLAKE_ARGS="--surface ${{ matrix.surface }}"
+        run: make test-flakes FLAKE_SEED="$SEED" FLAKE_REPEAT="$REPEAT" FLAKE_ARGS="$ARGS"
       - name: collect the test tier's logs
         if: always()
         run: mkdir -p .scratchpad && make test-tier-logs > .scratchpad/tier.log 2>&1 || true
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: flakes-${{ matrix.surface }}
+          name: flakes-${{ matrix.lane.artifact }}
           include-hidden-files: true
           if-no-files-found: error
           path: |
