@@ -6,15 +6,21 @@ import {
     formatPhone,
     strings,
 } from "@clientbridge/app-core/public";
-import { expect, type Locator, type Page, type Response } from "@playwright/test";
+import {
+    type APIRequestContext,
+    expect,
+    type Locator,
+    type Page,
+    type Response,
+} from "@playwright/test";
 import { navigate } from "./session";
-import { runUrl, demoSlug } from "@clientbridge/config/e2e/run";
+import { runUrl } from "@clientbridge/config/e2e/run";
 import { freshPhone, textedCode } from "./auth";
 import { bookingApi, createBookingFixture, type BookingFixture } from "./bookings";
-import { connectUrl } from "./business";
+import { connectUrl, textingNumber } from "./business";
 import { select } from "./db";
 import { expectImage } from "./files";
-import { pastExtras } from "./visit";
+import { apiCall, ownBookingPage, pastExtras } from "./visit";
 
 export interface ClientFixture {
     id: string;
@@ -176,6 +182,8 @@ export async function addClientNote(
 export interface ReturningFixture extends BookingFixture {
     client: ClientFixture;
     petId: string;
+    slug: string;
+    owner: { email: string; password: string };
 }
 interface ReturningEvidence {
     clients: { id: string; name: string; phone: string | null; status: string }[];
@@ -241,8 +249,21 @@ export async function contactEvidence(
             SELECT id, item_id FROM slots WHERE item_id = ${item} ORDER BY id`,
     };
 }
-export async function returningFixture(page: Page): Promise<ReturningFixture> {
-    const f = await createBookingFixture(page);
+export async function returningFixture(
+    page: Page,
+    request: APIRequestContext,
+): Promise<ReturningFixture> {
+    // these cases book their owner's first open time, so a shared owner makes them race for it
+    const own = await ownBookingPage(page, request, "returning");
+    await textingNumber(own.businessId);
+    await apiCall(
+        page,
+        "PATCH",
+        "/v1/online-booking",
+        { policy: { approve_new_clients: true } },
+        200,
+    );
+    const f = await createBookingFixture(page, {}, own.email);
     const response = await page.request.patch(`${bookingApi()}/v1/items/${f.itemId}`, {
         headers: { Origin: new URL(page.url()).origin },
         data: { online_bookable: true },
@@ -251,7 +272,13 @@ export async function returningFixture(page: Page): Promise<ReturningFixture> {
     const client = { id: f.clientId, name: f.clientName, phone: f.clientPhone };
     await addPet(page, client, "Maple");
     const petId = await addPet(page, client, "Clover");
-    return { ...f, client, petId };
+    return {
+        ...f,
+        client,
+        petId,
+        slug: own.slug,
+        owner: { email: own.email, password: own.password },
+    };
 }
 export async function verifyReturning(
     page: Page,
@@ -263,14 +290,10 @@ export async function verifyReturning(
     const t = strings.publicReturning;
     const availableDays = () =>
         page.waitForResponse(
-            (r) =>
-                new URL(r.url()).pathname === `/book/${demoSlug("birchbark")}/days` &&
-                r.status() === 200,
+            (r) => new URL(r.url()).pathname === `/book/${f.slug}/days` && r.status() === 200,
         );
     let loaded = availableDays();
-    await page.goto(
-        connectUrl("book", `${demoSlug("birchbark")}?service=${f.itemId}&staff=${f.staffId}`),
-    );
+    await page.goto(connectUrl("book", `${f.slug}?service=${f.itemId}&staff=${f.staffId}`));
     await pastExtras(page);
     let response = await loaded;
     const days = page.getByRole("radiogroup", { name: b.date, exact: true });
@@ -305,7 +328,7 @@ export async function verifyReturning(
         .getByRole("textbox", { name: t.code, exact: true })
         .fill(await textedCode(page.request, f.clientPhone));
     const verified = page.waitForResponse(
-        (r) => new URL(r.url()).pathname === `/book/${demoSlug("birchbark")}/returning/verify`,
+        (r) => new URL(r.url()).pathname === `/book/${f.slug}/returning/verify`,
     );
     await page.getByRole("button", { name: t.verify, exact: true }).click();
     const result = await verified;

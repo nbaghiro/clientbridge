@@ -31,9 +31,6 @@ WORKER_SETTINGS = "clientbridge.tasks.worker.WorkerSettings"
 PROBE_JOB = "prune_receipts"
 
 
-PLATFORM_OPERATORS = ("console", "lapse")
-
-
 COMPLETED_JOB = re.compile(r"← cron:(\w+) ●")
 
 
@@ -149,8 +146,10 @@ class Stack:
         seed_as_of: datetime | None = None,
         native: str | None = None,
         worker: str = WORKER_SETTINGS,
+        repeat_each: int = 1,
     ) -> None:
         self.directory = directory
+        self.repeat_each = repeat_each
         self.worker_settings = worker
         self.lease = lease
         self.namespace = lease.namespace
@@ -346,7 +345,9 @@ class Stack:
     def grant_platform_access(self) -> None:
         """Own verified operator identities for the admin console, granted before the API starts."""
         granted: list[str] = []
-        for role in PLATFORM_OPERATORS:
+        # OPS-E2E-03 unverifies its operator, so each repeated copy of it gets one of its own
+        roles = ["console", *(f"lapse_{copy}" for copy in range(self.repeat_each))]
+        for role in roles:
             email = f"operator-{role}-{secrets.token_hex(6)}+{self.namespace}@example.com"
             password = secrets.token_urlsafe(24)
             response = httpx.post(

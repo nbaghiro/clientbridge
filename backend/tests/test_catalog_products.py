@@ -12,7 +12,7 @@ from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import Item, Package, StockMovement
 from clientbridge.models.ledger import Entry
 from clientbridge.services import ledger
-from tests.conftest import BIZ, Factory, FakePaymentGateway
+from tests.conftest import BIZ, OWNER_USER, Factory, FakePaymentGateway
 from tests.helpers import card_pay, enable_payments, settle
 from tests.helpers import key as retry_key
 
@@ -202,6 +202,91 @@ async def test_product_fields_and_duplicate_sku_409(as_owner: httpx.AsyncClient)
     assert taken.status_code == 409 and taken.json()["error"] == "sku_taken"
 
 
+async def test_sku_taken_whatever_its_case_or_spacing_409(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    body = {"kind": "product", "name": "Paw balm", "price_cents": 1600, "sku": "  BALM-7 "}
+    first = await as_owner.post("/v1/items", json=body)
+    assert first.status_code == 201, first.text
+    assert first.json()["sku"] == "BALM-7"
+    lower = await as_owner.post("/v1/items", json={**body, "name": "Copy", "sku": " balm-7"})
+    assert lower.status_code == 409 and lower.json()["error"] == "sku_taken"
+    other = await as_owner.post("/v1/items", json={**body, "name": "Other", "sku": "BALM-8"})
+    assert other.status_code == 201, other.text
+    taken = await as_owner.patch(f"/v1/items/{other.json()['id']}", json={"sku": "Balm-7"})
+    assert taken.status_code == 409 and taken.json()["error"] == "sku_taken"
+    own = await as_owner.patch(f"/v1/items/{first.json()['id']}", json={"sku": "balm-7"})
+    assert own.status_code == 200 and own.json()["sku"] == "balm-7"
+    skus = await db.scalars(select(Item.sku).where(Item.name.in_(("Paw balm", "Copy", "Other"))))
+    assert set(skus) == {"BALM-8", "balm-7"}
+
+
+async def test_items_sharing_a_sku_in_another_case_stay_editable(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    db.add_all(
+        Item(id=f"it_case_{sku}", business_id=BIZ, kind="product", name=sku, sku=sku)
+        for sku in ("COMB-2", "comb-2")
+    )
+    await db.commit()
+    res = await as_owner.patch(
+        "/v1/items/it_case_comb-2", json={"sku": "comb-2", "price_cents": 1900}
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["price_cents"] == 1900
+
+
+async def test_sku_case_is_scoped_to_the_business(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    other = await factory.business()
+    db.add(Item(id="it_other_balm", business_id=other.id, kind="product", name="X", sku="BALM-9"))
+    await db.commit()
+    res = await as_owner.post(
+        "/v1/items", json={"kind": "product", "name": "Balm", "price_cents": 900, "sku": "balm-9"}
+    )
+    assert res.status_code == 201, res.text
+
+
+async def test_two_creates_of_one_sku_in_different_cases_at_once_keep_one(
+    db: AsyncSession,
+) -> None:
+    import asyncio
+
+    from sqlalchemy import delete
+
+    from clientbridge.core.db import SessionLocal
+    from clientbridge.core.deps import Principal
+    from clientbridge.core.errors import Conflict
+    from clientbridge.models.platform import Audit
+    from clientbridge.schemas.catalog import ItemCreate
+    from clientbridge.services.catalog import CatalogService
+
+    owner = Principal(user_id=OWNER_USER, business_id=BIZ, staff_id="st_owner", role="owner")
+    names = ["Race balm A", "Race balm B"]
+    ready = asyncio.Barrier(2)
+
+    async def add(name: str, sku: str) -> str | None:
+        async with SessionLocal() as session:
+            data = ItemCreate(kind="product", name=name, price_cents=900, sku=sku)
+            await ready.wait()
+            try:
+                return (await CatalogService(session, owner).create(data)).id
+            except Conflict as exc:
+                assert exc.code == "sku_taken"
+                return None
+
+    try:
+        added = await asyncio.gather(add(names[0], "RACE-1"), add(names[1], "race-1"))
+        assert len([i for i in added if i is not None]) == 1
+    finally:
+        async with SessionLocal() as cleanup:
+            ids = list(await cleanup.scalars(select(Item.id).where(Item.name.in_(names))))
+            await cleanup.execute(delete(Audit).where(Audit.entity_id.in_(ids)))
+            await cleanup.execute(delete(Item).where(Item.id.in_(ids)))
+            await cleanup.commit()
+
+
 async def test_only_products_track_stock_422(as_owner: httpx.AsyncClient) -> None:
     res = await as_owner.post(
         "/v1/items", json={"kind": "service", "name": "Trim", "track_stock": True}
@@ -262,6 +347,19 @@ async def test_restock_errors(as_owner: httpx.AsyncClient, db: AsyncSession) -> 
     assert zero.status_code == 422
     missing = await as_owner.post("/v1/items/it_nope/restock", json={"quantity": 2})
     assert missing.status_code == 404
+
+
+async def test_a_correction_cannot_take_stock_below_zero_409(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    item_id = await _fresh_product(as_owner, db, 1)
+    await db.commit()
+    under = await as_owner.post(f"/v1/items/{item_id}/restock", json={"quantity": -2})
+    assert under.status_code == 409 and under.json()["error"] == "stock_below_zero"
+    assert await _stock(db, item_id) == 1
+    empty = await as_owner.post(f"/v1/items/{item_id}/restock", json={"quantity": -1})
+    assert empty.status_code == 200, empty.text
+    assert await _stock(db, item_id) == 0
 
 
 async def test_staff_cannot_restock_403(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:

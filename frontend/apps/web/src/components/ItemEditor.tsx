@@ -70,7 +70,7 @@ function TaxField({
     ed,
     hint,
 }: {
-    ed: { form: ItemForm; tax: string; taxOptions: { key: string; label: string }[] };
+    ed: { form: ItemForm; tax: string | null; taxOptions: { key: string; label: string }[] };
     hint: string;
 }) {
     return (
@@ -84,7 +84,7 @@ function TaxField({
                     ed.form.set("taxClass", x);
                 }}
             />
-            <p className="text-sm text-ink-soft">{ed.tax}</p>
+            {ed.tax === null ? null : <p className="text-sm text-ink-soft">{ed.tax}</p>}
             <p className="text-xs text-muted">{hint}</p>
         </div>
     );
@@ -362,7 +362,7 @@ function ProductFields({ ed }: { ed: ProductEditor }) {
                     >
                         <span className="text-muted">{s.margin}</span>
                         <span className="font-semibold tabular-nums">
-                            {ed.margin === null ? s.marginUnknown : ed.margin.label}
+                            {ed.margin === null ? ed.marginMissing : ed.margin.label}
                         </span>
                     </div>
                     {ed.margin?.warning != null ? (
@@ -643,6 +643,7 @@ function Frame({
                 />
             }
             onClose={onClose}
+            footer={form.error !== null ? <Notice tone="danger">{form.error}</Notice> : undefined}
             actions={
                 <>
                     {item === null ? null : (
@@ -666,7 +667,6 @@ function Frame({
                 </Notice>
             ) : null}
             {children}
-            {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
         </DetailView>
     );
 }
