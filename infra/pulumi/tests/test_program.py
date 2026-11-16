@@ -1654,10 +1654,12 @@ def test_the_stripe_sandbox_hands_actions_only_its_test_keys(with_stripe: Built)
             if str(value).startswith("${{ secrets.")
         }
         assert read <= {f"secrets.{name}" for name in SANDBOX_SECRETS}
-    passed = dig(workflow("ci.yml"), "jobs", "stripe", "secrets")
-    assert isinstance(passed, dict) and set(passed) == SANDBOX_SECRETS
-    # outside the required check while it only reports, so a wait on Stripe never holds ci-result
-    assert "stripe" not in str(dig(workflow("ci.yml"), "jobs", "ci-result", "needs"))
+    # its own workflow while it only reports, so neither ci-result nor deploy waits on Stripe
+    ci_jobs = dig(workflow("ci.yml"), "jobs")
+    assert isinstance(ci_jobs, dict) and "stripe" not in ci_jobs
+    triggers = workflow("e2e-stripe.yml")["True"]
+    assert isinstance(triggers, dict) and {"push", "pull_request"} <= set(triggers)
+    assert dig(workflow("deploy.yml"), "True", "workflow_run", "workflows") == ["ci"]
     # reports only: a Stripe failure shows on its own check without failing e2e or ci-result
     assert all(dig(jobs, name, "continue-on-error") is True for name in ("api", "lane", "result"))
 

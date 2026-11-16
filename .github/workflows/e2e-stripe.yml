@@ -1,14 +1,23 @@
-name: e2e stripe
+name: stripe
+# beside ci rather than inside it, so deploy, which follows ci's completion, never waits on a lane that reports
 on:
-  workflow_call:
-    secrets:
-      STRIPE_TEST_SECRET_KEY:
-        required: false
-      STRIPE_TEST_PUBLISHABLE_KEY:
-        required: false
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      record:
+        description: Record every Stripe browser test as video (E2E_RECORD=1)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
+
+# the same rule as ci: a new push cancels a pull request's run, while every main commit finishes
+concurrency:
+  group: stripe-${{ github.ref }}-${{ github.ref == 'refs/heads/main' && github.sha || 'latest' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 # a manual ci run with record keeps a video of every test; reusable workflows see the caller's event
 env:
@@ -94,7 +103,7 @@ jobs:
     continue-on-error: true
     permissions:
       contents: read
-      # to see when e2e / prepare has uploaded its builds and seed
+      # to find this commit's ci run and fetch e2e / prepare's builds and seed from it
       actions: read
     concurrency:
       group: stripe-pool-${{ matrix.pair }}
@@ -115,24 +124,35 @@ jobs:
         with:
           app: connect
           browser: chromium
-      # e2e / prepare builds web, Connect and admin and seeds the demo beside this lane, so the shard waits
-      # for its artifact; without it the lane builds and seeds its own
-      - name: wait for e2e's prepared builds and seed
-        id: prepared
+      # this commit's ci run builds and seeds in e2e / prepare; without it the shard builds and seeds its own
+      - name: find this commit's ci run
+        id: ci
         env:
           GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          EVENT: ${{ github.event_name }}
         run: |
-          for _ in $(seq 120); do
-            found=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?name=e2e-prepared" --jq .total_count)
-            if [ "$found" = 1 ]; then echo "found=true" >> "$GITHUB_OUTPUT"; exit 0; fi
-            sleep 5
+          for _ in $(seq 12); do
+            id=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$SHA&event=$EVENT&per_page=1" \
+              --jq '.workflow_runs[0].id // empty')
+            if [ -n "$id" ]; then echo "id=$id" >> "$GITHUB_OUTPUT"; exit 0; fi
+            sleep 10
           done
-          echo "::warning::no prepared builds after ten minutes; the shard builds and seeds its own"
-      - if: steps.prepared.outputs.found == 'true'
+          echo "::warning::no ci run for this commit; the shard builds and seeds its own"
+      - if: steps.ci.outputs.id
+        id: prepared
+        uses: ./.github/actions/await-job
+        with:
+          job: e2e / prepare
+          run-id: ${{ steps.ci.outputs.id }}
+          required: "false"
+      - if: steps.prepared.outputs.passed == 'true'
         uses: actions/download-artifact@v8
         with:
           name: e2e-prepared
           path: ~/.cache/clientbridge-test
+          run-id: ${{ steps.ci.outputs.id }}
+          github-token: ${{ github.token }}
       # a shard may hold the cases tagged @browsers, which also run in Firefox and WebKit
       - uses: ./.github/actions/playwright
         with:

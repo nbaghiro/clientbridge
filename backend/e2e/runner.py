@@ -40,14 +40,19 @@ from e2e.tier import ROOT
 def prepare() -> None:
     """Seed the snapshot and build the bundles that the lanes after this one reuse."""
     with tier.hold():
-        subprocess.run(
+        # the seed waits on the database and the builds on the CPU, so they run side by side
+        seed = subprocess.Popen(
             [sys.executable, "-m", "e2e.snapshot", "fresh"],
             cwd=ROOT / "backend",
             env=environment() | tier.environment(),
-            check=True,
         )
-        for app, path in ensure_builds().items():
-            print(f"{app}: {path}", flush=True)
+        try:
+            for app, path in ensure_builds().items():
+                print(f"{app}: {path}", flush=True)
+        finally:
+            seed.wait()
+        if seed.returncode != 0:
+            raise subprocess.CalledProcessError(seed.returncode, seed.args)
 
 
 def run_browsers(

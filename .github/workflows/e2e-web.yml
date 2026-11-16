@@ -24,13 +24,12 @@ jobs:
           - { name: chromium (3/5), artifact: web-chromium-3, browser: chromium, args: --surface web --shard 3/5 }
           - { name: chromium (4/5), artifact: web-chromium-4, browser: chromium, args: --surface web --shard 4/5 }
           - { name: chromium (5/5), artifact: web-chromium-5, browser: chromium, args: --surface web --shard 5/5 }
-          - { name: pseudo-locale, artifact: web-pseudo, browser: chromium, args: --surface web --project pseudo }
-          # Firefox and WebKit run only the cases tagged @browsers; CI keeps them on Linux
-          - { name: firefox, artifact: web-firefox, browser: firefox, args: --surface web --project firefox }
-          - { name: webkit, artifact: web-webkit, browser: webkit, args: --surface web --project webkit }
           - { name: journeys (1/2), artifact: web-journeys-1, browser: chromium, args: --surface journeys --shard 1/2 }
           - { name: journeys (2/2), artifact: web-journeys-2, browser: chromium, args: --surface journeys --shard 2/2 }
-          - { name: filings, artifact: web-filings, browser: chromium, args: --surface filings }
+          # the short lanes share a job, one after the other, since each runs in about a job's setup time
+          - { name: pseudo-locale and filings, artifact: web-pseudo, browser: chromium, args: "--surface web --project pseudo;--surface filings" }
+          # Firefox and WebKit run only the cases tagged @browsers; CI keeps them on Linux
+          - { name: firefox and webkit, artifact: web-browsers, browser: firefox, also: webkit, args: "--surface web --project firefox;--surface web --project webkit" }
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/e2e-setup
@@ -38,10 +37,21 @@ jobs:
           app: web
           browser: ${{ matrix.browser }}
           prepared: "true"
+      - if: matrix.also
+        uses: ./.github/actions/playwright
+        with:
+          app: web
+          browser: ${{ matrix.also }}
       - name: run the lane on the test tier
         env:
           ARGS: ${{ matrix.args }}
-        run: make test-functional FUNCTIONAL_ARGS="$ARGS"
+        run: |
+          status=0
+          IFS=';' read -ra runs <<< "$ARGS"
+          for run in "${runs[@]}"; do
+            make test-functional FUNCTIONAL_ARGS="$run" || status=$?
+          done
+          exit "$status"
       - if: always()
         uses: ./.github/actions/e2e-collect
         with:

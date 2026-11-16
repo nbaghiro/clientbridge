@@ -43,7 +43,7 @@ typed `/v1` command) · command (`POST /v1`) · webhook/public · job. Payments 
 ```
 clientbridge/
 ├── Makefile · docker-compose.yml   root orchestration + local infra (87xx ports)
-├── .github/workflows/ci.yml        CI: lint, then checks and e2e, then ci-result
+├── .github/workflows/ci.yml        CI: lint and e2e, checks after lint, then ci-result
 ├── .githooks/                      versioned git hooks (pre-commit = format-check, lint, codegen-check, test)
 ├── .docs/                          main docs · company/ · reviews/ · explorations/ · executions/
 ├── backend/                        FastAPI app: src/clientbridge/{api,schemas,services,models,core,sync,tasks,integrations}

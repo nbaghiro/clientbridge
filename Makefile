@@ -283,8 +283,13 @@ PYRIGHT := PYRIGHT_PYTHON_IGNORE_WARNINGS=1 uv run pyright -p ../pyrightconfig.j
 lint-backend:
 	cd backend && uv run ruff check --ignore-noqa . && $(PYRIGHT) && uv run python -m scripts.check_structure
 
+# eslint with knip, the typecheck and the site's copy rules run side by side, each printed whole at the end
 lint-frontend:
-	cd frontend && pnpm lint && pnpm typecheck && pnpm --filter site lint:content
+	@cd frontend && logs=$$(mktemp -d) && \
+	{ (pnpm lint > $$logs/1 2>&1; echo $$? >> $$logs/status) & \
+	(pnpm typecheck > $$logs/2 2>&1; echo $$? >> $$logs/status) & \
+	(pnpm --filter site lint:content > $$logs/3 2>&1; echo $$? >> $$logs/status) & \
+	wait; }; cat $$logs/1 $$logs/2 $$logs/3; ! grep -qv '^0$$' $$logs/status
 
 lint-infra:
 	cd infra/pulumi && uv run ruff check --ignore-noqa . && PYRIGHT_PYTHON_IGNORE_WARNINGS=1 uv run pyright
