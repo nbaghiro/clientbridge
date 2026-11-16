@@ -2333,11 +2333,15 @@ def test_native_evidence_cannot_certify_missing_or_unclean_flows(failure: str) -
         validate_native_evidence(native_junit(*cases), required)
 
 
+def test_the_ports_a_run_picks_together_are_all_different() -> None:
+    assert len(set(run_stack.free_ports(50))) == 50
+
+
 def test_the_native_link_forwards_until_it_is_cut_and_again_once_restored() -> None:
     with socket.socket() as upstream:
         upstream.bind(("127.0.0.1", 0))
         upstream.listen()
-        listen = run_stack.free_port()
+        listen = run_stack.free_ports(1)[0]
         link = native.NativeLink({listen: upstream.getsockname()[1]})
         try:
             link.online()
