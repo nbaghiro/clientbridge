@@ -162,9 +162,13 @@ name: NATIVE-CFG-05 A product set up on the phone with its photo sells once and 
 - extendedWaitUntil:
       visible: "${output.name + ' · Low: 1 left'}"
       timeout: 60000
-# the search keeps the keyboard up, so the first tap may only close it
+# Return puts the search's keyboard away, and on a narrow screen Inventory starts past the tab row's edge
+- pressKey: Enter
+- swipe:
+      from:
+          text: "Packages & memberships"
+      direction: LEFT
 - tapOn: "Inventory"
-- runFlow: { when: { visible: "Online shop link" }, commands: [{ tapOn: "Inventory" }] }
 - scrollUntilVisible:
       element: ${output.name}
       direction: DOWN
@@ -185,7 +189,10 @@ name: NATIVE-CFG-05 A product set up on the phone with its photo sells once and 
 # its keyboard closes with Return, not a Done bar
 - pressKey: Enter
 - tapOn: "Add to stock"
-- assertVisible: "A count correction can’t take what’s on hand below zero."
+# the server refuses it, since the phone's count may be behind the shelf
+- extendedWaitUntil:
+      visible: "A count correction can’t take what’s on hand below zero."
+      timeout: 30000
 - tapOn:
       text: "Units received"
       index: 1
