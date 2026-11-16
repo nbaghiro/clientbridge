@@ -164,7 +164,7 @@ def native_shards(count: int) -> list[Shard]:
 
 
 def shuffled_config(stack: "Stack", args: argparse.Namespace, seed: int) -> str:
-    """Order the lane's spec files by seed: Playwright runs files by name, so numbered wrappers."""
+    """Order the lane's spec files by seed: Playwright runs files by path, so numbered folders."""
     app = ROOT / "frontend" / "apps" / playwright_app(args.surface)
     files = sorted({case.file for case in listed_cases(stack, args)})
     if not files:
@@ -174,8 +174,11 @@ def shuffled_config(stack: "Stack", args: argparse.Namespace, seed: int) -> str:
     cases = directory / "cases"
     cases.mkdir(parents=True)
     for rank, name in enumerate(files):
-        target = os.path.relpath(app / "e2e" / name, cases)
-        (cases / f"{rank:03d}-{Path(name).name}").write_text(f'import "{target}";\n')
+        # the wrapper keeps the spec's name, so a shard's /<name>:<line> filter matches it too
+        wrapper = cases / f"{rank:03d}" / name
+        wrapper.parent.mkdir(parents=True)
+        target = os.path.relpath(app / "e2e" / name, wrapper.parent)
+        wrapper.write_text(f'import "{target}";\n')
     config = directory / "playwright.config.ts"
     config.write_text(
         f'import base from "{os.path.relpath(app / playwright_config(args.surface), directory)}";\n'
@@ -183,7 +186,7 @@ def shuffled_config(stack: "Stack", args: argparse.Namespace, seed: int) -> str:
         "    ...base,\n"
         '    testDir: "cases",\n'
         "    projects: (base.projects ?? []).map((project) => ({\n"
-        '        ...project, testDir: "cases", testMatch: "*.ts", testIgnore: [],\n'
+        '        ...project, testDir: "cases", testMatch: "**/*.ts", testIgnore: [],\n'
         "    })),\n"
         "    webServer: [base.webServer ?? []].flat().map((server) => ({\n"
         f"        ...server, cwd: {json.dumps(str(app))},\n"

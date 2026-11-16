@@ -896,17 +896,20 @@ def test_a_shuffled_lane_imports_every_listed_file_in_its_seeded_order(
     stack = argparse.Namespace(project="e2e-000000000000", env={}, directory=tmp_path)
     args = argparse.Namespace(surface="web", project="default", tests=[])
     config = Path(sharding.shuffled_config(cast(run_stack.Stack, stack), args, 7))
-    wrappers = sorted((config.parent / "cases").iterdir())
-    order = [path.read_text().split("/")[-1].removesuffix('";\n') for path in wrappers]
+    cases = config.parent / "cases"
+    wrappers = sorted(cases.glob("*/*.ts"))
+    order = [path.name for path in wrappers]
     assert sorted(order) == listed
     assert order == json.loads((tmp_path / "shuffle.json").read_text())["files"]
+    assert all(path.read_text() == f'import "../../../../e2e/{path.name}";\n' for path in wrappers)
     again = sharding.shuffled_config(
         cast(run_stack.Stack, argparse.Namespace(**{**vars(stack), "project": "e2e-1"})), args, 7
     )
-    assert [p.name for p in sorted((Path(again).parent / "cases").iterdir())] == [
-        p.name for p in wrappers
+    rerun = sorted(Path(again).parent.glob("cases/*/*.ts"))
+    assert [p.relative_to(cases) for p in wrappers] == [
+        p.relative_to(Path(again).parent / "cases") for p in rerun
     ]
-    assert 'testMatch: "*.ts"' in config.read_text()
+    assert 'testMatch: "**/*.ts"' in config.read_text()
     assert str(tmp_path / "frontend" / "apps" / "web") in config.read_text()
 
 

@@ -64,7 +64,12 @@ def run_browsers(
         )
     measuring = args.repeat_each > 1 or args.shuffle_seed is not None
     filters = (
-        shard_filters(listed_cases(stack, args), case_seconds(args.surface), args.shard)
+        shard_filters(
+            listed_cases(stack, args),
+            case_seconds(args.surface),
+            args.shard,
+            "" if args.shuffle_seed is not None else "e2e",
+        )
         if args.shard
         else []
     )
