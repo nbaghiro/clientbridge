@@ -1,10 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { strings } from "@clientbridge/app-core/public";
 import { demoPerson } from "@clientbridge/config/e2e/demo";
-import { demoId } from "@clientbridge/config/e2e/run";
+import { demoId, demoSlug } from "@clientbridge/config/e2e/run";
 import { expect, type Locator, type Page } from "@playwright/test";
+import { bookingApi } from "./bookings";
+import { connectUrl } from "./business";
 import { select } from "./db";
 import { requireLocalMail } from "./evidence";
+import { navigate } from "./session";
+import { apiCall } from "./visit";
 const s = strings.catalog;
 export interface CatalogEvidence {
     audits: { entity_id: string; action: string }[];
@@ -175,4 +179,128 @@ export async function expectStockReplica(
 export async function itemCurrency(id: string): Promise<string | undefined> {
     const rows = await select<{ currency: string }>`SELECT currency FROM items WHERE id = ${id}`;
     return rows[0]?.currency;
+}
+
+export interface SellingProduct {
+    id: string;
+    name: string;
+    sku: string;
+}
+
+interface AddonProduct extends SellingProduct {
+    serviceId: string;
+}
+
+/** A tracked product with stock that the shop sells and the booking page offers with one new service. */
+export async function sellingProduct(page: Page): Promise<AddonProduct> {
+    const tag = randomUUID().slice(0, 8).toUpperCase();
+    const name = `${demoPerson(randomUUID())}'s Bath Salts`;
+    const sku = `BB-BS-${tag}`;
+    const service = await apiCall<{ id: string }>(
+        page,
+        "POST",
+        "/v1/items",
+        {
+            kind: "service",
+            name: `Salt soak ${tag}`,
+            duration_min: 30,
+            price_cents: 4000,
+            deposit_type: "none",
+            online_bookable: false,
+        },
+        201,
+    );
+    const item = await apiCall<{ id: string }>(
+        page,
+        "POST",
+        "/v1/items",
+        {
+            kind: "product",
+            name,
+            sku,
+            price_cents: 1800,
+            tax_class: "standard",
+            track_stock: true,
+            sell_online: true,
+        },
+        201,
+    );
+    await apiCall(page, "POST", `/v1/items/${item.id}/restock`, { quantity: 4 }, 200);
+    expect(
+        await apiCall(
+            page,
+            "PATCH",
+            "/v1/online-booking/addons",
+            { offers: [{ id: item.id, addon: true, addon_for: [service.id] }] },
+            200,
+        ),
+    ).toEqual({ offers: [{ id: item.id, addon: true, addon_for: [service.id] }] });
+    return { id: item.id, name, sku, serviceId: service.id };
+}
+
+/** Archives the product and its service, so repeated runs leave nothing on sale. */
+export async function retireSellingProduct(page: Page, product: AddonProduct): Promise<void> {
+    for (const id of [product.id, product.serviceId])
+        await apiCall(page, "PATCH", `/v1/items/${id}`, { active: false }, 200);
+}
+
+/** The desk register, searched by SKU once the replica has the product's current state. */
+export async function registerTile(
+    page: Page,
+    product: SellingProduct,
+    offered: boolean,
+): Promise<Locator> {
+    const d = strings.pos.desk;
+    await navigate(page, "/payments/sales");
+    await page.getByRole("searchbox", { name: d.searchShort, exact: true }).fill(product.sku);
+    const tile = page.getByRole("button", { name: product.name, exact: true });
+    if (offered) await expect(tile).toBeVisible({ timeout: 60_000 });
+    else
+        await expect(page.getByText(d.noResults, { exact: true })).toBeVisible({ timeout: 60_000 });
+    return tile;
+}
+
+/** The invoice editor's catalog picker searched for the product's SKU in lower case. */
+export async function invoicePick(page: Page, product: SellingProduct): Promise<Locator> {
+    await navigate(page, "/payments/invoices?new=1");
+    await page
+        .getByRole("combobox", { name: strings.billing.addFromCatalog, exact: true })
+        .fill(product.sku.toLowerCase());
+    return page.getByRole("option").filter({ hasText: product.name });
+}
+
+/** The product's card on the business's shop page. */
+export async function shopCard(page: Page, product: SellingProduct): Promise<Locator> {
+    await page.goto(connectUrl("shop", demoSlug("birchbark")));
+    await expect(page.getByRole("group").first()).toBeVisible({ timeout: 60_000 });
+    return page.getByRole("group", { name: product.name, exact: true });
+}
+
+/** The services the booking page offers the product with, or undefined while it is not an add-on. */
+export async function offeredAddon(
+    page: Page,
+    product: SellingProduct,
+): Promise<string[] | undefined> {
+    const response = await page.request.get(
+        `${bookingApi()}/book/${demoSlug("birchbark")}/services`,
+    );
+    expect(response.status()).toBe(200);
+    const { addons } = (await response.json()) as { addons: { id: string; addon_for: string[] }[] };
+    return addons.find((addon) => addon.id === product.id)?.addon_for;
+}
+
+/** Opens the product from the Products tab, under the Archived filter when it is archived. */
+export async function openProduct(
+    page: Page,
+    product: SellingProduct,
+    archived = false,
+): Promise<Locator> {
+    await navigate(page, "/setup/services");
+    await page.getByRole("tab", { name: s.views.products, exact: true }).click();
+    if (archived) {
+        await page.getByRole("combobox", { name: s.filterLabel, exact: true }).click();
+        await page.getByRole("option", { name: s.filterArchived, exact: true }).click();
+    }
+    await page.locator(`button[data-row-key="${product.id}"]`).click({ timeout: 60_000 });
+    return page.getByRole("dialog");
 }

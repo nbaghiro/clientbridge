@@ -70,7 +70,7 @@ function RestockSheet({
             </View>
             <TextField
                 label={s.restockQuantity}
-                type="number"
+                type="signed"
                 value={form.quantity}
                 onChange={form.setQuantity}
             />

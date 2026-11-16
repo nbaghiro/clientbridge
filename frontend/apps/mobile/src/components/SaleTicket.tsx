@@ -21,7 +21,7 @@ import {
     useBusinessZone,
     useNextVisit,
     useVisitNote,
-    itemMedia,
+    itemOption,
     replaceTask,
     sellableItems,
     useCatalogItems,
@@ -873,12 +873,7 @@ function ItemAdder({ sale }: { sale: SaleTicket }) {
         <SearchSelect
             name={d.addItems}
             placeholder={d.addItems}
-            options={items.map((i) => ({
-                key: i.id,
-                label: i.name,
-                media: itemMedia(i),
-                detail: formatMoney(i.price_cents ?? 0, BUSINESS_CURRENCY),
-            }))}
+            options={items.map(itemOption)}
             value=""
             onChange={(id) => {
                 const item = items.find((i) => i.id === id);

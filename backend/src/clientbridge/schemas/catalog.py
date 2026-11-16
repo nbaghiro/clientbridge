@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
 
 from clientbridge.core.mirrors import Mirror
 from clientbridge.models.catalog import (
@@ -16,6 +16,7 @@ from clientbridge.models.catalog import (
 GIFT_MIN_CENTS = 500
 GIFT_MAX_CENTS = 100_000
 GiftAmount = Annotated[int, Field(ge=GIFT_MIN_CENTS, le=GIFT_MAX_CENTS)]
+Sku = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=64)]
 
 
 class ItemBase(Mirror):
@@ -34,7 +35,7 @@ class ItemBase(Mirror):
     color: str | None = None
     active: bool = True
     tax_class: TaxClass = "standard"
-    sku: str | None = Field(default=None, min_length=1, max_length=64)
+    sku: Sku | None = None
     cost_cents: int | None = Field(default=None, ge=0)
     track_stock: bool = False
     sell_online: bool = Field(
@@ -108,7 +109,7 @@ class ItemUpdate(Mirror):
     online_bookable: bool | None = None
     active: bool | None = None
     tax_class: TaxClass | None = None
-    sku: str | None = Field(default=None, min_length=1, max_length=64)
+    sku: Sku | None = None
     cost_cents: int | None = Field(default=None, ge=0)
     track_stock: bool | None = None
     sell_online: bool | None = None

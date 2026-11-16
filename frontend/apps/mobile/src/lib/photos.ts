@@ -2,7 +2,9 @@ import {
     type ImagePickerAsset,
     type ImagePickerOptions,
     type ImagePickerResult,
+    launchCameraAsync,
     launchImageLibraryAsync,
+    requestCameraPermissionsAsync,
     UIImagePickerPreferredAssetRepresentationMode,
 } from "expo-image-picker";
 
@@ -12,6 +14,12 @@ export function pickFromLibrary(options: ImagePickerOptions): Promise<ImagePicke
         ...options,
         preferredAssetRepresentationMode: UIImagePickerPreferredAssetRepresentationMode.Compatible,
     });
+}
+
+/** A photo taken now with the camera, or null when the phone won't let the app use it. */
+export async function takePhoto(options: ImagePickerOptions): Promise<ImagePickerResult | null> {
+    if (!(await requestCameraPermissionsAsync()).granted) return null;
+    return launchCameraAsync(options);
 }
 
 /** A picked photo's bytes; the global fetch streams text, which a local file can't be read as. */

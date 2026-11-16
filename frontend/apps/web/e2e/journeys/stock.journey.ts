@@ -11,6 +11,7 @@ import {
     readyPickupOrder,
     ringUpCash,
     saleEvidence,
+    saleTicket,
     type SaleEvidence,
 } from "../support/pos";
 import { customerContext, signIn, navigate } from "../support/session";
@@ -346,6 +347,70 @@ test.describe(() => {
         } finally {
             await context.close();
         }
+    });
+
+    test("FLOW-03-C desk sales take a product to its warn level, a refunded sale returns its unit, and a restock and a count correction keep the shelf right", async ({
+        page,
+    }) => {
+        test.setTimeout(240_000);
+        const s = strings.catalog;
+        await signIn(page);
+        const client = await createClient(page);
+        const product = await stockedProduct(page, "Oat Shampoo", 3);
+        await apiCall(page, "PATCH", `/v1/items/${product.id}`, { low_stock_at: 1 }, 200);
+        const stockRow = async (tab: string): Promise<Locator> => {
+            await navigate(page, "/setup/services");
+            await page.getByRole("tab", { name: tab, exact: true }).click();
+            const row = page.locator(
+                `[data-item-id="${product.id}"], button[data-row-key="${product.id}"]`,
+            );
+            await expect(row.first()).toBeVisible({ timeout: 60_000 });
+            return row.first();
+        };
+
+        await sellAtDesk(page, client, product, 3, 1);
+        await saleTicket(page)
+            .getByRole("button", { name: strings.pos.desk.newSale, exact: true })
+            .click();
+        const second = await sellAtDesk(page, client, product, 2, 1);
+        expect((await saleEvidence(product.id)).item.stock_on_hand).toBe(1);
+        await expect(await stockRow(s.views.inventory)).toContainText(s.stockLow(1));
+        await expect(await stockRow(s.views.products)).toContainText(s.stockLow(1));
+
+        await refundAtDesk(page, client, second, 2800, false);
+        expect((await saleEvidence(product.id)).item.stock_on_hand).toBe(2);
+        await expect(await stockRow(s.views.inventory)).toContainText(s.stockIn(2));
+
+        for (const [units, after] of [
+            ["5", 7],
+            ["-2", 5],
+        ] as const) {
+            await (
+                await stockRow(s.views.inventory)
+            )
+                .getByRole("button", { name: s.restock, exact: true })
+                .click();
+            const restock = page.getByRole("dialog", { name: s.restockTitle(product.name) });
+            await restock
+                .getByRole("textbox", { name: s.restockQuantity, exact: true })
+                .fill(units);
+            await expect(restock.getByText(s.restockAfter(after), { exact: true })).toBeVisible();
+            await restock.getByRole("button", { name: s.restockSave, exact: true }).click();
+            await expect(restock).toBeHidden();
+            expect((await saleEvidence(product.id)).item.stock_on_hand).toBe(after);
+            // the next count starts from the shelf the replica shows
+            await expect(await stockRow(s.views.inventory)).toContainText(s.stockIn(after));
+        }
+        expect(
+            (await saleEvidence(product.id)).movements.map((m) => [m.reason, m.quantity]),
+        ).toEqual([
+            ["restock", 3],
+            ["sale", -1],
+            ["sale", -1],
+            ["refund", 1],
+            ["restock", 5],
+            ["correction", -2],
+        ]);
     });
 });
 
