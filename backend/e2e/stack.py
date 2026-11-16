@@ -37,10 +37,13 @@ COMPLETED_JOB = re.compile(r"← cron:(\w+) ●")
 FAILED_JOB = re.compile(r"! cron:(\w+) failed")
 
 
-def free_port() -> int:
-    with socket.socket() as sock:
-        sock.bind(("127.0.0.1", 0))
-        return int(sock.getsockname()[1])
+def free_ports(count: int) -> list[int]:
+    # every socket stays bound until all are picked, or the OS can hand the same port out twice
+    with ExitStack() as held:
+        sockets = [held.enter_context(socket.socket()) for _ in range(count)]
+        for sock in sockets:
+            sock.bind(("127.0.0.1", 0))
+        return [int(sock.getsockname()[1]) for sock in sockets]
 
 
 def environment() -> dict[str, str]:
@@ -173,8 +176,7 @@ class Stack:
             lease.pseudo_port,
             lease.admin_port,
         )
-        self.api_port, self.site_port = free_port(), free_port()
-        self.connect_port, self.connect_pseudo_port = free_port(), free_port()
+        self.api_port, self.site_port, self.connect_port, self.connect_pseudo_port = free_ports(4)
         self.api = f"http://localhost:{self.api_port}"
         self.web = f"http://localhost:{self.web_port}"
         self.pseudo = f"http://localhost:{self.pseudo_port}"

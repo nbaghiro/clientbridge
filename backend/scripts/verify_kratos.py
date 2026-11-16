@@ -7,6 +7,7 @@ import socket
 import subprocess
 import sys
 import time
+from contextlib import ExitStack
 from pathlib import Path
 
 import httpx
@@ -17,10 +18,13 @@ ROOT = Path(__file__).resolve().parents[2]
 BASE_DOMAIN = "clientbridge.test"
 
 
-def free_port() -> int:
-    with socket.socket() as sock:
-        sock.bind(("127.0.0.1", 0))
-        return int(sock.getsockname()[1])
+def free_ports(count: int) -> list[int]:
+    # every socket stays bound until all are picked, or the OS can hand the same port out twice
+    with ExitStack() as held:
+        sockets = [held.enter_context(socket.socket()) for _ in range(count)]
+        for sock in sockets:
+            sock.bind(("127.0.0.1", 0))
+        return [int(sock.getsockname()[1]) for sock in sockets]
 
 
 def image() -> str:
@@ -79,7 +83,7 @@ def check_overrides(public: str) -> None:
 
 
 def main() -> None:
-    public_port, admin_port = free_port(), free_port()
+    public_port, admin_port = free_ports(2)
     public, admin = f"http://127.0.0.1:{public_port}", f"http://127.0.0.1:{admin_port}"
     env = auth_env(BASE_DOMAIN, api_url="http://host.docker.internal:8701", admin_url=admin) | {
         "DSN": "memory",

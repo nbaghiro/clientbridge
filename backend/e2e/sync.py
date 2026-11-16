@@ -45,7 +45,7 @@ from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking, Hours, Slot
 from e2e import tier
 from e2e.results import SYNC_CASES, Report
-from e2e.stack import environment, flush_redis, free_port, purge, stop
+from e2e.stack import environment, flush_redis, free_ports, purge, stop
 from e2e.tier import DATABASE
 
 
@@ -578,7 +578,7 @@ class KeyFront:
 
     def deploy(self, env: dict[str, str]) -> None:
         """Start an API with these keys, send key reads to it, then stop the one it replaces."""
-        port = free_port()
+        port = free_ports(1)[0]
         process = subprocess.Popen(
             [sys.executable, "-m", "uvicorn", "clientbridge.main:app", "--port", str(port)],
             cwd=ROOT / "backend",
