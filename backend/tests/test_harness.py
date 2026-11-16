@@ -811,6 +811,13 @@ def test_every_case_in_a_lanes_files_is_registered_for_that_lane() -> None:
         assert written_cases(lane_sources(lane)) <= registered, lane
 
 
+def test_every_mobile_flow_name_is_a_valid_artifact_path() -> None:
+    # Maestro names a debug folder after each flow, and upload-artifact refuses these characters
+    flows = (functional.ROOT / "frontend" / "apps" / "mobile" / "e2e").rglob("*.yaml")
+    names = [re.findall(r"^name: (.*)$", path.read_text(), re.MULTILINE) for path in flows]
+    assert not [name for found in names for name in found if set(name) & set('":<>|*?')]
+
+
 def test_every_sync_case_is_written_once_and_each_project_is_configured() -> None:
     e2e = functional.ROOT / "frontend" / "packages" / "sync"
     sources = "\n".join(path.read_text() for path in (e2e / "e2e").glob("*.e2e.ts"))

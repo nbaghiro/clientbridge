@@ -1,5 +1,5 @@
 appId: ${APP_ID}
-name: NATIVE-MSG-02 A broadcast to a tag counts out the STOP and no-offers clients, a time picked in quiet hours moves to 09:00 and says so, and a scheduled send cancels from its sheet
+name: NATIVE-MSG-02 A broadcast to a tag counts out the STOP and no-offers clients, a time picked in quiet hours moves to 9 a.m. and says so, and a scheduled send cancels from its sheet
 tags:
     - lane
 ---
