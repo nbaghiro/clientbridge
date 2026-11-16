@@ -7,6 +7,19 @@ appId: ${APP_ID}
           index: 1
       direction: DOWN
       centerElement: true
+      optional: true
+# a centring swipe can fling a short sheet past a field that sat just below the middle
+- runFlow:
+      when:
+          notVisible:
+              text: ${FIELD}
+              index: 1
+      commands:
+          - scrollUntilVisible:
+                element:
+                    text: ${FIELD}
+                    index: 1
+                direction: UP
 - tapOn:
       text: ${FIELD}
       index: 1
@@ -32,6 +45,3 @@ appId: ${APP_ID}
           platform: Android
       commands:
           - pressKey: Enter
-# the next field's search reads the layout, so it waits until the keyboard has finished closing
-- waitForAnimationToEnd:
-      timeout: 3000
