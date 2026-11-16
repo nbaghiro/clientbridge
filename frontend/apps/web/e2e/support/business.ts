@@ -1,5 +1,8 @@
+import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import { strings } from "@clientbridge/app-core/public";
 import { type APIRequestContext, type Locator, type Page, expect } from "@playwright/test";
 import { runPort, runUrl } from "@clientbridge/config/e2e/run";
@@ -128,6 +131,18 @@ export async function newBusiness(
         WHERE u.email = ${account.email}`;
     if (row === undefined) throw new Error("the new business has no row");
     return { ...row, name, email: account.email, password: account.password };
+}
+
+/** Gives a business this case opened a texting number, which it needs to send a code. */
+export async function textingNumber(businessId: string): Promise<void> {
+    await promisify(execFile)(
+        "uv",
+        ["run", "python", "-m", "e2e.actions", "texting-number", businessId],
+        {
+            cwd: fileURLToPath(new URL("../../../../../backend", import.meta.url)),
+            timeout: 60_000,
+        },
+    );
 }
 
 function apiRequest(page: Page, method: "PATCH" | "POST", path: string, data: unknown) {

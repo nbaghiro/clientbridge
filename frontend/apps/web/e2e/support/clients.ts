@@ -17,7 +17,7 @@ import { navigate } from "./session";
 import { runUrl } from "@clientbridge/config/e2e/run";
 import { freshPhone, textedCode } from "./auth";
 import { bookingApi, createBookingFixture, type BookingFixture } from "./bookings";
-import { connectUrl } from "./business";
+import { connectUrl, textingNumber } from "./business";
 import { select } from "./db";
 import { expectImage } from "./files";
 import { apiCall, ownBookingPage, pastExtras } from "./visit";
@@ -255,6 +255,7 @@ export async function returningFixture(
 ): Promise<ReturningFixture> {
     // these cases book their owner's first open time, so a shared owner makes them race for it
     const own = await ownBookingPage(page, request, "returning");
+    await textingNumber(own.businessId);
     await apiCall(
         page,
         "PATCH",

@@ -27,6 +27,7 @@ from scripts.demo_context import (
     run_id,
 )
 from sqlalchemy import event, func, select, text, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import ORMExecuteState, with_loader_criteria
 from sqlalchemy.sql.base import ExecutableOption
@@ -785,6 +786,40 @@ async def invite_age_main(argv: list[str]) -> None:
         await engine.dispose()
 
 
+async def texting_number(business_id: str) -> Row:
+    """Give a business this case opened its own texting number, as the seed gives Birch & Bark."""
+    namespace = _run_namespace(business_id)
+    for _ in range(5):
+        # the seed's numbers end in 19x inside the namespace, so a lower line never takes one
+        number = f"+1{secrets.choice(range(200, 1000))}{namespace}{secrets.randbelow(190):03d}"
+        async with SessionLocal() as db:
+            _confine(db, namespace, with_loader_criteria(Business, Business.id == business_id))
+            business = await db.scalar(select(Business).with_for_update())
+            if (
+                business is None
+                or business.sms_number is not None
+                or not _fresh(business.created_at)
+            ):
+                raise RuntimeError("only a business this case opened, before it has a number")
+            business.sms_number = number
+            try:
+                await db.commit()
+            except IntegrityError:
+                continue
+        return {"number": number}
+    raise RuntimeError("every number tried belongs to another business")
+
+
+async def texting_number_main(argv: list[str]) -> None:
+    parser = argparse.ArgumentParser(prog="python -m e2e.actions texting-number")
+    parser.add_argument("business_id")
+    args = parser.parse_args(argv)
+    try:
+        print(json.dumps(await texting_number(args.business_id)))
+    finally:
+        await engine.dispose()
+
+
 # no money or saved cards, so a merge is not blocked; no demo name list has it, so it is unique
 
 
@@ -1090,6 +1125,7 @@ COMMANDS: dict[str, Callable[[list[str]], None]] = {
     "text-in": text_in_main,
     "expiry": lambda argv: asyncio.run(expiry_main(argv)),
     "invite-age": lambda argv: asyncio.run(invite_age_main(argv)),
+    "texting-number": lambda argv: asyncio.run(texting_number_main(argv)),
 }
 
 

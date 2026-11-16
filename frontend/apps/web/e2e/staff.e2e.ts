@@ -32,8 +32,8 @@ const PIXEL = Buffer.from(
     "base64",
 );
 
-async function signedOut(browser: Browser, page: Page): Promise<Page> {
-    const context = await browser.newContext({ baseURL: new URL(page.url()).origin });
+async function signedOut(browser: Browser): Promise<Page> {
+    const context = await browser.newContext({ baseURL: test.info().project.use.baseURL ?? "" });
     return context.newPage();
 }
 
@@ -119,14 +119,14 @@ test("TEAM-E2E-01 an address holds one invite, a resend retires the old link, tw
             await expect(
                 inviteRow(page, joiner.email).getByRole("button", { name: t.resent }),
             ).toBeVisible();
-            const stale = await signedOut(browser, page);
+            const stale = await signedOut(browser);
             await stale.goto(`/accept-invite?token=${first.invite_token}`);
             await expect(stale.getByText(s.inviteProblem.invalid, { exact: true })).toBeVisible();
             await stale.context().close();
         });
 
         await test.step("two accepts of the new link at once join the team once", async () => {
-            const invitee = await signedOut(browser, page);
+            const invitee = await signedOut(browser);
             try {
                 await invitee.goto(`/accept-invite?token=${fresh.invite_token}`);
                 await invitee.getByRole("button", { name: s.inviteSignUp, exact: true }).click();
@@ -168,7 +168,7 @@ test("TEAM-E2E-01 an address holds one invite, a resend retires the old link, tw
             await expect(inviteRow(page, lapsed.email).getByText(t.expired)).toBeVisible({
                 timeout: 30_000,
             });
-            const visitor = await signedOut(browser, page);
+            const visitor = await signedOut(browser);
             await visitor.goto(`/accept-invite?token=${revoked.invite_token}`);
             await expect(visitor.getByText(s.inviteProblem.invalid, { exact: true })).toBeVisible();
             await visitor.goto(`/accept-invite?token=${aged.invite_token}`);
@@ -229,7 +229,7 @@ test("TEAM-E2E-02 an admin reaches everything but the plan, and a contractor see
             headers: headers(admin),
         })
     ).json()) as SentInvite;
-    const member = await signedOut(browser, admin);
+    const member = await signedOut(browser);
     try {
         await joinFromLink(member, invite, contractor);
         await test.step("contractor: the staff shell, and no inviting", async () => {
@@ -267,7 +267,7 @@ test("TEAM-E2E-03 an owner of another business joins as staff, lands on the team
     request,
 }) => {
     test.setTimeout(240_000);
-    const person = await signedOut(browser, page);
+    const person = await signedOut(browser);
     // a seeded owner joining here would meet copies of this case and land other tests on the chooser
     const other = await newBusiness(person, request, "two-teams");
     const theirs = (await createClient(person)).name;
@@ -316,7 +316,7 @@ test("TEAM-E2E-03 an owner of another business joins as staff, lands on the team
         });
 
         await test.step("a new sign-in asks which business to open", async () => {
-            const fresh = await signedOut(browser, page);
+            const fresh = await signedOut(browser);
             await fresh.goto("/");
             await fresh
                 .getByRole("textbox", { name: strings.auth.email, exact: true })
