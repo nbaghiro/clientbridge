@@ -3,32 +3,34 @@ name: NATIVE-MSG-02 A broadcast to a tag counts out the STOP and no-offers clien
 tags:
     - lane
 ---
-- evalScript: ${output.tag = "winter" + String(1000 + Math.floor(Math.random() * 9000))}
+- evalScript: ${output.tag = "winter" + String(100000 + Math.floor(Math.random() * 900000))}
+- evalScript: ${output.agreed = "Ines Calloway " + output.tag}
+- evalScript: ${output.agreedToo = "Otto Brannigan " + output.tag}
 - evalScript: ${output.stopper = "250" + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000))}
 - runScript:
       file: helpers/client-api.js
       env:
           METHOD: POST
           PATH: /v1/clients
-          BODY: "${JSON.stringify({ name: 'Ines Calloway', phone: '250' + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000)), marketing_consent: true, tags: [output.tag] })}"
+          BODY: "${JSON.stringify({ name: output.agreed, phone: '250' + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000)), marketing_consent: true, tags: [output.tag] })}"
 - runScript:
       file: helpers/client-api.js
       env:
           METHOD: POST
           PATH: /v1/clients
-          BODY: "${JSON.stringify({ name: 'Otto Brannigan', phone: '250' + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000)), marketing_consent: true, tags: [output.tag] })}"
+          BODY: "${JSON.stringify({ name: output.agreedToo, phone: '250' + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000)), marketing_consent: true, tags: [output.tag] })}"
 - runScript:
       file: helpers/client-api.js
       env:
           METHOD: POST
           PATH: /v1/clients
-          BODY: "${JSON.stringify({ name: 'Sela Harrow', phone: output.stopper, marketing_consent: true, tags: [output.tag] })}"
+          BODY: "${JSON.stringify({ name: 'Sela Harrow ' + output.tag, phone: output.stopper, marketing_consent: true, tags: [output.tag] })}"
 - runScript:
       file: helpers/client-api.js
       env:
           METHOD: POST
           PATH: /v1/clients
-          BODY: "${JSON.stringify({ name: 'Dorian Pell', phone: '250' + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000)), marketing_consent: true, tags: [output.tag] })}"
+          BODY: "${JSON.stringify({ name: 'Dorian Pell ' + output.tag, phone: '250' + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000)), marketing_consent: true, tags: [output.tag] })}"
 - evalScript: ${output.decliner = output.response.id}
 - runScript:
       file: helpers/client-api.js
@@ -41,7 +43,7 @@ tags:
       env:
           METHOD: POST
           PATH: /v1/clients
-          BODY: "${JSON.stringify({ name: 'Una Tresidder', phone: '250' + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000)), tags: [output.tag] })}"
+          BODY: "${JSON.stringify({ name: 'Una Tresidder ' + output.tag, phone: '250' + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000)), tags: [output.tag] })}"
 - runScript:
       file: helpers/control.js
       env:
@@ -56,27 +58,47 @@ tags:
 - tapOn: "Fall de-shed offer"
 - inputText: ${"Winter hours " + output.tag}
 - pressKey: Enter
-- extendedWaitUntil:
-      visible: ${output.tag + " · 5"}
+# other flows' tags are chips too, so this one may sit below the fold on a phone
+- scrollUntilVisible:
+      element: ${output.tag + " · 5"}
+      centerElement: true
       timeout: 90000
+# a centring swipe can fling the chips past the one it found
+- runFlow:
+      when:
+          notVisible: ${output.tag + " · 5"}
+      commands:
+          - scrollUntilVisible:
+                element: ${output.tag + " · 5"}
+                direction: UP
 - tapOn: ${output.tag + " · 5"}
-- extendedWaitUntil:
-      visible: "Opted out · STOP reply · .*"
+- scrollUntilVisible:
+      element: "Opted out · STOP reply · .*"
       timeout: 60000
-- assertVisible: "5 match the audience · 3 left out"
-- assertVisible: "Opted out · In person · .*"
-- assertVisible: "Hasn't agreed"
-- assertNotVisible: "Ines Calloway"
-- assertNotVisible: "Otto Brannigan"
+- scrollUntilVisible:
+      element: "5 match the audience · 3 left out"
+      direction: UP
+- scrollUntilVisible:
+      element: "Opted out · In person · .*"
+- scrollUntilVisible:
+      element: "Hasn't agreed"
+- assertNotVisible: ${output.agreed}
+- assertNotVisible: ${output.agreedToo}
 - takeScreenshot: broadcast-audience
 - scrollUntilVisible:
       element: "Next"
       centerElement: true
 - tapOn: "Next"
+# the step keeps the scroll it had, so the message may start above the fold
+- scrollUntilVisible:
+      element: "(Message )?Book a de-shed.*"
+      direction: UP
 - tapOn: "(Message )?Book a de-shed.*"
 - inputText: "Winter hours start Monday. Reply to book."
 # the message is multiline, so Return adds a line; a tap outside closes the keyboard
 - tapOn: "Step 2 of 3"
+- scrollUntilVisible:
+      element: "Next"
 - tapOn: "Next"
 # iOS spends the first tap after typing closing the keyboard
 - runFlow:
@@ -84,7 +106,12 @@ tags:
           visible: "Step 2 of 3"
       commands:
           - tapOn: "Next"
-- assertVisible: "2 recipients · 3 left out"
+- scrollUntilVisible:
+      element: "2 recipients · 3 left out"
+      direction: UP
+- scrollUntilVisible:
+      element: "Schedule"
+      direction: UP
 - tapOn: "Schedule"
 - scrollUntilVisible:
       element: "Send at day.*"
@@ -92,6 +119,8 @@ tags:
 - tapOn: "Send at day.*"
 # the six-week grid shows tomorrow even when it falls in the next month
 - tapOn: ${output.tomorrow}
+- scrollUntilVisible:
+      element: "Send at time.*"
 - tapOn: "Send at time.*"
 - scrollUntilVisible:
       element: "10:30.p\\.m\\."
@@ -108,15 +137,16 @@ tags:
 - assertVisible: ${"That time falls in your clients' quiet hours, so it goes out at " + output.morning + ".* to 2 clients\\."}
 - takeScreenshot: broadcast-moved-to-morning
 - tapOn: "Back to broadcasts"
-- extendedWaitUntil:
-      visible: ${"Winter hours " + output.tag + ".*" + output.morning + ".*"}
+- scrollUntilVisible:
+      element: ${"Winter hours " + output.tag + ".*" + output.morning + ".*"}
       timeout: 90000
 - tapOn: ${"Winter hours " + output.tag + ".*"}
 - assertVisible: "Recipients"
 - assertVisible: "Left out"
 # a scheduled send has no results yet, and its message shows the opt-out line clients get
 - assertNotVisible: "Delivered"
-- assertVisible: "Reply STOP to opt out."
+- scrollUntilVisible:
+      element: "Reply STOP to opt out."
 - takeScreenshot: broadcast-scheduled-sheet
 - scrollUntilVisible:
       element: "Cancel send"

@@ -548,8 +548,11 @@ test("MSG-E2E-20 a broadcast to a tag skips the STOP and no-offers clients, and 
     const row = page.getByRole("button").filter({ hasText: name });
     await expect(row).toContainText(formatDateTime(morning, zone), { timeout: 60_000 });
 
+    const early = await broadcastJob(queued.id, new Date(morning.getTime() - 60_000));
+    expect(early.broadcasts.map((x) => x.status)).toEqual(["scheduled"]);
+    expect(early.messages).toEqual([]);
+    for (const contact of agreed) expect(await textsTo(page.request, contact.phone)).toEqual([]);
     const sent = await broadcastJob(queued.id, morning);
-    expect(sent.finished).toBe(1);
     expect(sent.broadcasts.map((x) => [x.status, x.recipient_count, x.excluded_count])).toEqual([
         ["sent", 2, 3],
     ]);
@@ -557,7 +560,7 @@ test("MSG-E2E-20 a broadcast to a tag skips the STOP and no-offers clients, and 
     for (const contact of agreed) {
         await expect
             .poll(async () => (await textsTo(page.request, contact.phone)).map((t) => t.Snippet))
-            .toEqual([expect.stringContaining(`${body} ${b.optOutSms}`)]);
+            .toEqual([expect.stringContaining(`Birchbark Pet Studio: ${body} ${b.optOutSms}`)]);
     }
     for (const contact of [stopper, decliner, unasked]) {
         expect(await textsTo(page.request, contact.phone)).toEqual([]);
@@ -570,7 +573,7 @@ test("MSG-E2E-20 a broadcast to a tag skips the STOP and no-offers clients, and 
     expect(await late.json()).toMatchObject({ error: "broadcast_not_scheduled" });
 });
 
-test("MSG-E2E-21 consent that changes after a broadcast is queued decides who it reaches when it goes out", async ({
+test("MSG-E2E-21 consent that changes between queuing a broadcast and its send decides who it reaches", async ({
     page,
 }) => {
     test.setTimeout(240_000);
@@ -612,7 +615,6 @@ test("MSG-E2E-21 consent that changes after a broadcast is queued decides who it
     }
 
     const sent = await broadcastJob(broadcast.id, at);
-    expect(sent.finished).toBe(1);
     expect(sent.broadcasts.map((x) => [x.status, x.recipient_count, x.excluded_count])).toEqual([
         ["sent", 2, 2],
     ]);

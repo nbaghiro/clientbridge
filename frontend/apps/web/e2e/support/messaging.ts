@@ -293,11 +293,8 @@ export const broadcastEvidence = (...ids: string[]) =>
     observe<BroadcastEvidence>("broadcasts", ...ids);
 export const planEvidence = (businessId: string) => observe<PlanEvidence>("plan", businessId);
 
-/** Runs the broadcast job at `at` for one broadcast this case queued, as the worker would then. */
-export async function broadcastJob(
-    id: string,
-    at: Date,
-): Promise<BroadcastEvidence & { finished: number }> {
+/** Runs the broadcast job at `at` for one broadcast this case queued, until it stops sending. */
+export async function broadcastJob(id: string, at: Date): Promise<BroadcastEvidence> {
     const { stdout } = await execute(
         "uv",
         ["run", "python", "-m", "e2e.actions", "broadcast-job", id, at.toISOString()],
@@ -306,7 +303,7 @@ export async function broadcastJob(
             timeout: 120_000,
         },
     );
-    return JSON.parse(stdout) as BroadcastEvidence & { finished: number };
+    return JSON.parse(stdout) as BroadcastEvidence;
 }
 
 export function apiBase(): string {

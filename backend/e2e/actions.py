@@ -861,14 +861,21 @@ async def broadcast_job(broadcast_id: str, at: datetime) -> Row:
         ):
             raise RuntimeError("only a broadcast this case queued and that is still due")
         await db.commit()
-        finished = await run_due_broadcasts(
-            db, get_sms_sender(), get_email_sender(), get_push_sender(), at
-        )
-    return {"finished": finished, **await broadcasts([broadcast_id])}
+        # the tier's own worker resumes any sending broadcast, so it may finish a fan-out this began
+        for _ in range(60):
+            await run_due_broadcasts(
+                db, get_sms_sender(), get_email_sender(), get_push_sender(), at
+            )
+            status = await db.scalar(select(Broadcast.status).where(Broadcast.id == broadcast_id))
+            await db.commit()
+            if status != "sending":
+                break
+            await asyncio.sleep(1)
+    return await broadcasts([broadcast_id])
 
 
 async def broadcast_job_main(argv: list[str]) -> None:
-    """Run the broadcast job at `at` for one broadcast a case queued, as the worker would then."""
+    """Run the broadcast job at `at` for one broadcast a case queued until it stops sending."""
     parser = argparse.ArgumentParser(prog="python -m e2e.actions broadcast-job")
     parser.add_argument("broadcast_id")
     parser.add_argument("at", type=datetime.fromisoformat)

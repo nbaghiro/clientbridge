@@ -43,18 +43,24 @@ onFlowComplete:
 - tapOn: "Fall openings"
 - inputText: "Opening week"
 - pressKey: Enter
-- extendedWaitUntil:
-      visible: ${output.sender.tag + " · 1"}
+- scrollUntilVisible:
+      element: ${output.sender.tag + " · 1"}
       timeout: 90000
 - tapOn: ${output.sender.tag + " · 1"}
 - scrollUntilVisible:
       element: "Next"
       centerElement: true
 - tapOn: "Next"
+# the step keeps the scroll it had, so the message may start above the fold
+- scrollUntilVisible:
+      element: "(Message )?New times are open.*"
+      direction: UP
 - tapOn: "(Message )?New times are open.*"
 - inputText: "We're open for bookings."
 # the message is multiline, so Return adds a line; a tap outside closes the keyboard
 - tapOn: "Step 2 of 3"
+- scrollUntilVisible:
+      element: "Next"
 - tapOn: "Next"
 # iOS spends the first tap after typing closing the keyboard
 - runFlow:
@@ -62,6 +68,9 @@ onFlowComplete:
           visible: "Step 2 of 3"
       commands:
           - tapOn: "Next"
+- scrollUntilVisible:
+      element: "Send to 1 client"
+      centerElement: true
 - tapOn: "Send to 1 client"
 - assertVisible: "A broadcast can't be recalled.*"
 # the review step's own "Send now" choice sits level with the alert's message, so the alert's is found by its Cancel
@@ -76,6 +85,10 @@ onFlowComplete:
       file: helpers/broadcast-business.js
       env:
           ACTION: address
+# the refusal notice sits above the button and pushes it down
+- scrollUntilVisible:
+      element: "Send to 1 client"
+      centerElement: true
 - tapOn: "Send to 1 client"
 - assertVisible: "A broadcast can't be recalled.*"
 - tapOn:
@@ -90,6 +103,10 @@ onFlowComplete:
       file: helpers/broadcast-business.js
       env:
           ACTION: contact
+# the refusal notice sits above the button and pushes it down
+- scrollUntilVisible:
+      element: "Send to 1 client"
+      centerElement: true
 - tapOn: "Send to 1 client"
 - assertVisible: "A broadcast can't be recalled.*"
 - tapOn:
