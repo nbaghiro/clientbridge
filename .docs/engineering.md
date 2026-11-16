@@ -158,8 +158,8 @@ Every job runs its full suite on every pull request and on every push to `main`;
 the paths a change touches.
 
 Three workflows run outside the pull request flow and never gate a merge. `flakes.yml` runs every Sunday,
-and by hand, and runs `make test-flakes` for the web, Connect and journeys lanes, uploading each lane's
-`flakes.json`. `mutations.yml` runs `make test-mutations` every Sunday and by hand. `native-ios.yml` runs
+and by hand, and runs `make test-flakes` for the web lane in three shards and the Connect and journeys lanes,
+uploading each lane's `flakes.json`. `mutations.yml` runs `make test-mutations` every Sunday and by hand. `native-ios.yml` runs
 only by hand, on a self-hosted Mac with Docker, Xcode, Maestro and a booted simulator whose UDID is the
 run's input, because GitHub's macOS runners can't run Docker; it builds the e2e app and runs the native
 lane on iOS. With `ENV=dev` the API allows 1000 requests a minute from one address on
