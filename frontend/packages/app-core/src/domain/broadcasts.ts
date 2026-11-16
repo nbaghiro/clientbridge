@@ -319,21 +319,27 @@ interface BroadcastResult {
     scheduled_at: string | null;
 }
 
+/** `asked` is the time the owner picked, or null for now; quiet hours may have moved either. */
 function sentNote(
     result: BroadcastResult,
     count: number,
-    asked: "now" | "later",
+    asked: Date | null,
     zone: string,
 ): BroadcastSent {
     if (result.status !== "scheduled" || result.scheduled_at === null)
         return { scheduled: false, title: b.sentTitle, body: b.sentBody(count) };
-    if (asked === "now")
-        return {
-            scheduled: true,
-            title: b.queuedTitle,
-            body: b.queuedBody(formatDateTime(parseTimestamp(result.scheduled_at), zone), count),
-        };
-    return { scheduled: true, title: b.scheduledTitle, body: b.sentBody(count) };
+    const at = parseTimestamp(result.scheduled_at);
+    const when = formatDateTime(at, zone);
+    if (asked === null)
+        return { scheduled: true, title: b.queuedTitle, body: b.queuedBody(when, count) };
+    return {
+        scheduled: true,
+        title: b.scheduledTitle,
+        body:
+            at.getTime() === asked.getTime()
+                ? b.scheduledBody(when, count)
+                : b.movedBody(when, count),
+    };
 }
 
 /** The count is a preview; the server applies the same consent rules again at send time. */
@@ -392,7 +398,7 @@ export function useBroadcastDraft(api: ApiLike, seed?: BroadcastSeed): Broadcast
                     idempotencyKey: attemptKey(attempt, input),
                 });
                 attempt.current = null;
-                setSent(sentNote(result, count, schedule, zone));
+                setSent(sentNote(result, count, at, zone));
             },
             { errorMessage: (e) => failureMessage(e, b.errors.sendError) },
         );
@@ -443,6 +449,11 @@ export function broadcastAudience(item: BroadcastItem): string {
 
 export function broadcastWhen(item: BroadcastItem, zone: string): string {
     return item.at === null ? b.notSent : formatDateTime(parseTimestamp(item.at), zone);
+}
+
+/** A broadcast that has started going out has delivery, reply and opt-out counts to show. */
+export function broadcastHasResults(status: string): boolean {
+    return status === "sent" || status === "sending";
 }
 
 export function broadcastIntent(status: string): Intent {
@@ -556,7 +567,7 @@ export function useBroadcastActions(
         },
         cancel: (id) => {
             run(() => api.post(`/v1/broadcasts/${id}/cancel`, {}), {
-                errorMessage: b.actionErrors.cancelFailed,
+                errorMessage: (e) => failureMessage(e, b.actionErrors.cancelFailed),
             });
         },
     };

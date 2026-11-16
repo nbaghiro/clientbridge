@@ -31,6 +31,7 @@ import {
 } from "./support/messaging";
 import { signIn, navigate } from "./support/session";
 import { csvRows } from "./support/reports";
+import { newBusiness, patchBusiness } from "./support/business";
 import { clientCommand, editClient, openClient } from "./support/clients";
 import { freshPhone, textsTo } from "./support/auth";
 import { randomUUID } from "node:crypto";
@@ -811,4 +812,63 @@ test("MSG-E2E-19 a no to offers shows with its date, a STOP stays with its numbe
     ]);
     expect(of(heir.name)).toEqual([]);
     expect(of("", stranger)).toEqual([[stranger, "withdrawn", "reply"]]);
+});
+
+test("MSG-E2E-24 a business without a legal address or a way to reach it is told why its broadcast is refused", async ({
+    page,
+}) => {
+    test.setTimeout(240_000);
+    const b = strings.broadcasts;
+    await newBusiness(page, page.request, "broadcast-identity");
+    const tag = `first-${randomUUID().slice(0, 6)}`;
+    await createContact(page, { consent: true, tags: [tag] });
+    await navigate(page, "/inbox?segment=broadcasts");
+    await page.getByRole("button", { name: b.newBroadcast, exact: true }).first().click();
+    const composer = page.getByRole("dialog", { name: b.newBroadcast, exact: true });
+    await composer.getByRole("textbox", { name: b.nameLabel }).fill(`Opening week ${tag}`);
+    await composer
+        .getByRole("button", { name: b.tagChip(tag, 1), exact: true })
+        .click({ timeout: 60_000 });
+    await composer.getByRole("textbox", { name: b.messageLabel }).fill("We're open for bookings.");
+    const send = async () => {
+        await composer.getByRole("button", { name: b.sendTo(1), exact: true }).click();
+        const posted = page.waitForResponse(
+            (r) =>
+                new URL(r.url()).pathname === "/v1/broadcasts" && r.request().method() === "POST",
+        );
+        await page
+            .getByRole("dialog", { name: b.confirmTitle(1), exact: true })
+            .getByRole("button", { name: b.confirmSend, exact: true })
+            .click();
+        return posted;
+    };
+
+    const noAddress = await send();
+    expect(noAddress.status()).toBe(422);
+    expect(await noAddress.json()).toMatchObject({ error: "broadcast_address_missing" });
+    await expect(composer.getByText(strings.api.broadcastAddressMissing)).toBeVisible();
+    const address = await patchBusiness(page, {
+        street_number: "455",
+        street_name: "Granville Street",
+        city: "Vancouver",
+        postal_code: "V6C 1T1",
+    });
+    expect(address.status(), await address.text()).toBe(200);
+
+    const noContact = await send();
+    expect(noContact.status()).toBe(422);
+    expect(await noContact.json()).toMatchObject({ error: "broadcast_contact_missing" });
+    await expect(composer.getByText(strings.api.broadcastContactMissing)).toBeVisible();
+    const contact = await patchBusiness(page, { legal_phone: "+16045550120" });
+    expect(contact.status(), await contact.text()).toBe(200);
+
+    const accepted = await send();
+    expect(accepted.status(), await accepted.text()).toBe(200);
+    const queued = (await accepted.json()) as { status: string };
+    await expect(
+        page.getByRole("heading", {
+            name: queued.status === "scheduled" ? b.queuedTitle : b.sentTitle,
+            exact: true,
+        }),
+    ).toBeVisible();
 });

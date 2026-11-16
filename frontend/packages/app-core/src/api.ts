@@ -122,6 +122,7 @@ const FAILURES: Record<string, (detail: FailureDetail) => string> = {
     staff_has_future_work: () => strings.api.staffHasFutureWork,
     broadcast_address_missing: () => strings.api.broadcastAddressMissing,
     broadcast_contact_missing: () => strings.api.broadcastContactMissing,
+    broadcast_not_scheduled: () => strings.api.broadcastNotScheduled,
     no_mobile_number: () => strings.api.noMobileNumber,
     business_address_incomplete: () => strings.api.businessAddressIncomplete,
     postal_code_province_mismatch: () => strings.api.postalCodeProvinceMismatch,

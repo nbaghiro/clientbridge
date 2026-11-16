@@ -69,7 +69,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 8. Refunds and the books                | Staff pay and T4A                                           | [CB-48](https://linear.app/clientbridgeca/issue/CB-48) | Partly automated |
 | 9. Talk to clients                      | Inbox: two-way texting                                      | [CB-49](https://linear.app/clientbridgeca/issue/CB-49) | Partly automated |
 | 9. Talk to clients                      | STOP and texting consent                                    | [CB-50](https://linear.app/clientbridgeca/issue/CB-50) | Automated        |
-| 9. Talk to clients                      | Broadcasts to consenting clients                            | [CB-51](https://linear.app/clientbridgeca/issue/CB-51) | Partly automated |
+| 9. Talk to clients                      | Broadcasts to consenting clients                            | [CB-51](https://linear.app/clientbridgeca/issue/CB-51) | Automated        |
 | 9. Talk to clients                      | Intake forms                                                | [CB-53](https://linear.app/clientbridgeca/issue/CB-53) | Partly automated |
 | 9. Talk to clients                      | Contracts and signatures                                    | [CB-54](https://linear.app/clientbridgeca/issue/CB-54) | Partly automated |
 | 9. Talk to clients                      | Google review requests                                      | [CB-55](https://linear.app/clientbridgeca/issue/CB-55) | Partly automated |
@@ -2190,7 +2190,7 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 2. Check the audience count before sending.
    **Expect:** it excludes both.
 3. Schedule one inside quiet hours.
-   **Expect:** held until 09:00 local.
+   **Expect:** held until 09:00 local, and the confirmation says so.
 4. Cancel a scheduled broadcast.
    **Expect:** nobody is messaged.
 5. Try a broadcast on a business with no legal address.
@@ -2201,12 +2201,12 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 **Automated by**
 
 - `MSG-E2E-16 (web)`
+- `MSG-E2E-20 (journeys)`
+- `MSG-E2E-21 (journeys)`
+- `MSG-E2E-24 (web)`
+- `NATIVE-MSG-02 (native-ios, native-android)`
+- `NATIVE-MSG-03 (native-ios, native-android)`
 - `PLN-E2E-03 (web)`
-
-**To automate**
-
-- `MSG-E2E-20` in `apps/web/e2e/journeys/communication.journey.ts`: Broadcast to a tag skips STOP and no-offers clients; quiet hours hold.
-- `MSG-E2E-21` in `apps/web/e2e/journeys/communication.journey.ts`: Consent changes during fan-out.
 
 **Depends on:** Nothing
 

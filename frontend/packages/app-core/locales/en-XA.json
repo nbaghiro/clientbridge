@@ -239,6 +239,9 @@
     "api.broadcastContactMissing": {
         "message": "[Åðð å ƀûšîñéšš éɱåîļ, þĥöñé ñûɱƀéŕ öŕ ŵéƀšîţé îñ Ɓûšîñéšš šéţţîñĝš ƀéƒöŕé šéñðîñĝ å ƀŕöåðçåšţ. one two three four five six seven]"
     },
+    "api.broadcastNotScheduled": {
+        "message": "[Ţĥîš ƀŕöåðçåšţ îš ñö ļöñĝéŕ šçĥéðûļéð: îţ ĥåš åļŕéåðý ĝöñé öûţ öŕ ŵåš çåñçéļéð. one two three four five]"
+    },
     "api.noMobileNumber": {
         "message": "[Ţĥîš çļîéñţ ĥåš ñö ɱöƀîļé ñûɱƀéŕ. Åðð öñé ţö ţĥéîŕ þŕöƒîļé ţö ţéẋţ ţĥéɱ. one two three four five]"
     },
@@ -6586,6 +6589,12 @@
     },
     "broadcasts.queuedBody": {
         "message": "[Îţ'š ǫûîéţ ĥöûŕš ƒöŕ ýöûŕ çļîéñţš, šö îţ ĝöéš öûţ åţ {when} ţö {n,plural,one{# çļîéñţ} other{# çļîéñţš}}. one two three four five]"
+    },
+    "broadcasts.scheduledBody": {
+        "message": "[Îţ ĝöéš öûţ åţ {when} ţö {n,plural,one{# çļîéñţ} other{# çļîéñţš}}. Åñýöñé ŵĥö öþţš öûţ ƀéƒöŕé ţĥéñ îš šķîþþéð. one two three four five]"
+    },
+    "broadcasts.movedBody": {
+        "message": "[Ţĥåţ ţîɱé ƒåļļš îñ ýöûŕ çļîéñţš' ǫûîéţ ĥöûŕš, šö îţ ĝöéš öûţ åţ {when} ţö {n,plural,one{# çļîéñţ} other{# çļîéñţš}}. one two three four five]"
     },
     "broadcasts.sentBody": {
         "message": "[{n,plural,one{# çļîéñţ} other{# çļîéñţš}} ŵîļļ ĝéţ îţ. Ŕéþļîéš ļåñð îñ ýöûŕ îñƀöẋ, åñð öþţ-öûţš åŕé ŕéçöŕðéð åûţöɱåţîçåļļý. one two three four five six seven]"

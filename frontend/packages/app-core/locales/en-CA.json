@@ -265,6 +265,9 @@
     "api.broadcastContactMissing": {
         "message": "Add a business email, phone number or website in Business settings before sending a broadcast."
     },
+    "api.broadcastNotScheduled": {
+        "message": "This broadcast is no longer scheduled: it has already gone out or was canceled."
+    },
     "api.noMobileNumber": {
         "message": "This client has no mobile number. Add one to their profile to text them."
     },
@@ -7190,6 +7193,16 @@
         "message": "It's quiet hours for your clients, so it goes out at {when} to {n, plural, one {# client} other {# clients}}.",
         "args": ["when", "n"],
         "description": "Broadcasts don't send between 9 p.m. and 9 a.m. in the business's time zone."
+    },
+    "broadcasts.scheduledBody": {
+        "message": "It goes out at {when} to {n, plural, one {# client} other {# clients}}. Anyone who opts out before then is skipped.",
+        "args": ["when", "n"],
+        "description": "Confirms a broadcast scheduled for the time the owner picked."
+    },
+    "broadcasts.movedBody": {
+        "message": "That time falls in your clients' quiet hours, so it goes out at {when} to {n, plural, one {# client} other {# clients}}.",
+        "args": ["when", "n"],
+        "description": "The owner picked a time between 9 p.m. and 9 a.m. in the business's time zone, so the broadcast moved to the next 9 a.m."
     },
     "broadcasts.sentBody": {
         "message": "{n, plural, one {# client} other {# clients}} will get it. Replies land in your inbox, and opt-outs are recorded automatically.",

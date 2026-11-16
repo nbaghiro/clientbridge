@@ -1,0 +1,133 @@
+appId: ${APP_ID}
+name: NATIVE-MSG-02 A broadcast to a tag counts out the STOP and no-offers clients, a time picked in quiet hours moves to 09:00 and says so, and a scheduled send cancels from its sheet
+tags:
+    - lane
+---
+- evalScript: ${output.tag = "winter" + String(1000 + Math.floor(Math.random() * 9000))}
+- evalScript: ${output.stopper = "250" + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000))}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/clients
+          BODY: "${JSON.stringify({ name: 'Ines Calloway', phone: '250' + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000)), marketing_consent: true, tags: [output.tag] })}"
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/clients
+          BODY: "${JSON.stringify({ name: 'Otto Brannigan', phone: '250' + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000)), marketing_consent: true, tags: [output.tag] })}"
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/clients
+          BODY: "${JSON.stringify({ name: 'Sela Harrow', phone: output.stopper, marketing_consent: true, tags: [output.tag] })}"
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/clients
+          BODY: "${JSON.stringify({ name: 'Dorian Pell', phone: '250' + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000)), marketing_consent: true, tags: [output.tag] })}"
+- evalScript: ${output.decliner = output.response.id}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: PATCH
+          PATH: ${"/v1/clients/" + output.decliner}
+          BODY: "${JSON.stringify({ marketing_consent: false })}"
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/clients
+          BODY: "${JSON.stringify({ name: 'Una Tresidder', phone: '250' + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000)), tags: [output.tag] })}"
+- runScript:
+      file: helpers/control.js
+      env:
+          ACTION: text-in
+          PAYLOAD: ${output.stopper + " STOP"}
+- runScript: helpers/quiet-days.js
+- runFlow: helpers/owner.yaml
+- tapOn:
+      id: "tab-inbox"
+- tapOn: "Broadcasts"
+- tapOn: "New broadcast"
+- tapOn: "Fall de-shed offer"
+- inputText: ${"Winter hours " + output.tag}
+- pressKey: Enter
+- extendedWaitUntil:
+      visible: ${output.tag + " · 5"}
+      timeout: 90000
+- tapOn: ${output.tag + " · 5"}
+- extendedWaitUntil:
+      visible: "Opted out · STOP reply · .*"
+      timeout: 60000
+- assertVisible: "5 match the audience · 3 left out"
+- assertVisible: "Opted out · In person · .*"
+- assertVisible: "Hasn't agreed"
+- assertNotVisible: "Ines Calloway"
+- assertNotVisible: "Otto Brannigan"
+- takeScreenshot: broadcast-audience
+- scrollUntilVisible:
+      element: "Next"
+      centerElement: true
+- tapOn: "Next"
+- tapOn: "(Message )?Book a de-shed.*"
+- inputText: "Winter hours start Monday. Reply to book."
+# the message is multiline, so Return adds a line; a tap outside closes the keyboard
+- tapOn: "Step 2 of 3"
+- tapOn: "Next"
+# iOS spends the first tap after typing closing the keyboard
+- runFlow:
+      when:
+          visible: "Step 2 of 3"
+      commands:
+          - tapOn: "Next"
+- assertVisible: "2 recipients · 3 left out"
+- tapOn: "Schedule"
+- scrollUntilVisible:
+      element: "Send at day.*"
+      centerElement: true
+- tapOn: "Send at day.*"
+# the six-week grid shows tomorrow even when it falls in the next month
+- tapOn: ${output.tomorrow}
+- tapOn: "Send at time.*"
+- scrollUntilVisible:
+      element: "10:30.p\\.m\\."
+      speed: 90
+      timeout: 60000
+- tapOn: "10:30.p\\.m\\."
+- scrollUntilVisible:
+      element: "Schedule for 2 clients"
+      centerElement: true
+- tapOn: "Schedule for 2 clients"
+- extendedWaitUntil:
+      visible: "Broadcast scheduled"
+      timeout: 30000
+- assertVisible: ${"That time falls in your clients' quiet hours, so it goes out at " + output.morning + ".* to 2 clients\\."}
+- takeScreenshot: broadcast-moved-to-morning
+- tapOn: "Back to broadcasts"
+- extendedWaitUntil:
+      visible: ${"Winter hours " + output.tag + ".*" + output.morning + ".*"}
+      timeout: 90000
+- tapOn: ${"Winter hours " + output.tag + ".*"}
+- assertVisible: "Recipients"
+- assertVisible: "Left out"
+# a scheduled send has no results yet, and its message shows the opt-out line clients get
+- assertNotVisible: "Delivered"
+- assertVisible: "Reply STOP to opt out."
+- takeScreenshot: broadcast-scheduled-sheet
+- scrollUntilVisible:
+      element: "Cancel send"
+      centerElement: true
+- tapOn: "Cancel send"
+- assertVisible: "Nobody gets it. You can write it again any time."
+# the sheet's own button keeps its name behind the alert, so the alert's is the one under its message
+- tapOn:
+      text: "Cancel send|CANCEL SEND"
+      below: "Nobody gets it.*"
+- extendedWaitUntil:
+      visible: ${"Winter hours " + output.tag + ", .*, Canceled"}
+      timeout: 90000
+- takeScreenshot: broadcast-canceled

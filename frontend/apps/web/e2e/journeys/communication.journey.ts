@@ -1,5 +1,13 @@
 import { randomUUID } from "node:crypto";
-import { formatDate, strings } from "@clientbridge/app-core/public";
+import {
+    addDays,
+    combineDayAndTime,
+    formatClock,
+    formatDate,
+    formatDateTime,
+    formatFullDate,
+    strings,
+} from "@clientbridge/app-core/public";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { bookingApi } from "../support/bookings";
 import {
@@ -16,11 +24,12 @@ import {
     expectClassState,
     type ClassFixture,
 } from "../support/classes";
-import { openClient, type ClientFixture, editClient } from "../support/clients";
+import { clientCommand, openClient, type ClientFixture, editClient } from "../support/clients";
 import {
     BIRCHBARK_SMS,
     apiBase,
     awayFromDeliveryTick,
+    broadcastJob,
     clientOutreach,
     createContact,
     deliveryRows,
@@ -457,4 +466,161 @@ test("MSG-E2E-15 a STOP holds against the staff toggle until the client replies 
         ["in", "START", "read"],
         ["out", "Thanks for coming back. Friday at 10 works.", "sent"],
     ]);
+});
+
+async function noToOffers(page: Page, client: ClientFixture): Promise<void> {
+    const editor = await editClient(page, client);
+    const consent = editor.getByRole("switch", { name: strings.clients.edit.consentLabel });
+    await expect(consent).toBeChecked({ timeout: 60_000 });
+    await consent.uncheck();
+    const saving = clientCommand(page, `/${client.id}`, "PATCH");
+    await editor.getByRole("button", { name: strings.clients.edit.save, exact: true }).click();
+    expect((await saving).status()).toBe(200);
+}
+
+test("MSG-E2E-20 a broadcast to a tag skips the STOP and no-offers clients, and a time in quiet hours waits for 09:00", async ({
+    page,
+}) => {
+    test.setTimeout(300_000);
+    const b = strings.broadcasts;
+    await signIn(page);
+    const tag = `offers-${randomUUID().slice(0, 6)}`;
+    const agreed = [
+        await createContact(page, { consent: true, tags: [tag] }),
+        await createContact(page, { consent: true, tags: [tag] }),
+    ];
+    const stopper = await createContact(page, { consent: true, tags: [tag] });
+    const decliner = await createContact(page, { consent: true, tags: [tag] });
+    const unasked = await createContact(page, { tags: [tag] });
+    const stop = await postInboundSms(page.request, {
+        from: stopper.phone,
+        to: BIRCHBARK_SMS,
+        body: "STOP",
+    });
+    expect(stop.response.status()).toBe(200);
+    await noToOffers(page, decliner);
+
+    await navigate(page, "/inbox?segment=broadcasts");
+    await page.getByRole("button", { name: b.newBroadcast, exact: true }).first().click();
+    const composer = page.getByRole("dialog", { name: b.newBroadcast, exact: true });
+    const name = `Late-night offer ${tag}`;
+    const body = "Book a de-shed this week and we'll add a free nail trim.";
+    await composer.getByRole("textbox", { name: b.nameLabel }).fill(name);
+    await composer
+        .getByRole("button", { name: b.tagChip(tag, 5), exact: true })
+        .click({ timeout: 60_000 });
+    await composer.getByRole("textbox", { name: b.messageLabel }).fill(body);
+    const audience = composer.getByRole("complementary");
+    const leftOut = (contact: { name: string }) =>
+        audience.getByRole("listitem").filter({ hasText: contact.name });
+    await expect(leftOut(stopper)).toContainText(b.reasons.opted_out, { timeout: 60_000 });
+    await expect(leftOut(stopper)).toContainText(b.sources.reply);
+    await expect(leftOut(decliner)).toContainText(b.reasons.opted_out, { timeout: 60_000 });
+    await expect(leftOut(decliner)).toContainText(b.sources.in_person);
+    await expect(leftOut(unasked)).toContainText(b.reasons.no_consent);
+    await expect(audience).toContainText(b.matched(5));
+    await expect(audience).toContainText(b.leftOut(3));
+    for (const contact of agreed) await expect(leftOut(contact)).toHaveCount(0);
+
+    await composer
+        .getByRole("group", { name: b.whenLabel, exact: true })
+        .getByRole("button", { name: b.sendLater, exact: true })
+        .click();
+    // the day is picked by name, so a run that crosses midnight still expects the morning after it
+    const tomorrow = addDays(new Date(), 1, zone);
+    const morning = combineDayAndTime(addDays(tomorrow, 1, zone), "09:00", zone);
+    await composer.getByRole("button", { name: strings.ui.dateTimeDay(b.sendAtLabel) }).click();
+    await page.getByRole("gridcell", { name: formatFullDate(tomorrow, zone), exact: true }).click();
+    await composer.getByRole("combobox", { name: strings.ui.dateTimeTime(b.sendAtLabel) }).click();
+    await page.getByRole("option", { name: formatClock("22:30"), exact: true }).click();
+    const submitted = page.waitForResponse(
+        (r) => new URL(r.url()).pathname === "/v1/broadcasts" && r.request().method() === "POST",
+    );
+    await composer.getByRole("button", { name: b.scheduleFor(2), exact: true }).click();
+    const response = await submitted;
+    expect(response.status(), await response.text()).toBe(200);
+    const queued = (await response.json()) as { id: string; scheduled_at: string };
+    expect(new Date(queued.scheduled_at).getTime()).toBe(morning.getTime());
+    // the confirmation replaces the composer's heading, so the drawer has no name of its own
+    await expect(page.getByRole("heading", { name: b.scheduledTitle, exact: true })).toBeVisible();
+    await expect(page.getByText(b.movedBody(formatDateTime(morning, zone), 2))).toBeVisible();
+    await page.getByRole("button", { name: b.sentDone, exact: true }).click();
+    const row = page.getByRole("button").filter({ hasText: name });
+    await expect(row).toContainText(formatDateTime(morning, zone), { timeout: 60_000 });
+
+    const sent = await broadcastJob(queued.id, morning);
+    expect(sent.finished).toBe(1);
+    expect(sent.broadcasts.map((x) => [x.status, x.recipient_count, x.excluded_count])).toEqual([
+        ["sent", 2, 3],
+    ]);
+    expect(sent.messages.map((m) => m.status)).toEqual(["sent", "sent"]);
+    for (const contact of agreed) {
+        await expect
+            .poll(async () => (await textsTo(page.request, contact.phone)).map((t) => t.Snippet))
+            .toEqual([expect.stringContaining(`${body} ${b.optOutSms}`)]);
+    }
+    for (const contact of [stopper, decliner, unasked]) {
+        expect(await textsTo(page.request, contact.phone)).toEqual([]);
+    }
+    await expect(row).toContainText(b.delivered(2), { timeout: 60_000 });
+    const late = await page.request.post(`${apiBase()}/v1/broadcasts/${queued.id}/cancel`, {
+        headers: headers(page),
+    });
+    expect(late.status()).toBe(409);
+    expect(await late.json()).toMatchObject({ error: "broadcast_not_scheduled" });
+});
+
+test("MSG-E2E-21 consent that changes after a broadcast is queued decides who it reaches when it goes out", async ({
+    page,
+}) => {
+    test.setTimeout(240_000);
+    await signIn(page);
+    const tag = `regulars-${randomUUID().slice(0, 6)}`;
+    const keeps = await createContact(page, { consent: true, tags: [tag] });
+    const stops = await createContact(page, { consent: true, tags: [tag] });
+    const declines = await createContact(page, { consent: true, tags: [tag] });
+    const joins = await createContact(page, { tags: [tag] });
+    const at = combineDayAndTime(addDays(new Date(), 1, zone), "10:00", zone);
+    const queued = await page.request.post(`${apiBase()}/v1/broadcasts`, {
+        data: {
+            name: `Regulars ${tag}`,
+            body: "Our winter hours start Monday.",
+            audience: { tags: [tag] },
+            scheduled_at: at.toISOString(),
+        },
+        headers: headers(page),
+    });
+    expect(queued.status(), await queued.text()).toBe(200);
+    const broadcast = (await queued.json()) as { id: string };
+    expect(await queued.json()).toMatchObject({ recipient_count: 3, excluded_count: 1 });
+
+    const stop = await postInboundSms(page.request, {
+        from: stops.phone,
+        to: BIRCHBARK_SMS,
+        body: "STOP",
+    });
+    expect(stop.response.status()).toBe(200);
+    for (const [contact, agrees] of [
+        [declines, false],
+        [joins, true],
+    ] as const) {
+        const changed = await page.request.patch(`${apiBase()}/v1/clients/${contact.id}`, {
+            data: { marketing_consent: agrees },
+            headers: headers(page),
+        });
+        expect(changed.status(), await changed.text()).toBe(200);
+    }
+
+    const sent = await broadcastJob(broadcast.id, at);
+    expect(sent.finished).toBe(1);
+    expect(sent.broadcasts.map((x) => [x.status, x.recipient_count, x.excluded_count])).toEqual([
+        ["sent", 2, 2],
+    ]);
+    expect(sent.messages.map((m) => m.status)).toEqual(["sent", "sent"]);
+    for (const contact of [keeps, joins]) {
+        await expect.poll(async () => (await textsTo(page.request, contact.phone)).length).toBe(1);
+    }
+    for (const contact of [stops, declines]) {
+        expect(await textsTo(page.request, contact.phone)).toEqual([]);
+    }
 });

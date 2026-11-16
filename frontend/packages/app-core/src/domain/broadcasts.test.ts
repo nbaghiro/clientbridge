@@ -1,17 +1,22 @@
 // @vitest-environment happy-dom
-import { renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { ApiLike } from "../api";
+import { formatDateTime } from "../datetime";
+import { strings } from "../strings";
 import {
     AUDIENCE_CLIENTS_SQL,
     LATEST_CONSENTS_SQL,
     TEXTS_STOPPED_SQL,
+    broadcastHasResults,
     consentFor,
     consentOf,
     smsSegments,
     useBroadcastDraft,
 } from "./broadcasts";
+
+const b = strings.broadcasts;
 
 const granted = (client_id: string) => ({
     client_id,
@@ -26,8 +31,12 @@ const replica: Record<string, unknown[]> = {
         { id: "cl_b", name: "Bea", phone: "+16045550001", tags: null },
         { id: "cl_a", name: "Al", phone: "+16045550003", tags: null },
         { id: "cl_c", name: "Cy", phone: "+16045550002", tags: null },
+        { id: "cl_d", name: "Dee", phone: "+16045550004", tags: null },
     ],
-    [LATEST_CONSENTS_SQL]: ["cl_a", "cl_b", "cl_c"].map(granted),
+    [LATEST_CONSENTS_SQL]: [
+        ...["cl_a", "cl_b", "cl_c"].map(granted),
+        { ...granted("cl_d"), status: "withdrawn", source: "in_person" },
+    ],
     [TEXTS_STOPPED_SQL]: [{ client_id: "cl_b", created_at: "2026-02-01T00:00:00Z" }],
 };
 
@@ -48,19 +57,87 @@ vi.mock("./sync", async (importOriginal) => ({
     useReplicaLoad: () => ({ state: "ready" }),
 }));
 
+const sending = { status: "sending", scheduled_at: null };
+const fakeApi = (result: { status: string; scheduled_at: string | null } = sending) => ({
+    get: vi.fn(),
+    getText: vi.fn(),
+    post: vi.fn().mockResolvedValue(result),
+    patch: vi.fn(),
+    delete: vi.fn(),
+});
+
 describe("broadcast audience", () => {
-    it("leaves out a client whose number replied STOP, though they once agreed", () => {
-        const api = {
-            get: vi.fn(),
-            getText: vi.fn(),
-            post: vi.fn(),
-            patch: vi.fn(),
-            delete: vi.fn(),
-        };
-        const { result } = renderHook(() => useBroadcastDraft(api as ApiLike));
+    it("leaves out a client whose number replied STOP and one who said no to offers", () => {
+        const { result } = renderHook(() => useBroadcastDraft(fakeApi() as ApiLike));
         const { recipients, excluded } = result.current.audience;
         expect(recipients.map((r) => r.id)).toEqual(["cl_a", "cl_c"]);
-        expect(excluded.map((x) => [x.id, x.reason])).toEqual([["cl_b", "opted_out"]]);
+        expect(excluded.map((x) => [x.id, x.reason, x.detail])).toEqual([
+            ["cl_b", "opted_out", b.consentSource(b.sources.reply, "Jan 31, 2026")],
+            ["cl_d", "opted_out", b.consentSource(b.sources.in_person, "Dec 31, 2025")],
+        ]);
+    });
+});
+
+describe("broadcast confirmation", () => {
+    const zone = "America/Toronto";
+    const submit = async (api: ReturnType<typeof fakeApi>, sendAt?: string) => {
+        const { result } = renderHook(() => useBroadcastDraft(api as ApiLike));
+        act(() => {
+            result.current.setName("Spring");
+            result.current.setBody("Book now");
+            if (sendAt !== undefined) {
+                result.current.setSchedule("later");
+                result.current.setSendAt(sendAt);
+            }
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(result.current.sent).not.toBeNull();
+        });
+        return result.current.sent;
+    };
+
+    it("says a broadcast sent now goes out to its recipients", async () => {
+        expect(await submit(fakeApi())).toEqual({
+            scheduled: false,
+            title: b.sentTitle,
+            body: b.sentBody(2),
+        });
+    });
+
+    it("gives the time a scheduled broadcast goes out", async () => {
+        const at = "2030-01-15T15:00:00Z";
+        const api = fakeApi({ status: "scheduled", scheduled_at: at });
+        expect(await submit(api, "2030-01-15T10:00")).toEqual({
+            scheduled: true,
+            title: b.scheduledTitle,
+            body: b.scheduledBody(formatDateTime(new Date(at), zone), 2),
+        });
+        expect(api.post.mock.calls[0]?.[1]).toMatchObject({
+            scheduled_at: new Date(at).toISOString(),
+        });
+    });
+
+    it("says when quiet hours moved a picked time to the morning", async () => {
+        const morning = "2030-01-16T14:00:00Z";
+        const api = fakeApi({ status: "scheduled", scheduled_at: morning });
+        expect(await submit(api, "2030-01-15T22:30")).toEqual({
+            scheduled: true,
+            title: b.scheduledTitle,
+            body: b.movedBody(formatDateTime(new Date(morning), zone), 2),
+        });
+    });
+
+    it("says a send-now in quiet hours is queued for the morning", async () => {
+        const morning = "2030-01-16T14:00:00Z";
+        const api = fakeApi({ status: "scheduled", scheduled_at: morning });
+        expect(await submit(api)).toEqual({
+            scheduled: true,
+            title: b.queuedTitle,
+            body: b.queuedBody(formatDateTime(new Date(morning), zone), 2),
+        });
     });
 });
 
@@ -127,5 +204,13 @@ describe("consent", () => {
         const map = new Map([["cl_ann", consentOf(row("granted"), now)]]);
         expect(consentFor(map, "cl_ann").state).toBe("express");
         expect(consentFor(map, "cl_ben")).toEqual(consentOf(undefined));
+    });
+});
+
+describe("broadcast results", () => {
+    it("shows counts once a broadcast starts going out, even while quiet hours pause it", () => {
+        expect(
+            ["draft", "scheduled", "sending", "sent", "canceled"].filter(broadcastHasResults),
+        ).toEqual(["sending", "sent"]);
     });
 });
