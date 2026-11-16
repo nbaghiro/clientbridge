@@ -4817,6 +4817,18 @@
     "forms.answerAttached": {
         "message": "[Ƒîļé åţţåçĥéð one two]"
     },
+    "forms.fileUnavailable": {
+        "message": "[Ţĥé ƒîļé çöûļð ñöţ ƀé ļöåðéð. Çļöšé ţĥé åñšŵéŕš åñð öþéñ ţĥéɱ åĝåîñ ţö ŕéţŕý. one two three four five]"
+    },
+    "forms.openFile": {
+        "message": "[Öþéñ ƒîļé one]"
+    },
+    "forms.viewAnswersOf": {
+        "message": "[Ṽîéŵ åñšŵéŕš ţö {form} one two]"
+    },
+    "forms.signedBy": {
+        "message": "[Šîĝñéð ƀý one]"
+    },
     "forms.answersLoadError": {
         "message": "[Ţĥé åñšŵéŕš çöûļð ñöţ ƀé ļöåðéð. Þļéåšé ţŕý åĝåîñ. one two three four]"
     },

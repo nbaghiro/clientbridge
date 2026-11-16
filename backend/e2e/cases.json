@@ -111,6 +111,8 @@
     "DOC-E2E-05": {"lanes": ["connect"], "browsers": false, "status": "verified"},
     "EMBED-E2E-01": {"lanes": ["connect"], "browsers": false, "status": "verified"},
     "DOC-E2E-06": {"lanes": ["connect"], "browsers": false, "status": "verified"},
+    "DOC-E2E-08": {"lanes": ["connect"], "browsers": false, "status": "implemented"},
+    "DOC-E2E-10": {"lanes": ["connect"], "browsers": false, "status": "implemented"},
     "SALE-E2E-03": {"lanes": ["connect"], "browsers": true, "status": "verified"},
     "OPS-E2E-04": {"lanes": ["connect"], "browsers": false, "status": "implemented"},
     "OPS-E2E-05": {"lanes": ["connect"], "browsers": false, "status": "implemented"},
@@ -146,6 +148,8 @@
     "FLOW-04-B": {"lanes": ["journeys"], "browsers": false, "status": "implemented"},
     "FLOW-05-A": {"lanes": ["journeys"], "browsers": false, "status": "implemented"},
     "FLOW-05-B": {"lanes": ["journeys"], "browsers": false, "status": "implemented"},
+    "DOC-E2E-09": {"lanes": ["journeys"], "browsers": false, "status": "implemented"},
+    "DOC-E2E-11": {"lanes": ["journeys"], "browsers": false, "status": "implemented"},
     "FLOW-06-A": {"lanes": ["journeys"], "browsers": false, "status": "implemented"},
     "FLOW-07-A": {"lanes": ["journeys"], "browsers": false, "status": "verified"},
     "FLOW-07-B": {"lanes": ["journeys"], "browsers": false, "status": "verified"},
@@ -272,5 +276,6 @@
     "STR-E18": {"lanes": ["stripe"], "browsers": false, "status": "verified"},
     "STR-E31": {"lanes": ["stripe"], "browsers": false, "status": "verified"},
     "NATIVE-SCH-02": {"lanes": ["native-ios", "native-android"], "browsers": false, "status": "verified"},
-    "NATIVE-MSG-01": {"lanes": ["native-ios", "native-android"], "browsers": false, "status": "implemented"}
+    "NATIVE-MSG-01": {"lanes": ["native-ios", "native-android"], "browsers": false, "status": "implemented"},
+    "NATIVE-DOC-01": {"lanes": ["native-ios", "native-android"], "browsers": false, "status": "implemented"}
 }

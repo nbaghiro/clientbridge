@@ -465,7 +465,8 @@ export function ClientsScreen() {
                     ask={
                         sheet?.kind === "client" ||
                         sheet?.kind === "subject" ||
-                        sheet?.kind === "note"
+                        sheet?.kind === "note" ||
+                        sheet?.kind === "answers"
                             ? sheet
                             : null
                     }

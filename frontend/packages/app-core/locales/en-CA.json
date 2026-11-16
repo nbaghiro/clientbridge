@@ -5235,6 +5235,23 @@
     "forms.answerAttached": {
         "message": "File attached"
     },
+    "forms.fileUnavailable": {
+        "message": "The file could not be loaded. Close the answers and open them again to retry.",
+        "description": "Shown in place of Open file when the link to a file a client attached to a form failed to load"
+    },
+    "forms.openFile": {
+        "message": "Open file",
+        "description": "Opens a file the client attached to a form, from its answers"
+    },
+    "forms.viewAnswersOf": {
+        "message": "View answers to {form}",
+        "description": "Accessible name of the View answers button beside a client's submitted form",
+        "args": ["form"]
+    },
+    "forms.signedBy": {
+        "message": "Signed by",
+        "description": "Label for the name the client signed a form with, under its answers"
+    },
     "forms.answersLoadError": {
         "message": "The answers could not be loaded. Please try again."
     },

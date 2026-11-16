@@ -1,11 +1,27 @@
 import { strings } from "@clientbridge/app-core/public";
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { newBusiness, textingNumber } from "../support/business";
 import { openClient } from "../support/clients";
-import { formEvidence, sendToClient, signatureEvidence } from "../support/documents";
+import { select } from "../support/db";
+import {
+    formEvidence,
+    formResponses,
+    runIntake,
+    saveForm,
+    sendToClient,
+    signatureEvidence,
+} from "../support/documents";
 import { createDocumentClient, type DocumentClient } from "../support/billing";
-import { textedLinks } from "../support/messaging";
+import { deliveredTexts, textedLinks } from "../support/messaging";
 import { customerContext, navigate, signIn } from "../support/session";
-import { stackUrl } from "../support/visit";
+import {
+    connectUrl,
+    fillConnectDetails,
+    onlineBooker,
+    ownBookingPage,
+    pastExtras,
+    stackUrl,
+} from "../support/visit";
 
 test.use({ actionTimeout: 15_000 });
 
@@ -297,7 +313,7 @@ test("FLOW-05-B a form edited while the client has it open keeps the questions t
         expect(submitted.submitted_at).not.toBeNull();
 
         const record = await openClient(page, client);
-        await record.getByRole("button", { name: f.viewAnswers, exact: true }).click({
+        await record.getByRole("button", { name: f.viewAnswersOf(name), exact: true }).click({
             timeout: 60_000,
         });
         const answers = page.getByRole("dialog");
@@ -325,4 +341,223 @@ test("FLOW-05-B a form edited while the client has it open keeps the questions t
     } finally {
         await context.close();
     }
+});
+
+const PDF = Buffer.from(
+    "%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n",
+);
+
+async function addQuestion(main: Locator, label: string, type: string, choices: string[] = []) {
+    await main.getByRole("button", { name: f.addQuestion, exact: true }).click();
+    await main.getByRole("textbox", { name: f.questionLabel, exact: true }).fill(label);
+    if (type !== f.fieldTypeText) {
+        await main.getByRole("combobox", { name: f.type, exact: true }).click();
+        await main.page().getByRole("option", { name: type, exact: true }).click();
+    }
+    for (const [i, choice] of choices.entries())
+        await main
+            .getByRole("textbox", { name: f.optionPlaceholder(i + 1), exact: true })
+            .fill(choice);
+}
+
+test("DOC-E2E-09 a new client's online booking gets the intake form texted once by the job, and their answers, file and signature reach their record", async ({
+    page,
+    browser,
+    request,
+}) => {
+    test.setTimeout(300_000);
+    // an active on-booking form texts every new client, so it lives on a business of its own
+    const own = await ownBookingPage(page, request, "intake");
+    await textingNumber(own.businessId);
+    const booker = onlineBooker("Pepper");
+    const name = `New client intake for ${booker.name}`;
+    await navigate(page, "/inbox?segment=forms");
+    await page.getByRole("button", { name: f.newForm, exact: true }).first().click();
+    const main = page.getByRole("main");
+    await main.getByRole("textbox", { name: f.formName, exact: true }).fill(name);
+    await main.getByRole("combobox", { name: f.sendWhen, exact: true }).click();
+    await page.getByRole("option", { name: f.sendOnBooking, exact: true }).click();
+    await main.getByRole("switch", { name: f.requireSignature }).check();
+    await addQuestion(main, "Pet's name", f.fieldTypeText);
+    await main.getByRole("switch", { name: f.required, exact: true }).check();
+    await addQuestion(main, "Coat", f.fieldTypeSelect, ["Short", "Long"]);
+    await addQuestion(main, "Vaccine record", f.fieldTypeFile);
+    const creating = page.waitForResponse(
+        (response) =>
+            new URL(response.url()).pathname === "/v1/forms" &&
+            response.request().method() === "POST",
+    );
+    await main.getByRole("button", { name: f.save, exact: true }).click();
+    const created = await creating;
+    expect(created.status(), await created.text()).toBe(201);
+    const form = (await created.json()) as {
+        id: string;
+        send_on: string;
+        fields: { name: string; input: string; label: string; options: string[] }[];
+    };
+    expect(form.send_on).toBe("booking");
+    expect(form.fields.map((q) => [q.label, q.input, q.options])).toEqual([
+        ["Pet's name", "text", []],
+        ["Coat", "select", ["Short", "Long"]],
+        ["Vaccine record", "file", []],
+    ]);
+    // the editor reopens under the new form's id and still reads as saved
+    await expect(main.getByText(f.saved, { exact: true })).toBeVisible({ timeout: 60_000 });
+    const [pet, coat, record] = form.fields;
+    if (!pet || !coat || !record) throw new Error("The saved form lost a question");
+
+    const context = await customerContext(browser);
+    try {
+        const customer = await context.newPage();
+        const slug = own.slug;
+        const openings = customer.waitForResponse(
+            (response) => response.url().includes(`/book/${slug}/days?`) && response.ok(),
+        );
+        await customer.goto(connectUrl(slug));
+        await customer
+            .getByRole("button")
+            .filter({ has: customer.getByText(own.itemName, { exact: true }) })
+            .click();
+        await pastExtras(customer);
+        const days = (
+            (await (await openings).json()) as { days: { count: number; closed: boolean }[] }
+        ).days;
+        const open = days.findIndex((day, index) => index >= 2 && day.count > 0 && !day.closed);
+        expect(open).toBeGreaterThanOrEqual(2);
+        await customer
+            .getByRole("radiogroup", { name: strings.publicBooking.date, exact: true })
+            .getByRole("radio")
+            .nth(open)
+            .click();
+        await customer
+            .getByRole("radiogroup", { name: strings.publicBooking.openTimes, exact: true })
+            .getByRole("radio")
+            .first()
+            .click();
+        await fillConnectDetails(customer, booker, "pet");
+        const booking = customer.waitForResponse(
+            (response) =>
+                new URL(response.url()).pathname === `/book/${slug}` &&
+                response.request().method() === "POST",
+        );
+        await customer
+            .getByRole("button", { name: strings.publicBooking.confirm, exact: true })
+            .click();
+        expect((await booking).status()).toBe(200);
+        const [client] = await select<{ id: string }>`
+            SELECT id FROM clients
+            WHERE business_id = ${own.businessId} AND name = ${booker.name}`;
+        if (client === undefined) throw new Error("The online booking made no client");
+
+        // the run's worker may also reach this form on its quarter hour; either way it goes once
+        await runIntake(form.id, client.id);
+        await expect.poll(() => formResponses(form.id, client.id)).toHaveLength(1);
+        const [sent] = await formResponses(form.id, client.id);
+        expect(sent).toMatchObject({ status: "draft", parent_type: "booking" });
+        const texted = async () =>
+            (await deliveredTexts(page.request, booker.phone)).filter((t) =>
+                t.text.includes(`/form/${sent?.token ?? ""}`),
+            );
+        await expect.poll(async () => (await texted()).length).toBe(1);
+        expect(await runIntake(form.id, client.id)).toBe(0);
+        expect(await formResponses(form.id, client.id)).toHaveLength(1);
+        expect(await texted()).toHaveLength(1);
+        const [link] = await textedLinks(page.request, booker.phone, `/form/${sent?.token ?? ""}`);
+
+        await customer.goto(link?.href ?? "");
+        await expect(customer.getByRole("heading", { name })).toBeVisible();
+        await customer.getByRole("textbox", { name: /Pet's name/ }).fill(booker.subject);
+        await customer.getByRole("combobox", { name: "Coat" }).click();
+        await customer.getByRole("option", { name: "Long", exact: true }).click();
+        const completed = customer.waitForResponse((response) =>
+            /\/upload\/[^/]+\/complete$/.test(new URL(response.url()).pathname),
+        );
+        await customer
+            .getByLabel("Vaccine record", { exact: true })
+            .setInputFiles({ name: "vaccines.pdf", mimeType: "application/pdf", buffer: PDF });
+        expect((await completed).status()).toBe(200);
+        await customer.getByRole("textbox", { name: pf.signerName }).fill(booker.name);
+        await customer.getByRole("switch").check();
+        await customer.getByRole("button", { name: pf.sendAnswers, exact: true }).click();
+        await expect(customer.getByRole("heading", { name: pf.doneTitle })).toBeVisible();
+        const answered = await formEvidence(sent?.id ?? "");
+        expect(answered).toMatchObject({
+            status: "submitted",
+            answers: { [pet.name]: booker.subject, [coat.name]: "Long" },
+            signature: { name: booker.name },
+        });
+        const fileId = answered.answers[record.name];
+        expect(typeof fileId).toBe("string");
+        const [stored] = await select<{ s3_key: string }>`
+            SELECT s3_key FROM files WHERE id = ${String(fileId)} AND uploaded_at IS NOT NULL`;
+        if (stored === undefined) throw new Error("The attached file is not in storage");
+
+        const shown = await openClient(page, {
+            id: client.id,
+            name: booker.name,
+            phone: booker.phone,
+        });
+        await shown.getByRole("button", { name: f.viewAnswersOf(name), exact: true }).click({
+            timeout: 60_000,
+        });
+        const answers = page.getByRole("dialog").filter({ hasText: name });
+        for (const text of ["Pet's name", booker.subject, "Coat", "Long", f.signedBy, booker.name])
+            await expect(answers.getByText(text, { exact: true }).first()).toBeVisible();
+        // the new tab asks storage for this exact file through a signed link
+        const fetching = page
+            .context()
+            .waitForEvent("request", (sent) =>
+                new URL(sent.url()).pathname.endsWith(`/${stored.s3_key}`),
+            );
+        await answers.getByRole("button", { name: f.openFile, exact: true }).click();
+        const file = await fetching;
+        const download = await page.request.get(file.url());
+        expect(download.status()).toBe(200);
+        expect((await download.body()).toString()).toBe(PDF.toString());
+    } finally {
+        await context.close();
+    }
+});
+
+test("DOC-E2E-11 a form saved with the phone editor's request shows on web with its questions, send rule and signature, and opens unchanged", async ({
+    page,
+    request,
+}) => {
+    test.setTimeout(180_000);
+    // an active on-booking form texts every new client, so it lives on a business of its own
+    await newBusiness(page, request, "phone-form", "petGrooming");
+    const name = `Phone-built intake ${String(Date.now())}`;
+    const form = await saveForm(page, name, [
+        { input: "text", label: "Dog's name", required: true, options: [] },
+        { input: "select", label: "Coat", required: false, options: ["Short", "Long"] },
+        { input: "file", label: "Vaccine record", required: false, options: [] },
+    ]);
+    await navigate(page, "/inbox?segment=forms");
+    const main = page.getByRole("main");
+    const row = main.locator(`[data-row-key="${form.id}"]`);
+    await expect(row).toContainText(name, { timeout: 60_000 });
+    await expect(row).toContainText(f.fields(3));
+    await expect(row).toContainText(f.sendsOnBooking);
+
+    await row.click();
+    await expectOpened(main, name);
+    await expect(main.getByRole("combobox", { name: f.sendWhen, exact: true })).toContainText(
+        f.sendOnBooking,
+    );
+    await expect(main.getByRole("switch", { name: f.requireSignature })).toBeChecked();
+    const questions = main.locator("ol > li");
+    await expect(questions).toHaveCount(3);
+    const asked = [
+        ["Dog's name", f.fieldTypeText],
+        ["Coat", f.fieldTypeSelect],
+        ["Vaccine record", f.fieldTypeFile],
+    ];
+    for (const [i, [label = "", type = ""]] of asked.entries()) {
+        await expect(questions.nth(i)).toContainText(label);
+        await expect(questions.nth(i)).toContainText(type);
+    }
+    await expect(questions.nth(0)).toContainText(f.required);
+    await expect(questions.nth(1)).not.toContainText(f.required);
+    // opened, not just created, so there is nothing to call saved
+    await expect(main.getByText(f.saved, { exact: true })).toHaveCount(0);
 });

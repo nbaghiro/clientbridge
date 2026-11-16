@@ -45,6 +45,7 @@ const GRID = "grid grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1.2fr)] ite
 export function Forms() {
     const library = useFormLibrary();
     const [picked, setPicked] = useState<string | null>(null);
+    const [created, setCreated] = useState<string | null>(null);
     const newForm = (): void => {
         setPicked(NEW_FORM);
     };
@@ -58,9 +59,18 @@ export function Forms() {
                     size="xl"
                     onClose={() => {
                         setPicked(null);
+                        setCreated(null);
                     }}
                 >
-                    <EditorSource key={picked} formId={picked} onCreated={setPicked} />
+                    <EditorSource
+                        key={picked}
+                        formId={picked}
+                        created={picked === created}
+                        onCreated={(id) => {
+                            setCreated(id);
+                            setPicked(id);
+                        }}
+                    />
                 </Modal>
             ) : null}
             <div className="flex items-center justify-between gap-4">
@@ -129,23 +139,33 @@ export function Forms() {
     );
 }
 
-function EditorSource({ formId, onCreated }: { formId: string; onCreated: (id: string) => void }) {
+function EditorSource({
+    formId,
+    created,
+    onCreated,
+}: {
+    formId: string;
+    created: boolean;
+    onCreated: (id: string) => void;
+}) {
     const draft = useFormDraft(formId);
     if (draft === null) return <Loading />;
-    return <Editor formId={formId} initial={draft} onCreated={onCreated} />;
+    return <Editor formId={formId} initial={draft} created={created} onCreated={onCreated} />;
 }
 
 function Editor({
     formId,
     initial,
+    created,
     onCreated,
 }: {
     formId: string;
     initial: FormDraft;
+    created: boolean;
     onCreated: (id: string) => void;
 }) {
     const zone = useBusinessZone();
-    const editor = useFormEditor(api, formId, initial, onCreated);
+    const editor = useFormEditor(api, formId, initial, onCreated, created);
     const [sending, setSending] = useState(false);
 
     return (

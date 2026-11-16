@@ -3,7 +3,7 @@ import { useState } from "react";
 import { isConnectionFailure, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import { type PublicBrand, usePublicResource } from "./publicResource";
-import { refusal } from "../api";
+import { failedCode, refusal } from "../api";
 
 export interface PublicFormField {
     id: string;
@@ -117,7 +117,7 @@ interface PublicFormFill {
     agreed: boolean;
     setAgreed: (value: boolean) => void;
     setAnswer: (name: string, value: FormAnswer) => void;
-    uploadFor: (name: string, file: Blob) => void;
+    uploadFor: (name: string, file: Blob, onFailed?: () => void) => void;
     submit: () => void;
     busy: boolean;
     error: string | null;
@@ -144,10 +144,15 @@ export function usePublicFormFill(forms: PublicFormClient, token: string): Publi
         setError(null);
     };
 
-    const uploadFor = (name: string, file: Blob): void => {
+    const uploadFor = (name: string, file: Blob, onFailed?: () => void): void => {
         run(
             async () => {
-                setAnswer(name, await forms.upload(token, file));
+                try {
+                    setAnswer(name, await forms.upload(token, file));
+                } catch (failure) {
+                    onFailed?.();
+                    throw failure;
+                }
             },
             {
                 errorMessage: (error) =>
@@ -170,12 +175,15 @@ export function usePublicFormFill(forms: PublicFormClient, token: string): Publi
         }
         run(
             async () => {
+                const signature = form?.require_signature
+                    ? { name: signer.trim(), agreed: true as const }
+                    : null;
+                // sent already, from another tab or by a try whose reply was lost: show it done
                 setForm(
-                    await forms.submit(
-                        token,
-                        answers,
-                        form?.require_signature ? { name: signer.trim(), agreed: true } : null,
-                    ),
+                    await forms.submit(token, answers, signature).catch((e: unknown) => {
+                        if (failedCode(e) !== "form_submitted") throw e;
+                        return forms.getForm(token);
+                    }),
                 );
             },
             { errorMessage: strings.publicForm.submitAnswersError },
@@ -225,13 +233,21 @@ export function useFormUploads(fill: PublicFormFill): FormUploads {
     return {
         fileNames,
         upload: (fieldName, file, name) => {
+            if (fill.busy) return;
             const problem = uploadProblem(file);
             if (problem !== null) {
                 fill.setError(problem);
                 return;
             }
+            const previous = fileNames[fieldName];
             setFileNames((m) => ({ ...m, [fieldName]: name }));
-            fill.uploadFor(fieldName, file);
+            fill.uploadFor(fieldName, file, () => {
+                setFileNames((m) =>
+                    previous === undefined
+                        ? Object.fromEntries(Object.entries(m).filter(([key]) => key !== fieldName))
+                        : { ...m, [fieldName]: previous },
+                );
+            });
         },
     };
 }

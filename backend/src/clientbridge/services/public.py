@@ -1861,7 +1861,7 @@ class PublicFormService:
         response, _, business = await self._resolve(token)
         await self.db.refresh(response, with_for_update=True)
         if response.status == "submitted":
-            raise Conflict("this form was already submitted")
+            raise Conflict("this form was already submitted", code="form_submitted")
         definition = FormDefinition.model_validate(response.definition)
         fields = definition.fields
         if definition.require_signature and data.signature is None:

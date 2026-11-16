@@ -5,6 +5,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.errors import TooManyRequests
 from clientbridge.core.ids import new_id
 from clientbridge.core.ratelimit import RateLimiter, public_form_rate_limit
@@ -120,7 +121,9 @@ async def test_public_submit_fills_response(api: httpx.AsyncClient, db: AsyncSes
 async def test_public_second_submit_409(api: httpx.AsyncClient, db: AsyncSession) -> None:
     token = await _a_response(db)
     assert (await api.post(f"/form/{token}", json={"answers": {"rating": 5}})).status_code == 200
-    assert (await api.post(f"/form/{token}", json={"answers": {"rating": 5}})).status_code == 409
+    again = await api.post(f"/form/{token}", json={"answers": {"rating": 4}})
+    assert again.status_code == 409
+    assert again.json()["error"] == "form_submitted"  # Connect shows its done page on this code
 
 
 async def test_public_missing_required_422(api: httpx.AsyncClient, db: AsyncSession) -> None:
@@ -254,6 +257,74 @@ async def test_public_complete_cannot_reach_another_responses_file(
     file_id = await _upload(api, theirs)
     await _store(db, storage, file_id)
     assert (await api.post(f"/form/{mine}/upload/{file_id}/complete")).status_code == 404
+
+
+async def _attachment(
+    api: httpx.AsyncClient, db: AsyncSession, storage: FakeFileStorage
+) -> tuple[str, str]:
+    token = await _file_form(db)
+    file_id = await _upload(api, token)
+    assert (await api.get(f"/v1/files/{file_id}/link")).status_code == 404  # bytes unconfirmed
+    await _store(db, storage, file_id)
+    assert (await api.post(f"/form/{token}/upload/{file_id}/complete")).status_code == 200
+    return token, file_id
+
+
+async def _submit(api: httpx.AsyncClient, token: str, file_id: str) -> None:
+    sent = await api.post(f"/form/{token}", json={"answers": {"waiver": file_id}})
+    assert sent.status_code == 200, sent.text
+
+
+async def test_a_form_attachment_opens_for_the_owner_once_the_form_is_sent(
+    as_owner: httpx.AsyncClient, db: AsyncSession, storage: FakeFileStorage
+) -> None:
+    token, file_id = await _attachment(as_owner, db, storage)
+    link = f"/v1/files/{file_id}/link"
+    assert (await as_owner.get(link)).status_code == 404  # still being filled in
+    await _submit(as_owner, token, file_id)
+    opened = await as_owner.get(link)
+    assert opened.status_code == 200, opened.text
+    file = await db.get(File, file_id)
+    assert file is not None and opened.json()["url"].endswith(file.s3_key)
+
+
+async def test_an_upload_the_client_replaced_does_not_open_404(
+    as_owner: httpx.AsyncClient, db: AsyncSession, storage: FakeFileStorage
+) -> None:
+    token, replaced = await _attachment(as_owner, db, storage)
+    kept = await _upload(as_owner, token)
+    await _store(db, storage, kept)
+    assert (await as_owner.post(f"/form/{token}/upload/{kept}/complete")).status_code == 200
+    await _submit(as_owner, token, kept)
+    assert (await as_owner.get(f"/v1/files/{kept}/link")).status_code == 200
+    assert (await as_owner.get(f"/v1/files/{replaced}/link")).status_code == 404
+
+
+async def test_staff_cannot_open_a_form_attachment_403(
+    as_staff: httpx.AsyncClient, db: AsyncSession, storage: FakeFileStorage
+) -> None:
+    token, file_id = await _attachment(as_staff, db, storage)
+    await _submit(as_staff, token, file_id)
+    assert (await as_staff.get(f"/v1/files/{file_id}/link")).status_code == 403
+
+
+async def test_another_businesss_form_attachment_is_not_linked_404(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    rival = await factory.business(name="Rival Intake Files")
+    db.add(
+        File(
+            id="fl_rival_waiver",
+            business_id=rival.id,
+            parent_type="form_response",
+            parent_id="fr_rival",
+            purpose="attachment",
+            s3_key=f"{rival.id}/fl_rival_waiver",
+            uploaded_at=clock.now(),
+        )
+    )
+    await db.flush()
+    assert (await as_owner.get("/v1/files/fl_rival_waiver/link")).status_code == 404
 
 
 @pytest.mark.parametrize(

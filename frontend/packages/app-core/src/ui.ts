@@ -584,8 +584,8 @@ export interface KeyValueListProps {
     rows: readonly KeyValueRow[];
     // "stack" puts the label above the value (narrow panels); "inline" sets them on one line.
     layout?: "inline" | "stack" | undefined;
-    // Stack layout only: facts per row.
-    columns?: 2 | 3 | 4 | undefined;
+    // Stack layout only: facts per row; with one, a long value wraps instead of truncating.
+    columns?: 1 | 2 | 3 | 4 | undefined;
 }
 
 export interface Fact {
@@ -674,6 +674,8 @@ export interface FormQuestionProps {
     onChange?: ((value: FormAnswer) => void) | undefined;
     // Web passes the picked file; the mobile preview never uploads.
     onUpload?: ((file: Blob, name: string) => void) | undefined;
+    // Web: while a file is uploading or the answers are sending, the picker takes no other.
+    busy?: boolean | undefined;
     fileName?: string | null | undefined;
     chooseFileLabel: string;
     selectPlaceholder: string;

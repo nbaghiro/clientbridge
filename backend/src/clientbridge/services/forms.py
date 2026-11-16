@@ -268,7 +268,7 @@ _INTAKE_WINDOW = timedelta(days=1)
 
 
 async def run_intake_forms(db: AsyncSession, notifier: Notifier, now: datetime) -> int:
-    """Send each "on booking" form once to every client whose first booking came in today."""
+    """Issue each "on booking" form once to every client whose first booking came in today."""
     forms = (
         (
             await db.execute(
@@ -282,15 +282,22 @@ async def run_intake_forms(db: AsyncSession, notifier: Notifier, now: datetime) 
         .scalars()
         .all()
     )
-    sent = 0
+    issued = 0
     for form in forms:
-        already = select(FormResponse.client_id).where(
-            FormResponse.form_id == form.id, FormResponse.client_id.is_not(None)
+        already = (
+            scoped(FormResponse, form.business_id)
+            .with_only_columns(FormResponse.client_id)
+            .where(FormResponse.form_id == form.id, FormResponse.client_id.is_not(None))
         )
         returning = (
             scoped(Booking, form.business_id)
             .with_only_columns(Booking.client_id)
             .where(Booking.created_at < now - _INTAKE_WINDOW)
+        )
+        active = (
+            scoped(Client, form.business_id, soft_delete=True)
+            .with_only_columns(Client.id)
+            .where(Client.status == "active")
         )
         first_bookings = (
             await db.execute(
@@ -302,31 +309,52 @@ async def run_intake_forms(db: AsyncSession, notifier: Notifier, now: datetime) 
                     Booking.created_at >= now - _INTAKE_WINDOW,
                     Booking.client_id.not_in(already),
                     Booking.client_id.not_in(returning),
+                    Booking.client_id.in_(active),
                 )
                 .group_by(Booking.client_id)
             )
         ).all()
         for client_id, booking_id in first_bookings:
-            response = FormResponse(
-                id=new_id("form_response"),
-                business_id=form.business_id,
-                form_id=form.id,
-                definition=await snapshot_form(db, form),
-                client_id=client_id,
-                parent_type="booking",
-                parent_id=booking_id,
-                status="draft",
-                token=secrets.token_urlsafe(16),
-            )
-            db.add(response)
-            await db.flush()
-            if await notifier.on_form_sent(db, response.id) is Outcome.FAILED:
-                # without its response row the client stays eligible for the next run
-                await db.delete(response)
-            else:
-                sent += 1
-            await db.commit()
-    return sent
+            if await send_intake(db, notifier, form, client_id, booking_id):
+                issued += 1
+    return issued
+
+
+async def send_intake(
+    db: AsyncSession, notifier: Notifier, form: Form, client_id: str, booking_id: str
+) -> bool:
+    """Issues a new client one form, once, even when two runs reach them together."""
+    key = func.hashtextextended(f"intake:{form.id}:{client_id}", 0)
+    await db.execute(select(func.pg_advisory_xact_lock(key)))
+    issued = await db.scalar(
+        scoped(FormResponse, form.business_id)
+        .with_only_columns(FormResponse.id)
+        .where(FormResponse.form_id == form.id, FormResponse.client_id == client_id)
+        .limit(1)
+    )
+    if issued is not None:
+        await db.commit()
+        return False
+    response = FormResponse(
+        id=new_id("form_response"),
+        business_id=form.business_id,
+        form_id=form.id,
+        definition=await snapshot_form(db, form),
+        client_id=client_id,
+        parent_type="booking",
+        parent_id=booking_id,
+        status="draft",
+        token=secrets.token_urlsafe(16),
+    )
+    db.add(response)
+    await db.flush()
+    # a client without a mobile number or who replied STOP keeps the form, untexted
+    failed = await notifier.on_form_sent(db, response.id) is Outcome.FAILED
+    if failed:
+        # without its response row the client stays eligible for the next run
+        await db.delete(response)
+    await db.commit()
+    return not failed
 
 
 def _response_out(response: FormResponse) -> FormResponseOut:

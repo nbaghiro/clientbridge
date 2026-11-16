@@ -17,6 +17,7 @@ from clientbridge.integrations.s3 import FileStorage
 from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
+from clientbridge.models.documents import FormResponse
 from clientbridge.models.platform import File, FileParent
 from clientbridge.models.scheduling import Booking
 from clientbridge.schemas.business import BrandInput
@@ -177,7 +178,7 @@ class FileService:
             await asyncio.to_thread(self.storage.delete, file.s3_key)
 
     async def link(self, file_id: str) -> FileLink:
-        """A short-lived download link for a job photo on a booking the caller can see."""
+        """A short-lived download link for a job photo, person photo or form attachment."""
         file = (
             await self.db.execute(
                 scoped(File, self.biz).where(File.id == file_id, File.uploaded_at.is_not(None))
@@ -187,6 +188,8 @@ class FileService:
             raise NotFound("file not found")
         if file.parent_type == "booking":
             await self._visible_booking(file.parent_id)
+        elif file.parent_type == "form_response":
+            await self._submitted_answer(file.parent_id, file.id)
         elif (file.parent_type, file.purpose) not in PEOPLE_PHOTOS:
             raise NotFound("file not found")
         return FileLink(url=self.storage.presign_download(file.s3_key))
@@ -247,6 +250,20 @@ class FileService:
         if booking is None:
             raise NotFound("booking not found")
         assert_can_act_as(self.principal, booking.staff_id)
+
+    async def _submitted_answer(self, response_id: str, file_id: str) -> None:
+        """A form attachment opens with its answers: for an owner or admin, once it is sent."""
+        assert_role(
+            self.principal, "owner", "admin", message="only an owner or admin can read form answers"
+        )
+        answers = await self.db.scalar(
+            scoped(FormResponse, self.biz)
+            .with_only_columns(FormResponse.answers)
+            .where(FormResponse.id == response_id, FormResponse.status == "submitted")
+        )
+        # an upload the client replaced or abandoned is not one of their answers
+        if answers is None or file_id not in answers.values():
+            raise NotFound("file not found")
 
     async def _assert_public_parent(self, data: FileCreate) -> None:
         assert_role(

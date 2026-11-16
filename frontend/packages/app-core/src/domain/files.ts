@@ -92,6 +92,12 @@ export function bookingPhotoTarget(bookingId: string): UploadTarget {
 // presigned links last an hour on the API, so a cached one is refreshed well before it lapses
 const LINK_TTL_MS = 30 * 60_000;
 const links = new Map<string, { url: string; at: number }>();
+const failures = new Set<string>();
+
+/** The files among these whose download link failed to load the last time it was asked for. */
+export function failedFileLinks(fileIds: readonly string[]): string[] {
+    return fileIds.filter((id) => failures.has(id));
+}
 
 /** Download links for private photos, by file id; a file appears once its link has loaded. */
 export function useFileLinks(
@@ -116,8 +122,11 @@ export function useFileLinks(
                     .get<{ url: string }>(`/v1/files/${id}/link`)
                     .then((r) => {
                         links.set(id, { url: r.url, at: Date.now() });
+                        failures.delete(id);
                     })
-                    .catch(() => undefined),
+                    .catch(() => {
+                        failures.add(id);
+                    }),
             ),
         )
             .then(() => {
