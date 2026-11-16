@@ -193,9 +193,9 @@ test("OPS-E2E-02 an operator's edition change reaches the owner's app once and l
 
 test("OPS-E2E-03 an operator whose email stops being verified loses the console on the next check", async ({
     browser,
-}) => {
+}, testInfo) => {
     test.setTimeout(180_000);
-    const ops = await operatorConsole(browser, "lapse");
+    const ops = await operatorConsole(browser, `lapse_${String(testInfo.repeatEachIndex)}`);
     try {
         const nav = ops.getByRole("navigation", { name: ad.navigation });
         await ops.goto(`${ADMIN}/businesses/${demoId("bz_birchbark")}`);
@@ -205,7 +205,12 @@ test("OPS-E2E-03 an operator whose email stops being verified loses the console 
         const access = (await (
             await ops.request.get(`${bookingApi()}/admin/v1/access`)
         ).json()) as { identity_id: string };
-        const before = await businessEvidence(demoId("bz_birchbark"));
+        // other cases add and remove Birchbark's staff, so the refused write is checked on the business
+        const businessRow = async () => {
+            const { business, audits } = await businessEvidence(demoId("bz_birchbark"));
+            return { business, audits };
+        };
+        const before = await businessRow();
         const lapse = async (verified: boolean): Promise<void> => {
             const patched = await ops.request.patch(
                 `${AUTH_ADMIN}/admin/identities/${access.identity_id}`,
@@ -227,7 +232,7 @@ test("OPS-E2E-03 an operator whose email stops being verified loses the console 
         expect(await read.json()).toMatchObject({ error: "platform_access_required" });
         const write = await setEdition(ops, demoId("bz_birchbark"), "vehicle");
         expect(write.status()).toBe(403);
-        expect(await businessEvidence(demoId("bz_birchbark"))).toEqual(before);
+        expect(await businessRow()).toEqual(before);
         await expect(ops.getByText("Birchbark Pet Studio").first()).toBeVisible();
 
         await ops.evaluate(() => window.dispatchEvent(new Event("focus")));
@@ -243,7 +248,7 @@ test("OPS-E2E-03 an operator whose email stops being verified loses the console 
         await expect(ops.getByText("Birchbark Pet Studio").first()).toBeVisible({
             timeout: 60_000,
         });
-        expect(await businessEvidence(demoId("bz_birchbark"))).toEqual(before);
+        expect(await businessRow()).toEqual(before);
     } finally {
         await ops.context().close();
     }

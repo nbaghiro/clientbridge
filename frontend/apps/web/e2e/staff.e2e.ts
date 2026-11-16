@@ -1,11 +1,11 @@
 import { strings } from "@clientbridge/app-core/public";
 import { type Browser, type Page, expect, test } from "@playwright/test";
-import { demoId, demoSlug, runEmail } from "@clientbridge/config/e2e/run";
+import { runEmail } from "@clientbridge/config/e2e/run";
 
 import { newAccount } from "./support/auth";
-import { createBookingFixture } from "./support/bookings";
-import { joinHoursStaff } from "./support/hours";
-import { patchBusiness, signUp, storedBrand } from "./support/business";
+import { acceptInvite } from "./support/hours";
+import { newBusiness, patchBusiness, signUp, storedBrand } from "./support/business";
+import { createClient } from "./support/clients";
 import { apiBase, headers } from "./support/messaging";
 import { customerContext, navigate, signIn } from "./support/session";
 import {
@@ -20,7 +20,7 @@ import {
     membershipsOf,
     openTeam,
 } from "./support/staff";
-import { openConnectService } from "./support/visit";
+import { apiCall, openConnectService, ownBookingPage } from "./support/visit";
 
 const s = strings.staff;
 const t = s.team;
@@ -32,8 +32,8 @@ const PIXEL = Buffer.from(
     "base64",
 );
 
-async function signedOut(browser: Browser, page: Page): Promise<Page> {
-    const context = await browser.newContext({ baseURL: new URL(page.url()).origin });
+async function signedOut(browser: Browser): Promise<Page> {
+    const context = await browser.newContext({ baseURL: test.info().project.use.baseURL ?? "" });
     return context.newPage();
 }
 
@@ -119,14 +119,14 @@ test("TEAM-E2E-01 an address holds one invite, a resend retires the old link, tw
             await expect(
                 inviteRow(page, joiner.email).getByRole("button", { name: t.resent }),
             ).toBeVisible();
-            const stale = await signedOut(browser, page);
+            const stale = await signedOut(browser);
             await stale.goto(`/accept-invite?token=${first.invite_token}`);
             await expect(stale.getByText(s.inviteProblem.invalid, { exact: true })).toBeVisible();
             await stale.context().close();
         });
 
         await test.step("two accepts of the new link at once join the team once", async () => {
-            const invitee = await signedOut(browser, page);
+            const invitee = await signedOut(browser);
             try {
                 await invitee.goto(`/accept-invite?token=${fresh.invite_token}`);
                 await invitee.getByRole("button", { name: s.inviteSignUp, exact: true }).click();
@@ -168,7 +168,7 @@ test("TEAM-E2E-01 an address holds one invite, a resend retires the old link, tw
             await expect(inviteRow(page, lapsed.email).getByText(t.expired)).toBeVisible({
                 timeout: 30_000,
             });
-            const visitor = await signedOut(browser, page);
+            const visitor = await signedOut(browser);
             await visitor.goto(`/accept-invite?token=${revoked.invite_token}`);
             await expect(visitor.getByText(s.inviteProblem.invalid, { exact: true })).toBeVisible();
             await visitor.goto(`/accept-invite?token=${aged.invite_token}`);
@@ -229,7 +229,7 @@ test("TEAM-E2E-02 an admin reaches everything but the plan, and a contractor see
             headers: headers(admin),
         })
     ).json()) as SentInvite;
-    const member = await signedOut(browser, admin);
+    const member = await signedOut(browser);
     try {
         await joinFromLink(member, invite, contractor);
         await test.step("contractor: the staff shell, and no inviting", async () => {
@@ -264,9 +264,13 @@ test("TEAM-E2E-02 an admin reaches everything but the plan, and a contractor see
 test("TEAM-E2E-03 an owner of another business joins as staff, lands on the team they joined and switches between both", async ({
     page,
     browser,
+    request,
 }) => {
     test.setTimeout(240_000);
-    const other = { email: runEmail("owner@northlight.example"), password: "demo1234" };
+    const person = await signedOut(browser);
+    // a seeded owner joining here would meet copies of this case and land other tests on the chooser
+    const other = await newBusiness(person, request, "two-teams");
+    const theirs = (await createClient(person)).name;
     await signIn(page);
     const invite = (await (
         await page.request.post(`${apiBase()}/v1/staff/invites`, {
@@ -274,22 +278,17 @@ test("TEAM-E2E-03 an owner of another business joins as staff, lands on the team
             headers: headers(page),
         })
     ).json()) as SentInvite;
-    const person = await signedOut(browser, page);
     const picker = (p: Page) =>
         p.locator("aside").getByRole("combobox", { name: strings.business.switchBusiness });
     const current = (p: Page) =>
         p.locator("aside").getByRole("link", { name: n.businessMenu, exact: true });
-    const choose = async (p: Page, name: RegExp) => {
+    const choose = async (p: Page, name: string | RegExp) => {
         await picker(p).click();
         await p.getByRole("option", { name }).click();
     };
     let left: string;
-    const [birchbark, northlight] = await Promise.all([
-        clientName("cl_amelie"),
-        clientName("cl_nl_rajesh"),
-    ]);
+    const birchbark = await clientName("cl_amelie");
     try {
-        await signIn(person, other);
         await expect(picker(person)).toHaveCount(0);
         await person.goto(`/accept-invite?token=${invite.invite_token}`);
         await person.getByRole("button", { name: s.inviteJoin, exact: true }).click();
@@ -298,7 +297,7 @@ test("TEAM-E2E-03 an owner of another business joins as staff, lands on the team
             await expect(person).toHaveURL(/\/today$/, { timeout: 60_000 });
             await expect(current(person)).toContainText(/Birchbark/, { timeout: 60_000 });
             await expect(picker(person)).toBeVisible();
-            await expectOnlyClientsOf(person, birchbark, northlight);
+            await expectOnlyClientsOf(person, birchbark, theirs);
             await navigate(person, "/payments");
             await expect(person.getByRole("main").getByRole("tab")).toHaveText([
                 n.paymentsTabs.sales,
@@ -307,9 +306,9 @@ test("TEAM-E2E-03 an owner of another business joins as staff, lands on the team
         });
 
         await test.step("the sidebar switches back to the business they own", async () => {
-            await choose(person, /Northlight/);
-            await expect(current(person)).toContainText(/Northlight/, { timeout: 60_000 });
-            await expectOnlyClientsOf(person, northlight, birchbark);
+            await choose(person, other.name);
+            await expect(current(person)).toContainText(other.name, { timeout: 60_000 });
+            await expectOnlyClientsOf(person, theirs, birchbark);
             await navigate(person, "/payments/invoices");
             await expect(
                 person.getByRole("main").getByRole("tab", { name: n.paymentsTabs.invoices }),
@@ -317,7 +316,7 @@ test("TEAM-E2E-03 an owner of another business joins as staff, lands on the team
         });
 
         await test.step("a new sign-in asks which business to open", async () => {
-            const fresh = await signedOut(browser, page);
+            const fresh = await signedOut(browser);
             await fresh.goto("/");
             await fresh
                 .getByRole("textbox", { name: strings.auth.email, exact: true })
@@ -349,68 +348,71 @@ test("TEAM-E2E-05 a member's title, colour and photo set on the Team page reach 
     baseURL,
 }) => {
     test.setTimeout(240_000);
+    // the public team is business-wide, and a removed member still on it fails every later save
+    const own = await ownBookingPage(page, request, "team-profile");
+    const account = newAccount("team-profile");
+    const invite = await apiCall<{ invite_token: string }>(
+        page,
+        "POST",
+        "/v1/staff/invites",
+        { email: account.email, role: "staff" },
+        201,
+    );
     const joining = await browser.newContext({ baseURL: baseURL ?? "" });
-    const member = await joinHoursStaff(await joining.newPage(), request);
+    const member = {
+        id: await acceptInvite(await joining.newPage(), request, invite.invite_token, account),
+        name: account.name,
+    };
     await joining.close();
+    await openTeam(page);
+    await page.getByRole("main").getByText(member.name, { exact: true }).first().click();
+    const panel = page.getByRole("dialog", { name: member.name });
+    await panel.getByRole("textbox", { name: t.title }).fill("Junior Groomer");
+    await panel
+        .getByRole("radiogroup", { name: t.colour })
+        .getByRole("radio", { name: strings.business.getSetUp.colourNames.teal })
+        .click();
+    const saved = page.waitForResponse(
+        (r) =>
+            new URL(r.url()).pathname === `/v1/staff/${member.id}` &&
+            r.request().method() === "PATCH",
+    );
+    await panel.getByRole("button", { name: t.saveProfile, exact: true }).click();
+    expect((await saved).status()).toBe(204);
+    await panel
+        .locator('input[type="file"]')
+        .setInputFiles({ name: "face.png", mimeType: "image/png", buffer: PIXEL });
+    await expect(panel.getByText("Junior Groomer", { exact: true })).toBeVisible();
+    // the avatar paints the photo; its hidden img only reports a broken one
+    await expect(panel.locator('[style*="background-image"]').first()).toBeVisible({
+        timeout: 30_000,
+    });
+
+    await navigate(page, "/schedule");
+    const lane = page.getByRole("main").locator("li").filter({ hasText: member.name });
+    await expect(lane.locator('[style*="background-color: rgb(46, 102, 112)"]')).toHaveCount(1, {
+        timeout: 30_000,
+    });
+    await expect(lane.locator('[style*="background-image"]')).toBeVisible({ timeout: 30_000 });
+
+    // photos reach public pages only for the members the business puts on its public team
+    const shown = (await storedBrand(own.businessId)).public_staff_ids as string[] | undefined;
+    const opted = await patchBusiness(page, {
+        brand: { public_staff_ids: [...(shown ?? []), member.id] },
+    });
+    expect(opted.status(), await opted.text()).toBe(200);
+    const visitor = await customerContext(browser);
     try {
-        await signIn(page);
-        await openTeam(page);
-        await page.getByRole("main").getByText(member.name, { exact: true }).first().click();
-        const panel = page.getByRole("dialog", { name: member.name });
-        await panel.getByRole("textbox", { name: t.title }).fill("Junior Groomer");
-        await panel
-            .getByRole("radiogroup", { name: t.colour })
-            .getByRole("radio", { name: strings.business.getSetUp.colourNames.teal })
-            .click();
-        const saved = page.waitForResponse(
-            (r) =>
-                new URL(r.url()).pathname === `/v1/staff/${member.id}` &&
-                r.request().method() === "PATCH",
-        );
-        await panel.getByRole("button", { name: t.saveProfile, exact: true }).click();
-        expect((await saved).status()).toBe(204);
-        await panel
-            .locator('input[type="file"]')
-            .setInputFiles({ name: "face.png", mimeType: "image/png", buffer: PIXEL });
-        await expect(panel.getByText("Junior Groomer", { exact: true })).toBeVisible();
-        // the avatar paints the photo; its hidden img only reports a broken one
-        await expect(panel.locator('[style*="background-image"]').first()).toBeVisible({
+        const client = await visitor.newPage();
+        await openConnectService(client, own.slug, own.itemName);
+        const choice = client
+            .getByRole("group", { name: strings.publicBooking.with, exact: true })
+            .locator(`button[data-value="${member.id}"]`);
+        await expect(choice).toContainText("Junior Groomer", { timeout: 60_000 });
+        await expect(choice.locator('[style*="background-image"]')).toBeVisible({
             timeout: 30_000,
         });
-
-        await navigate(page, "/schedule");
-        const lane = page.getByRole("main").locator("li").filter({ hasText: member.name });
-        await expect(lane.locator('[style*="background-color: rgb(46, 102, 112)"]')).toHaveCount(
-            1,
-            {
-                timeout: 30_000,
-            },
-        );
-        await expect(lane.locator('[style*="background-image"]')).toBeVisible({ timeout: 30_000 });
-
-        const fixture = await createBookingFixture(page, { online_bookable: true });
-        // photos reach public pages only for the members the business puts on its public team
-        const shown = (await storedBrand(demoId("bz_birchbark"))).public_staff_ids as string[];
-        const visitor = await customerContext(browser);
-        try {
-            const opted = await patchBusiness(page, {
-                brand: { public_staff_ids: [...shown, member.id] },
-            });
-            expect(opted.status(), await opted.text()).toBe(200);
-            const client = await visitor.newPage();
-            await openConnectService(client, demoSlug("birchbark"), fixture.itemName);
-            const choice = client
-                .getByRole("group", { name: strings.publicBooking.with, exact: true })
-                .locator(`button[data-value="${member.id}"]`);
-            await expect(choice).toContainText("Junior Groomer", { timeout: 60_000 });
-            await expect(choice.locator('[style*="background-image"]')).toBeVisible({
-                timeout: 30_000,
-            });
-        } finally {
-            await visitor.close();
-            await patchBusiness(page, { brand: { public_staff_ids: shown } });
-        }
     } finally {
-        await member.cleanup();
+        await visitor.close();
     }
 });
