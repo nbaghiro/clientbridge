@@ -77,6 +77,20 @@ async def test_broadcast_reaches_only_clients_who_agreed(
     assert email.sent == []
 
 
+async def test_a_no_to_offers_after_a_yes_leaves_the_client_out(
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
+) -> None:
+    ids = await _audience(db)
+    await record_consent(
+        db, BIZ, ids["agreed"], status="withdrawn", source="in_person", recorded_by=None
+    )
+    now = await local_hour(db, 12)
+    out = ok(await as_owner.post("/v1/broadcasts", json=_promo())).json()
+    assert (out["recipient_count"], out["excluded_count"]) == (1, 3)
+    await run_due_broadcasts(db, sms, FakeEmailSender(), FakePushSender(), now)
+    assert [m.to for m in sms.sent] == ["+15145558001"]
+
+
 async def test_broadcast_row_keeps_its_counts(
     as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
@@ -146,7 +160,8 @@ async def test_cancel_refuses_a_sent_broadcast(
             headers=key(),
         )
     ).json()
-    assert (await as_owner.post(f"/v1/broadcasts/{sent['id']}/cancel")).status_code == 409
+    refused = await as_owner.post(f"/v1/broadcasts/{sent['id']}/cancel")
+    assert refused.status_code == 409 and refused.json()["error"] == "broadcast_not_scheduled"
 
 
 async def test_staff_cannot_cancel(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:

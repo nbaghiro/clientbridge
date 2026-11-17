@@ -556,7 +556,9 @@ class MessageService:
         if broadcast is None:
             raise NotFound("broadcast not found")
         if broadcast.status != "scheduled":
-            raise Conflict("only a scheduled broadcast can be canceled")
+            raise Conflict(
+                "only a scheduled broadcast can be canceled", code="broadcast_not_scheduled"
+            )
 
         async def run(cmd: Command) -> BroadcastOut:
             broadcast.status = "canceled"

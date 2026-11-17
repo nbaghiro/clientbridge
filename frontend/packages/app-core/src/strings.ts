@@ -96,6 +96,7 @@ interface Strings {
         readonly staffHasFutureWork: string;
         readonly broadcastAddressMissing: string;
         readonly broadcastContactMissing: string;
+        readonly broadcastNotScheduled: string;
         readonly noMobileNumber: string;
         readonly slugInvalid: string;
         readonly slugReserved: string;
@@ -2356,6 +2357,8 @@ interface Strings {
         readonly scheduledTitle: string;
         readonly queuedTitle: string;
         readonly queuedBody: (when: string, n: number) => string;
+        readonly scheduledBody: (when: string, n: number) => string;
+        readonly movedBody: (when: string, n: number) => string;
         readonly sentBody: (n: number) => string;
         readonly sentDone: string;
         readonly newAnother: string;

@@ -2,6 +2,7 @@ import {
     type BroadcastDraft,
     type BroadcastItem,
     type BroadcastSeed,
+    broadcastHasResults,
     broadcastIntent,
     broadcastAudience,
     broadcastWhen,
@@ -77,7 +78,8 @@ function Home({ onCompose }: { onCompose: (seed: BroadcastSeed) => void }) {
     const zone = useBusinessZone();
     const home = useBroadcastsHome();
     const actions = useBroadcastActions(api, shareCsv);
-    const [open, setOpen] = useState<BroadcastItem | null>(null);
+    const [openId, setOpenId] = useState<string | null>(null);
+    const open = home.broadcasts.find((x) => x.id === openId) ?? null;
     const cancelSend = (item: BroadcastItem): void => {
         confirm({
             title: s.cancelScheduleTitle,
@@ -89,7 +91,7 @@ function Home({ onCompose }: { onCompose: (seed: BroadcastSeed) => void }) {
             .then((ok) => {
                 if (ok) {
                     actions.cancel(item.id);
-                    setOpen(null);
+                    setOpenId(null);
                 }
             })
             .catch(() => undefined);
@@ -158,7 +160,7 @@ function Home({ onCompose }: { onCompose: (seed: BroadcastSeed) => void }) {
                                     />
                                 }
                                 onPress={() => {
-                                    setOpen(x);
+                                    setOpenId(x.id);
                                 }}
                             />
                         ))}
@@ -213,14 +215,14 @@ function Home({ onCompose }: { onCompose: (seed: BroadcastSeed) => void }) {
                     open
                     size="xl"
                     onClose={() => {
-                        setOpen(null);
+                        setOpenId(null);
                     }}
                 >
                     <SheetHeader
                         title={open.name}
                         subtitle={broadcastWhen(open, zone)}
                         onClose={() => {
-                            setOpen(null);
+                            setOpenId(null);
                         }}
                         closeLabel={strings.common.close}
                     />
@@ -231,11 +233,24 @@ function Home({ onCompose }: { onCompose: (seed: BroadcastSeed) => void }) {
                             rows={[
                                 { label: s.statRecipients, value: String(open.recipient_count) },
                                 { label: s.statLeftOut, value: String(open.excluded_count) },
-                                { label: s.statDelivered, value: String(open.delivered_count) },
-                                { label: s.statOptOuts, value: String(open.opt_out_count) },
+                                ...(broadcastHasResults(open.status)
+                                    ? [
+                                          {
+                                              label: s.statDelivered,
+                                              value: String(open.delivered_count),
+                                          },
+                                          {
+                                              label: s.statOptOuts,
+                                              value: String(open.opt_out_count),
+                                          },
+                                      ]
+                                    : []),
                             ]}
                         />
-                        <Text style={styles.message}>{open.body}</Text>
+                        <View>
+                            <Text style={styles.message}>{open.body}</Text>
+                            <Text style={styles.meta}>{s.optOutSms}</Text>
+                        </View>
                         {open.status === "scheduled" ? (
                             <Button
                                 variant="danger"
@@ -250,7 +265,7 @@ function Home({ onCompose }: { onCompose: (seed: BroadcastSeed) => void }) {
                             <Button
                                 variant="outline"
                                 onPress={() => {
-                                    setOpen(null);
+                                    setOpenId(null);
                                     onCompose({
                                         name: s.copyOf(open.name),
                                         body: open.body ?? "",
@@ -281,7 +296,7 @@ function Composer({ seed, onDone }: { seed: BroadcastSeed; onDone: () => void })
             <View style={styles.done}>
                 <Empty
                     variant="card"
-                    icon="check"
+                    icon={draft.sent.scheduled ? "clock" : "check"}
                     message={draft.sent.title}
                     body={draft.sent.body}
                     actions={<Button onPress={onDone}>{s.sentDone}</Button>}

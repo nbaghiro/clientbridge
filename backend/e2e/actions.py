@@ -48,6 +48,7 @@ from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import GiftCard, Item, Package
 from clientbridge.models.clients import Client, Subject
 from clientbridge.models.documents import Form
+from clientbridge.models.messaging import Broadcast
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking, Recurrence, Slot
 from clientbridge.services import ledger
@@ -55,6 +56,7 @@ from clientbridge.services.billing import sweep_overdue
 from clientbridge.services.bookings import settle_deposit
 from clientbridge.services.entitlements import run_expiry_sweeps
 from clientbridge.services.forms import run_intake_forms
+from clientbridge.services.messaging import run_due_broadcasts
 from clientbridge.services.notifications import Notifier, inbound_message_alert_text
 from clientbridge.services.payments import sync_order
 from clientbridge.services.plans import PLAN_PRICES, apply_plan_subscription
@@ -847,7 +849,41 @@ async def texting_number_main(argv: list[str]) -> None:
         await engine.dispose()
 
 
-# no money or saved cards, so a merge is not blocked; no demo name list has it, so it is unique
+async def broadcast_job(broadcast_id: str, at: datetime) -> Row:
+    namespace = _run_namespace(broadcast_id)
+    async with SessionLocal() as db:
+        _confine(db, namespace, with_loader_criteria(Broadcast, Broadcast.id == broadcast_id))
+        owned = await db.scalar(select(Broadcast))
+        if (
+            owned is None
+            or owned.status not in ("scheduled", "sending")
+            or not _fresh(owned.created_at)
+        ):
+            raise RuntimeError("only a broadcast this case queued and that is still due")
+        await db.commit()
+        # the tier's own worker resumes any sending broadcast, so it may finish a fan-out this began
+        for _ in range(60):
+            await run_due_broadcasts(
+                db, get_sms_sender(), get_email_sender(), get_push_sender(), at
+            )
+            status = await db.scalar(select(Broadcast.status).where(Broadcast.id == broadcast_id))
+            await db.commit()
+            if status != "sending":
+                break
+            await asyncio.sleep(1)
+    return await broadcasts([broadcast_id])
+
+
+async def broadcast_job_main(argv: list[str]) -> None:
+    """Run the broadcast job at `at` for one broadcast a case queued until it stops sending."""
+    parser = argparse.ArgumentParser(prog="python -m e2e.actions broadcast-job")
+    parser.add_argument("broadcast_id")
+    parser.add_argument("at", type=datetime.fromisoformat)
+    args = parser.parse_args(argv)
+    try:
+        print(json.dumps(await broadcast_job(args.broadcast_id, args.at)))
+    finally:
+        await engine.dispose()
 
 
 async def tax_quarter(business_id: str) -> Row:
@@ -1154,6 +1190,7 @@ COMMANDS: dict[str, Callable[[list[str]], None]] = {
     "invite-age": lambda argv: asyncio.run(invite_age_main(argv)),
     "intake": lambda argv: asyncio.run(intake_main(argv)),
     "texting-number": lambda argv: asyncio.run(texting_number_main(argv)),
+    "broadcast-job": lambda argv: asyncio.run(broadcast_job_main(argv)),
 }
 
 

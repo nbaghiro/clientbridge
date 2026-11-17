@@ -1551,10 +1551,13 @@ class Demo:
         candidates = [c for c in ctx.all(Client) if (c.created_at or opened) <= when and c.phone]
         recipients: list[Client] = []
         for client in candidates:
+            # finish() dates an undated consent to the catalog day, as it does an undated client
             history = [
-                c for c in ctx.all(Consent) if c.client_id == client.id and c.created_at <= when
+                c
+                for c in ctx.all(Consent)
+                if c.client_id == client.id and (c.created_at or opened) <= when
             ]
-            consent = max(history, key=lambda c: (c.created_at, c.id), default=None)
+            consent = max(history, key=lambda c: (c.created_at or opened, c.id), default=None)
             if allows_marketing(consent, when):
                 recipients.append(client)
         broadcast = Broadcast(

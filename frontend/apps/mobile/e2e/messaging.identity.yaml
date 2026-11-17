@@ -1,0 +1,119 @@
+appId: ${APP_ID}
+name: NATIVE-MSG-03 A broadcast from a business without a legal address or a way to reach it is refused with the reason on the phone, and goes once both are added
+onFlowComplete:
+    - runFlow: helpers/restore-owner.yaml
+---
+- runScript:
+      file: helpers/broadcast-business.js
+      env:
+          ACTION: create
+- launchApp:
+      # the default "all" pulls the whole APK over adb to read its manifest, which can stall for minutes
+      permissions:
+          notifications: allow
+- extendedWaitUntil:
+      visible: "Today|Sign in"
+      timeout: 60000
+- runFlow:
+      when:
+          visible: "Today"
+      commands:
+          - tapOn: "Setup"
+          - scrollUntilVisible:
+                element: "Sign out"
+                direction: DOWN
+          - tapOn: "Sign out"
+          - extendedWaitUntil:
+                visible: "Sign in"
+                timeout: 30000
+- tapOn: "you@business.ca"
+- inputText: ${output.sender.email}
+- tapOn: "••••••••"
+- eraseText
+- inputText: ${output.sender.password}
+- runFlow: helpers/sign-in.yaml
+- runFlow: helpers/decline-save-password.yaml
+- extendedWaitUntil:
+      visible: "Today"
+      timeout: 60000
+- tapOn:
+      id: "tab-inbox"
+- tapOn: "Broadcasts"
+- tapOn: "New broadcast"
+- tapOn: "Fall openings"
+- inputText: "Opening week"
+- pressKey: Enter
+- scrollUntilVisible:
+      element: ${output.sender.tag + " · 1"}
+      timeout: 90000
+- tapOn: ${output.sender.tag + " · 1"}
+- scrollUntilVisible:
+      element: "Next"
+      centerElement: true
+- tapOn: "Next"
+# the step keeps the scroll it had, so the message may start above the fold
+- scrollUntilVisible:
+      element: "(Message )?New times are open.*"
+      direction: UP
+- tapOn: "(Message )?New times are open.*"
+- inputText: "We're open for bookings."
+# the message is multiline, so Return adds a line; a tap outside closes the keyboard
+- tapOn: "Step 2 of 3"
+- scrollUntilVisible:
+      element: "Next"
+- tapOn: "Next"
+# iOS spends the first tap after typing closing the keyboard
+- runFlow:
+      when:
+          visible: "Step 2 of 3"
+      commands:
+          - tapOn: "Next"
+- scrollUntilVisible:
+      element: "Send to 1 client"
+      centerElement: true
+- tapOn: "Send to 1 client"
+- assertVisible: "A broadcast can't be recalled.*"
+# the review step's own "Send now" choice sits level with the alert's message, so the alert's is found by its Cancel
+- tapOn:
+      text: "Send now|SEND NOW"
+      rightOf: "Cancel|CANCEL"
+- extendedWaitUntil:
+      visible: "Add your legal address in Business settings before sending a broadcast.*"
+      timeout: 30000
+- takeScreenshot: broadcast-refused-address
+- runScript:
+      file: helpers/broadcast-business.js
+      env:
+          ACTION: address
+# the refusal notice sits above the button and pushes it down
+- scrollUntilVisible:
+      element: "Send to 1 client"
+      centerElement: true
+- tapOn: "Send to 1 client"
+- assertVisible: "A broadcast can't be recalled.*"
+- tapOn:
+      text: "Send now|SEND NOW"
+      rightOf: "Cancel|CANCEL"
+- extendedWaitUntil:
+      visible: "Add a business email, phone number or website in Business settings before sending a broadcast\\."
+      timeout: 30000
+- assertNotVisible: "Add your legal address.*"
+- takeScreenshot: broadcast-refused-contact
+- runScript:
+      file: helpers/broadcast-business.js
+      env:
+          ACTION: contact
+# the refusal notice sits above the button and pushes it down
+- scrollUntilVisible:
+      element: "Send to 1 client"
+      centerElement: true
+- tapOn: "Send to 1 client"
+- assertVisible: "A broadcast can't be recalled.*"
+- tapOn:
+      text: "Send now|SEND NOW"
+      rightOf: "Cancel|CANCEL"
+# real time decides whether it goes now or waits out the clients' quiet hours
+- extendedWaitUntil:
+      visible: "Broadcast (sent|queued)"
+      timeout: 30000
+- takeScreenshot: broadcast-accepted

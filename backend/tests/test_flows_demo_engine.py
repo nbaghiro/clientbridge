@@ -23,11 +23,14 @@ from clientbridge.core import clock
 from clientbridge.models.billing import Invoice, Order
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item, Package, Subscription
+from clientbridge.models.clients import Client, Consent
 from clientbridge.models.ledger import Account, Entry
+from clientbridge.models.messaging import Broadcast, Message, Thread
 from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.models.platform import File
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services import ledger
+from clientbridge.services.consents import allows_marketing
 
 PROBE = "bz_engine_probe"
 # the database seed for tests holds only the core businesses, so the rest are checked in memory
@@ -656,6 +659,39 @@ def test_an_edition_outside_the_core_seed_builds_a_valid_graph(business_id: str)
     edition = next(e for e in editions() if e.spec.listing.id == business_id)
     demo = build_edition(edition, clock.now())
     assert validate_graph(demo.ctx) == []
+
+
+def _broadcast_misses(demo: Demo) -> list[tuple[str, str]]:
+    """Clients a seeded broadcast reached or skipped against their consent as seeded."""
+    ctx = demo.ctx
+    threads = {t.id: t.client_id for t in ctx.all(Thread)}
+    misses: list[tuple[str, str]] = []
+    for broadcast in ctx.all(Broadcast):
+        when = broadcast.scheduled_at or broadcast.created_at
+        reached = {threads[m.thread_id] for m in ctx.all(Message) if m.broadcast_id == broadcast.id}
+        for client in ctx.all(Client):
+            if not client.phone or client.created_at > when:
+                continue
+            history = [c for c in ctx.all(Consent) if c.client_id == client.id]
+            consent = max(
+                (c for c in history if c.created_at <= when),
+                key=lambda c: (c.created_at, c.id),
+                default=None,
+            )
+            if allows_marketing(consent, when) != (client.id in reached):
+                misses.append((broadcast.id, client.id))
+    return misses
+
+
+@pytest.mark.parametrize("business_id", [e.spec.listing.id for e in editions()])
+def test_an_edition_seeded_on_a_sunday_is_valid_and_its_broadcasts_follow_consent(
+    business_id: str,
+) -> None:
+    # Inkwell's Sunday book is empty, so a client who only joins today has an undated consent
+    sunday = datetime(2026, 11, 15, 21, 0, tzinfo=UTC)
+    demo = build_edition(edition_of(business_id), sunday)
+    assert validate_graph(demo.ctx) == []
+    assert _broadcast_misses(demo) == []
 
 
 def test_a_short_treatment_in_progress_today_is_still_running() -> None:

@@ -2,6 +2,7 @@ import {
     type BroadcastDraft,
     type BroadcastItem,
     type BroadcastSeed,
+    broadcastHasResults,
     broadcastIntent,
     broadcastAudience,
     broadcastWhen,
@@ -203,7 +204,7 @@ function BroadcastsHome({ onCompose }: { onCompose: (seed: BroadcastSeed) => voi
                                         {s.recipientsLine(x.recipient_count, x.excluded_count)}
                                     </div>
                                 </div>
-                                {x.status === "sent" ? (
+                                {broadcastHasResults(x.status) ? (
                                     <div className="min-w-0">
                                         <div className="truncate text-sm text-ink-soft">
                                             {s.delivered(x.delivered_count)}
@@ -342,11 +343,11 @@ function BroadcastsHome({ onCompose }: { onCompose: (seed: BroadcastSeed) => voi
                     <DetailSection title={s.resultsTitle}>
                         <KeyValueList
                             layout="stack"
-                            columns={open.status === "sent" ? 3 : 2}
+                            columns={broadcastHasResults(open.status) ? 3 : 2}
                             rows={[
                                 { label: s.statRecipients, value: String(open.recipient_count) },
                                 { label: s.statLeftOut, value: String(open.excluded_count) },
-                                ...(open.status === "sent"
+                                ...(broadcastHasResults(open.status)
                                     ? [
                                           {
                                               label: s.statDelivered,
