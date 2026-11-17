@@ -7,7 +7,7 @@ import { strings } from "../strings";
 import { type CalendarEvent, useBookingAddons } from "./bookings";
 import { clearTasks, useTask } from "./navigation";
 
-let invoiceRows: { invoice_id: string | null; covered?: number }[] = [];
+let invoiceRows: { invoice_id: string | null; covered?: number; sold?: number }[] = [];
 let addonRows: { id: string; quantity: number; unit_amount_cents: number }[] = [];
 
 vi.mock("../hooks", async (importOriginal) => ({
@@ -56,6 +56,24 @@ describe("invoicing a visit", () => {
         addonRows = [{ id: "ba_1", quantity: 1, unit_amount_cents: 1200 }];
         covered.rerender();
         expect(covered.result.current.canInvoice).toBe(true);
+    });
+
+    it("offers no invoice for a visit already sold at the desk", () => {
+        invoiceRows = [{ invoice_id: null, covered: 0, sold: 1 }];
+        const { result } = renderHook(() => useBookingAddons(invoicingApi(), EVENT, OWNER));
+        expect(result.current.canInvoice).toBe(false);
+    });
+
+    it("says in words when the desk sold the visit before the replica knew", async () => {
+        const sold = Object.assign(new Error("409"), { code: "visit_sold" });
+        const api = { ...invoicingApi(), post: () => Promise.reject(sold) };
+        const { result } = renderHook(() => useBookingAddons(api, EVENT, OWNER));
+        act(() => {
+            result.current.createInvoice();
+        });
+        await waitFor(() => {
+            expect(result.current.error).toBe(strings.api.visitSold);
+        });
     });
 
     it("says in words when another device covered the visit before the replica knew", async () => {

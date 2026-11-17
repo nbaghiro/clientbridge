@@ -27,7 +27,7 @@ it("says a dropped connection may have gone through, and retries with the same k
             ? Promise.reject(new TypeError("Failed to fetch"))
             : Promise.resolve({ number: 1 });
     });
-    const { result } = renderHook(() => useInvoiceActions(api(post as ApiLike["post"])));
+    const { result } = renderHook(() => useInvoiceActions(api(post as ApiLike["post"]), "sent"));
     act(() => {
         result.current.voidIt(invoice);
     });
@@ -48,13 +48,33 @@ it("says a dropped connection may have gone through, and retries with the same k
 it("says nothing changed when the server refused the action", async () => {
     const refused = Object.assign(new Error("POST → 409"), { status: 409, code: null });
     const post = vi.fn(() => Promise.reject(refused));
-    const { result } = renderHook(() => useInvoiceActions(api(post as ApiLike["post"])));
+    const { result } = renderHook(() => useInvoiceActions(api(post as ApiLike["post"]), "sent"));
     act(() => {
         result.current.voidIt(invoice);
     });
     await waitFor(() => {
         expect(result.current.error).toBe(strings.billing.actionError);
     });
+});
+
+it("drops a refusal once the invoice moves on, such as the payment it waited for landing", async () => {
+    const busy = Object.assign(new Error("POST → 409"), {
+        status: 409,
+        code: "payment_in_progress",
+    });
+    const post = vi.fn(() => Promise.reject(busy));
+    const { result, rerender } = renderHook(
+        ({ status }) => useInvoiceActions(api(post as ApiLike["post"]), status),
+        { initialProps: { status: "sent" } },
+    );
+    act(() => {
+        result.current.voidIt(invoice);
+    });
+    await waitFor(() => {
+        expect(result.current.error).toBe(strings.api.paymentInProgress);
+    });
+    rerender({ status: "paid" });
+    expect(result.current.error).toBeNull();
 });
 
 it("clears a lost answer once the replica shows the change it was waiting for", async () => {

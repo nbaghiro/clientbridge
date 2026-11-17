@@ -1528,11 +1528,16 @@ describe("app-core SQL against the replica schema", () => {
         ]);
         expect(run("ADDONS_SQL", ["bk_1"]).map((r) => r.id)).toEqual(["ba_1"]);
         expect(run("BOOKING_INVOICE_SQL", ["bk_1"])).toEqual([
-            { invoice_id: "inv_1", order_id: null, covered: 0 },
+            { invoice_id: "inv_1", order_id: null, covered: 0, sold: 0 },
         ]);
         db.run("UPDATE bookings SET package_id = 'pk_1' WHERE id = 'bk_1'");
         expect(pick(run("BOOKING_INVOICE_SQL", ["bk_1"]), "covered")).toEqual([{ covered: 1 }]);
-        db.run("UPDATE bookings SET package_id = NULL WHERE id = 'bk_1'");
+        db.run("UPDATE bookings SET package_id = NULL, order_id = 'ord_open' WHERE id = 'bk_1'");
+        expect(pick(run("BOOKING_INVOICE_SQL", ["bk_1"]), "sold")).toEqual([{ sold: 1 }]);
+        db.run("UPDATE orders SET status = 'void' WHERE id = 'ord_open'");
+        expect(pick(run("BOOKING_INVOICE_SQL", ["bk_1"]), "sold")).toEqual([{ sold: 0 }]);
+        db.run("UPDATE orders SET status = 'open' WHERE id = 'ord_open'");
+        db.run("UPDATE bookings SET order_id = NULL WHERE id = 'bk_1'");
     });
 
     it("derives each earning's status from its journals, tips included", () => {

@@ -971,11 +971,17 @@ interface InvoiceActions {
     voidIt: (rec: InvoiceRecord) => void;
 }
 
-/** Send, remind and void: commands whose result reaches every list through the replica. */
-export function useInvoiceActions(api: ApiLike): InvoiceActions {
+/** Send, remind and void; `status` is the invoice's as the replica shows it, so a refusal clears once it changes. */
+export function useInvoiceActions(api: ApiLike, status: string | null): InvoiceActions {
     const { busy, error, setError, run } = useAsyncAction();
     const [notice, setNotice] = useState<string | null>(null);
     const attempt = useRef<Attempt | null>(null);
+    const shown = useRef(status);
+    useEffect(() => {
+        if (shown.current === status) return;
+        shown.current = status;
+        setError(null);
+    }, [status, setError]);
     const act = (path: string, message: (res: { number: number | null }) => string): void => {
         setNotice(null);
         const idempotencyKey = attemptKey(attempt, path);

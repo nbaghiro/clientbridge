@@ -341,6 +341,9 @@
     "api.visitCovered": {
         "message": "[Å þåçķåĝé öŕ ɱéɱƀéŕšĥîþ åļŕéåðý çöṽéŕéð ţĥîš ṽîšîţ, šö öñļý îţš åðð-öñš çåñ ƀé îñṽöîçéð. one two three four five six]"
     },
+    "api.visitSold": {
+        "message": "[Ţĥîš ṽîšîţ ŵåš åļŕéåðý šöļð åţ ţĥé ðéšķ, šö îţ çåñ'ţ ƀé îñṽöîçéð. one two three four]"
+    },
     "api.visitAlreadyCovered": {
         "message": "[Å þåçķåĝé öŕ ɱéɱƀéŕšĥîþ åļŕéåðý çöṽéŕéð ţĥîš ṽîšîţ. one two three four]"
     },
@@ -1276,6 +1279,9 @@
     },
     "billing.rec.error": {
         "message": "[Çöûļðñ'ţ ŕéçöŕð ţĥé þåýɱéñţ. Ñöţĥîñĝ ŵåš çĥåŕĝéð; ţŕý åĝåîñ. one two three four]"
+    },
+    "billing.rec.unconfirmed": {
+        "message": "[Ţĥé çöññéçţîöñ ðŕöþþéð ƀéƒöŕé ŵé ĥéåŕð ƀåçķ, šö ţĥé þåýɱéñţ ɱåý ĥåṽé ƀééñ ŕéçöŕðéð. Çĥéçķ ţĥé îñṽöîçé ƀéƒöŕé ŕéçöŕðîñĝ îţ åĝåîñ; ţŕýîñĝ åĝåîñ ŵîţĥ ţĥé šåɱé ðéţåîļš ŵöñ'ţ ŕéçöŕð îţ ţŵîçé. one two three four five six seven eight nine ten one two]"
     },
     "billing.rec.doneTitle": {
         "message": "[Þåýɱéñţ ŕéçöŕðéð one two]"

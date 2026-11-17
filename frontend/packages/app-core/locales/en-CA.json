@@ -372,6 +372,9 @@
     "api.visitCovered": {
         "message": "A package or membership already covered this visit, so only its add-ons can be invoiced."
     },
+    "api.visitSold": {
+        "message": "This visit was already sold at the desk, so it can't be invoiced."
+    },
     "api.visitAlreadyCovered": {
         "message": "A package or membership already covered this visit."
     },
@@ -1386,6 +1389,10 @@
     },
     "billing.rec.error": {
         "message": "Couldn't record the payment. Nothing was charged; try again."
+    },
+    "billing.rec.unconfirmed": {
+        "message": "The connection dropped before we heard back, so the payment may have been recorded. Check the invoice before recording it again; trying again with the same details won't record it twice.",
+        "description": "Shown in the payment recorder when the request lost its connection, so the payment may or may not have been recorded"
     },
     "billing.rec.doneTitle": {
         "message": "Payment recorded"

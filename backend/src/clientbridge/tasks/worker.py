@@ -76,7 +76,7 @@ async def send_due_broadcasts(ctx: Context) -> int:
 
 async def sweep_overdue_invoices(ctx: Context) -> int:
     async with SessionLocal() as db:
-        return await run_overdue_sweep(db, _notifier(), clock.now())
+        return await run_overdue_sweep(db, clock.now())
 
 
 async def reprice_open_documents(ctx: Context) -> int:

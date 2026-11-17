@@ -97,6 +97,19 @@ async def test_move_to_another_member_and_time(
     assert addon == ST_OWNER
 
 
+async def test_move_to_another_member_onto_time_the_old_member_has_taken(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    bid = await _book(as_owner, db, ST_PRIYA, "2027-03-01T18:00:00Z")
+    await _book(as_owner, db, ST_PRIYA, "2027-03-01T19:30:00Z")
+    res = await as_owner.patch(
+        f"/v1/bookings/{bid}", json={"starts_at": "2027-03-01T19:00:00Z", "staff_id": ST_OWNER}
+    )
+    assert res.status_code == 200, res.text
+    slot = await _slot(db, bid)
+    assert (slot.staff_id, slot.starts_at) == (ST_OWNER, datetime(2027, 3, 1, 19, tzinfo=UTC))
+
+
 async def test_a_staff_move_texts_the_client_their_manage_link(
     as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:

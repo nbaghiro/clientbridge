@@ -612,10 +612,17 @@ async def create_booking_core(
 
 
 async def move_slot(
-    db: AsyncSession, business_id: str, slot: Slot, starts_at: datetime, ends_at: datetime
+    db: AsyncSession,
+    business_id: str,
+    slot: Slot,
+    starts_at: datetime,
+    ends_at: datetime,
+    staff_id: str | None = None,
 ) -> None:
+    # the window and member land together: the update below autoflushes the slot
     moved = starts_at != slot.starts_at
     slot.starts_at, slot.ends_at = starts_at, ends_at
+    slot.staff_id = staff_id or slot.staff_id
     if moved:
         await db.execute(
             scoped_update(Booking, business_id)
@@ -946,16 +953,15 @@ class BookingService:
                 if problem is not None:
                     raise Conflict(problem.message or OVERLAP, code=_code(problem))
                 await keep_resource(self.db, item, slot, starts_at, ends_at, data.resource_id)
-                await move_slot(self.db, self.biz, slot, starts_at, ends_at)
-                slot.staff_id = staff_id
-                if booking.staff_id != staff_id:
-                    booking.staff_id = staff_id
-                    await self.db.execute(
-                        scoped_update(Addon, self.biz)
-                        .where(Addon.booking_id == booking.id)
-                        .values(staff_id=staff_id)
-                    )
                 try:
+                    await move_slot(self.db, self.biz, slot, starts_at, ends_at, staff_id)
+                    if booking.staff_id != staff_id:
+                        booking.staff_id = staff_id
+                        await self.db.execute(
+                            scoped_update(Addon, self.biz)
+                            .where(Addon.booking_id == booking.id)
+                            .values(staff_id=staff_id)
+                        )
                     await self.db.flush()
                 except IntegrityError as exc:
                     raise lost_race(exc, Conflict(OVERLAP)) from exc
@@ -2515,8 +2521,7 @@ class RecurrenceService:
                     )
                     continue
                 await keep_resource(self.db, item, slot, starts_at, ends_at)
-                await move_slot(self.db, self.biz, slot, starts_at, ends_at)
-                slot.staff_id = staff_id
+                await move_slot(self.db, self.biz, slot, starts_at, ends_at, staff_id)
                 if booking.staff_id != staff_id:
                     booking.staff_id = staff_id
                     await self.db.execute(

@@ -53,7 +53,7 @@ from clientbridge.services.lines import (
     replace_lines,
     set_discount,
 )
-from clientbridge.services.notifications import Notifier, Outcome, queued_notifier
+from clientbridge.services.notifications import queued_notifier
 from clientbridge.services.payments import close_settled_visit, sync_invoice
 from clientbridge.services.tax import (
     TaxSettings,
@@ -635,6 +635,7 @@ async def draft_for_booking(db: AsyncSession, booking: Booking) -> tuple[Invoice
         prior = await db.get(Invoice, booking.invoice_id)
         if prior is not None and prior.status != "void":
             raise Conflict("this visit already has an invoice")
+    await assert_unsold(db, booking)
     inputs, item = await booking_lines(db, booking)
     if booking.package_id is not None or booking.subscription_id is not None:
         service = item.id if item is not None else None
@@ -805,13 +806,17 @@ async def issue_invoice(db: AsyncSession, invoice: Invoice, cmd: Command) -> Non
     if applied:
         await sync_invoice(db, invoice.id)
     for booking in bookings:
-        if booking.order_id is not None:
-            sale = await db.get(Order, booking.order_id)
-            if sale is not None and sale.status != "void":
-                raise Conflict("this visit is already on a sale")
+        await assert_unsold(db, booking)
         booking.invoice_id = booking.invoice_id or invoice.id
         await close_settled_visit(db, booking, "booking.complete_on_invoice", invoice_id=invoice.id)
     cmd.record("invoice.send", entity_type="invoice", entity_id=invoice.id)
+
+
+async def assert_unsold(db: AsyncSession, booking: Booking) -> None:
+    if booking.order_id is not None:
+        sale = await db.get(Order, booking.order_id)
+        if sale is not None and sale.status != "void":
+            raise Conflict("this visit is already on a sale", code="visit_sold")
 
 
 async def payment_pending(db: AsyncSession, invoice: Invoice) -> bool:
@@ -933,17 +938,16 @@ def _estimate_out(estimate: Estimate, lines: list[Line], today: date) -> Estimat
     )
 
 
-async def run_overdue_sweep(db: AsyncSession, notifier: Notifier, now: datetime) -> int:
-    """Notify the client once for each sent, unpaid invoice past due, at 7 a.m. business time."""
+async def run_overdue_sweep(db: AsyncSession, now: datetime) -> int:
+    """Flag each sent, unpaid invoice past due and queue its notice, at 7 a.m. business time."""
     swept = 0
     for business in await businesses_at_hour(db, now, _OVERDUE_HOUR):
-        swept += await sweep_overdue(db, notifier, business.id, now)
+        swept += await sweep_overdue(db, business.id, now)
     return swept
 
 
 async def sweep_overdue(
     db: AsyncSession,
-    notifier: Notifier,
     business_id: str,
     now: datetime,
     *,
@@ -966,8 +970,9 @@ async def sweep_overdue(
     )
     swept = 0
     for invoice in invoices:
-        if await notifier.on_invoice_overdue(db, invoice.id) is Outcome.FAILED:
-            continue
+        # the queue retries the text, so a carrier outage never keeps an invoice off Today
+        notifier = queued_notifier(db, business_id, delivery_key("invoice-overdue", invoice.id))
+        await notifier.on_invoice_overdue(db, invoice.id)
         invoice.overdue_notified_at = now
         await db.commit()
         swept += 1

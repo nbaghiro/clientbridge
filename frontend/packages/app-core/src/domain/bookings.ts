@@ -2910,8 +2910,10 @@ SELECT id, description, quantity, unit_amount_cents FROM addons
 WHERE booking_id = ? ORDER BY created_at`;
 
 export const BOOKING_INVOICE_SQL = `
-SELECT invoice_id, order_id, package_id IS NOT NULL OR subscription_id IS NOT NULL AS covered
-FROM bookings WHERE id = ?`;
+SELECT b.invoice_id, b.order_id,
+  b.package_id IS NOT NULL OR b.subscription_id IS NOT NULL AS covered, o.id IS NOT NULL AS sold
+FROM bookings b LEFT JOIN orders o ON o.id = b.order_id AND o.status != 'void'
+WHERE b.id = ?`;
 
 export const ADDON_CHOICES_SQL = `
 SELECT id, name, price_cents, duration_min, addon_for FROM items
@@ -2950,9 +2952,10 @@ export function useBookingAddons(
     const bookingId = event.bookingId ?? "";
     const addons = useQuery<BookingAddonRow>(ADDONS_SQL, [bookingId]).data;
     const offered = useQuery<AddonChoiceRow>(ADDON_CHOICES_SQL).data;
-    const billing = useQuery<{ invoice_id: string | null; covered: number }>(BOOKING_INVOICE_SQL, [
-        bookingId,
-    ]).data.at(0);
+    const billing = useQuery<{ invoice_id: string | null; covered: number; sold: number }>(
+        BOOKING_INVOICE_SQL,
+        [bookingId],
+    ).data.at(0);
     const invoiceId = billing?.invoice_id ?? null;
     const { busy, error, run } = useAsyncAction();
     // the new draft opens over the visit once it reaches this device, and stays busy until then
@@ -2969,7 +2972,8 @@ export function useBookingAddons(
         invoiceId,
         canEdit: open && (admin || viewer?.staffId === event.staffId),
         // a package or membership settled the service, so only add-ons are left to bill
-        canInvoice: open && admin && (billing?.covered !== 1 || addons.length > 0),
+        canInvoice:
+            open && admin && billing?.sold !== 1 && (billing?.covered !== 1 || addons.length > 0),
         choices: offered
             .filter((x) => {
                 const only = idList(x.addon_for);
