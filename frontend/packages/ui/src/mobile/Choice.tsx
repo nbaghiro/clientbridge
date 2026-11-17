@@ -69,6 +69,7 @@ export function Choice<K extends string>({
                         accessibilityRole={Array.isArray(value) ? "checkbox" : "radio"}
                         accessibilityState={{ checked: on, disabled: o.disabled === true }}
                         accessibilityLabel={o.label}
+                        accessibilityHint={o.hint}
                         onPress={() => {
                             press(o.key);
                         }}

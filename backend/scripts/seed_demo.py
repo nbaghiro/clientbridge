@@ -1997,10 +1997,26 @@ FIRST_VISITS = [
         "it_bath",
         "st_priya",
     ),
+    # Amélie booked her second dog online from her work number, which made a duplicate to merge
+    (
+        "cl_amelie_work",
+        "Amelie Tremblay",
+        "+16045550150",
+        "sj_pistache",
+        "Pistache",
+        "Miniature Poodle",
+        5,
+        9,
+        "it_bath",
+        "st_priya",
+    ),
 ]
+DUPLICATE_NOTES = {
+    "cl_amelie_work": "Booked online from her work number. Same Amélie as Bella's owner.",
+}
 
 
-def seed_first_visits() -> None:
+def seed_first_visits(owner: str) -> None:
     """New clients' first online bookings, which wait for approval under the booking policy."""
     for index, (cid, name, phone, pid, pet, breed, kg, d, item_id, member) in enumerate(
         FIRST_VISITS
@@ -2014,7 +2030,7 @@ def seed_first_visits() -> None:
                 business_id=BIZ,
                 name=name,
                 phone=phone,
-                tags=["new"],
+                tags=[] if cid in DUPLICATE_NOTES else ["new"],
                 status="active",
                 custom_fields={"source": "online booking"},
                 created_at=joined,
@@ -2059,6 +2075,19 @@ def seed_first_visits() -> None:
                 price_cents=item[3],
             )
         )
+        if cid in DUPLICATE_NOTES:
+            rows.append(
+                Note(
+                    id=f"nt_{cid}",
+                    business_id=BIZ,
+                    created_by=owner,
+                    parent_type="client",
+                    parent_id=cid,
+                    body=DUPLICATE_NOTES[cid],
+                    created_at=joined,
+                    updated_at=joined,
+                )
+            )
 
 
 def seed_client_series() -> None:
@@ -2152,7 +2181,7 @@ def build_birchbark(as_of: datetime | None = None) -> DemoContext:
     seed_open_sale()
     seed_online_shop()
     seed_client_series()
-    seed_first_visits()
+    seed_first_visits(owner)
     seed_calendar_filler()
     seed_dispute()
     ctx = DemoContext(now, BIZ, owner, rows)

@@ -14,7 +14,7 @@ import {
     parseTimestamp,
     strings,
 } from "@clientbridge/app-core/public";
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 import {
     addClientNote,
     addPet,
@@ -482,6 +482,19 @@ test("CRM-E2E-04 directional merge preserves notes, pet and note history on the 
             phone: target.phone,
         });
         await expect(merge).toHaveCount(0);
+        const notice = page.getByText(strings.clients.tidy.merged(target.name), { exact: true });
+        await expect(notice).toBeVisible();
+        // the notice gives way once a new selection starts, so it never covers the selection bar
+        await page.getByRole("button", { name: strings.clients.tidy.select, exact: true }).click();
+        await expect(notice).toHaveCount(0);
+        await page.getByRole("checkbox", { name: target.name, exact: true }).check();
+        await page.getByRole("button", { name: strings.clients.tidy.tag, exact: true }).click();
+        const tags = page.getByRole("dialog", {
+            name: strings.clients.tidy.applyTags(1),
+            exact: true,
+        });
+        await tags.getByRole("button", { name: strings.common.cancel, exact: true }).click();
+        await expect(tags).toHaveCount(0);
         for (const device of [page, other]) {
             const kept = await openClient(device, target);
             await expect(kept.getByText(sourceNote, { exact: true })).toBeVisible();
@@ -504,6 +517,9 @@ test("CRM-E2E-04 directional merge preserves notes, pet and note history on the 
         await expect(other.getByText(subjectNote, { exact: true })).toBeVisible();
         await navigate(other, `/clients/${source.id}/history`);
         await expect(
+            other.getByText(strings.clients.record.goneTitle, { exact: true }),
+        ).toBeVisible();
+        await expect(
             other.getByText(strings.clients.record.goneBody, { exact: true }),
         ).toBeVisible();
         await navigate(other, "/clients");
@@ -512,6 +528,99 @@ test("CRM-E2E-04 directional merge preserves notes, pet and note history on the 
     } finally {
         await observer.close();
     }
+});
+
+test("CRM-E2E-13 tags set and removed in bulk from the directory reach each record and the broadcast audience", async ({
+    page,
+}) => {
+    test.setTimeout(240_000);
+    const t = strings.clients.tidy;
+    const b = strings.broadcasts;
+    await signIn(page);
+    const run = randomUUID();
+    // the two numbers share all but their last digit, so one search finds both and nobody else
+    const shared = freshPhone().slice(0, -1);
+    const first = await createClient(page, demoPerson(run), `${shared}1`);
+    const otherName = demoPerson(`${run}:second`);
+    const second = await createClient(
+        page,
+        otherName === first.name ? `${otherName} Jr` : otherName,
+        `${shared}2`,
+    );
+    const tag = `winter promo ${run.slice(0, 6)}`;
+    // stays on both, so the composer has listed its tags before the removed one is checked as gone
+    const anchor = `regulars ${run.slice(0, 6)}`;
+    const openTags = async (clients: readonly ClientFixture[]) => {
+        await navigate(page, "/today");
+        await navigate(page, "/clients");
+        await page.getByRole("searchbox").fill(shared.slice(2));
+        await page.getByRole("button", { name: t.select, exact: true }).click();
+        for (const client of clients)
+            await page.getByRole("checkbox", { name: client.name, exact: true }).check();
+        await page.getByRole("button", { name: t.tag, exact: true }).click();
+        return page.getByRole("dialog", { name: t.applyTags(clients.length), exact: true });
+    };
+    const apply = async (popover: Locator, count: number) => {
+        const sent = crmCommand(page, "clients/tags", "POST");
+        await popover.getByRole("button", { name: t.apply, exact: true }).click();
+        const response = await sent;
+        expect(response.status(), await response.text()).toBe(200);
+        await expect(page.getByText(t.tagsUpdated(count), { exact: true })).toBeVisible();
+        await expect(popover).toHaveCount(0);
+    };
+    const audience = async (count: number) => {
+        await navigate(page, "/today");
+        await navigate(page, "/inbox?segment=broadcasts");
+        await page.getByRole("button", { name: b.newBroadcast, exact: true }).first().click();
+        const composer = page.getByRole("dialog", { name: b.newBroadcast, exact: true });
+        await expect(composer.getByRole("button", { name: b.everyone, exact: true })).toBeVisible();
+        const chip = composer.getByRole("button", { name: b.tagChip(tag, count), exact: true });
+        if (count === 0) {
+            await expect(
+                composer.getByRole("button", { name: b.tagChip(anchor, 2), exact: true }),
+            ).toBeVisible({ timeout: 60_000 });
+            await expect(composer.getByRole("button", { name: new RegExp(tag) })).toHaveCount(0);
+            return;
+        }
+        await chip.click({ timeout: 60_000 });
+        await expect(composer.getByText(b.matched(count), { exact: false })).toBeVisible();
+    };
+
+    const both = await openTags([first, second]);
+    const field = both.getByRole("textbox");
+    // the API takes tags of up to 100 characters, so the field stops there
+    await field.fill("x".repeat(101));
+    await expect(field).toHaveValue("x".repeat(100));
+    await field.fill(`  ${tag.toUpperCase().replaceAll(" ", "   ")} `);
+    await both.getByRole("button", { name: strings.clients.addShort, exact: true }).click();
+    await expect(both.getByRole("checkbox", { name: tag, exact: true })).toBeChecked();
+    await field.fill(anchor);
+    await both.getByRole("button", { name: strings.clients.addShort, exact: true }).click();
+    await expect(both.getByRole("checkbox", { name: anchor, exact: true })).toBeChecked();
+    await apply(both, 2);
+    for (const client of [first, second])
+        await expect(
+            (await openClient(page, client)).getByText(tag, { exact: true }),
+        ).toBeVisible();
+    await audience(2);
+
+    const one = await openTags([first]);
+    await expect(one.getByRole("checkbox", { name: tag, exact: true })).toBeChecked();
+    await one.getByRole("checkbox", { name: tag, exact: true }).click();
+    await apply(one, 1);
+    await expect((await openClient(page, first)).getByText(tag, { exact: true })).toHaveCount(0);
+    await audience(1);
+
+    const mixed = await openTags([first, second]);
+    const box = mixed.getByRole("checkbox", { name: tag, exact: true });
+    await expect(mixed.getByText(t.onSome(1, 2), { exact: true })).toBeVisible();
+    await box.click();
+    await expect(box).toBeChecked();
+    await box.click();
+    await expect(box).not.toBeChecked();
+    await apply(mixed, 2);
+    await expect((await openClient(page, second)).getByText(tag, { exact: true })).toHaveCount(0);
+    await audience(0);
 });
 
 const v = strings.subjects.fields.vehicle;

@@ -4,6 +4,7 @@ import {
     type DuplicateMatch,
     type SubjectField,
     type SubjectKind,
+    CLIENT_TAG_MAX,
     canManagePayments,
     strings,
     useClientEditor,
@@ -100,6 +101,7 @@ function ClientFields({ editor }: { editor: ClientEditor }) {
             <TagInput
                 label={s.tagsLabel}
                 tags={draft.tags}
+                maxLength={CLIENT_TAG_MAX}
                 suggestions={editor.tagSuggestions}
                 onAdd={(t) => {
                     set("tags", [...draft.tags, t]);

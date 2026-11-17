@@ -31,7 +31,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 2. Clients and catalog                  | Client records: add, edit and search                        | [CB-8](https://linear.app/clientbridgeca/issue/CB-8)   | Automated        |
 | 2. Clients and catalog                  | Client subjects: who or what is booked                      | [CB-9](https://linear.app/clientbridgeca/issue/CB-9)   | Automated        |
 | 2. Clients and catalog                  | Client notes, photos and history                            | [CB-10](https://linear.app/clientbridgeca/issue/CB-10) | Automated        |
-| 2. Clients and catalog                  | Client tags and duplicate merge                             | [CB-11](https://linear.app/clientbridgeca/issue/CB-11) | Partly automated |
+| 2. Clients and catalog                  | Client tags and duplicate merge                             | [CB-11](https://linear.app/clientbridgeca/issue/CB-11) | Automated        |
 | 2. Clients and catalog                  | Services, classes and resources                             | [CB-13](https://linear.app/clientbridgeca/issue/CB-13) | Automated        |
 | 2. Clients and catalog                  | Products and stock                                          | [CB-14](https://linear.app/clientbridgeca/issue/CB-14) | Partly automated |
 | 3. Run the day                          | Today screen                                                | [CB-44](https://linear.app/clientbridgeca/issue/CB-44) | Partly automated |
@@ -584,7 +584,7 @@ The business loads its clients, what they book for, and the services and product
 ### Client tags and duplicate merge (CB-11)
 
 **Covers:** Client tags, merge dialog on web and mobile
-**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a seeded duplicate client
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; Amelie Tremblay, a seeded duplicate of the regular Amélie Tremblay: she booked her second dog Pistache online from her work number
 
 **Where to test**
 
@@ -593,11 +593,11 @@ The business loads its clients, what they book for, and the services and product
 
 **QA steps**
 
-1. Tag two clients from the directory.
-   **Expect:** the tag shows on both records and as a broadcast audience.
-2. Merge the duplicate into the kept record.
-   **Expect:** pets, notes and visits move to the kept record; note history survives.
-3. Try to merge a record that has payments into another.
+1. Tag two clients from the directory, then take the tag off one of them.
+   **Expect:** the tag shows on both records and as a broadcast audience of two, then of one; the tag editor closes once saved.
+2. Merge Amelie Tremblay into Amélie Tremblay.
+   **Expect:** each side shows its phone number; Pistache, the note and the booking request move to the kept record; note history survives.
+3. Try to merge a record that has payments, settled or still going through, into another.
    **Expect:** refused with a reason; nothing moves.
 
 **Done when:** Duplicates can be cleaned up without losing a subject, note or visit, and money is never moved by a merge.
@@ -605,11 +605,9 @@ The business loads its clients, what they book for, and the services and product
 **Automated by**
 
 - `CRM-E2E-04 (web)`
+- `CRM-E2E-13 (web)`
 - `FLOW-04-B (journeys)`
-
-**To automate**
-
-- `CRM-E2E-13` in `apps/web/e2e/clients.e2e.ts`: Set and remove tags in bulk; the broadcast audience count follows.
+- `NATIVE-CRM-06 (native-ios, native-android)`
 
 **Depends on:** Nothing
 

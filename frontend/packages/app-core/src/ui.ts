@@ -901,6 +901,7 @@ export interface TagInputProps {
     placeholder: string;
     removeLabel?: ((tag: string) => string) | undefined;
     createLabel?: ((text: string) => string) | undefined;
+    maxLength?: number | undefined;
 }
 
 export interface BrandMarkProps {

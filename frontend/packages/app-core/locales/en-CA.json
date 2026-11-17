@@ -5800,6 +5800,9 @@
     "clients.record.pane": {
         "message": "Client record"
     },
+    "clients.record.goneTitle": {
+        "message": "This client record is gone"
+    },
     "clients.record.goneBody": {
         "message": "They may have been merged into another record or removed on another device."
     },
@@ -6734,7 +6737,7 @@
         "message": "Archive"
     },
     "clients.tidy.applyTags": {
-        "message": "Tags for {n, number} clients",
+        "message": "{n, plural, one {Tags for # client} other {Tags for # clients}}",
         "args": ["n"]
     },
     "clients.tidy.onAll": {
@@ -6839,7 +6842,11 @@
         "message": "Phone"
     },
     "clients.tidy.blockedMoney": {
-        "message": "The other record has payment history, so it can't be merged yet. Merging records with payments is coming later."
+        "message": "The other record has payments, settled or still going through, so it can't be merged yet. Merging records with payments is coming later."
+    },
+    "clients.tidy.tooMany": {
+        "message": "Tag or archive up to {max, number} clients at a time. Narrow the list with search, then try again.",
+        "args": ["max"]
     },
     "clients.tidy.blockedMethods": {
         "message": "The other record has a saved card or bank account. Remove it from that record first, then merge."

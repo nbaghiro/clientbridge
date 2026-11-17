@@ -1,6 +1,7 @@
 from collections.abc import Sequence
 
 from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import array
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
@@ -18,7 +19,7 @@ from clientbridge.models.clients import Client, Consent, Note, Subject
 from clientbridge.models.documents import FormResponse, Signature, VisitRecord
 from clientbridge.models.ledger import Account
 from clientbridge.models.messaging import Message, Thread
-from clientbridge.models.payments import Payment, PaymentMethod
+from clientbridge.models.payments import Payment, PaymentMethod, PaymentStatus
 from clientbridge.models.reviews import ReviewRequest
 from clientbridge.models.scheduling import Booking, Recurrence
 from clientbridge.schemas.clients import (
@@ -39,6 +40,8 @@ from clientbridge.services.payments import (
 from clientbridge.services.subjects import new_subject
 
 MANAGERS = ("owner", "admin")
+# a failed or canceled attempt moved no money, so it moves with a merge like any other row
+MONEY_STATUSES: tuple[PaymentStatus, ...] = ("pending", "succeeded")
 
 # Every table that points at a client, re-pointed when two records merge.
 CLIENT_REFS: tuple[tuple[type[Base], str], ...] = (
@@ -238,10 +241,13 @@ class ClientService:
 
         async def run(cmd: Command) -> BulkResult:
             now = clock.now()
-            for client in sorted(clients, key=lambda c: c.id):
-                await hold_client(self.db, client.id)
-                await self.db.refresh(client)
-            for client in clients:
+            await hold_clients(self.db, [client.id for client in clients])
+            held = await self.db.scalars(
+                scoped(Client, self.biz, soft_delete=True)
+                .where(Client.id.in_([client.id for client in clients]))
+                .execution_options(populate_existing=True)
+            )
+            for client in held.all():
                 if client.archived_at is None:
                     client.status = "inactive"
                     client.archived_at = now
@@ -298,8 +304,7 @@ class ClientService:
             raise Conflict("a client can't be merged into itself")
 
         async def run(cmd: Command) -> ClientOut:
-            for held in sorted((client_id, data.from_client_id)):
-                await hold_client(self.db, held)
+            await hold_clients(self.db, (client_id, data.from_client_id))
             locked = list(
                 await self.db.scalars(
                     scoped(Client, self.biz, soft_delete=True)
@@ -358,11 +363,14 @@ class ClientService:
         pending = await self.db.scalar(
             scoped(Payment, self.biz)
             .with_only_columns(Payment.id)
-            .where(Payment.client_id == gone.id)
+            .where(Payment.client_id == gone.id, Payment.status.in_(MONEY_STATUSES))
             .limit(1)
         )
         if pending is not None:
-            raise Conflict("the other record has a payment in progress or payment history")
+            raise Conflict(
+                "the other record has a payment in progress or payment history",
+                code="merge_has_payments",
+            )
         money = await self.db.scalar(
             select(func.count()).select_from(
                 scoped(Account, self.biz)
@@ -371,14 +379,20 @@ class ClientService:
             )
         )
         if money:
-            raise Conflict("the other record has payment history, so it can't be merged yet")
+            raise Conflict(
+                "the other record has payment history, so it can't be merged yet",
+                code="merge_has_payments",
+            )
         methods = await self.db.scalar(
             select(func.count()).select_from(
                 scoped(PaymentMethod, self.biz).where(PaymentMethod.client_id == gone.id).subquery()
             )
         )
         if methods:
-            raise Conflict("the other record has a saved payment method, so it can't be merged")
+            raise Conflict(
+                "the other record has a saved payment method, so it can't be merged",
+                code="merge_has_payment_method",
+            )
 
     async def _merge_threads(self, kept_id: str, gone_id: str) -> None:
         rows = await self.db.execute(
@@ -406,6 +420,22 @@ async def hold_client(db: AsyncSession, client_id: str, *, shared: bool = False)
     """Archive and restore take a client alone; new work shares it, so neither lands mid-way."""
     lock = func.pg_advisory_xact_lock_shared if shared else func.pg_advisory_xact_lock
     await db.execute(select(lock(func.hashtextextended(f"client:{client_id}", 0))))
+
+
+async def hold_clients(db: AsyncSession, client_ids: Sequence[str]) -> None:
+    """Take several clients alone in one round trip, in id order so two writers can't deadlock."""
+    held = (
+        func.unnest(array(sorted(set(client_ids))))
+        .table_valued("id", with_ordinality="n")
+        .render_derived()
+    )
+    await db.execute(
+        select(
+            func.pg_advisory_xact_lock(func.hashtextextended(func.concat("client:", held.c.id), 0))
+        )
+        .select_from(held)
+        .order_by(held.c.n)
+    )
 
 
 async def assert_client_active(db: AsyncSession, client: Client) -> None:

@@ -35,6 +35,7 @@ import {
     confirm,
     DetailSection,
     DetailView,
+    Empty,
     IconButton,
     KeyValueList,
     ListRow,
@@ -344,7 +345,7 @@ export function ClientRecordView({
                         retrying={load.retrying}
                     />
                 ) : load.state === "empty" ? (
-                    <p className="text-sm text-muted">{r.goneBody}</p>
+                    <Empty icon="users" message={r.goneTitle} body={r.goneBody} />
                 ) : (
                     <Skeleton variant="stat" count={4} columns={2} label={r.loadingRecord} />
                 )}

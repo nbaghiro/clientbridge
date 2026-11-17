@@ -73,7 +73,7 @@ class ClientOut(ClientBase):
 
 
 class ClientIds(BaseModel):
-    client_ids: list[str] = Field(min_length=1, max_length=200)
+    client_ids: list[str] = Field(min_length=1, max_length=1000)
 
 
 class ClientTags(ClientIds):

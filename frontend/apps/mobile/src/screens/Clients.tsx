@@ -99,6 +99,7 @@ export function ClientsScreen() {
                                     variant={selecting ? "outline" : "quiet"}
                                     onPress={() => {
                                         setSelecting(!selecting);
+                                        setMerged(null);
                                         sel.clear();
                                     }}
                                 >
@@ -140,7 +141,10 @@ export function ClientsScreen() {
                                     },
                                 ],
                                 active: dir.segment,
-                                onSelect: dir.setSegment,
+                                onSelect: (segment) => {
+                                    setMerged(null);
+                                    dir.setSegment(segment);
+                                },
                             }
                           : undefined
                 }
@@ -345,6 +349,7 @@ export function ClientsScreen() {
                                         variant={selecting ? "outline" : "quiet"}
                                         onPress={() => {
                                             setSelecting(!selecting);
+                                            setMerged(null);
                                             sel.clear();
                                         }}
                                     >
@@ -374,6 +379,7 @@ export function ClientsScreen() {
                                 value={dir.segment}
                                 onChange={(segment) => {
                                     sel.clear();
+                                    setMerged(null);
                                     dir.setSegment(segment);
                                 }}
                                 options={[
@@ -497,7 +503,7 @@ export function ClientsScreen() {
                     <TagSheet
                         sel={sel}
                         onClose={() => {
-                            setSheet(null);
+                            setSheet((open) => (open?.kind === "tags" ? null : open));
                         }}
                     />
                 ) : null}

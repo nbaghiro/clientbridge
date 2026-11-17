@@ -1,0 +1,238 @@
+appId: ${APP_ID}
+name: NATIVE-CRM-06 Tags set and removed in bulk reach each record and the broadcast audience, the tag sheet closes once saved, two records with one name merge by the phone each shows, and a record with a settled or pending payment is refused
+---
+- evalScript: ${output.run = String(100000 + Math.floor(Math.random() * 900000))}
+- evalScript: ${output.tag = "spring " + output.run}
+- evalScript: ${output.exchange = String(700 + Math.floor(Math.random() * 200))}
+- evalScript: ${output.line = String(100 + Math.floor(Math.random() * 900))}
+# the numbers share all but their last digit, so one search finds the four and nobody else
+- evalScript: ${output.prefix = "250" + output.exchange + output.line}
+# the printed number past its bracketed area code, since brackets are regex in a selector
+- evalScript: ${output.label = output.exchange + "-" + output.line}
+- evalScript: ${output.name = "Rowan Ashby " + output.run}
+- evalScript: ${output.payer = "Sela Marsh " + output.run}
+- evalScript: ${output.waiter = "Tess Quill " + output.run}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/clients
+          BODY: "${JSON.stringify({ name: output.name, phone: output.prefix + '1' })}"
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/clients
+          BODY: "${JSON.stringify({ name: output.name, phone: output.prefix + '2', subject: { name: 'Pepper' } })}"
+- evalScript: ${output.duplicate = output.response.id}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/notes
+          BODY: "${JSON.stringify({ parent_type: 'client', parent_id: output.duplicate, body: 'Booked from her work number ' + output.run })}"
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/clients
+          BODY: "${JSON.stringify({ name: output.payer, phone: output.prefix + '3' })}"
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/invoices
+          BODY: "${JSON.stringify({ client_id: output.response.id, send: true, lines: [{ description: 'Nail trim', quantity: 1, unit_amount_cents: 2000, tax_class: 'exempt' }] })}"
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: ${"/v1/invoices/" + output.response.id + "/payments"}
+          KEY: ${"cash-" + output.run}
+          BODY: "${JSON.stringify({ method: 'cash', amount_cents: 2000, tendered_cents: 2000, send_receipt: false })}"
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/clients
+          BODY: "${JSON.stringify({ name: output.waiter, phone: output.prefix + '4' })}"
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/invoices
+          BODY: "${JSON.stringify({ client_id: output.response.id, send: false, lines: [{ description: 'Nail trim', quantity: 1, unit_amount_cents: 2000, tax_class: 'exempt' }] })}"
+- evalScript: ${output.held = output.response.id}
+# a card payment still going through has no ledger entry yet
+- runScript:
+      file: helpers/control.js
+      env:
+          ACTION: billing
+          PAYLOAD: ${"card-open " + output.held}
+- runFlow: helpers/owner.yaml
+- tapOn:
+      id: "tab-clients"
+- runFlow:
+      file: helpers/search-clients.yaml
+      env:
+          QUERY: ${output.prefix}
+- extendedWaitUntil:
+      visible: ${".*" + output.waiter + ".*"}
+      timeout: 60000
+# tag both records with one name from the directory
+- tapOn: "Select"
+- tapOn: ${".*" + output.label + "1.*"}
+- tapOn: ${".*" + output.label + "2.*"}
+- tapOn: "Tag"
+- extendedWaitUntil:
+      visible: "Tags for 2 clients"
+      timeout: 15000
+- tapOn: "New tag"
+- inputText: ${output.tag}
+- tapOn: "Add"
+- tapOn: "Apply"
+# the sheet closes as the selection empties, and the list is usable again
+- extendedWaitUntil:
+      visible: "Tags updated for 2 clients\\."
+      timeout: 30000
+- assertNotVisible: "Tags for 2 clients"
+- takeScreenshot: tags-applied
+- tapOn: "Done"
+- runFlow:
+      file: helpers/search-clients.yaml
+      env:
+          QUERY: ${output.prefix + "1"}
+- tapOn: ${".*" + output.name + ".*"}
+- extendedWaitUntil:
+      visible: "Book"
+      timeout: 60000
+- assertVisible: ${output.tag}
+- runFlow: helpers/close-sheet.yaml
+- tapOn:
+      id: "tab-inbox"
+- tapOn: "Broadcasts"
+- tapOn: "New broadcast"
+- scrollUntilVisible:
+      element: ${output.tag + " · 2"}
+      centerElement: true
+      timeout: 90000
+- tapOn: ${output.tag + " · 2"}
+- extendedWaitUntil:
+      visible: "2 match the audience.*"
+      timeout: 15000
+- takeScreenshot: tag-audience
+# take the tag off one of them, and the audience follows
+- tapOn:
+      id: "tab-clients"
+- runFlow:
+      file: helpers/search-clients.yaml
+      env:
+          QUERY: ${output.prefix}
+- tapOn: "Select"
+- tapOn: ${".*" + output.label + "1.*"}
+- tapOn: "Tag"
+- extendedWaitUntil:
+      visible: "Tags for 1 client"
+      timeout: 15000
+- tapOn: ${output.tag}
+- tapOn: "Apply"
+- extendedWaitUntil:
+      visible: "Tags updated for 1 client\\."
+      timeout: 30000
+- assertNotVisible: "Tags for 1 client"
+- tapOn: "Done"
+# leaving the Broadcasts segment drops the composer left open above, so a new one starts
+- tapOn:
+      id: "tab-inbox"
+- tapOn: "Reviews"
+- tapOn: "Broadcasts"
+- tapOn: "New broadcast"
+- scrollUntilVisible:
+      element: ${output.tag + " · 1"}
+      centerElement: true
+      timeout: 90000
+- tapOn: ${output.tag + " · 1"}
+- extendedWaitUntil:
+      visible: "1 match the audience.*"
+      timeout: 15000
+- takeScreenshot: tag-audience-after-removal
+# the two records share a name; the screenshot shows each side's own number
+- tapOn:
+      id: "tab-clients"
+- runFlow:
+      file: helpers/search-clients.yaml
+      env:
+          QUERY: ${output.prefix}
+- tapOn: "Select"
+- tapOn: ${".*" + output.label + "1.*"}
+- tapOn: ${".*" + output.label + "2.*"}
+- tapOn: "Merge"
+- extendedWaitUntil:
+      visible: "Merge these records\\?"
+      timeout: 15000
+- assertVisible: "Pets: Pepper · 1 note"
+- takeScreenshot: merge-sides
+- tapOn: ${"Merge into " + output.name}
+- tapOn:
+      text: "Merge"
+      rightOf: "Cancel"
+      below: ".*can't be undone.*"
+- extendedWaitUntil:
+      visible: ${"Merged into " + output.name + ".*"}
+      timeout: 30000
+- runFlow:
+      file: helpers/search-clients.yaml
+      env:
+          QUERY: ${output.prefix + "2"}
+# the merged record's number finds nobody once it is gone
+- extendedWaitUntil:
+      visible: "No clients match your search\\."
+      timeout: 60000
+- runFlow:
+      file: helpers/search-clients.yaml
+      env:
+          QUERY: ${output.prefix + "1"}
+# the merge notice names the client too, so the row is the one that lists the pet that moved
+- tapOn: ${".*" + output.name + ".*Pepper.*"}
+- extendedWaitUntil:
+      visible: "Book"
+      timeout: 60000
+- scrollUntilVisible:
+      element: ${"Booked from her work number " + output.run}
+      direction: DOWN
+- runFlow: helpers/close-sheet.yaml
+# money never moves in a merge: a record with a payment can't be the one that goes
+- runFlow:
+      file: helpers/search-clients.yaml
+      env:
+          QUERY: ${output.prefix}
+- tapOn: "Select"
+- tapOn: ${".*" + output.label + "1.*"}
+- tapOn: ${".*" + output.label + "3.*"}
+- tapOn: "Merge"
+- extendedWaitUntil:
+      visible: "Merge these records\\?"
+      timeout: 15000
+- assertVisible: "The other record has payments.*"
+- takeScreenshot: merge-refused
+- tapOn: "Cancel"
+- tapOn: "Done"
+# a payment still going through holds the merge back too
+- tapOn: "Select"
+- tapOn: ${".*" + output.label + "1.*"}
+- tapOn: ${".*" + output.label + "4.*"}
+- tapOn: "Merge"
+- extendedWaitUntil:
+      visible: "Merge these records\\?"
+      timeout: 15000
+- extendedWaitUntil:
+      visible: "The other record has payments.*"
+      timeout: 60000
+- takeScreenshot: merge-held
+- tapOn: "Cancel"
+- tapOn: "Done"
+- runScript:
+      file: helpers/control.js
+      env:
+          ACTION: billing
+          PAYLOAD: ${"card-close " + output.held}

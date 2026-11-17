@@ -1896,6 +1896,7 @@ interface Strings {
             readonly colBalance: string;
             readonly colTags: string;
             readonly pane: string;
+            readonly goneTitle: string;
             readonly goneBody: string;
             readonly archived: string;
         };
@@ -2076,6 +2077,7 @@ interface Strings {
             readonly none: string;
             readonly field: { readonly name: string; readonly phone: string } & Labels;
             readonly blockedMoney: string;
+            readonly tooMany: (max: number) => string;
             readonly blockedMethods: string;
             readonly merge: (name: string) => string;
             readonly merging: string;

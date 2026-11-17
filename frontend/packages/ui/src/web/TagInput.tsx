@@ -14,6 +14,7 @@ export function TagInput({
     placeholder,
     removeLabel = strings.ui.removeTag,
     createLabel = strings.ui.createTag,
+    maxLength,
     className,
 }: WebProps<TagInputProps>) {
     const id = useId();
@@ -63,6 +64,7 @@ export function TagInput({
                 <input
                     id={id}
                     value={q}
+                    maxLength={maxLength}
                     onChange={(e) => {
                         setQ(e.target.value);
                     }}

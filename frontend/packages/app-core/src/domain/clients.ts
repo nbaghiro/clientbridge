@@ -306,6 +306,9 @@ function tagDirectory(rows: readonly ClientListRow[]): TagCount[] {
 }
 
 const cleanTag = (t: string): string => t.trim().toLowerCase().replace(/\s+/g, " ");
+export const CLIENT_TAG_MAX = 100;
+// the API's ClientIds takes at most this many clients in one bulk write
+export const CLIENT_BULK_MAX = 1000;
 
 export const CLIENT_VISITS_SQL = `
 SELECT b.id, b.status, b.subject_id, b.staff_id, b.deposit_amount_cents, b.deposit_status,
@@ -1682,7 +1685,7 @@ export interface ClientSelection {
     pendingTags: Record<string, boolean>;
     toggleTag: (tag: string) => void;
     addTag: (tag: string) => void;
-    apply: () => void;
+    apply: (onApplied?: () => void) => void;
     archive: () => void;
     busy: boolean;
     archiving: boolean;
@@ -1702,7 +1705,8 @@ export function useClientSelection(api: ApiLike, rows: readonly ClientListRow[])
     const tagging = useAsyncAction();
     const archiving = useAsyncAction();
     const directory = tagDirectory(rows);
-    const tagsOf = (id: string): string[] => rows.find((r) => r.id === id)?.tags ?? [];
+    const tagsById = new Map(rows.map((r) => [r.id, r.tags]));
+    const tagsOf = (id: string): string[] => tagsById.get(id) ?? [];
     const names = [
         ...directory.map((t) => t.tag),
         ...extra.filter((t) => !directory.some((d) => d.tag === t)),
@@ -1748,29 +1752,38 @@ export function useClientSelection(api: ApiLike, rows: readonly ClientListRow[])
             if (!names.includes(tag)) setExtra((e) => [...e, tag]);
             setPending((p) => ({ ...p, [tag]: true }));
         },
-        apply: () => {
+        apply: (onApplied) => {
             const ids = selected;
+            if (ids.length > CLIENT_BULK_MAX) {
+                tagging.setError(s.tidy.tooMany(CLIENT_BULK_MAX));
+                return;
+            }
             const set = pending;
             const key = attemptKey(tagAttempt, { client_ids: ids, set });
             tagging.run(
                 () =>
                     api.post("/v1/clients/tags", { client_ids: ids, set }, { idempotencyKey: key }),
                 {
-                    errorMessage: s.tidy.tagError,
+                    errorMessage: (e) => failureMessage(e, s.tidy.tagError),
                     onSuccess: () => {
                         tagAttempt.current = null;
                         reset(s.tidy.tagsUpdated(ids.length));
+                        onApplied?.();
                     },
                 },
             );
         },
         archive: () => {
             const ids = selected;
+            if (ids.length > CLIENT_BULK_MAX) {
+                archiving.setError(s.tidy.tooMany(CLIENT_BULK_MAX));
+                return;
+            }
             const key = attemptKey(archiveAttempt, { client_ids: ids });
             archiving.run(
                 () => api.post("/v1/clients/archive", { client_ids: ids }, { idempotencyKey: key }),
                 {
-                    errorMessage: s.tidy.archiveError,
+                    errorMessage: (e) => failureMessage(e, s.tidy.archiveError),
                     onSuccess: () => {
                         archiveAttempt.current = null;
                         reset(s.tidy.archived(ids.length));
@@ -1794,7 +1807,9 @@ SELECT c.id,
        (SELECT COUNT(*) FROM subjects sj WHERE sj.client_id = c.id AND sj.deleted_at IS NULL) AS subject_count,
        (SELECT COUNT(*) FROM messages m JOIN threads t ON t.id = m.thread_id WHERE t.client_id = c.id) AS messages,
        (SELECT COUNT(*) FROM notes n WHERE n.parent_type = 'client' AND n.parent_id = c.id) AS notes,
-       (SELECT COUNT(*) FROM accounts a WHERE a.owner_type = 'client' AND a.owner_id = c.id) AS money,
+       (SELECT COUNT(*) FROM accounts a WHERE a.owner_type = 'client' AND a.owner_id = c.id)
+         + (SELECT COUNT(*) FROM payments p
+              WHERE p.client_id = c.id AND p.status IN ('pending', 'succeeded')) AS money,
        (SELECT COUNT(*) FROM payment_methods pm WHERE pm.client_id = c.id) AS methods
 FROM clients c WHERE c.id IN (?, ?)`;
 
@@ -1840,7 +1855,7 @@ export function useClientMerge(
     const word = kindWord(kind);
     const [keep, setKeepRaw] = useState<Side>("a");
     const [picks, setPicks] = useState<Partial<Record<MergeField, Side>>>({});
-    const { busy, error, run } = useAsyncAction();
+    const { busy, error, setError, run } = useAsyncAction();
     const prints = useQuery<FootprintRow>(CLIENT_FOOTPRINT_SQL, [a.id, b.id]).data;
     const printOf = (id: string): FootprintRow | undefined => prints.find((p) => p.id === id);
     const value = (c: ClientListRow, k: MergeField): string =>
@@ -1886,6 +1901,7 @@ export function useClientMerge(
         return {
             client: c,
             hint: formatParts([
+                formatPhone(c.phone),
                 s.tidy.created(formatDate(c.since, zone)),
                 p === undefined
                     ? ""
@@ -1902,6 +1918,7 @@ export function useClientMerge(
         setKeep: (sd) => {
             setKeepRaw(sd);
             setPicks({});
+            setError(null);
         },
         sides: { a: side(a), b: side(b) },
         fields,
@@ -1913,7 +1930,8 @@ export function useClientMerge(
         keptName,
         goneName: gone.name,
         busy,
-        error,
+        // once the device sees why the merge can't happen, that notice replaces the refusal
+        error: blocked === null ? error : null,
         submit: () => {
             const key = attemptKey(attempt, [kept.id, gone.id, fields, keep]);
             run(
@@ -1929,7 +1947,7 @@ export function useClientMerge(
                         { idempotencyKey: key },
                     ),
                 {
-                    errorMessage: s.tidy.mergeError,
+                    errorMessage: (e) => failureMessage(e, s.tidy.mergeError),
                     onSuccess: () => {
                         attempt.current = null;
                         onMerged(keptName);

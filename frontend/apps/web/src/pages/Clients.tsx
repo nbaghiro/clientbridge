@@ -3,6 +3,7 @@ import {
     type ClientSegment,
     type ClientSelection,
     type SubjectKind,
+    CLIENT_TAG_MAX,
     canManagePayments,
     formatDate,
     kindWord,
@@ -26,6 +27,7 @@ import {
     Button,
     Checkbox,
     confirm,
+    Empty,
     Icon,
     LoadFailed,
     Money,
@@ -75,6 +77,7 @@ function ClientList() {
     const [selecting, setSelecting] = useState(false);
     const [merged, setMerged] = useState<string | null>(null);
     const sel = useClientSelection(api, dir.all);
+    const notice = merged !== null ? t.merged(merged) : sel.done;
     const wide = useWide();
     useLinkIntent({ onOpen: setOpenId });
     const grid =
@@ -160,6 +163,7 @@ function ClientList() {
                                     icon="check"
                                     onPress={() => {
                                         setSelecting(!selecting);
+                                        setMerged(null);
                                         sel.clear();
                                     }}
                                 >
@@ -187,6 +191,7 @@ function ClientList() {
                                       active: dir.segment,
                                       onSelect: (segment) => {
                                           sel.clear();
+                                          setMerged(null);
                                           dir.setSegment(segment);
                                       },
                                   }
@@ -202,9 +207,9 @@ function ClientList() {
                                 : undefined
                         }
                         banner={
-                            sel.done !== null ? (
+                            notice !== null ? (
                                 <Notice tone="success" banner>
-                                    {sel.done}
+                                    {notice}
                                 </Notice>
                             ) : undefined
                         }
@@ -364,13 +369,6 @@ function ClientList() {
                 />
             ) : null}
             {dialogs}
-            {merged !== null ? (
-                <div className="fixed bottom-6 left-1/2 z-30 -translate-x-1/2">
-                    <Notice tone="success" banner>
-                        {t.merged(merged)}
-                    </Notice>
-                </div>
-            ) : null}
         </PageFrame>
     );
 }
@@ -511,6 +509,7 @@ function TagPopover({ sel, onDone }: { sel: ClientSelection; onDone: () => void 
                     name={t.newTag}
                     placeholder={t.newTag}
                     value={draft}
+                    maxLength={CLIENT_TAG_MAX}
                     onChange={setDraft}
                 />
                 <Button size="sm" variant="outline" submit disabled={draft.trim() === ""}>
@@ -530,7 +529,9 @@ function TagPopover({ sel, onDone }: { sel: ClientSelection; onDone: () => void 
                     size="sm"
                     busy={sel.busy}
                     disabled={Object.keys(sel.pendingTags).length === 0}
-                    onPress={sel.apply}
+                    onPress={() => {
+                        sel.apply(onDone);
+                    }}
                 >
                     {sel.busy ? t.applying : t.apply}
                 </Button>
@@ -574,7 +575,7 @@ function ClientPage({ clientId, view }: { clientId: string; view: View }) {
                             retrying={load.retrying}
                         />
                     ) : load.state === "empty" ? (
-                        <p className="text-sm text-muted">{r.goneBody}</p>
+                        <Empty icon="users" message={r.goneTitle} body={r.goneBody} />
                     ) : (
                         <Skeleton variant="row" count={3} label={r.loadingRecord} />
                     )}

@@ -2,6 +2,7 @@ import {
     type ClientListRow,
     type ClientSelection,
     type SubjectRow,
+    CLIENT_TAG_MAX,
     EQUIPMENT_FIELDS,
     PICKUP_PERSON_FIELDS,
     PICKUP_PEOPLE_MAX,
@@ -187,6 +188,7 @@ export function ClientEditorSheet({
             <TagInput
                 label={e.tagsLabel}
                 tags={draft.tags}
+                maxLength={CLIENT_TAG_MAX}
                 suggestions={editor.tagSuggestions.slice(0, 4)}
                 onAdd={(tag) => {
                     set("tags", [...draft.tags, tag]);
@@ -596,7 +598,9 @@ export function TagSheet({ sel, onClose }: { sel: ClientSelection; onClose: () =
                         variant="link"
                         busy={sel.busy}
                         disabled={Object.keys(sel.pendingTags).length === 0}
-                        onPress={sel.apply}
+                        onPress={() => {
+                            sel.apply(onClose);
+                        }}
                     >
                         {t.apply}
                     </Button>
@@ -635,6 +639,7 @@ export function TagSheet({ sel, onClose }: { sel: ClientSelection; onClose: () =
                         name={t.newTag}
                         placeholder={t.newTag}
                         value={draft}
+                        maxLength={CLIENT_TAG_MAX}
                         onChange={setDraft}
                         onSubmit={add}
                     />

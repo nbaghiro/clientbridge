@@ -89,7 +89,8 @@ Birchbark is built by hand in `scripts/seed_demo.py` rather than on the demo eng
 
 | Stage                                                | Where to look                                                                                    |
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| New clients booked online, waiting for approval      | Nadia (`bk_welcome_0`) and Tom (`bk_welcome_1`)                                                  |
+| New clients booked online, waiting for approval      | Nadia (`bk_welcome_0`), Tom (`bk_welcome_1`) and Amélie's duplicate (`bk_welcome_2`)             |
+| A duplicate to merge                                 | Amelie Tremblay (`cl_amelie_work`, booking `bk_welcome_2`), Amélie's second record               |
 | Intake form answered and agreement signed            | Amélie (`fr_intake_0`, `sig_0`); Fatima's is pending (`sig_pending`), Olivia's declined          |
 | Regulars on repeating series                         | Bella (`sch_bella`), Rex (`sch_rex`), Miso (`sch_miso`) and eight more                           |
 | Puppy class with deposits and a waitlist             | `sch_puppy`, deposits such as `pay_dep_bk_puppy_<date>_<n>`, Ada waitlisted (`bk_class_extra_3`) |

@@ -321,7 +321,7 @@ async def test_merge_refuses_self_money_and_saved_methods_409(
         {"b": BIZ},
     )
     res = await as_owner.post(f"/v1/clients/{kept}/merge", json={"from_client_id": paid})
-    assert res.status_code == 409
+    assert (res.status_code, res.json()["error"]) == (409, "merge_has_payments")
     gone = (await as_owner.post("/v1/clients", json={"name": "G"})).json()["id"]
     await db.execute(
         text(
@@ -332,7 +332,48 @@ async def test_merge_refuses_self_money_and_saved_methods_409(
         {"b": BIZ, "c": gone},
     )
     res = await as_owner.post(f"/v1/clients/{kept}/merge", json={"from_client_id": gone})
-    assert res.status_code == 409
+    assert (res.status_code, res.json()["error"]) == (409, "merge_has_payment_method")
+
+
+async def test_the_seeded_duplicate_merges_into_the_client_it_repeats(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    held = text(
+        "SELECT (SELECT client_id FROM subjects WHERE id = 'sj_pistache') AS pet,"
+        " (SELECT client_id FROM bookings WHERE id = 'bk_welcome_2') AS visit,"
+        " parent_id, created_by, created_at FROM notes WHERE id = 'nt_cl_amelie_work'"
+    )
+    before = (await db.execute(held)).mappings().one()
+    assert (before["pet"], before["visit"]) == ("cl_amelie_work", "cl_amelie_work")
+    refused = await as_owner.post(
+        "/v1/clients/cl_amelie_work/merge", json={"from_client_id": "cl_amelie"}, headers=key()
+    )
+    assert (refused.status_code, refused.json()["error"]) == (409, "merge_has_payments")
+    assert (await _client(db, "cl_amelie"))["deleted_at"] is None
+    assert (await db.execute(held)).mappings().one() == before
+    merged = await as_owner.post(
+        "/v1/clients/cl_amelie/merge", json={"from_client_id": "cl_amelie_work"}, headers=key()
+    )
+    assert merged.status_code == 200, merged.text
+    assert (merged.json()["name"], merged.json()["phone"]) == ("Amélie Tremblay", "+12505550180")
+    assert "new" not in merged.json()["tags"]
+    after = (await db.execute(held)).mappings().one()
+    assert (after["pet"], after["visit"], after["parent_id"]) == ("cl_amelie",) * 3
+    assert (after["created_by"], after["created_at"]) == (
+        before["created_by"],
+        before["created_at"],
+    )
+    assert (await _client(db, "cl_amelie_work"))["deleted_at"] is not None
+
+
+async def test_bulk_writes_take_up_to_a_thousand_clients_422(as_owner: httpx.AsyncClient) -> None:
+    unknown = [f"cl_nope_{n}" for n in range(1000)]
+    tagged = await as_owner.post(
+        "/v1/clients/tags", json={"client_ids": unknown, "set": {"x": True}}
+    )
+    assert tagged.status_code == 404
+    too_many = await as_owner.post("/v1/clients/archive", json={"client_ids": [*unknown, "cl_x"]})
+    assert too_many.status_code == 422
 
 
 async def test_staff_cannot_restore_403(
@@ -569,9 +610,39 @@ async def test_merge_refuses_pending_money_even_before_ledger_posting(
     response = await as_owner.post(
         "/v1/clients/cl_grace/merge", json={"from_client_id": gone}, headers=key()
     )
-    assert response.status_code == 409
+    assert (response.status_code, response.json()["error"]) == (409, "merge_has_payments")
     client = await db.get(Client, gone)
     assert client is not None and client.deleted_at is None
+
+
+@pytest.mark.parametrize("status", ["failed", "canceled"])
+async def test_merge_moves_a_card_attempt_that_took_no_money(
+    as_owner: httpx.AsyncClient, db: AsyncSession, status: str
+) -> None:
+    from clientbridge.models.payments import Payment
+    from tests.helpers import new_client
+
+    gone = await new_client(db)
+    attempt = new_id("payment")
+    db.add(
+        Payment(
+            id=attempt,
+            business_id=BIZ,
+            client_id=gone,
+            kind="payment",
+            amount_cents=100,
+            status=status,
+            method="card",
+            provider="stripe",
+        )
+    )
+    await db.commit()
+    response = await as_owner.post(
+        "/v1/clients/cl_grace/merge", json={"from_client_id": gone}, headers=key()
+    )
+    assert response.status_code == 200, response.text
+    moved = await db.scalar(text("SELECT client_id FROM payments WHERE id = :p"), {"p": attempt})
+    assert moved == "cl_grace"
 
 
 async def test_a_name_edit_reaches_the_stripe_customer(

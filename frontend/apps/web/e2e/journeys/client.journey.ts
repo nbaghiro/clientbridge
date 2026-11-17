@@ -11,6 +11,7 @@ import {
 } from "@clientbridge/app-core/public";
 import { expect, test, type Page } from "@playwright/test";
 import { freshPhone } from "../support/auth";
+import { billingAction } from "../support/billing";
 import {
     bookFreeVisit,
     cancelOwnedBooking,
@@ -458,17 +459,18 @@ test("FLOW-04-B a merge moves a duplicate's pet, note and visit onto the kept ti
     test.setTimeout(240_000);
     await signIn(page);
     const run = randomUUID();
-    // the numbers share all but their last digit, so one search finds the three and nobody else
+    // the numbers share all but their last digit, so one search finds the four and nobody else
     const shared = freshPhone().slice(0, -1);
     const kept = await createClient(page, demoPerson(run), `${shared}1`);
-    const names = [`${run}:duplicate`, `${run}:paid`, `${run}:other`]
+    const names = [`${run}:duplicate`, `${run}:paid`, `${run}:pending`, `${run}:other`]
         .map((seed) => demoPerson(seed))
         .filter((name, index, all) => name !== kept.name && all.indexOf(name) === index);
-    const [duplicateName, paidName] = names;
-    if (duplicateName === undefined || paidName === undefined)
+    const [duplicateName, paidName, pendingName] = names;
+    if (duplicateName === undefined || paidName === undefined || pendingName === undefined)
         throw new Error("Not enough distinct demo names");
     const duplicate = await createClient(page, duplicateName, `${shared}2`);
     const paid = await createClient(page, paidName, `${shared}3`);
+    const pending = await createClient(page, pendingName, `${shared}4`);
     const petId = await addPet(page, duplicate, "Juniper");
     const note = "Juniper prefers a short trim around the paws.";
     await addClientNote(page, duplicate, note, "Juniper");
@@ -531,6 +533,11 @@ test("FLOW-04-B a merge moves a duplicate's pet, note and visit onto the kept ti
         ]);
 
         const merge = await openMerge(page, shared.slice(2), kept, duplicate);
+        const sides = merge.getByRole("group", { name: t.whichToKeep, exact: true });
+        for (const client of [kept, duplicate])
+            await expect(sides.getByRole("button").filter({ hasText: client.name })).toContainText(
+                formatPhone(client.phone),
+            );
         // the note is about Juniper, so it moves with the pet rather than counting on its own
         await expect(merge.getByRole("listitem")).toHaveText([
             t.moves.bookings(1),
@@ -572,8 +579,37 @@ test("FLOW-04-B a merge moves a duplicate's pet, note and visit onto the kept ti
             data: { from_client_id: paid.id, fields: {} },
         });
         expect(direct.status(), await direct.text()).toBe(409);
+        expect(((await direct.json()) as { error: string }).error).toBe("merge_has_payments");
         expect(await visitEvidence([kept.id, duplicate.id, paid.id])).toEqual(moved);
         await page.keyboard.press("Escape");
+
+        // a card payment still going through has no ledger entry yet, and still blocks the merge
+        const draft = await apiCall<{ id: string }>(
+            page,
+            "POST",
+            "/v1/invoices",
+            {
+                client_id: pending.id,
+                send: false,
+                lines: [
+                    {
+                        description: "Nail trim",
+                        quantity: 1,
+                        unit_amount_cents: 2000,
+                        tax_class: "exempt",
+                    },
+                ],
+            },
+            201,
+        );
+        await billingAction("card-open", draft.id);
+        const held = await openMerge(page, shared.slice(2), kept, pending);
+        await expect(held.getByText(t.blockedMoney, { exact: true })).toBeVisible();
+        await expect(
+            held.getByRole("button", { name: t.merge(kept.name), exact: true }),
+        ).toBeDisabled();
+        await page.keyboard.press("Escape");
+        await billingAction("card-close", draft.id);
         const record = await openClient(page, paid);
         await expect(record).toContainText(formatPhone(paid.phone));
         await testInfo.attach("merge-and-refusal", {
