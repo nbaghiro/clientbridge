@@ -1,0 +1,7 @@
+appId: ${APP_ID}
+---
+- tapOn: "Search name, phone or pet"
+- eraseText: 30
+- inputText: ${QUERY}
+# hideKeyboard can land on a result row, so the keyboard closes with its own Return or action key
+- pressKey: Enter

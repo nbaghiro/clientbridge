@@ -2531,6 +2531,18 @@ describe("app-core SQL against the replica schema", () => {
             { id: "cl_ann", bookings: 2, subject_count: 1, notes: 1 },
             { id: "cl_ben", bookings: 1, subject_count: 0, notes: 1 },
         ]);
+        // a payment still in progress has no ledger account yet, and a merge must still wait for it
+        db.run("DELETE FROM accounts WHERE owner_type = 'client' AND owner_id = 'cl_ben'");
+        db.run("UPDATE payments SET status = 'pending' WHERE client_id = 'cl_ben'");
+        expect(pick(run("CLIENT_FOOTPRINT_SQL", ["cl_ann", "cl_ben"]), "id", "money")).toEqual([
+            { id: "cl_ann", money: 5 },
+            { id: "cl_ben", money: 2 },
+        ]);
+        // a card attempt that failed or was canceled took no money and doesn't hold a merge back
+        db.run("UPDATE payments SET status = 'failed' WHERE client_id = 'cl_ben'");
+        expect(pick(run("CLIENT_FOOTPRINT_SQL", ["cl_ben", "cl_ben"]), "money")).toEqual([
+            { money: 0 },
+        ]);
     });
 
     it("reads tax settings, item tax classes, brand, the booking preview and the team", () => {

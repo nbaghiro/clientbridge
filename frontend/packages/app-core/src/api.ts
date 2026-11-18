@@ -86,6 +86,8 @@ const FAILURES: Record<string, (detail: FailureDetail) => string> = {
     slot_unavailable: () => strings.api.slotUnavailable,
     phone_taken: () => strings.api.phoneTaken,
     client_archived: () => strings.api.clientArchived,
+    merge_has_payments: () => strings.clients.tidy.blockedMoney,
+    merge_has_payment_method: () => strings.clients.tidy.blockedMethods,
     class_seat: () => strings.api.classSeat,
     class_move: () => strings.api.classMove,
     recurrence_too_long: () => strings.api.recurrenceTooLong,

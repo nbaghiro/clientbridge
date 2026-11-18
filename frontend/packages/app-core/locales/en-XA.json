@@ -5348,6 +5348,9 @@
     "clients.record.pane": {
         "message": "[Çļîéñţ ŕéçöŕð one two]"
     },
+    "clients.record.goneTitle": {
+        "message": "[Ţĥîš çļîéñţ ŕéçöŕð îš ĝöñé one two three]"
+    },
     "clients.record.goneBody": {
         "message": "[Ţĥéý ɱåý ĥåṽé ƀééñ ɱéŕĝéð îñţö åñöţĥéŕ ŕéçöŕð öŕ ŕéɱöṽéð öñ åñöţĥéŕ ðéṽîçé. one two three four five]"
     },
@@ -6177,7 +6180,7 @@
         "message": "[Åŕçĥîṽé one]"
     },
     "clients.tidy.applyTags": {
-        "message": "[Ţåĝš ƒöŕ {n, number} çļîéñţš one two]"
+        "message": "[{n,plural,one{Ţåĝš ƒöŕ # çļîéñţ} other{Ţåĝš ƒöŕ # çļîéñţš}} one two three]"
     },
     "clients.tidy.onAll": {
         "message": "[Öñ åļļ šéļéçţéð one two]"
@@ -6267,7 +6270,10 @@
         "message": "[Þĥöñé one]"
     },
     "clients.tidy.blockedMoney": {
-        "message": "[Ţĥé öţĥéŕ ŕéçöŕð ĥåš þåýɱéñţ ĥîšţöŕý, šö îţ çåñ'ţ ƀé ɱéŕĝéð ýéţ. Ṁéŕĝîñĝ ŕéçöŕðš ŵîţĥ þåýɱéñţš îš çöɱîñĝ ļåţéŕ. one two three four five six seven]"
+        "message": "[Ţĥé öţĥéŕ ŕéçöŕð ĥåš þåýɱéñţš, šéţţļéð öŕ šţîļļ ĝöîñĝ ţĥŕöûĝĥ, šö îţ çåñ'ţ ƀé ɱéŕĝéð ýéţ. Ṁéŕĝîñĝ ŕéçöŕðš ŵîţĥ þåýɱéñţš îš çöɱîñĝ ļåţéŕ. one two three four five six seven eight]"
+    },
+    "clients.tidy.tooMany": {
+        "message": "[Ţåĝ öŕ åŕçĥîṽé ûþ ţö {max, number} çļîéñţš åţ å ţîɱé. Ñåŕŕöŵ ţĥé ļîšţ ŵîţĥ šéåŕçĥ, ţĥéñ ţŕý åĝåîñ. one two three four five]"
     },
     "clients.tidy.blockedMethods": {
         "message": "[Ţĥé öţĥéŕ ŕéçöŕð ĥåš å šåṽéð çåŕð öŕ ƀåñķ åççöûñţ. Ŕéɱöṽé îţ ƒŕöɱ ţĥåţ ŕéçöŕð ƒîŕšţ, ţĥéñ ɱéŕĝé. one two three four five six]"

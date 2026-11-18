@@ -18,6 +18,7 @@ export function TagInput({
     placeholder,
     removeLabel = strings.ui.removeTag,
     createLabel = strings.ui.createTag,
+    maxLength,
     style,
 }: NativeProps<TagInputProps>) {
     const [tags, setTags] = useControllable(tagsProp, defaultTags);
@@ -60,6 +61,7 @@ export function TagInput({
                 ))}
                 <TextInput
                     value={q}
+                    maxLength={maxLength}
                     onChangeText={setQ}
                     onSubmitEditing={() => {
                         if (text !== "") add(text);
