@@ -172,6 +172,10 @@ name: NATIVE-CRM-06 Tags set and removed in bulk reach each record and the broad
       timeout: 15000
 - assertVisible: "Pets: Pepper · 1 note"
 - takeScreenshot: merge-sides
+# a smaller phone shows the merge button only once the sheet scrolls
+- scrollUntilVisible:
+      element: ${"Merge into " + output.name}
+      direction: DOWN
 - tapOn: ${"Merge into " + output.name}
 - tapOn:
       text: "Merge"
@@ -213,8 +217,13 @@ name: NATIVE-CRM-06 Tags set and removed in bulk reach each record and the broad
 - extendedWaitUntil:
       visible: "Merge these records\\?"
       timeout: 15000
-- assertVisible: "The other record has payments.*"
+- scrollUntilVisible:
+      element: "The other record has payments.*"
+      direction: DOWN
 - takeScreenshot: merge-refused
+- scrollUntilVisible:
+      element: "Cancel"
+      direction: UP
 - tapOn: "Cancel"
 - tapOn: "Done"
 # a payment still going through holds the merge back too
@@ -225,10 +234,14 @@ name: NATIVE-CRM-06 Tags set and removed in bulk reach each record and the broad
 - extendedWaitUntil:
       visible: "Merge these records\\?"
       timeout: 15000
-- extendedWaitUntil:
-      visible: "The other record has payments.*"
+- scrollUntilVisible:
+      element: "The other record has payments.*"
+      direction: DOWN
       timeout: 60000
 - takeScreenshot: merge-held
+- scrollUntilVisible:
+      element: "Cancel"
+      direction: UP
 - tapOn: "Cancel"
 - tapOn: "Done"
 - runScript:
