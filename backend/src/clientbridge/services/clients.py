@@ -274,7 +274,18 @@ class ClientService:
         drop = set(clean_tags([t for t, on in data.set.items() if not on]))
 
         async def run(cmd: Command) -> BulkResult:
-            for client in clients:
+            # held and read again, so a concurrent tag write or merge can't be overwritten
+            await hold_clients(self.db, [client.id for client in clients])
+            held = (
+                await self.db.scalars(
+                    scoped(Client, self.biz, soft_delete=True)
+                    .where(Client.id.in_([client.id for client in clients]))
+                    .execution_options(populate_existing=True)
+                )
+            ).all()
+            if len(held) != len(clients):
+                raise NotFound("client not found")
+            for client in held:
                 tags = [t for t in client.tags if t not in drop]
                 client.tags = tags + [t for t in add if t not in tags]
                 cmd.record(
