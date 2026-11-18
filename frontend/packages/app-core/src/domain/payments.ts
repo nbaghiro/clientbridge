@@ -3,7 +3,7 @@ import { useBusinessQuery as useQuery } from "../hooks";
 
 import { useEffect, useRef, useState } from "react";
 
-import { useAsyncAction } from "../hooks";
+import { isConnectionFailure, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import { dateKey, useBusinessZone } from "../datetime";
 import {
@@ -214,6 +214,9 @@ interface PaymentRecorder {
     reset: () => void;
 }
 
+// a payment whose answer never came, kept past the sheet so a retry after reopening replays it
+const unconfirmed = new Map<string, Attempt>();
+
 /** One payment on an invoice, method first: cash with change, an e-Transfer or cheque received, or a saved card. */
 export function usePaymentRecorder(api: ApiLike, target: RecordTarget): PaymentRecorder {
     const r = strings.billing.rec;
@@ -243,9 +246,10 @@ export function usePaymentRecorder(api: ApiLike, target: RecordTarget): PaymentR
     const [attempted, setAttempted] = useState(false);
     const [done, setDone] = useState<PaymentDone | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
-    const keyRef = useRef<Attempt | null>(null);
+    const keyRef = useRef<Attempt | null>(unconfirmed.get(target.invoiceId) ?? null);
     const resetKey = (): void => {
         keyRef.current = null;
+        unconfirmed.delete(target.invoiceId);
     };
 
     // the server's balance after a payment, until the replica reaches it
@@ -299,15 +303,23 @@ export function usePaymentRecorder(api: ApiLike, target: RecordTarget): PaymentR
             payment_method_id: method === "saved_card" ? card?.id : null,
             send_receipt: sendReceipt && target.clientPhone !== null,
         };
-        const key = attemptKey(keyRef, [target.invoiceId, body]);
+        // the replica's balance moves once a lost payment lands, so a later identical one is new
+        const key = attemptKey(keyRef, [target.invoiceId, target.balanceCents, body]);
         run(
             async () => {
-                const res = await api.post<{ status: string; balance_cents: number }>(
-                    `/v1/invoices/${target.invoiceId}/payments`,
-                    body,
-                    { idempotencyKey: key },
-                );
-                keyRef.current = null;
+                const res = await api
+                    .post<{ status: string; balance_cents: number }>(
+                        `/v1/invoices/${target.invoiceId}/payments`,
+                        body,
+                        { idempotencyKey: key },
+                    )
+                    .catch((e: unknown) => {
+                        if (isConnectionFailure(e) && keyRef.current !== null)
+                            unconfirmed.set(target.invoiceId, keyRef.current);
+                        else resetKey();
+                        throw e;
+                    });
+                resetKey();
                 const before = target.balanceCents;
                 expectArrival(
                     invoiceBalanceKey(target.invoiceId),
@@ -338,7 +350,10 @@ export function usePaymentRecorder(api: ApiLike, target: RecordTarget): PaymentR
                     lines.push(r.receiptSent(formatPhone(target.clientPhone)));
                 setDone({ title: r.doneTitle, lines, paidInFull: res.balance_cents === 0 });
             },
-            { errorMessage: (e) => failureMessage(e, r.error) },
+            {
+                errorMessage: (e) =>
+                    isConnectionFailure(e) ? r.unconfirmed : failureMessage(e, r.error),
+            },
         );
     };
 
@@ -348,18 +363,15 @@ export function usePaymentRecorder(api: ApiLike, target: RecordTarget): PaymentR
         methods,
         method,
         setMethod: (k) => {
-            resetKey();
             setError(null);
             setMethodState(k);
         },
         amountMode,
         setAmountMode: (m) => {
-            resetKey();
             setAmountModeState(m);
         },
         amount,
         setAmount: (v) => {
-            resetKey();
             setAmountState(v);
         },
         balanceCents,
@@ -368,7 +380,6 @@ export function usePaymentRecorder(api: ApiLike, target: RecordTarget): PaymentR
         changeCents,
         reference,
         setReference: (v) => {
-            resetKey();
             setReference(v);
         },
         receivedOn,

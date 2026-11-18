@@ -55,7 +55,7 @@ type Overlay = "record" | "pdf" | "menu" | null;
 /** An invoice over the current screen: its details, payments, actions and the printed copy. */
 export function InvoicePanel({ id, onClose }: { id: string; onClose: () => void }) {
     const rec = useInvoiceRecord(id, payUrl);
-    const act = useInvoiceActions(api);
+    const act = useInvoiceActions(api, rec?.status ?? null);
     const letterhead = useLetterhead(apiBaseUrl);
     const [overlay, setOverlay] = useState<Overlay>(null);
     const openLink = useOpenLink();

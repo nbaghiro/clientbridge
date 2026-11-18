@@ -47,7 +47,7 @@ const s = strings.billing;
 /** An invoice over the current page: its details, payments, actions and the printed copy. */
 export function InvoicePanel({ id, onClose }: { id: string; onClose: () => void }) {
     const rec = useInvoiceRecord(id, config.payUrl);
-    const act = useInvoiceActions(api);
+    const act = useInvoiceActions(api, rec?.status ?? null);
     const role = useRole();
     const letterhead = useLetterhead(apiBaseUrl);
     const [recording, setRecording] = useState(false);

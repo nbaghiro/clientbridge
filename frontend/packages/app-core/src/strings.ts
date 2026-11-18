@@ -129,6 +129,7 @@ interface Strings {
         readonly visitSettled: string;
         readonly coverBeforeStart: string;
         readonly visitCovered: string;
+        readonly visitSold: string;
         readonly visitAlreadyCovered: string;
         readonly visitDepositPaid: string;
         readonly serviceNotOffered: string;
@@ -459,6 +460,7 @@ interface Strings {
             readonly tenderedShort: string;
             readonly dateInvalid: string;
             readonly error: string;
+            readonly unconfirmed: string;
             readonly doneTitle: string;
             readonly cardTitle: string;
             readonly cardBody: string;

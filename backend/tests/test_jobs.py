@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from types import FunctionType
 from typing import cast
 
+import httpx
 import pytest
 from arq.cron import CronJob
 from sqlalchemy import select
@@ -12,23 +13,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge import services
 from clientbridge.core.ids import new_id
+from clientbridge.integrations.twilio import Sms
 from clientbridge.models.billing import Estimate, Invoice
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import GiftCard, Item, Package
 from clientbridge.models.clients import Client
+from clientbridge.models.messaging import Delivery
 from clientbridge.models.platform import Device
 from clientbridge.models.reviews import ReviewRequest
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services import ledger
 from clientbridge.services.billing import estimate_status, run_overdue_sweep, sweep_overdue
+from clientbridge.services.deliveries import send_queued
 from clientbridge.services.entitlements import run_expiry_sweeps
 from clientbridge.services.ledger import Leg
 from clientbridge.services.notifications import Notifier, run_prune_devices
 from clientbridge.services.reviews import build_review_request, run_review_requests
 from clientbridge.tasks.worker import WorkerSettings
 from tests.conftest import (
-    DownEmailSender,
-    DownSmsSender,
     Factory,
     FakeEmailSender,
     FakePushSender,
@@ -44,6 +46,11 @@ NOW = datetime(2020, 1, 1, tzinfo=UTC)
 # daily client messages go out at a local hour; the seed business is in Vancouver (UTC-8)
 OVERDUE_AT = datetime(2020, 1, 1, 15, tzinfo=UTC)
 REVIEWS_AT = datetime(2020, 1, 1, 16, tzinfo=UTC)
+
+
+class _OfflineSmsSender(FakeSmsSender):
+    async def send(self, sms: Sms) -> str | None:
+        raise httpx.ConnectError("carrier unreachable")
 
 
 def _notifier(email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender) -> Notifier:
@@ -75,7 +82,8 @@ async def test_overdue_sweep_flags_and_notifies(
     overdue_id = await sent_invoice(db, client=cid, due_at=NOW - timedelta(days=5))
     current_id = await sent_invoice(db, client=cid, due_at=NOW + timedelta(days=5))
 
-    swept = await run_overdue_sweep(db, _notifier(email, sms, push), OVERDUE_AT)
+    swept = await run_overdue_sweep(db, OVERDUE_AT)
+    await send_queued(db, email, sms, push)
 
     assert swept == 1
     assert await _status(db, Invoice, overdue_id) == "overdue"
@@ -87,12 +95,10 @@ async def test_overdue_sweep_is_idempotent(
     db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
 ) -> None:
     cid = await client_id(db)
-    await sent_invoice(db, client=cid, due_at=NOW - timedelta(days=5))
-    notifier = _notifier(email, sms, push)
-    assert await run_overdue_sweep(db, notifier, OVERDUE_AT) == 1
-    assert (
-        await run_overdue_sweep(db, notifier, OVERDUE_AT) == 0
-    )  # the transition is the dedup marker
+    invoice_id = await sent_invoice(db, client=cid, due_at=NOW - timedelta(days=5))
+    assert await run_overdue_sweep(db, OVERDUE_AT) == 1
+    assert await run_overdue_sweep(db, OVERDUE_AT) == 0  # the transition is the dedup marker
+    assert len(await queued_subjects(db, f"invoice-overdue:{invoice_id}")) == 1
 
 
 async def test_an_overdue_sweep_for_one_invoice_leaves_the_others(
@@ -101,25 +107,25 @@ async def test_an_overdue_sweep_for_one_invoice_leaves_the_others(
     cid = await client_id(db)
     chosen = await sent_invoice(db, client=cid, due_at=NOW - timedelta(days=5))
     other = await sent_invoice(db, client=cid, due_at=NOW - timedelta(days=5))
-    notifier = _notifier(email, sms, push)
-    assert await sweep_overdue(db, notifier, BIZ, OVERDUE_AT, invoice_id=chosen) == 1
+    assert await sweep_overdue(db, BIZ, OVERDUE_AT, invoice_id=chosen) == 1
     assert await _status(db, Invoice, chosen) == "overdue"
     assert await _status(db, Invoice, other) == "sent"
 
 
-async def test_a_failed_overdue_notice_is_sent_on_a_later_morning(
-    db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
+async def test_an_invoice_is_overdue_while_its_notice_waits_out_a_carrier_outage(
+    db: AsyncSession, email: FakeEmailSender, push: FakePushSender
 ) -> None:
     cid = await client_id(db)
     invoice_id = await sent_invoice(db, client=cid, due_at=NOW - timedelta(days=5))
-    down = Notifier(DownEmailSender(), DownSmsSender(), push)
-    assert await run_overdue_sweep(db, down, OVERDUE_AT) == 0
-    invoice = await db.get(Invoice, invoice_id, populate_existing=True)
-    assert invoice is not None and invoice.overdue_notified_at is None
+    assert await run_overdue_sweep(db, OVERDUE_AT) == 1
+    assert await send_queued(db, email, _OfflineSmsSender(), push) == 0
 
-    next_morning = OVERDUE_AT + timedelta(days=1)
-    assert await run_overdue_sweep(db, _notifier(email, sms, push), next_morning) == 1
-    assert any(m.to == "+16045550223" for m in sms.sent)
+    assert await _status(db, Invoice, invoice_id) == "overdue"
+    delivery = await db.scalar(
+        select(Delivery).where(Delivery.key.startswith(f"invoice-overdue:{invoice_id}:"))
+    )
+    assert delivery is not None and delivery.state == "queued"  # retried by the deliveries job
+    assert await run_overdue_sweep(db, OVERDUE_AT + timedelta(days=1)) == 0
 
 
 async def test_overdue_sweep_waits_for_each_business_morning(
@@ -136,11 +142,10 @@ async def test_overdue_sweep_waits_for_each_business_morning(
     inv = await sent_invoice(
         db, client=client.id, due_at=NOW - timedelta(days=5), business_id=eastern.id
     )
-    notifier = _notifier(email, sms, push)
 
-    assert await run_overdue_sweep(db, notifier, OVERDUE_AT) == 0  # 11 a.m. in Halifax
+    assert await run_overdue_sweep(db, OVERDUE_AT) == 0  # 11 a.m. in Halifax
     assert await _status(db, Invoice, inv) == "sent"
-    assert await run_overdue_sweep(db, notifier, datetime(2020, 1, 1, 11, tzinfo=UTC)) == 1
+    assert await run_overdue_sweep(db, datetime(2020, 1, 1, 11, tzinfo=UTC)) == 1
     assert await _status(db, Invoice, inv) == "overdue"
 
 
@@ -177,14 +182,13 @@ async def test_overdue_sweep_is_multi_tenant(
         db, client=client_b.id, due_at=NOW - timedelta(days=5), business_id=other.id
     )
 
-    swept = await run_overdue_sweep(db, _notifier(email, sms, push), OVERDUE_AT)
+    swept = await run_overdue_sweep(db, OVERDUE_AT)
 
     assert swept == 2  # the single scan resolved both tenants' rows, not just the seeded one
     assert await _status(db, Invoice, inv_a) == "overdue"
     assert await _status(db, Invoice, inv_b) == "overdue"
-    recipients = {m.to for m in sms.sent}
-    assert "+16045550151" in recipients
-    assert "+16045550152" in recipients
+    for invoice_id in (inv_a, inv_b):
+        assert len(await queued_subjects(db, f"invoice-overdue:{invoice_id}")) == 1
 
 
 async def test_prune_stale_devices(db: AsyncSession) -> None:

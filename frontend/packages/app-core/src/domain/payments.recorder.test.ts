@@ -64,3 +64,101 @@ describe("recording part of an invoice in cash", () => {
         expect(result.current.amountCents).toBe(3000);
     });
 });
+
+describe("a payment whose answer was lost", () => {
+    const wrapper = ({ children }: { children: ReactNode }) =>
+        createElement(BusinessZoneContext.Provider, { value: "America/Vancouver" }, children);
+    const partInCash = (recorder: { current: ReturnType<typeof usePaymentRecorder> }): void => {
+        act(() => {
+            recorder.current.setAmountMode("part");
+            recorder.current.setAmount("15");
+        });
+        act(() => {
+            recorder.current.submit();
+        });
+    };
+
+    it("says it may have gone through, and a retry after reopening sends the same key", async () => {
+        const keys: (string | undefined)[] = [];
+        const api: ApiLike = {
+            ...recordingApi(),
+            post: <T>(_path: string, _body: unknown, opts?: { idempotencyKey?: string }) => {
+                keys.push(opts?.idempotencyKey);
+                return keys.length === 1
+                    ? Promise.reject(new TypeError("Failed to fetch"))
+                    : Promise.resolve({ status: "succeeded", balance_cents: 3500 } as T);
+            },
+        };
+        const target = { ...TARGET, invoiceId: "inv_lost" };
+        const first = renderHook(() => usePaymentRecorder(api, target), { wrapper });
+        partInCash(first.result);
+        await waitFor(() => {
+            expect(first.result.current.error).toBe(r.unconfirmed);
+        });
+        first.unmount();
+
+        const reopened = renderHook(() => usePaymentRecorder(api, target), { wrapper });
+        partInCash(reopened.result);
+        await waitFor(() => {
+            expect(reopened.result.current.done).not.toBeNull();
+        });
+        expect(keys).toHaveLength(2);
+        expect(keys[1]).toBe(keys[0]);
+    });
+
+    it("sends a fresh key for the same details once the lost payment reaches the replica", async () => {
+        const keys: (string | undefined)[] = [];
+        const api: ApiLike = {
+            ...recordingApi(),
+            post: <T>(_path: string, _body: unknown, opts?: { idempotencyKey?: string }) => {
+                keys.push(opts?.idempotencyKey);
+                return keys.length === 1
+                    ? Promise.reject(new TypeError("Failed to fetch"))
+                    : Promise.resolve({ status: "succeeded", balance_cents: 2000 } as T);
+            },
+        };
+        const target = { ...TARGET, invoiceId: "inv_landed" };
+        const first = renderHook(() => usePaymentRecorder(api, target), { wrapper });
+        partInCash(first.result);
+        await waitFor(() => {
+            expect(first.result.current.error).toBe(r.unconfirmed);
+        });
+        first.unmount();
+
+        const landed = { ...target, balanceCents: 3500 };
+        const second = renderHook(() => usePaymentRecorder(api, landed), { wrapper });
+        partInCash(second.result);
+        await waitFor(() => {
+            expect(second.result.current.done).not.toBeNull();
+        });
+        expect(keys).toHaveLength(2);
+        expect(keys[1]).not.toBe(keys[0]);
+    });
+
+    it("starts a fresh attempt after the server refused one", async () => {
+        const keys: (string | undefined)[] = [];
+        const refused = Object.assign(new Error("POST → 409"), { status: 409, code: null });
+        const api: ApiLike = {
+            ...recordingApi(),
+            post: <T>(_path: string, _body: unknown, opts?: { idempotencyKey?: string }) => {
+                keys.push(opts?.idempotencyKey);
+                return keys.length === 1
+                    ? Promise.reject(refused)
+                    : Promise.resolve({ status: "succeeded", balance_cents: 3500 } as T);
+            },
+        };
+        const target = { ...TARGET, invoiceId: "inv_refused" };
+        const { result } = renderHook(() => usePaymentRecorder(api, target), { wrapper });
+        partInCash(result);
+        await waitFor(() => {
+            expect(result.current.error).toBe(r.error);
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(result.current.done).not.toBeNull();
+        });
+        expect(keys[1]).not.toBe(keys[0]);
+    });
+});

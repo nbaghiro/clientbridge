@@ -158,6 +158,7 @@ const FAILURES: Record<string, (detail: FailureDetail) => string> = {
     cover_before_start: () => strings.api.coverBeforeStart,
     visit_covered: () => strings.api.visitCovered,
     visit_already_covered: () => strings.api.visitAlreadyCovered,
+    visit_sold: () => strings.api.visitSold,
     visit_deposit_paid: () => strings.api.visitDepositPaid,
     visit_unpaid: () => strings.api.visitUnpaid,
     program_full: () => strings.api.programFull,

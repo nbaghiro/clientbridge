@@ -54,6 +54,7 @@ from clientbridge.models.scheduling import Booking, Recurrence, Slot
 from clientbridge.services import ledger
 from clientbridge.services.billing import sweep_overdue
 from clientbridge.services.bookings import settle_deposit
+from clientbridge.services.deliveries import send_queued
 from clientbridge.services.entitlements import run_expiry_sweeps
 from clientbridge.services.forms import run_intake_forms
 from clientbridge.services.messaging import run_due_broadcasts
@@ -211,9 +212,9 @@ async def overdue_sweep(invoice_id: str) -> dict[str, object]:
     business_id = run_id(FIXTURE_BUSINESS)
     if business_id == FIXTURE_BUSINESS:
         raise RuntimeError("only a run's own business")
-    notifier = Notifier(get_email_sender(), get_sms_sender(), get_push_sender())
     async with SessionLocal() as db:
-        swept = await sweep_overdue(db, notifier, business_id, clock.now(), invoice_id=invoice_id)
+        swept = await sweep_overdue(db, business_id, clock.now(), invoice_id=invoice_id)
+        await send_queued(db, get_email_sender(), get_sms_sender(), get_push_sender())
         return {"swept": swept}
 
 
