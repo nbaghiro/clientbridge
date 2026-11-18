@@ -347,8 +347,11 @@ async def test_a_visit_is_billed_on_a_sale_or_an_invoice_not_both(
     on_sale = await _visit(db)
     await _sell(as_owner, on_sale)
     line = {"description": "Visit", "unit_amount_cents": 5000, "booking_id": on_sale.id}
-    body = {"client_id": on_sale.client_id, "lines": [line], "send": True}
-    assert (await as_owner.post("/v1/invoices", json=body)).status_code == 409
+    client_id = on_sale.client_id
+    for send in (True, False):
+        body = {"client_id": client_id, "lines": [line], "send": send}
+        refused = await as_owner.post("/v1/invoices", json=body)
+        assert refused.status_code == 409 and refused.json()["error"] == "visit_sold"
     invoiced = await _visit(db, starts_at=VISIT + timedelta(hours=3))
     await _invoice(as_owner, invoiced)
     line = {"description": "Visit", "unit_amount_cents": 5000, "booking_id": invoiced.id}

@@ -95,6 +95,8 @@ class BillingService:
             lines = await self._replace_lines("invoice", invoice, data.lines)
             await self._apply_totals(invoice, lines)
             await self.db.flush()
+            for booking in await invoice_bookings(self.db, invoice):
+                await assert_unsold(self.db, booking)
             cmd.record("invoice.create", entity_type="invoice", entity_id=invoice.id)
             if data.send:
                 if not lines:

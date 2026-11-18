@@ -150,21 +150,25 @@ test.describe(() => {
             const keys: (string | undefined)[] = [];
             await page.route(`**/v1/invoices/${invoice.id}/payments`, async (route) => {
                 keys.push(route.request().headers()["idempotency-key"]);
-                const committed = await route.fetch();
-                expect(committed.status()).toBe(201);
-                if (keys.length === 1) await route.abort("connectionreset");
-                else await route.fulfill({ response: committed });
+                if (keys.length === 1) {
+                    await route.abort("connectionreset");
+                    return;
+                }
+                // the lost attempt lands only now, so the replica can't move the balance before the retry
+                const lost = await page.request.fetch(route.request());
+                expect(lost.status()).toBe(201);
+                const replayed = await route.fetch();
+                expect(replayed.status()).toBe(201);
+                await route.fulfill({ response: replayed });
             });
             const submit = page.getByRole("button", {
                 name: strings.billing.rec.record("$4.00"),
                 exact: true,
             });
             await submit.click();
-            await expect(page.getByText(strings.billing.rec.error, { exact: true })).toBeVisible();
-            const before = await paymentEvidence(invoice.id);
-            expect(before.deliveries).toEqual([{ id: expect.any(String), state: "accepted" }]);
-            expect(before.payments).toHaveLength(1);
-            expect(before.payments[0]?.amount_cents).toBe(400);
+            await expect(
+                page.getByText(strings.billing.rec.unconfirmed, { exact: true }),
+            ).toBeVisible();
             await submit.click();
             await expect(
                 page.getByText(strings.billing.rec.doneTitle, { exact: true }),
@@ -173,7 +177,9 @@ test.describe(() => {
             expect(keys[0]).toBeTruthy();
             expect(keys[1]).toBe(keys[0]);
             const after = await paymentEvidence(invoice.id);
-            expect(after).toEqual(before);
+            expect(after.deliveries).toEqual([{ id: expect.any(String), state: "accepted" }]);
+            expect(after.payments).toHaveLength(1);
+            expect(after.payments[0]?.amount_cents).toBe(400);
             expect(
                 after.entries
                     .filter((entry) => entry.category === "receivable")

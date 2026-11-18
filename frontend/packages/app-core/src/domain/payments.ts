@@ -303,7 +303,8 @@ export function usePaymentRecorder(api: ApiLike, target: RecordTarget): PaymentR
             payment_method_id: method === "saved_card" ? card?.id : null,
             send_receipt: sendReceipt && target.clientPhone !== null,
         };
-        const key = attemptKey(keyRef, [target.invoiceId, body]);
+        // the replica's balance moves once a lost payment lands, so a later identical one is new
+        const key = attemptKey(keyRef, [target.invoiceId, target.balanceCents, body]);
         run(
             async () => {
                 const res = await api
