@@ -606,6 +606,29 @@ export function TagSheet({ sel, onClose }: { sel: ClientSelection; onClose: () =
                     </Button>
                 }
             />
+            {/* above the list, so the field stays in view while the keyboard is up */}
+            <View style={styles.newTag}>
+                <View style={styles.grow}>
+                    <TextField
+                        size="sm"
+                        name={t.newTag}
+                        placeholder={t.newTag}
+                        value={draft}
+                        maxLength={CLIENT_TAG_MAX}
+                        onChange={setDraft}
+                        onSubmit={add}
+                    />
+                </View>
+                <Button
+                    style={{ alignSelf: "center" }}
+                    size="sm"
+                    variant="outline"
+                    disabled={draft.trim() === ""}
+                    onPress={add}
+                >
+                    {strings.clients.addShort}
+                </Button>
+            </View>
             {sel.tagState.map((tag) => {
                 const pending = sel.pendingTags[tag.tag];
                 const on = pending ?? tag.on === n;
@@ -632,28 +655,6 @@ export function TagSheet({ sel, onClose }: { sel: ClientSelection; onClose: () =
                     </View>
                 );
             })}
-            <View style={styles.newTag}>
-                <View style={styles.grow}>
-                    <TextField
-                        size="sm"
-                        name={t.newTag}
-                        placeholder={t.newTag}
-                        value={draft}
-                        maxLength={CLIENT_TAG_MAX}
-                        onChange={setDraft}
-                        onSubmit={add}
-                    />
-                </View>
-                <Button
-                    style={{ alignSelf: "center" }}
-                    size="sm"
-                    variant="outline"
-                    disabled={draft.trim() === ""}
-                    onPress={add}
-                >
-                    {strings.clients.addShort}
-                </Button>
-            </View>
             {sel.error !== null ? <Notice tone="danger">{sel.error}</Notice> : null}
         </Modal>
     );
@@ -727,5 +728,5 @@ const styles = StyleSheet.create({
         borderBottomColor: c.borderSoft,
     },
     grow: { flex: 1, minWidth: 0 },
-    newTag: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 14 },
+    newTag: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 },
 });
