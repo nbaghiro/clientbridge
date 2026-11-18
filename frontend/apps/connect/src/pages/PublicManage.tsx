@@ -444,7 +444,7 @@ function BookingFacts({ mg }: { mg: ManageBookingFlow }) {
     if (v === null) return null;
     const what = formatParts([
         v.service.name,
-        v.service.duration_min !== null ? durationLabel(v.service.duration_min) : null,
+        mg.visitMinutes !== null ? durationLabel(mg.visitMinutes) : null,
     ]);
     const facts: Fact[] = [
         { key: "when", icon: "calendar", title: mg.whenTitle, detail: mg.timeRange },
@@ -535,9 +535,7 @@ function MovePicker({ mg }: { mg: ManageBookingFlow }) {
                 <p className="mt-1 text-sm text-muted">
                     {s.moveHint(
                         (v.staff.name ?? "").split(" ")[0] ?? "",
-                        v.service.duration_min !== null
-                            ? durationLabel(v.service.duration_min)
-                            : "",
+                        mg.visitMinutes !== null ? durationLabel(mg.visitMinutes) : "",
                     )}
                 </p>
             </div>

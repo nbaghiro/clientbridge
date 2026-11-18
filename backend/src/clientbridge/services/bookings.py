@@ -27,7 +27,7 @@ from clientbridge.core.locale import locale_for, message
 from clientbridge.core.scoping import scoped, scoped_update
 from clientbridge.core.zones import zone
 from clientbridge.integrations.stripe import PaymentGateway
-from clientbridge.models.billing import Estimate, Invoice, Line
+from clientbridge.models.billing import Estimate, Invoice, Line, Order
 from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client, Note, Subject
@@ -1525,7 +1525,6 @@ class BookingService:
         """Add a product to a visit before it is invoiced; its minutes lengthen the visit."""
         booking = await self._booking(booking_id)
         self._assert_can_act_as(booking.staff_id)
-        self._assert_open_for_addons(booking)
         product = await self._item(data.item_id)
         if product.kind != "product":
             raise NotFound("product not found")
@@ -1534,6 +1533,9 @@ class BookingService:
         slot = await self._slot(booking.slot_id)
 
         async def run(cmd: Command) -> BookingOut:
+            # under the lock, so an invoice made meanwhile refuses the add-on instead of missing it
+            await self._lock_visit(booking, slot)
+            await self._assert_open_for_addons(booking)
             await self._lengthen(booking, slot, (product.duration_min or 0) * data.quantity)
             self.db.add(
                 Addon(
@@ -1571,8 +1573,7 @@ class BookingService:
 
         async def run(cmd: Command) -> BookingOut:
             await self._lock_visit(booking, slot)
-            if booking.invoice_id is not None:
-                raise Conflict(_INVOICED)
+            await self._assert_open_for_addons(booking)
             addon = (
                 await self.db.execute(
                     scoped(Addon, self.biz)
@@ -1744,19 +1745,19 @@ class BookingService:
             and is_manager(self.principal.role),
         )
 
-    def _assert_open_for_addons(self, booking: Booking) -> None:
+    async def _assert_open_for_addons(self, booking: Booking) -> None:
         if booking.invoice_id is not None:
-            raise Conflict(_INVOICED)
+            raise Conflict(_INVOICED, code="visit_invoiced")
+        sale = await self.db.get(Order, booking.order_id) if booking.order_id else None
+        if sale is not None and sale.status != "void":
+            raise Conflict("this visit is already on a sale", code="visit_sold")
         if booking.status in ("canceled", "no_show", "waitlisted"):
             raise Conflict(f"a {booking.status} booking can't take an add-on")
 
     async def _lengthen(self, booking: Booking, slot: Slot, minutes: int) -> None:
-        """Resize a live one-to-one visit by an add-on's minutes, refused when the time is taken."""
-        if minutes == 0 or slot.capacity > 1:
+        """Resize a locked visit by an add-on's minutes; a completed visit stays as it ran."""
+        if minutes == 0 or slot.capacity > 1 or booking.status == "completed":
             return
-        await self._lock_visit(booking, slot)
-        if booking.status not in ("pending", "confirmed"):
-            raise Conflict(f"a {booking.status} booking can't be modified")
         item = await self._item(slot.item_id, require_active=False)
         ends_at = slot.ends_at + timedelta(minutes=minutes)
         if minutes < 0:

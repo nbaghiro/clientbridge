@@ -66,6 +66,7 @@ const visit = {
     cover_package_id: null,
     cover_subscription_id: null,
     other_subject_names: "[]",
+    addons: "[]",
 };
 
 const replica: Record<string, unknown[]> = {
@@ -80,6 +81,22 @@ const replica: Record<string, unknown[]> = {
         },
         { ...visit, booking_id: "bk_sibling", other_subject_names: '["Ace","Pip"]' },
         { ...visit, booking_id: "bk_one", other_subject_names: '["Pip"]' },
+        {
+            ...visit,
+            booking_id: "bk_extras",
+            staff_id: "st_owner",
+            addons: JSON.stringify([
+                {
+                    item_id: "it_oven",
+                    description: "Inside the oven",
+                    quantity: 2,
+                    unit_amount_cents: 4500,
+                    staff_id: null,
+                    tax_class: "standard",
+                    color: "#abc",
+                },
+            ]),
+        },
         {
             ...visit,
             booking_id: "bk_own",
@@ -213,6 +230,27 @@ describe("a refund from the sale record", () => {
         actions.result.current.run(detail, "refund");
         expect(onRefund).toHaveBeenCalledWith("pay_cash");
         expect(confirm).not.toHaveBeenCalled();
+    });
+});
+
+describe("a visit in the desk queue", () => {
+    it("prices the visit with its add-ons and carries them as ticket lines", () => {
+        const { result } = renderHook(() => useCheckoutQueue());
+        const extras = result.current.visits.find((v) => v.bookingId === "bk_extras");
+        expect(extras?.priceCents).toBe(4500 + 2 * 4500);
+        expect(extras?.addonLines).toEqual([
+            expect.objectContaining({
+                itemId: "it_oven",
+                kind: "product",
+                description: "Inside the oven",
+                quantity: 2,
+                unitAmountCents: 4500,
+                staffId: "st_owner",
+                bookingId: "bk_extras",
+                color: "#abc",
+            }),
+        ]);
+        expect(result.current.visits.find((v) => v.bookingId === "bk_one")?.addonLines).toEqual([]);
     });
 });
 

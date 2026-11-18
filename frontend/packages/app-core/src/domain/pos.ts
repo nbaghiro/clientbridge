@@ -1387,7 +1387,7 @@ export function useSale(
         },
         addVisit: (visit) => {
             if (lines.some((l) => l.bookingId === visit.bookingId)) return;
-            edit((ls) => [...ls, visit.line]);
+            edit((ls) => [...ls, visit.line, ...visit.addonLines]);
             if (clientId === null) {
                 clientChosen.current = true;
                 setClientIdState(visit.clientId);
@@ -1405,11 +1405,14 @@ export function useSale(
         },
         removeLine: (key) => {
             const gone = lines.find((l) => l.key === key);
-            edit((ls) => ls.filter((l) => l.key !== key));
-            const bookingId = gone?.bookingId ?? null;
-            if (bookingId !== null)
+            // the visit's own line takes its add-ons and deposit off the ticket with it
+            const visit = gone?.kind === "product" ? null : (gone?.bookingId ?? null);
+            edit((ls) =>
+                ls.filter((l) => l.key !== key && (visit === null || l.bookingId !== visit)),
+            );
+            if (visit !== null)
                 setDeposits((m) =>
-                    Object.fromEntries(Object.entries(m).filter(([k]) => k !== bookingId)),
+                    Object.fromEntries(Object.entries(m).filter(([k]) => k !== visit)),
                 );
         },
         setLineStaff: (key, staffId) => {
@@ -1742,7 +1745,12 @@ SELECT b.id AS booking_id, b.client_id, c.name AS client_name, b.staff_id, ${sta
             AND (pi.covers_item_id IS NULL OR pi.covers_item_id = s.item_id)
             AND p.subject_id IS NOT b.subject_id
             AND (p.expires_at IS NULL OR ${utcSql("p.expires_at")} > datetime('now'))
-          ORDER BY sj.name)) AS other_subject_names
+          ORDER BY sj.name)) AS other_subject_names,
+       (SELECT json_group_array(json_object('item_id', a.item_id, 'description', a.description,
+          'quantity', a.quantity, 'unit_amount_cents', a.unit_amount_cents, 'staff_id', a.staff_id,
+          'tax_class', ai.tax_class, 'color', ai.color)) FROM (
+          SELECT * FROM addons WHERE booking_id = b.id ORDER BY created_at, id) a
+          LEFT JOIN items ai ON ai.id = a.item_id) AS addons
 FROM bookings b JOIN slots s ON s.id = b.slot_id
 LEFT JOIN clients c ON c.id = b.client_id LEFT JOIN items i ON i.id = s.item_id
 LEFT JOIN staff st ON st.id = b.staff_id
@@ -1778,6 +1786,17 @@ interface QueueRow {
     cover_package_id: string | null;
     cover_subscription_id: string | null;
     other_subject_names: string | null;
+    addons: string;
+}
+
+interface QueueAddon {
+    item_id: string;
+    description: string;
+    quantity: number;
+    unit_amount_cents: number;
+    staff_id: string | null;
+    tax_class: string | null;
+    color: string | null;
 }
 
 /** What can settle a started visit instead of a sale: a package session or an included visit. */
@@ -1812,6 +1831,8 @@ export interface CheckoutVisit {
     // why the desk offers no cover: a paid deposit comes first, or the package is another subject's
     coverNote: string | null;
     line: SaleLine;
+    // the visit's add-ons ride on its ticket, so a desk sale bills them with the service
+    addonLines: SaleLine[];
 }
 
 function checkoutVisit(row: QueueRow, now: Date): CheckoutVisit {
@@ -1827,6 +1848,7 @@ function checkoutVisit(row: QueueRow, now: Date): CheckoutVisit {
                 : start <= now
                   ? "inProgress"
                   : "upcoming";
+    const addons = JSON.parse(row.addons) as QueueAddon[];
     const price = row.price_cents ?? row.item_price_cents ?? 0;
     const offered = visitCover(row);
     const held = row.deposit_status === "collected" ? offered : null;
@@ -1837,7 +1859,7 @@ function checkoutVisit(row: QueueRow, now: Date): CheckoutVisit {
         clientId: row.client_id,
         clientName: row.client_name ?? d.walkIn,
         itemName: row.item_name ?? "",
-        priceCents: price,
+        priceCents: addons.reduce((n, a) => n + a.quantity * a.unit_amount_cents, price),
         staffId: row.staff_id,
         staffName:
             row.staff_role === null
@@ -1869,6 +1891,20 @@ function checkoutVisit(row: QueueRow, now: Date): CheckoutVisit {
             imageFileId: null,
             discount: null,
         },
+        addonLines: addons.map((a) => ({
+            key: nextKey(),
+            itemId: a.item_id,
+            kind: "product",
+            description: a.description,
+            unitAmountCents: a.unit_amount_cents,
+            quantity: a.quantity,
+            taxClass: a.tax_class ?? "standard",
+            staffId: a.staff_id ?? row.staff_id,
+            bookingId: row.booking_id,
+            color: a.color,
+            imageFileId: null,
+            discount: null,
+        })),
     };
 }
 

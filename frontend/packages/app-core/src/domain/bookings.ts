@@ -217,7 +217,9 @@ const omitKey = <T>(rec: Record<string, T>, key: string): Record<string, T> =>
 
 export interface ScheduleEvent extends CalendarEvent {
     kind: "visit" | "class";
+    // a visit's price includes its add-ons; a class prices one seat and adds its seats' add-ons here
     priceCents: number;
+    seatAddonsCents: number;
     serviceName: string;
     clientName: string | null;
     subjectName: string | null;
@@ -282,6 +284,8 @@ interface EventRow {
     reschedule_count: number | null;
     rescheduled_at: string | null;
     addon_count: number;
+    addons_cents: number;
+    seat_addons_cents: number;
     note: string | null;
 }
 
@@ -322,6 +326,9 @@ export const requestAtSql = `COALESCE(CASE WHEN b.confirmed_at IS NULL THEN COAL
       AND d.subject_id IS b.subject_id AND d.deleted_at IS NULL AND ${PAID_DEPOSIT}) END) END,
   b.created_at)`;
 
+export const addonsCentsSql = `(SELECT COALESCE(SUM(a.quantity * a.unit_amount_cents), 0)
+          FROM addons a WHERE a.booking_id = b.id)`;
+
 const EVENT_SELECT = `
 SELECT s.id AS slot_id, s.starts_at, s.ends_at, s.staff_id, s.capacity, s.status AS slot_status,
        s.recurrence_id, s.resource_id,
@@ -336,6 +343,10 @@ SELECT s.id AS slot_id, s.starts_at, s.ends_at, s.staff_id, s.capacity, s.status
        b.price_cents AS booking_price, b.departed_at, b.checked_in_at, b.created_at AS booked_at,
        b.reminded_at, b.reschedule_count, b.rescheduled_at,
        (SELECT COUNT(*) FROM addons a WHERE a.booking_id = b.id) AS addon_count,
+       ${addonsCentsSql} AS addons_cents,
+       (SELECT COALESCE(SUM(a.quantity * a.unit_amount_cents), 0) FROM addons a
+          JOIN bookings x ON x.id = a.booking_id WHERE s.capacity > 1 AND x.slot_id = s.id
+          AND x.status NOT IN ('canceled', 'waitlisted') AND x.deleted_at IS NULL) AS seat_addons_cents,
        (SELECT n.body FROM notes n WHERE n.parent_type = 'booking' AND n.parent_id = b.id
           ORDER BY n.created_at LIMIT 1) AS note
 FROM slots s
@@ -387,7 +398,8 @@ function enrich(r: EventRow, staff: Map<string, StaffRow>, now: Date, zone: stri
         itemStaffIds: idList(r.item_staff_ids),
         resourceId: r.resource_id,
         itemResourceIds: idList(r.item_resource_ids),
-        priceCents: isClass ? r.item_price : (r.booking_price ?? r.item_price),
+        priceCents: isClass ? r.item_price : (r.booking_price ?? r.item_price) + r.addons_cents,
+        seatAddonsCents: isClass ? r.seat_addons_cents : 0,
         serviceName: r.item_name,
         clientName: r.client_name,
         subjectName: r.subject_name,
@@ -1262,7 +1274,7 @@ function summarize(day: DayColumn): DaySummary {
             (sum, e) =>
                 sum +
                 (e.kind === "class"
-                    ? e.priceCents * e.bookedCount
+                    ? e.priceCents * e.bookedCount + e.seatAddonsCents
                     : e.status === "no_show"
                       ? 0
                       : e.priceCents),
@@ -2964,16 +2976,18 @@ export function useBookingAddons(
     const adding = useRef<Attempt | null>(null);
     const removing = useRef<Attempt | null>(null);
     const admin = viewer !== null && canManagePayments(viewer.role);
+    // a visit on a desk sale is billed there, so its add-ons change on the ticket instead
     const open =
-        invoiceId === null && !["canceled", "no_show", "waitlisted"].includes(event.status);
+        invoiceId === null &&
+        billing?.sold !== 1 &&
+        !["canceled", "no_show", "waitlisted"].includes(event.status);
     return {
         addons,
         totalCents: addons.reduce((sum, a) => sum + a.quantity * a.unit_amount_cents, 0),
         invoiceId,
         canEdit: open && (admin || viewer?.staffId === event.staffId),
         // a package or membership settled the service, so only add-ons are left to bill
-        canInvoice:
-            open && admin && billing?.sold !== 1 && (billing?.covered !== 1 || addons.length > 0),
+        canInvoice: open && admin && (billing?.covered !== 1 || addons.length > 0),
         choices: offered
             .filter((x) => {
                 const only = idList(x.addon_for);
@@ -2987,22 +3001,30 @@ export function useBookingAddons(
                     (x.duration_min ?? 0) > 0 ? s.addonAdds(x.duration_min ?? 0) : null,
                 ]),
             })),
+        // a key serves retries of a failed attempt; once one lands the next one is a new command
         add: (itemId) => {
-            const idempotencyKey = attemptKey(adding, { bookingId, itemId, at: addons.length });
+            const idempotencyKey = attemptKey(adding, { bookingId, itemId });
             run(
-                () =>
-                    api.post(
+                async () => {
+                    await api.post(
                         `/v1/bookings/${bookingId}/addons`,
                         { item_id: itemId, quantity: 1 },
                         { idempotencyKey },
-                    ),
+                    );
+                    adding.current = null;
+                },
                 { errorMessage: (e) => failureMessage(e, s.addonAddError) },
             );
         },
         remove: (addonId) => {
             const idempotencyKey = attemptKey(removing, { bookingId, addonId });
             run(
-                () => api.delete(`/v1/bookings/${bookingId}/addons/${addonId}`, { idempotencyKey }),
+                async () => {
+                    await api.delete(`/v1/bookings/${bookingId}/addons/${addonId}`, {
+                        idempotencyKey,
+                    });
+                    removing.current = null;
+                },
                 { errorMessage: (e) => failureMessage(e, s.addonRemoveError) },
             );
         },
@@ -3015,6 +3037,7 @@ export function useBookingAddons(
                         {},
                         { idempotencyKey },
                     );
+                    key.current = null;
                     expectArrival(`visit-invoice:${bookingId}`, (current) => current > 0);
                     openRecord("invoice", invoice.id);
                 },

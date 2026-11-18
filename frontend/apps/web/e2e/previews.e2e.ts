@@ -69,7 +69,7 @@ test("BILL-DOC-04 the send preview shows word for word the invoice and reminder 
     const sendPreview = sending.preview;
     expect(sendPreview.recipient).toBe(client.name);
     expect(sendPreview.text?.to).toBe(client.phone);
-    const promised = /^Invoice #(\d+) for /.exec(sendPreview.text?.body ?? "");
+    const promised = /^Invoice #(\d+) from /.exec(sendPreview.text?.body ?? "");
     expect(promised).not.toBeNull();
     expect((await documentEvidence("invoice", draft.id)).document).toMatchObject({
         status: "draft",

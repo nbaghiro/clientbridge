@@ -772,6 +772,7 @@ export function usePublicBookingFlow(
     const program = (service?.session_count ?? null) !== null;
     const offered = program ? [] : offeredWith(page?.addons ?? [], service?.id ?? null);
     const extraMin = extraMinutes(offered, addons, service?.kind ?? null);
+    const serviceMinutes = service?.duration_min ?? null;
     const firstStep = (id: string): BookingStep =>
         (page?.services.find((x) => x.id === id)?.session_count ?? null) === null &&
         offeredWith(page?.addons ?? [], id).length > 0
@@ -1231,6 +1232,7 @@ export function usePublicBookingFlow(
             });
         },
         addonLines,
+        visitMinutes: serviceMinutes === null ? null : serviceMinutes + extraMin,
         returningToken,
         subjectId,
         setReturning: (identity: { token: string; subjectId: string | null } | null): void => {
@@ -1656,6 +1658,9 @@ export function useManageBooking(
         when: data ? whenLabel(data.starts_at, today, zone) : "",
         whenTitle: data ? whenTitle(data.starts_at, today, zone) : "",
         timeRange: data ? formatTimeRange(start, parseTimestamp(data.ends_at), zone) : "",
+        visitMinutes: data
+            ? Math.round((parseTimestamp(data.ends_at).getTime() - start.getTime()) / 60_000)
+            : null,
         calendar: data
             ? [
                   {

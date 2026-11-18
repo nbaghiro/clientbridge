@@ -451,6 +451,7 @@ it("asks for extras before the time and looks for times long enough for them", a
         "time",
         "details",
     ]);
+    expect(result.current.visitMinutes).toBe(120);
     act(() => {
         result.current.toggleAddon("mount");
     });
@@ -460,6 +461,7 @@ it("asks for extras before the time and looks for times long enough for them", a
             expect.objectContaining({ extraMin: 30 }),
         );
     });
+    expect(result.current.visitMinutes).toBe(150);
     expect(addsLabel(mount)).toBe(s.addsTime(s.minutes(30)));
     expect(extraMinutes([mount], { mount: 2 }, "service")).toBe(60);
     expect(extraMinutes([mount], { mount: 2 }, "class")).toBe(0);
@@ -616,6 +618,18 @@ function manageClient(extra: Record<string, unknown> = {}): Parameters<typeof us
         payDeposit: vi.fn(),
     };
 }
+
+it("gives the managed visit its own length, add-ons included", async () => {
+    const client = manageClient({
+        ends_at: "2026-10-15T18:45:00Z",
+        addons: [{ name: "Oven", quantity: 1, unit_cents: 4500 }],
+    });
+    const { result } = renderHook(() => useManageBooking(client, "token"));
+    await waitFor(() => {
+        expect(result.current.booking).not.toBeNull();
+    });
+    expect(result.current.visitMinutes).toBe(105);
+});
 
 it.each(["days", "slots"])("shows and retries a failed manage %s request", async (failed) => {
     const client = manageClient();

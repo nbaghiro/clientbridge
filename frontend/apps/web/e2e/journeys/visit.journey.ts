@@ -1195,6 +1195,11 @@ test("SCH-E2E-07 an add-on that lengthens the visit narrows the times Connect of
         await expect(offered).toHaveAttribute("aria-pressed", "false");
         await offered.click();
         await expect(offered).toHaveAttribute("aria-pressed", "true");
+        // the visit's summary counts the add-on's minutes, not only the service's
+        const summary = client.getByRole("complementary").filter({
+            has: client.getByRole("heading", { name: b.summary, exact: true }),
+        });
+        await expect(summary.getByText(durationLabel(90), { exact: true })).toBeVisible();
         await client.getByRole("button", { name: b.continue, exact: true }).first().click();
         await client
             .getByRole("group", { name: b.with, exact: true })
@@ -1248,6 +1253,11 @@ test("SCH-E2E-07 an add-on that lengthens the visit narrows the times Connect of
         owned.push(bookingId);
         await expect(
             client.getByRole("heading", { name: b.pendingTitle, exact: true }),
+        ).toBeVisible();
+        const confirmation = client.getByRole("list", { name: b.summary });
+        await expect(confirmation.getByText(durationLabel(90), { exact: true })).toBeVisible();
+        await expect(
+            confirmation.getByText(strings.common.quantityOf(1, mount.name), { exact: true }),
         ).toBeVisible();
 
         const booked = await visitEvidence([booker.phone]);
@@ -1377,6 +1387,230 @@ test("SCH-E2E-07 an add-on that lengthens the visit narrows the times Connect of
     } finally {
         for (const id of owned) await cancelOwnedBooking(page, id);
         await context.close();
+    }
+});
+
+test("SCH-E2E-20 a staff add-on needs room after the visit, removing one never cuts into the service, and a completed or voided visit still takes and bills its add-ons", async ({
+    page,
+}, testInfo) => {
+    test.setTimeout(240_000);
+    const s = strings.bookings;
+    await signIn(page, NORTHLIGHT);
+    // an installer no other journey books, so SCH-E2E-07's hunt for Erik's free hour is undisturbed
+    const member = await teamMember(page, runEmail("ava@northlight.example"));
+    const run = randomUUID().slice(0, 6).toUpperCase();
+    const service = await apiCall<{ id: string; name: string }>(
+        page,
+        "POST",
+        "/v1/items",
+        {
+            kind: "service",
+            name: `Doorbell check ${run}`,
+            duration_min: 60,
+            price_cents: 9000,
+            deposit_type: "none",
+            online_bookable: true,
+        },
+        201,
+    );
+    const wiring = await apiCall<{ id: string; name: string }>(
+        page,
+        "POST",
+        "/v1/items",
+        { kind: "product", name: `Extra wiring run ${run}`, price_cents: 4000, duration_min: 30 },
+        201,
+    );
+    const box = await apiCall<{ id: string; name: string }>(
+        page,
+        "POST",
+        "/v1/items",
+        {
+            kind: "product",
+            name: `Weatherproof junction box with a mounting kit and sealant ${run}`,
+            price_cents: 2500,
+        },
+        201,
+    );
+    await apiCall(
+        page,
+        "PATCH",
+        "/v1/online-booking/addons",
+        {
+            offers: [
+                { id: wiring.id, addon: true, addon_for: [service.id] },
+                { id: box.id, addon: true, addon_for: [service.id] },
+            ],
+        },
+        200,
+    );
+    // a client of its own for each visit, so each panel opens under its own heading
+    const boxedClient = await createClient(page);
+    const roomyClient = await createClient(page);
+    const doneClient = await createClient(page);
+    const fixtureFor = (client: { id: string; name: string; phone: string }): BookingFixture => ({
+        clientId: client.id,
+        clientName: client.name,
+        clientPhone: client.phone,
+        itemId: service.id,
+        itemName: service.name,
+        staffId: member.id,
+        staffName: member.name,
+        zone: ZONE,
+    });
+    const visit = (clientId: string, starts: number) =>
+        page.request.post(`${bookingApi()}/v1/bookings`, {
+            headers: { Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() },
+            data: {
+                client_id: clientId,
+                item_id: service.id,
+                staff_id: member.id,
+                starts_at: new Date(starts).toISOString(),
+                notify: false,
+            },
+        });
+    const book = async (clientId: string, starts: number): Promise<string> => {
+        const response = await visit(clientId, starts);
+        expect(response.status(), await response.text()).toBe(201);
+        return ((await response.json()) as { id: string }).id;
+    };
+    const evidence = () => visitEvidence([boxedClient.id, roomyClient.id, doneClient.id]);
+    const length = async (id: string): Promise<number> => {
+        const booked = (await evidence()).bookings.find((b) => b.id === id);
+        return at(booked?.ends_at ?? "") - at(booked?.starts_at ?? "");
+    };
+    const pick = async (booking: string, name: string, status = 201): Promise<void> => {
+        const posted = page.waitForResponse(
+            (r) =>
+                new URL(r.url()).pathname === `/v1/bookings/${booking}/addons` &&
+                r.request().method() === "POST",
+            { timeout: 30_000 },
+        );
+        // centred first, so the list opens clear of the panel's edge and needs no scrolling itself
+        const field = page.getByRole("combobox", { name: s.addonAdd });
+        await field.evaluate((el) => {
+            el.scrollIntoView({ block: "center" });
+        });
+        await field.click();
+        await page
+            .getByRole("listbox", { name: s.addonAdd })
+            .getByRole("option", { name: new RegExp(`^${name}`) })
+            .click({ timeout: 15_000 });
+        const response = await posted;
+        expect(response.status(), await response.text()).toBe(status);
+    };
+    // a new add-on shows once the replica syncs it, which can lag behind the command under load
+    const row = (name: string) =>
+        page.getByRole("listitem").filter({ hasText: name }).filter({ visible: true });
+    const SYNCED = { timeout: 60_000 };
+    const owned: string[] = [];
+    const drafts: string[] = [];
+    try {
+        // three free hours in a row: the first visit is followed straight away by the second
+        let first = 0;
+        for (let offset = 7; offset < 35 && first === 0; offset++) {
+            const day = dateKey(addDays(new Date(), offset, ZONE), ZONE);
+            const open = new Set(
+                (await slots(page.request, service.id, member.id, day, 0)).map((x) =>
+                    at(x.starts_at),
+                ),
+            );
+            first = [...open].find((t) => open.has(t + 60 * MIN) && open.has(t + 120 * MIN)) ?? 0;
+        }
+        expect(first).not.toBe(0);
+        const boxed = await book(boxedClient.id, first);
+        const roomy = await book(roomyClient.id, first + 60 * MIN);
+        owned.push(boxed, roomy);
+
+        await openBooking(page, fixtureFor(boxedClient), boxed);
+        await pick(boxed, wiring.name, 409);
+        await expect(page.getByText(strings.api.visitNoRoom, { exact: true })).toBeVisible();
+        expect(await length(boxed)).toBe(60 * MIN);
+        expect((await evidence()).addons).toEqual([]);
+
+        await openBooking(page, fixtureFor(roomyClient), roomy);
+        await pick(roomy, wiring.name);
+        await expect(row(wiring.name)).toBeVisible(SYNCED);
+        await expect.poll(() => length(roomy)).toBe(90 * MIN);
+        await pick(roomy, box.name);
+        // a long add-on name wraps rather than hiding behind an ellipsis
+        const named = row(box.name).getByText(box.name, { exact: false });
+        await expect(named).toBeVisible(SYNCED);
+        expect(await named.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+        expect(await length(roomy)).toBe(90 * MIN);
+        // a hand trim to 75 minutes, then dropping the wiring stops at the service's hour
+        await apiCall(
+            page,
+            "PATCH",
+            `/v1/bookings/${roomy}`,
+            { ends_at: new Date(first + 60 * MIN + 75 * MIN).toISOString() },
+            200,
+        );
+        await expect.poll(() => length(roomy)).toBe(75 * MIN);
+        await row(wiring.name).getByRole("button", { name: s.addonRemove, exact: true }).click();
+        await expect(row(wiring.name)).toHaveCount(0, SYNCED);
+        await expect.poll(() => length(roomy)).toBe(60 * MIN);
+        // adding it back is a new command, not a replay of the first add
+        await pick(roomy, wiring.name);
+        await expect(row(wiring.name)).toBeVisible(SYNCED);
+        await expect.poll(() => length(roomy)).toBe(90 * MIN);
+
+        // a visit already done takes the wiring without moving, and its invoice bills it
+        let done = "";
+        let refusal = "";
+        // an hour inside Ava's day a few days back, past whatever the seed booked there
+        for (let n = 0; n < 40 && done === ""; n++) {
+            const day = addDays(new Date(), -2 - Math.floor(n / 5), ZONE);
+            const response = await visit(doneClient.id, day.setUTCHours(17 + (n % 5), 0, 0, 0));
+            if (response.status() === 201) done = ((await response.json()) as { id: string }).id;
+            else refusal = await response.text();
+        }
+        expect(done, refusal).not.toBe("");
+        await apiCall(page, "PATCH", `/v1/bookings/${done}`, { status: "completed" }, 200);
+        await openBooking(page, fixtureFor(doneClient), done);
+        await pick(done, wiring.name);
+        await expect(row(wiring.name)).toBeVisible(SYNCED);
+        expect(await length(done)).toBe(60 * MIN);
+        const invoicing = page.waitForResponse(
+            (r) => new URL(r.url()).pathname === `/v1/invoices/from-booking/${done}`,
+        );
+        await page.getByRole("button", { name: s.invoiceVisit, exact: true }).click();
+        const firstInvoice = (await (await invoicing).json()) as {
+            id: string;
+            lines: { item_id: string | null }[];
+        };
+        expect(firstInvoice.lines.map((l) => l.item_id)).toEqual([service.id, wiring.id]);
+        const draft = page.getByRole("dialog").filter({
+            has: page.getByRole("heading", { name: strings.billing.draftInvoice, exact: true }),
+        });
+        await draft.getByRole("button", { name: strings.common.close, exact: true }).click();
+
+        // voiding that invoice hands the visit back: add-ons change again and it bills anew
+        await apiCall(page, "POST", `/v1/invoices/${firstInvoice.id}/void`, {}, 200);
+        await expect(page.getByRole("button", { name: s.invoiceVisit, exact: true })).toBeVisible(
+            SYNCED,
+        );
+        await expect(page.getByRole("button", { name: s.openInvoice, exact: true })).toHaveCount(0);
+        await pick(done, box.name);
+        await expect(row(box.name)).toBeVisible(SYNCED);
+        const again = page.waitForResponse(
+            (r) => new URL(r.url()).pathname === `/v1/invoices/from-booking/${done}`,
+        );
+        await page.getByRole("button", { name: s.invoiceVisit, exact: true }).click();
+        const second = (await (await again).json()) as {
+            id: string;
+            lines: { item_id: string | null }[];
+        };
+        drafts.push(second.id);
+        expect(second.id).not.toBe(firstInvoice.id);
+        expect(second.lines.map((l) => l.item_id)).toEqual([service.id, wiring.id, box.id]);
+        await testInfo.attach("addon-visits", {
+            body: JSON.stringify(await evidence()),
+            contentType: "application/json",
+        });
+    } finally {
+        // a completed visit can't be canceled, so it stays with its draft voided
+        for (const id of drafts) await apiCall(page, "POST", `/v1/invoices/${id}/void`, {}, 200);
+        for (const id of owned) await cancelOwnedBooking(page, id);
     }
 });
 

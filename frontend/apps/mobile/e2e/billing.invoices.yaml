@@ -78,7 +78,7 @@ onFlowComplete:
       file: helpers/texts.js
       env:
           PHONE: ${output.phone}
-          WORDS: for $50.00 from
+          WORDS: $50.00 to pay
 - assertTrue: ${output.texts == 1}
 # $20 cash first: the invoice is named once, the phone formatted, the new balance shown
 - tapOn: "Record payment"

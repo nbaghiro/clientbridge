@@ -373,7 +373,7 @@
         "message": "A package or membership already covered this visit, so only its add-ons can be invoiced."
     },
     "api.visitSold": {
-        "message": "This visit was already sold at the desk, so it can't be invoiced."
+        "message": "This visit is on a desk sale, so its items and payment are handled there."
     },
     "api.visitAlreadyCovered": {
         "message": "A package or membership already covered this visit."
@@ -386,6 +386,9 @@
     },
     "api.visitNoRoom": {
         "message": "The visit can't run that much longer, because the time after it is booked or outside working hours."
+    },
+    "api.visitInvoiced": {
+        "message": "This visit was just invoiced, so change its items on the invoice instead."
     },
     "api.crewBusy": {
         "message": "That team member is busy then, away or outside their hours. Choose someone else or another time."

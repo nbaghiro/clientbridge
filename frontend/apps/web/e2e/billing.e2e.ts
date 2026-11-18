@@ -630,11 +630,14 @@ test.describe(() => {
                 response.url().endsWith(`/invoices/${draft.id}/send`) &&
                 response.request().method() === "POST",
         );
-        await page
-            .getByRole("dialog")
-            .filter({
-                has: page.getByRole("heading", { name: strings.previews.title, exact: true }),
-            })
+        // the text asks for what is left once the deposit comes off, before and after sending
+        const owed = formatMoney(draft.total_cents - deposit, "CAD");
+        const preview = page.getByRole("dialog").filter({
+            has: page.getByRole("heading", { name: strings.previews.title, exact: true }),
+        });
+        await expect(preview).toContainText(owed);
+        await expect(preview).not.toContainText(formatMoney(draft.total_cents, "CAD"));
+        await preview
             .getByRole("button", { name: strings.billing.sendInvoice, exact: true })
             .click();
         const sentResponse = await sent;
@@ -644,6 +647,11 @@ test.describe(() => {
             total_cents: draft.total_cents,
             balance_cents: draft.total_cents - deposit,
         });
+        await expect
+            .poll(async () => (await textsTo(page.request, client.phone)).map((t) => t.Snippet), {
+                timeout: 90_000,
+            })
+            .toContainEqual(expect.stringContaining(owed));
         const issued = await documentEvidence("invoice", draft.id);
         expect(issued.lines.map((l) => [l.booking_id, l.staff_id])).toEqual(refs);
         expect(issued.bookings).toEqual([
@@ -1299,7 +1307,7 @@ test("BILL-DOC-23 an overdue invoice reaches Today once the overdue sweep runs, 
         expect(await billingAction("overdue-sweep", invoice.id)).toEqual({ swept: 0 });
         const texts = await deliveredTexts(page.request, client.phone);
         expect(texts.map((text) => text.text)).toEqual([
-            expect.stringMatching(new RegExp(`^Invoice #${String(invoice.number)} for `)),
+            expect.stringMatching(new RegExp(`^Invoice #${String(invoice.number)} from `)),
             reminder,
         ]);
     });

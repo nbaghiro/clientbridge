@@ -337,7 +337,7 @@ function Addons({ event }: { event: ScheduleEvent }) {
                     {addons.addons.map((a, i) => (
                         <View key={a.id} style={[styles.cardRow, i > 0 && styles.divider]}>
                             <Icon name="bag" size={15} color={c.muted} />
-                            <Text style={[styles.flex, styles.addon]} numberOfLines={1}>
+                            <Text style={[styles.flex, styles.addon]}>
                                 {strings.common.quantityOf(a.quantity, a.description)}
                             </Text>
                             <Text style={styles.money}>

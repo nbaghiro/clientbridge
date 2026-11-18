@@ -185,8 +185,8 @@ export function PublicBooking() {
                                             {flow.service.name}
                                         </p>
                                         <p className="mt-1 text-xs text-muted">
-                                            {flow.service.duration_min !== null
-                                                ? durationLabel(flow.service.duration_min)
+                                            {flow.visitMinutes !== null
+                                                ? durationLabel(flow.visitMinutes)
                                                 : null}
                                         </p>
                                     </div>

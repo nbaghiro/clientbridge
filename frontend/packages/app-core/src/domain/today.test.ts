@@ -29,6 +29,7 @@ const row = (over: Record<string, unknown>) => ({
     booking_id: "bk_1",
     booking_status: "confirmed",
     price_cents: 7500,
+    addons_cents: 0,
     client_id: "cl_ann",
     client_name: "Ann Lee",
     client_phone: null,
@@ -87,12 +88,17 @@ describe("buildAgenda", () => {
         expect(agenda[1]?.priceCents).toBe(7500);
     });
 
+    it("prices a visit with the add-ons it is billed with", () => {
+        const [visit] = buildAgenda([row({ addons_cents: 4500 })], now, ZONE);
+        expect(visit?.priceCents).toBe(7500 + 4500);
+    });
+
     it("folds a class into one row priced by its seats", () => {
         const seat = { slot_id: "ss_c", capacity: 6, item_kind: "class", item_name: "Puppy class" };
         const agenda = buildAgenda(
             [
                 row({ ...seat, booking_id: "bk_a", price_cents: 3000 }),
-                row({ ...seat, booking_id: "bk_b", price_cents: 3000 }),
+                row({ ...seat, booking_id: "bk_b", price_cents: 3000, addons_cents: 800 }),
             ],
             now,
             ZONE,
@@ -103,7 +109,7 @@ describe("buildAgenda", () => {
             isClass: true,
             clientName: "Puppy class",
             serviceName: "2 of 6 booked",
-            priceCents: 6000,
+            priceCents: 6800,
             bookingId: null,
         });
         const only = agenda[0];

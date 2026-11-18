@@ -2,16 +2,19 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 
 import httpx
+import pytest
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.db import SessionLocal
 from clientbridge.core.deps import Principal
-from clientbridge.core.errors import NotFound
+from clientbridge.core.errors import Conflict, NotFound
+from clientbridge.models.billing import Invoice, Line
 from clientbridge.models.catalog import Item
 from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import Addon, Booking, Slot
 from clientbridge.schemas.bookings import AddonAdd, BookingCreate, BookingOut
+from clientbridge.services.billing import draft_for_booking
 from clientbridge.services.bookings import BookingService, lock_staff
 from tests.conftest import (
     BIZ,
@@ -21,7 +24,7 @@ from tests.conftest import (
     FakePaymentGateway,
     session_token,
 )
-from tests.helpers import client_id, delete_bookings, key, ok
+from tests.helpers import begin, client_id, delete_bookings, key, ok, queued_behind
 
 SLUG = "birchbark"
 TUESDAY = "2026-12-01"
@@ -314,6 +317,78 @@ async def test_a_closed_or_invoiced_visit_takes_no_addon(
         assert await _addons(db, booking_id) == []
 
 
+async def test_a_visit_on_a_desk_sale_takes_its_addons_there_until_the_sale_is_voided(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    booking_id = await _staff_visit(as_owner, db, OPENING, "st_owner")
+    await _add(as_owner, booking_id, BRUSH)
+    [addon_id] = (
+        await db.execute(select(Addon.id).where(Addon.booking_id == booking_id))
+    ).scalars()
+    line = {"description": "Visit", "unit_amount_cents": 4000, "booking_id": booking_id}
+    sale = ok(await as_owner.post("/v1/orders", json={"lines": [line]}), 201).json()
+    added = await as_owner.post(
+        f"/v1/bookings/{booking_id}/addons", json={"item_id": SHAMPOO}, headers=key()
+    )
+    removed = await as_owner.delete(f"/v1/bookings/{booking_id}/addons/{addon_id}", headers=key())
+    for refused in (added, removed):
+        assert refused.status_code == 409 and refused.json()["error"] == "visit_sold"
+    assert await _addons(db, booking_id) == [(BRUSH, 1)]
+    ok(await as_owner.post(f"/v1/orders/{sale['id']}/void"))
+    await _add(as_owner, booking_id, SHAMPOO)
+    assert await _addons(db, booking_id) == [(BRUSH, 1), (SHAMPOO, 1)]
+
+
+async def test_a_completed_visit_takes_and_drops_an_addon_without_moving(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _minutes(db, SHAMPOO, 30)
+    booking_id = await _staff_visit(as_owner, db, OPENING, "st_owner")
+    await begin(db, booking_id)
+    ok(await as_owner.patch(f"/v1/bookings/{booking_id}", json={"status": "completed"}))
+    before = await _slot(db, booking_id)
+    ok(
+        await as_owner.post(
+            f"/v1/bookings/{booking_id}/addons", json={"item_id": SHAMPOO}, headers=key()
+        ),
+        201,
+    )
+    [addon_id] = (
+        await db.execute(select(Addon.id).where(Addon.booking_id == booking_id))
+    ).scalars()
+    assert (await _slot(db, booking_id)).ends_at == before.ends_at
+    ok(await as_owner.delete(f"/v1/bookings/{booking_id}/addons/{addon_id}", headers=key()))
+    assert await _addons(db, booking_id) == []
+    assert (await _slot(db, booking_id)).ends_at == before.ends_at
+    await _add(as_owner, booking_id, SHAMPOO)
+    draft = ok(
+        await as_owner.post(f"/v1/invoices/from-booking/{booking_id}", headers=key()), 201
+    ).json()
+    assert [ln["item_id"] for ln in draft["lines"]] == [GROOM, SHAMPOO]
+
+
+async def test_a_voided_visit_invoice_hands_the_visit_back_for_its_addons(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    booking_id = await _staff_visit(as_owner, db, OPENING, "st_owner")
+    first = ok(
+        await as_owner.post(f"/v1/invoices/from-booking/{booking_id}", headers=key()), 201
+    ).json()
+    refused = await as_owner.post(
+        f"/v1/bookings/{booking_id}/addons", json={"item_id": BRUSH}, headers=key()
+    )
+    assert refused.status_code == 409 and refused.json()["error"] == "visit_invoiced"
+    ok(await as_owner.post(f"/v1/invoices/{first['id']}/void"))
+    visit = await db.get(Booking, booking_id, populate_existing=True)
+    assert visit is not None and visit.invoice_id is None
+    await _add(as_owner, booking_id, BRUSH)
+    again = ok(
+        await as_owner.post(f"/v1/invoices/from-booking/{booking_id}", headers=key()), 201
+    ).json()
+    assert again["id"] != first["id"]
+    assert [ln["item_id"] for ln in again["lines"]] == [GROOM, BRUSH]
+
+
 async def test_an_addon_without_room_after_the_visit_is_refused(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
@@ -536,6 +611,88 @@ async def test_two_removes_of_one_addon_leave_one_winner_and_one_404(db: AsyncSe
             assert slot.ends_at - slot.starts_at == timedelta(minutes=75)
     finally:
         async with SessionLocal() as cleanup:
+            await cleanup.execute(delete(Addon).where(Addon.booking_id.in_(booking_ids)))
+            await delete_bookings(cleanup, booking_ids)
+            await cleanup.execute(delete(Item).where(Item.id == product))
+            await cleanup.commit()
+
+
+@pytest.mark.parametrize("minutes", [None, 20])
+async def test_an_addon_racing_the_visit_s_invoice_is_refused_never_left_unbilled(
+    db: AsyncSession, minutes: int | None
+) -> None:
+    principal = Principal(user_id=OWNER_USER, business_id=BIZ, staff_id="st_owner", role="owner")
+    product = f"it_race_extra_{minutes or 0}"
+    booking_ids: list[str] = []
+    async with SessionLocal() as setup:
+        setup.add(
+            Item(
+                id=product,
+                business_id=BIZ,
+                kind="product",
+                name="Race extra",
+                price_cents=900,
+                duration_min=minutes,
+            )
+        )
+        await setup.commit()
+        booked = await BookingService(setup, principal, FakePaymentGateway()).create(
+            BookingCreate(
+                client_id=await client_id(db),
+                item_id=GROOM,
+                staff_id="st_owner",
+                starts_at=datetime(2027, 6, 3, 16, tzinfo=UTC),
+                notify=False,
+            ),
+            None,
+        )
+        booking_ids.append(booked.id)
+
+    async def add() -> BookingOut | Conflict:
+        async with SessionLocal() as session:
+            service = BookingService(session, principal, FakePaymentGateway())
+            try:
+                return await service.add_addon(booked.id, AddonAdd(item_id=product), None)
+            except Conflict as exc:
+                return exc
+
+    try:
+        async with SessionLocal() as holder:
+            # the invoice holds the visit while the add-on arrives, as a second member's tap would
+            visit = (
+                await holder.execute(
+                    select(Booking).where(Booking.id == booked.id).with_for_update()
+                )
+            ).scalar_one()
+            adding = asyncio.create_task(add())
+            await queued_behind(holder)
+            await draft_for_booking(holder, visit)
+            await holder.commit()
+            result = await adding
+        assert isinstance(result, Conflict) and result.code == "visit_invoiced"
+        async with SessionLocal() as check:
+            assert (
+                list(await check.scalars(select(Addon.id).where(Addon.booking_id == booked.id)))
+                == []
+            )
+            slot = (
+                await check.execute(
+                    select(Slot)
+                    .join(Booking, Booking.slot_id == Slot.id)
+                    .where(Booking.id == booked.id)
+                )
+            ).scalar_one()
+            assert slot.ends_at - slot.starts_at == timedelta(minutes=75)
+    finally:
+        async with SessionLocal() as cleanup:
+            invoices = list(
+                await cleanup.scalars(select(Booking.invoice_id).where(Booking.id.in_(booking_ids)))
+            )
+            await cleanup.execute(
+                update(Booking).where(Booking.id.in_(booking_ids)).values(invoice_id=None)
+            )
+            await cleanup.execute(delete(Line).where(Line.invoice_id.in_(invoices)))
+            await cleanup.execute(delete(Invoice).where(Invoice.id.in_(invoices)))
             await cleanup.execute(delete(Addon).where(Addon.booking_id.in_(booking_ids)))
             await delete_bookings(cleanup, booking_ids)
             await cleanup.execute(delete(Item).where(Item.id == product))

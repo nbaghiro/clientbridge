@@ -1505,6 +1505,7 @@ describe("app-core SQL against the replica schema", () => {
                 "booking_price",
                 "capacity",
                 "addon_count",
+                "addons_cents",
             ),
         ).toEqual([
             {
@@ -1515,6 +1516,7 @@ describe("app-core SQL against the replica schema", () => {
                 booking_price: 10000,
                 capacity: 1,
                 addon_count: 1,
+                addons_cents: 2400,
             },
             {
                 starts_at: "2026-06-27T09:00:00Z",
@@ -1524,8 +1526,43 @@ describe("app-core SQL against the replica schema", () => {
                 booking_price: null,
                 capacity: 4,
                 addon_count: 0,
+                addons_cents: 0,
             },
         ]);
+        expect(pick(events, "seat_addons_cents")).toEqual([
+            { seat_addons_cents: 0 },
+            { seat_addons_cents: 0 },
+        ]);
+        // a class session counts the add-ons its live seats carry
+        const seat = (id: string, status: string) => ({
+            id,
+            slot_id: "ss_3",
+            staff_id: "st_amy",
+            client_id: "cl_ben",
+            status,
+            source: "manual",
+            price_cents: 5000,
+            deposit_amount_cents: 0,
+            deposit_status: "none",
+        });
+        scoped("bookings", [seat("bk_seat", "confirmed"), seat("bk_gone", "canceled")]);
+        scoped(
+            "addons",
+            ["bk_seat", "bk_gone"].map((id) => ({
+                id: `ba_${id}`,
+                booking_id: id,
+                item_id: "it_soap",
+                description: "Soap",
+                quantity: 2,
+                unit_amount_cents: 1200,
+            })),
+        );
+        expect(pick(run("EVENTS_SQL", range), "slot_id", "seat_addons_cents")).toEqual([
+            { slot_id: "ss_1", seat_addons_cents: 0 },
+            { slot_id: "ss_3", seat_addons_cents: 2400 },
+        ]);
+        db.run("DELETE FROM addons WHERE booking_id IN ('bk_seat', 'bk_gone')");
+        db.run("DELETE FROM bookings WHERE id IN ('bk_seat', 'bk_gone')");
         expect(run("ADDONS_SQL", ["bk_1"]).map((r) => r.id)).toEqual(["ba_1"]);
         expect(run("BOOKING_INVOICE_SQL", ["bk_1"])).toEqual([
             { invoice_id: "inv_1", order_id: null, covered: 0, sold: 0 },
@@ -1804,6 +1841,16 @@ describe("app-core SQL against the replica schema", () => {
                 cover_package_id: null,
             },
         ]);
+        const [queued] = run("CHECKOUT_QUEUE_SQL", day);
+        expect(JSON.parse(String(queued?.addons))).toEqual([
+            expect.objectContaining({
+                item_id: "it_soap",
+                description: "Soap",
+                quantity: 1,
+                unit_amount_cents: 2400,
+                staff_id: null,
+            }),
+        ]);
         const sales = pick(run("SALES_SQL"), "id", "status", "methods", "gift_card_cents");
         expect(sales.find((r) => r.id === "ord_gift")).toMatchObject({
             status: "paid",
@@ -2071,6 +2118,7 @@ describe("app-core SQL against the replica schema", () => {
                 "staff_name",
                 "deposit_status",
                 "checked_in_at",
+                "addons_cents",
             ),
         ).toEqual([
             {
@@ -2080,6 +2128,7 @@ describe("app-core SQL against the replica schema", () => {
                 staff_name: null,
                 deposit_status: "collected",
                 checked_in_at: null,
+                addons_cents: 2400,
             },
         ]);
         expect(run("TODAY_HOURS_SQL", [1])).toEqual([

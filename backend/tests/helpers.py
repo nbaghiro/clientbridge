@@ -1,5 +1,6 @@
 """Helpers shared by the test files: setup steps, Stripe events and direct database reads."""
 
+import asyncio
 import itertools
 import json
 import os
@@ -363,6 +364,19 @@ async def payment(db: AsyncSession, payment_id: str) -> Payment:
 
 async def payment_by_ref(db: AsyncSession, ref: str) -> Payment:
     return (await db.execute(select(Payment).where(Payment.provider_ref == ref))).scalar_one()
+
+
+async def queued_behind(holder: AsyncSession, *, timeout: float = 10.0) -> None:
+    """Wait until another session waits on a lock the holder's transaction took."""
+    waiting = text(
+        "SELECT EXISTS (SELECT 1 FROM pg_locks"
+        " WHERE NOT granted AND pg_backend_pid() = ANY(pg_blocking_pids(pid)))"
+    )
+    for _ in range(int(timeout / 0.02)):
+        if (await holder.execute(waiting)).scalar_one():
+            return
+        await asyncio.sleep(0.02)
+    raise AssertionError("no session queued behind the lock")
 
 
 async def begin(db: AsyncSession, booking_id: str, *, by: timedelta = timedelta(days=1095)) -> None:

@@ -44,7 +44,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 3. Run the day                          | Visit reminders                                             | [CB-22](https://linear.app/clientbridgeca/issue/CB-22) | Partly automated |
 | 4. Book online                          | Online booking with deposits                                | [CB-24](https://linear.app/clientbridgeca/issue/CB-24) | Automated        |
 | 4. Book online                          | Returning-client sign-in by text code                       | [CB-25](https://linear.app/clientbridgeca/issue/CB-25) | Partly automated |
-| 4. Book online                          | Booking add-ons billed once                                 | [CB-26](https://linear.app/clientbridgeca/issue/CB-26) | Partly automated |
+| 4. Book online                          | Booking add-ons billed once                                 | [CB-26](https://linear.app/clientbridgeca/issue/CB-26) | Automated        |
 | 4. Book online                          | Reschedule and cancel by link                               | [CB-27](https://linear.app/clientbridgeca/issue/CB-27) | Automated        |
 | 4. Book online                          | Business page and website embed                             | [CB-28](https://linear.app/clientbridgeca/issue/CB-28) | Partly automated |
 | 5. Sell at the desk and online          | Desk sales and receipts                                     | [CB-29](https://linear.app/clientbridgeca/issue/CB-29) | Partly automated |
@@ -1125,35 +1125,40 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 ### Booking add-ons billed once (CB-26)
 
-**Covers:** Connect extras step, booking panel add-ons, invoice from booking
-**Before you start:** Brightwater Home Cleaning (add-ons that lengthen the visit); Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
+**Covers:** Connect extras step, booking panel add-ons (web and phone), invoice from booking, desk checkout of a visit
+**Before you start:** Brightwater Home Cleaning (AB, GST, properties): owner owner@brightwater.example, cleaners joy@brightwater.example, harpreet@brightwater.example and tomasz@brightwater.example, password demo1234. Its oven, fridge, window and laundry add-ons lengthen a clean; Wei Zhang's move-out next Monday has a collected deposit and three add-ons.
 
 **Where to test**
 
-- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-connect`. Open web at [http://localhost:8700](http://localhost:8700) and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-connect dev-mobile`. Open web at [http://localhost:8700](http://localhost:8700) and Connect at `book.`, `shop.`, `pay.` and `<slug>.localhost:8709`.
 - **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca) and Connect at `book.`, `shop.`, `pay.` and `<slug>.staging.clientbridge.ca`, with the same logins.
 
 **QA steps**
 
-1. Book an oven clean add-on online.
-   **Expect:** only times long enough are offered; the visit is longer by the add-on's minutes.
+1. Book a Standard clean with Inside the oven online.
+   **Expect:** only times long enough are offered; the summary and the confirmation give the visit's length with the add-on and list it; the visit is longer by the add-on's minutes.
 2. As staff, add another add-on where the time after is taken.
-   **Expect:** refused as no room.
-3. Remove one add-on.
+   **Expect:** refused as no room; the visit keeps its length.
+3. Remove one add-on, also after trimming the visit by hand.
    **Expect:** the visit shortens, never below the service length.
-4. Create the invoice from the booking.
-   **Expect:** each add-on is a line, counted toward the member's earning, and the deposit reduces the balance.
+4. Add an add-on to a completed visit that isn't invoiced yet.
+   **Expect:** added without moving the visit, and on its invoice.
+5. Create the invoice from Wei Zhang's move-out and send it.
+   **Expect:** each add-on is a line counted toward the member's earning (at their retail rate), the deposit reduces the balance, and the text to the client asks for the balance after the deposit.
+6. Void that invoice.
+   **Expect:** the visit takes add-ons again and can be invoiced again.
+7. Check out a visit with an add-on at the desk, then try to add another add-on to it.
+   **Expect:** the add-on is on the ticket and in the total; once the visit is on the sale it takes no more add-ons until the sale is voided.
 
 **Done when:** Add-ons always reach the invoice, are charged once and keep the visit's length right.
 
 **Automated by**
 
 - `SCH-E2E-07 (journeys)`
+- `SCH-E2E-20 (journeys)`
 - `BILL-DOC-03 (web)`
-
-**To automate**
-
-- `SCH-E2E-20` in `apps/web/e2e/journeys/visit.journey.ts`: Staff add-on refused with visit_no_room; removal never shortens below the service.
+- `SALE-E2E-20 (web)`
+- `NATIVE-SCH-03 (native-ios, native-android)`
 
 **Depends on:** Nothing
 
