@@ -1161,6 +1161,7 @@ Clients find the business, book and pay a deposit, and change their plans withou
 - `BILL-DOC-03 (web)`
 - `SALE-E2E-20 (web)`
 - `NATIVE-SCH-03 (native-ios, native-android)`
+- `backend: test_bookings_addons.py › test_a_visit_whose_addons_are_missing_from_the_sale_is_refused_at_the_desk`
 
 **Depends on:** Nothing
 
