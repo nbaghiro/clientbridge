@@ -1,6 +1,6 @@
 import { useBusinessQuery as useQuery } from "../hooks";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { formatDate, formatDateTime, parseTimestamp } from "../datetime";
 import { type Load, useAsyncAction } from "../hooks";
@@ -9,7 +9,7 @@ import { useReplicaLoad } from "./sync";
 import { afterReview, outgoing } from "./previews";
 import { useBusinessName } from "./business";
 import { strings } from "../strings";
-import { type ApiLike, newIdempotencyKey } from "../api";
+import { type ApiLike, type Attempt, attemptKey, newIdempotencyKey } from "../api";
 
 export const CONTRACT_LIBRARY_SQL = `
 SELECT id, name, body, version, active, updated_at
@@ -18,7 +18,7 @@ FROM contracts ORDER BY active DESC, name COLLATE NOCASE`;
 export const SIGNATURES_SQL = `
 SELECT s.id, s.contract_id, s.client_id, c.name AS client_name, s.status, s.token,
        s.created_at AS sent_at, s.opened_at, s.signed_at, s.ip AS signer_ip, s.method,
-       s.signer_name AS typed_name, s.strokes, s.contract_version, s.signed_body
+       s.signer_name AS typed_name, s.strokes, s.contract_version, s.signed_body, s.declined_at
 FROM signatures s LEFT JOIN clients c ON c.id = s.client_id
 ORDER BY s.created_at DESC`;
 
@@ -47,6 +47,7 @@ interface SignatureRow {
     strokes: string | null;
     contract_version: number | null;
     signed_body: string | null;
+    declined_at: string | null;
 }
 
 export interface SignatureRequest extends SignatureRow {
@@ -121,7 +122,7 @@ export function signatureIntent(state: SignatureRequest["state"]): Intent {
 const stamp = (value: string, zone: string): string => formatDateTime(parseTimestamp(value), zone);
 
 export function signatureActivity(r: SignatureRequest, zone: string): string {
-    const at = r.signed_at ?? r.opened_at ?? r.sent_at;
+    const at = (r.state === "declined" ? r.declined_at : r.signed_at) ?? r.opened_at ?? r.sent_at;
     return p.activity[r.state](formatDate(parseTimestamp(at), zone));
 }
 
@@ -164,6 +165,40 @@ export function signatureBlock(r: SignatureRequest, zone: string): ContractSigna
     };
 }
 
+/** A signed copy as plain text, for sharing from the phone where printing isn't available. */
+export function signedCopyText(
+    r: SignatureRequest,
+    current: string,
+    issuer: string,
+    zone: string,
+): string {
+    const block = signatureBlock(r, zone);
+    return [
+        issuer,
+        r.contract_name,
+        p.version(r.version),
+        "",
+        signedText(r, current),
+        ...(block === null
+            ? []
+            : [
+                  "",
+                  block.heading,
+                  block.name,
+                  ...block.facts.map((f) => strings.common.labelColonValue(f.label, f.value)),
+              ]),
+    ].join("\n");
+}
+
+/** Names the copy after its contract and signer; browsers save a printed PDF under this title. */
+export function signedCopyTitle(r: SignatureRequest): string {
+    return p.signedCopyTitle(r.contract_name, r.typed_name ?? r.client_name ?? "");
+}
+
+export function signedCopyFile(r: SignatureRequest): string {
+    return `${signedCopyTitle(r).replace(/[\\/:*?"<>|]+/g, "-")}.txt`;
+}
+
 /** What happened to one request, oldest first. */
 export function signatureHistory(r: SignatureRequest, zone: string): TimelineEntry[] {
     const out: TimelineEntry[] = [
@@ -188,7 +223,7 @@ export function signatureHistory(r: SignatureRequest, zone: string): TimelineEnt
         out.push({
             key: "declined",
             label: p.event.declined,
-            at: stamp(r.opened_at ?? r.sent_at, zone),
+            at: stamp(r.declined_at ?? r.opened_at ?? r.sent_at, zone),
             intent: "danger",
         });
     return out;
@@ -215,6 +250,7 @@ export function useContractDraft(
     onPublished: () => void,
 ): ContractDraft {
     const [body, setBody] = useState(contract.body);
+    const attempt = useRef<Attempt | null>(null);
     const action = useAsyncAction();
     return {
         body,
@@ -223,14 +259,18 @@ export function useContractDraft(
         nextVersion: contract.version + 1,
         busy: action.busy,
         failed: action.error !== null,
+        // a retry of an attempt whose answer was lost replays it instead of meeting "unchanged"
         publish: () => {
+            const idempotencyKey = attemptKey(attempt, { id: contract.id, body });
             action.run(
-                () =>
-                    api.post(
+                async () => {
+                    await api.post(
                         `/v1/contracts/${contract.id}/versions`,
                         { body },
-                        { idempotencyKey: newIdempotencyKey() },
-                    ),
+                        { idempotencyKey },
+                    );
+                    attempt.current = null;
+                },
                 { onSuccess: onPublished },
             );
         },
@@ -252,6 +292,7 @@ export function useNewContract(api: ApiLike, onCreated: (id: string) => void): N
     const [name, setNameRaw] = useState("");
     const [body, setBodyRaw] = useState("");
     const [problem, setProblem] = useState<"name-missing" | "body-missing" | null>(null);
+    const attempt = useRef<Attempt | null>(null);
     const action = useAsyncAction();
     return {
         name,
@@ -275,12 +316,13 @@ export function useNewContract(api: ApiLike, onCreated: (id: string) => void): N
                 setProblem("body-missing");
                 return;
             }
+            const request = { name: name.trim(), body: body.trim() };
+            const idempotencyKey = attemptKey(attempt, request);
             action.run(async () => {
-                const out = await api.post<{ id: string }>(
-                    "/v1/contracts",
-                    { name: name.trim(), body: body.trim() },
-                    { idempotencyKey: newIdempotencyKey() },
-                );
+                const out = await api.post<{ id: string }>("/v1/contracts", request, {
+                    idempotencyKey,
+                });
+                attempt.current = null;
                 onCreated(out.id);
             });
         },
@@ -305,6 +347,8 @@ export function useSignatureActions(
     const [copiedId, setCopiedId] = useState<string | null>(null);
     const [resent, setResent] = useState<Set<string>>(new Set());
     const [busyId, setBusyId] = useState<string | null>(null);
+    // one key per request, so retrying one row after resending another still replays its own send
+    const keys = useRef(new Map<string, string>());
     const { error, run } = useAsyncAction();
     return {
         copiedId,
@@ -323,14 +367,17 @@ export function useSignatureActions(
                 },
                 () => {
                     setBusyId(r.id);
+                    const idempotencyKey = keys.current.get(r.id) ?? newIdempotencyKey();
+                    keys.current.set(r.id, idempotencyKey);
                     run(
                         async () => {
                             try {
                                 await api.post(
                                     `/v1/signatures/${r.id}/resend`,
                                     {},
-                                    { idempotencyKey: newIdempotencyKey() },
+                                    { idempotencyKey },
                                 );
+                                keys.current.delete(r.id);
                             } finally {
                                 setBusyId(null);
                             }

@@ -1766,6 +1766,9 @@ interface Strings {
         readonly signedCopy: string;
         readonly print: string;
         readonly printNote: string;
+        readonly signedCopyTitle: (contract: string, name: string) => string;
+        readonly share: string;
+        readonly shareFailed: string;
         readonly resend: string;
         readonly copyLink: string;
         readonly shareLink: string;
@@ -4859,12 +4862,17 @@ interface Strings {
         readonly sign: string;
         readonly signing: string;
         readonly decline: string;
+        readonly declineAsk: string;
+        readonly declineConfirm: string;
+        readonly keepReading: string;
         readonly recorded: string;
         readonly errors: {
             readonly "name-missing": string;
             readonly "drawing-missing": string;
             readonly "consent-missing": string;
             readonly failed: string;
+            readonly "decline-failed": string;
+            readonly "terms-changed": string;
         } & Labels;
         readonly signedTitle: string;
         readonly signedBody: (contract: string, business: string) => string;

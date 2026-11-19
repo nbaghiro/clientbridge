@@ -5420,7 +5420,18 @@
         "message": "Print"
     },
     "contracts.printNote": {
-        "message": "A signed PDF sent to the client is on the way. Until then, print or save this copy."
+        "message": "Print this copy or save it as a PDF. It keeps the text as signed, with the time, IP address and version."
+    },
+    "contracts.signedCopyTitle": {
+        "message": "{contract} signed by {name}",
+        "description": "The printed copy's title, which browsers use as the saved PDF's file name",
+        "args": ["contract", "name"]
+    },
+    "contracts.share": {
+        "message": "Share copy"
+    },
+    "contracts.shareFailed": {
+        "message": "We couldn't share this copy. Please try again."
     },
     "contracts.resend": {
         "message": "Resend link"
@@ -14385,6 +14396,15 @@
     "publicContract.decline": {
         "message": "Decline"
     },
+    "publicContract.declineAsk": {
+        "message": "Decline this agreement? You can't sign it from this link afterwards."
+    },
+    "publicContract.declineConfirm": {
+        "message": "Yes, decline"
+    },
+    "publicContract.keepReading": {
+        "message": "Go back"
+    },
     "publicContract.recorded": {
         "message": "We record the time, your IP address and the exact text you sign."
     },
@@ -14399,6 +14419,12 @@
     },
     "publicContract.errors.failed": {
         "message": "We couldn't record your signature. Please try again."
+    },
+    "publicContract.errors.decline-failed": {
+        "message": "We couldn't record your decline. Please try again."
+    },
+    "publicContract.errors.terms-changed": {
+        "message": "These terms changed while you had them open. Read the new version, then agree and sign again."
     },
     "publicContract.signedTitle": {
         "message": "Signed"

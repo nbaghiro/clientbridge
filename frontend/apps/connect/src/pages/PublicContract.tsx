@@ -17,6 +17,7 @@ import {
     TextField,
     Toggle,
 } from "@clientbridge/ui";
+import { useEffect, useId, useRef } from "react";
 import { useParams } from "react-router-dom";
 
 import { DocumentLetter } from "../components/PublicDocument";
@@ -29,6 +30,38 @@ const s = strings.publicContract;
 const SCRIPT = { fontFamily: '"Snell Roundhand", "Segoe Script", "Brush Script MT", cursive' };
 
 const stamp = (value: string, zone: string): string => formatDateTime(parseTimestamp(value), zone);
+
+// takes focus when it opens, so a screen reader reads the question with its safe choice
+function DeclineConfirm({
+    busy,
+    onBack,
+    onConfirm,
+}: {
+    busy: boolean;
+    onBack: () => void;
+    onConfirm: () => void;
+}) {
+    const question = useId();
+    const back = useRef<HTMLButtonElement>(null);
+    useEffect(() => {
+        back.current?.focus();
+    }, []);
+    return (
+        <div role="group" aria-labelledby={question} className="space-y-3">
+            <p id={question} className="text-sm text-ink-soft">
+                {s.declineAsk}
+            </p>
+            <div className="flex justify-end gap-2">
+                <Button ref={back} variant="quiet" disabled={busy} onPress={onBack}>
+                    {s.keepReading}
+                </Button>
+                <Button variant="danger" busy={busy} onPress={onConfirm}>
+                    {s.declineConfirm}
+                </Button>
+            </div>
+        </div>
+    );
+}
 
 export function PublicContract() {
     const { token = "" } = useParams<{ token: string }>();
@@ -79,23 +112,37 @@ export function PublicContract() {
                     {signing.error !== null && signing.error !== "name-missing" ? (
                         <Notice tone="danger">{s.errors[signing.error]}</Notice>
                     ) : null}
-                    <Button size="lg" full busy={signing.busy} onPress={signing.sign}>
-                        {signing.busy ? s.signing : s.sign}
-                    </Button>
-                    <div className="flex items-center justify-between gap-3 text-xs text-muted">
-                        <span className="flex items-center gap-1.5">
-                            <Icon name="shield" size={13} />
-                            {s.recorded}
-                        </span>
-                        <Button
-                            variant="link"
-                            size="sm"
-                            onPress={signing.decline}
-                            disabled={signing.busy}
-                        >
-                            {s.decline}
-                        </Button>
-                    </div>
+                    {signing.declining ? (
+                        <DeclineConfirm
+                            busy={signing.busy}
+                            onBack={() => {
+                                signing.setDeclining(false);
+                            }}
+                            onConfirm={signing.decline}
+                        />
+                    ) : (
+                        <>
+                            <Button size="lg" full busy={signing.busy} onPress={signing.sign}>
+                                {signing.busy ? s.signing : s.sign}
+                            </Button>
+                            <div className="flex items-center justify-between gap-3 text-xs text-muted">
+                                <span className="flex items-center gap-1.5">
+                                    <Icon name="shield" size={13} />
+                                    {s.recorded}
+                                </span>
+                                <Button
+                                    variant="link"
+                                    size="sm"
+                                    onPress={() => {
+                                        signing.setDeclining(true);
+                                    }}
+                                    disabled={signing.busy}
+                                >
+                                    {s.decline}
+                                </Button>
+                            </div>
+                        </>
+                    )}
                 </>
             }
         >

@@ -64,7 +64,7 @@ test("DOC-E2E-02 typed contract validates consent, persists its snapshot and rej
     expect(await contractEvidence(issued.id)).toEqual(saved);
 });
 
-test("DOC-E2E-03 customer declines and a stale second tab cannot sign the declined request", async ({
+test("DOC-E2E-03 customer confirms a decline and a stale second tab cannot sign the declined request", async ({
     page,
     context,
     request,
@@ -76,7 +76,14 @@ test("DOC-E2E-03 customer declines and a stale second tab cannot sign the declin
     await stale.goto(page.url());
     await stale.getByRole("textbox", { name: c.nameLabel }).fill(issued.name);
     await stale.getByRole("switch").check();
+    // a decline can't be undone, so it asks first and Go back leaves the request open
     await page.getByRole("button", { name: c.decline, exact: true }).click();
+    await expect(page.getByText(c.declineAsk, { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: c.keepReading, exact: true }).click();
+    await expect(page.getByRole("button", { name: c.sign, exact: true })).toBeVisible();
+    expect(await contractEvidence(issued.id)).toMatchObject({ status: "pending" });
+    await page.getByRole("button", { name: c.decline, exact: true }).click();
+    await page.getByRole("button", { name: c.declineConfirm, exact: true }).click();
     await expect(page.getByRole("heading", { name: c.declinedTitle })).toBeVisible();
     await stale.getByRole("button", { name: c.sign, exact: true }).click();
     await expect(stale.getByRole("heading", { name: c.declinedTitle })).toBeVisible();
@@ -96,7 +103,7 @@ test("DOC-E2E-03 customer declines and a stale second tab cannot sign the declin
     await stale.close();
 });
 
-test("DOC-E2E-04 changed terms require review and renewed consent before signing", async ({
+test("DOC-E2E-04 changed terms are explained and require review and renewed consent before signing", async ({
     page,
     request,
 }) => {
@@ -120,10 +127,13 @@ test("DOC-E2E-04 changed terms require review and renewed consent before signing
     );
     await page.getByRole("button", { name: c.sign, exact: true }).click();
     await conflict;
+    await expect(page.getByText(c.errors["terms-changed"], { exact: true })).toBeVisible();
     await expect(
         page.getByText(body.split("\n").slice(1).join("\n"), { exact: true }),
     ).toBeVisible();
     await expect(page.getByRole("switch")).not.toBeChecked();
+    // the page rereads the terms in place, so what the client typed is still there
+    await expect(page.getByRole("textbox", { name: c.nameLabel })).toHaveValue(issued.name);
     expect(await contractEvidence(issued.id)).toMatchObject({ status: "pending", signed_at: null });
     await page.getByRole("switch").check();
     await page.getByRole("button", { name: c.sign, exact: true }).click();

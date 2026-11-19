@@ -6,7 +6,15 @@ import type { ApiLike } from "../api";
 import { formatClock } from "../datetime";
 import { BUSINESS_CURRENCY, formatMoney, formatNumber, formatPhone } from "../format";
 import { strings } from "../strings";
-import { answerRows, formAnswerRows, sendOptions, useFormAnswers, useFormEditor } from "./forms";
+import {
+    answerRows,
+    formAnswerRows,
+    sendOptions,
+    useFormAnswers,
+    useFormEditor,
+    useSendToClient,
+} from "./forms";
+import { registerReviewHost } from "./previews";
 
 afterEach(cleanup);
 
@@ -224,5 +232,60 @@ describe("sendOptions", () => {
             ["cl_3", "Robin Bennett", undefined],
         ]);
         expect(options[0]?.media).toMatchObject({ src: "https://files.example/robin.jpg" });
+    });
+});
+
+describe("useSendToClient", () => {
+    it("sends a form once when the owner retries after its answer was lost", async () => {
+        const stop = registerReviewHost(() => Promise.resolve("confirm"));
+        const keys: (string | undefined)[] = [];
+        const post = vi.fn((_path: string, _body: unknown, opts?: { idempotencyKey?: string }) => {
+            keys.push(opts?.idempotencyKey);
+            return keys.length === 1
+                ? Promise.reject(new TypeError("Failed to fetch"))
+                : Promise.resolve({ id: "res_1" });
+        });
+        const api = {
+            get: vi.fn().mockResolvedValue({ channel: "sms", to: "", body: "" }),
+            getText: vi.fn(),
+            post: post as ApiLike["post"],
+            patch: vi.fn(),
+            delete: vi.fn(),
+        } as ApiLike;
+        const { result } = renderHook(() =>
+            useSendToClient(api, "/v1/forms/send", { form_id: "fm_1" }),
+        );
+        try {
+            act(() => {
+                result.current.setClientId("cl_ann");
+            });
+            act(() => {
+                result.current.send();
+            });
+            await waitFor(() => {
+                expect(result.current.error).toBe(f.sendFailed);
+            });
+            act(() => {
+                result.current.send();
+            });
+            await waitFor(() => {
+                expect(result.current.sentTo).not.toBeNull();
+            });
+            act(() => {
+                result.current.send();
+            });
+            await waitFor(() => {
+                expect(keys).toHaveLength(3);
+            });
+            expect(keys[1]).toBe(keys[0]);
+            expect(keys[2]).not.toBe(keys[0]);
+            expect(post).toHaveBeenCalledWith(
+                "/v1/forms/send",
+                { form_id: "fm_1", client_id: "cl_ann" },
+                expect.anything(),
+            );
+        } finally {
+            stop();
+        }
     });
 });

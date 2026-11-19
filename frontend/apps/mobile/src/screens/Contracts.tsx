@@ -6,6 +6,8 @@ import {
     signatureBlock,
     signatureHistory,
     signatureIntent,
+    signedCopyFile,
+    signedCopyText,
     signedText,
     strings,
     useContractLibrary,
@@ -39,6 +41,7 @@ import { ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { Loaded } from "../components/Loaded";
 import { SendToClientSheet } from "../components/SendToClient";
 import { api } from "../lib/api";
+import { shareFile } from "../lib/files";
 import { bookUrl } from "../lib/config";
 
 const c = theme.colors;
@@ -191,7 +194,10 @@ function ContractDetail({
                                 />
                             }
                             title={r.client_name ?? ""}
-                            detail={signatureActivity(r, zone)}
+                            detail={formatParts([
+                                signatureActivity(r, zone),
+                                r.version !== k.version ? s.versionShort(r.version) : null,
+                            ])}
                             meta={
                                 <StatusPill
                                     status={s.status[r.state]}
@@ -295,35 +301,65 @@ function ContractDetail({
                 />
             ) : null}
             {viewing !== null ? (
-                <Modal
-                    open
-                    size="xl"
+                <SignedCopySheet
+                    request={viewing}
+                    current={k.body}
+                    issuer={issuer}
                     onClose={() => {
                         setViewing(null);
                     }}
-                >
-                    <ScrollView contentContainerStyle={styles.gap}>
-                        <ContractDocument
-                            issuer={issuer}
-                            title={viewing.contract_name}
-                            meta={s.version(viewing.version)}
-                            clauses={contractClauses(signedText(viewing, k.body))}
-                            signature={signatureBlock(viewing, zone)}
-                        />
-                        <Text style={styles.section}>{s.history}</Text>
-                        <ActivityTimeline entries={signatureHistory(viewing, zone)} />
-                        <Button
-                            variant="outline"
-                            onPress={() => {
-                                setViewing(null);
-                            }}
-                        >
-                            {s.close}
-                        </Button>
-                    </ScrollView>
-                </Modal>
+                />
             ) : null}
         </ScrollView>
+    );
+}
+
+function SignedCopySheet({
+    request,
+    current,
+    issuer,
+    onClose,
+}: {
+    request: SignatureRequest;
+    current: string;
+    issuer: string;
+    onClose: () => void;
+}) {
+    const zone = useBusinessZone();
+    const [shareFailed, setShareFailed] = useState(false);
+    return (
+        <Modal open size="xl" onClose={onClose}>
+            <ScrollView contentContainerStyle={styles.gap}>
+                <ContractDocument
+                    issuer={issuer}
+                    title={request.contract_name}
+                    meta={s.version(request.version)}
+                    clauses={contractClauses(signedText(request, current))}
+                    signature={signatureBlock(request, zone)}
+                />
+                <Text style={styles.section}>{s.history}</Text>
+                <ActivityTimeline entries={signatureHistory(request, zone)} />
+                {shareFailed ? <Notice tone="danger">{s.shareFailed}</Notice> : null}
+                <Button
+                    icon="upload"
+                    onPress={() => {
+                        setShareFailed(false);
+                        shareFile(
+                            signedCopyText(request, current, issuer, zone),
+                            signedCopyFile(request),
+                            "text/plain",
+                        ).catch(() => {
+                            setShareFailed(true);
+                        });
+                    }}
+                >
+                    {s.share}
+                </Button>
+                <Button variant="outline" onPress={onClose}>
+                    {s.close}
+                </Button>
+            </ScrollView>
+        </Modal>
     );
 }
 

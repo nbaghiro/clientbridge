@@ -101,8 +101,8 @@ function SignatureBlock({
                 <dl className={`space-y-1 ${compact ? "text-[11px]" : "text-xs"}`}>
                     {signature.facts.map((f) => (
                         <div key={f.label} className="flex justify-between gap-3">
-                            <dt className="text-muted">{f.label}</dt>
-                            <dd className="whitespace-nowrap text-right tabular-nums text-ink-soft">
+                            <dt className="shrink-0 text-muted">{f.label}</dt>
+                            <dd className="min-w-0 text-right tabular-nums text-ink-soft [overflow-wrap:anywhere]">
                                 {f.value}
                             </dd>
                         </div>

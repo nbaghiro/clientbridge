@@ -360,7 +360,7 @@ count, inbound messages not yet `read`, are read from `messages`), `messages` (d
 a client's, with a token), server-only `visit_records` (what staff write on a booking with a form sent
 by hand: `definition`, `answers` and the author in `signature`; final, read only by its author or a
 manager, and audited as `visit_record.read` on each read), `contracts` (template), `signatures` (public-link token; snapshots `signed_body` + captures
-`ip`; links a signature image file).
+`ip`; dates a decline in `declined_at`; links a signature image file).
 
 **reviews (3)** — `review_requests` preserves invitation history. `google_business_connections`
 stores an encrypted refresh token and one selected Google location per business; `google_business_operations`

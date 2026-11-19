@@ -72,6 +72,20 @@ export function signatureEvidence(id: string): Promise<SignatureEvidence> {
     return committed<SignatureEvidence>("contract", id);
 }
 
+/** The idempotency key of each POST to `path`; the first reaches the API and its answer is lost. */
+export async function loseFirstAnswer(page: Page, path: RegExp): Promise<(string | undefined)[]> {
+    const keys: (string | undefined)[] = [];
+    await page.route(path, async (route) => {
+        if (route.request().method() !== "POST") return route.fallback();
+        keys.push(route.request().headers()["idempotency-key"]);
+        const response = await route.fetch();
+        expect(response.status(), await response.text()).toBeLessThan(300);
+        if (keys.length === 1) await route.abort("connectionreset");
+        else await route.fulfill({ response });
+    });
+    return keys;
+}
+
 /** Sends the open form or contract to one client from the send dialog, returning the request. */
 export async function sendToClient(
     page: Page,

@@ -71,7 +71,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 9. Talk to clients                      | STOP and texting consent                                    | [CB-50](https://linear.app/clientbridgeca/issue/CB-50) | Automated        |
 | 9. Talk to clients                      | Broadcasts to consenting clients                            | [CB-51](https://linear.app/clientbridgeca/issue/CB-51) | Automated        |
 | 9. Talk to clients                      | Intake forms                                                | [CB-53](https://linear.app/clientbridgeca/issue/CB-53) | Partly automated |
-| 9. Talk to clients                      | Contracts and signatures                                    | [CB-54](https://linear.app/clientbridgeca/issue/CB-54) | Partly automated |
+| 9. Talk to clients                      | Contracts and signatures                                    | [CB-54](https://linear.app/clientbridgeca/issue/CB-54) | Automated        |
 | 9. Talk to clients                      | Google review requests                                      | [CB-55](https://linear.app/clientbridgeca/issue/CB-55) | Partly automated |
 | 10. Work anywhere                       | Offline mode and reconnect                                  | [CB-56](https://linear.app/clientbridgeca/issue/CB-56) | Partly automated |
 | 10. Work anywhere                       | Multi-tab and multi-device sync                             | [CB-57](https://linear.app/clientbridgeca/issue/CB-57) | Partly automated |
@@ -2275,22 +2275,18 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **QA steps**
 
-1. Send a contract and sign it with a typed name on a phone.
-   **Expect:** signature, time and IP kept with the text as signed.
+1. Write a contract, send it and sign it with a typed name on a phone.
+   **Expect:** signature, time and IP kept with the text as signed; saving, sending or resending again after a lost answer makes one contract, one request and one text each.
 2. Sign another by drawing, clear and redraw.
    **Expect:** only the final stroke is kept.
 3. Decline one, then try to sign it from a stale tab.
-   **Expect:** refused.
+   **Expect:** declining asks first; the stale tab is refused and shows the decline, which the business sees dated when it happened.
 4. Publish new terms while a contract is open.
-   **Expect:** the client must review and consent again; earlier signatures keep their version.
-5. Download a signed copy.
-   **Expect:** today there is no signed PDF; record whether one is needed for launch.
+   **Expect:** the client is told the terms changed and must review and consent again; earlier signatures keep their version, which their row names.
+5. Print or share a signed copy.
+   **Expect:** web prints the copy, or saves it as a PDF, titled with the contract and signer; the phone shares it as text; both carry the text as signed with its time, IP address, method, version and reference.
 
 **Done when:** A signed contract can be produced on request with its version, time and IP.
-
-**By hand only**
-
-- Signed PDF output is not built.
 
 **Automated by**
 
@@ -2299,10 +2295,9 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 - `DOC-E2E-04 (connect)`
 - `DOC-E2E-05 (connect)`
 - `FLOW-05-A (journeys)`
-
-**To automate**
-
-- `DOC-E2E-10` in `apps/web/e2e/journeys/documents.journey.ts`: Contract create, publish and resend with a lost response.
+- `DOC-E2E-12 (journeys)`
+- `DOC-E2E-13 (journeys)`
+- `NATIVE-DOC-02 (native-ios, native-android)`
 
 **Depends on:** Nothing
 

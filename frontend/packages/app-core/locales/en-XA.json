@@ -4986,7 +4986,16 @@
         "message": "[Þŕîñţ one]"
     },
     "contracts.printNote": {
-        "message": "[Å šîĝñéð ÞĐƑ šéñţ ţö ţĥé çļîéñţ îš öñ ţĥé ŵåý. Ûñţîļ ţĥéñ, þŕîñţ öŕ šåṽé ţĥîš çöþý. one two three four five]"
+        "message": "[Þŕîñţ ţĥîš çöþý öŕ šåṽé îţ åš å ÞĐƑ. Îţ ķééþš ţĥé ţéẋţ åš šîĝñéð, ŵîţĥ ţĥé ţîɱé, ÎÞ åððŕéšš åñð ṽéŕšîöñ. one two three four five six seven]"
+    },
+    "contracts.signedCopyTitle": {
+        "message": "[{contract} šîĝñéð ƀý {name} one]"
+    },
+    "contracts.share": {
+        "message": "[Šĥåŕé çöþý one two]"
+    },
+    "contracts.shareFailed": {
+        "message": "[Ŵé çöûļðñ'ţ šĥåŕé ţĥîš çöþý. Þļéåšé ţŕý åĝåîñ. one two three]"
     },
     "contracts.resend": {
         "message": "[Ŕéšéñð ļîñķ one two]"
@@ -13337,6 +13346,15 @@
     "publicContract.decline": {
         "message": "[Đéçļîñé one]"
     },
+    "publicContract.declineAsk": {
+        "message": "[Đéçļîñé ţĥîš åĝŕééɱéñţ? Ýöû çåñ'ţ šîĝñ îţ ƒŕöɱ ţĥîš ļîñķ åƒţéŕŵåŕðš. one two three four five]"
+    },
+    "publicContract.declineConfirm": {
+        "message": "[Ýéš, ðéçļîñé one two]"
+    },
+    "publicContract.keepReading": {
+        "message": "[Ĝö ƀåçķ one]"
+    },
     "publicContract.recorded": {
         "message": "[Ŵé ŕéçöŕð ţĥé ţîɱé, ýöûŕ ÎÞ åððŕéšš åñð ţĥé éẋåçţ ţéẋţ ýöû šîĝñ. one two three four]"
     },
@@ -13351,6 +13369,12 @@
     },
     "publicContract.errors.failed": {
         "message": "[Ŵé çöûļðñ'ţ ŕéçöŕð ýöûŕ šîĝñåţûŕé. Þļéåšé ţŕý åĝåîñ. one two three four]"
+    },
+    "publicContract.errors.decline-failed": {
+        "message": "[Ŵé çöûļðñ'ţ ŕéçöŕð ýöûŕ ðéçļîñé. Þļéåšé ţŕý åĝåîñ. one two three four]"
+    },
+    "publicContract.errors.terms-changed": {
+        "message": "[Ţĥéšé ţéŕɱš çĥåñĝéð ŵĥîļé ýöû ĥåð ţĥéɱ öþéñ. Ŕéåð ţĥé ñéŵ ṽéŕšîöñ, ţĥéñ åĝŕéé åñð šîĝñ åĝåîñ. one two three four five six]"
     },
     "publicContract.signedTitle": {
         "message": "[Šîĝñéð one]"

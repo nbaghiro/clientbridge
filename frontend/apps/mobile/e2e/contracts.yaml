@@ -1,0 +1,151 @@
+appId: ${APP_ID}
+name: NATIVE-DOC-02 A contract written on the phone goes out after its preview and its client signs it; new terms published on the phone make version 2 while the signed copy keeps version 1 with its time, IP address and method, and shares as text
+---
+- evalScript: ${output.phone = "250" + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000))}
+- evalScript: ${output.name = "Marisol Okafor " + output.phone.slice(-4)}
+- evalScript: ${output.title = "Boarding terms " + String(Math.floor(Math.random() * 1000000))}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/clients
+          BODY: "${JSON.stringify({ name: output.name, phone: output.phone })}"
+- runFlow: helpers/owner.yaml
+- tapOn:
+      id: "tab-inbox"
+- swipe:
+      from:
+          text: "Broadcasts"
+      direction: LEFT
+- tapOn: "Contracts"
+- tapOn: "New contract"
+- tapOn: "Save as version 1"
+- assertVisible: "Give the contract a name."
+- runFlow:
+      file: helpers/type-field.yaml
+      env:
+          FIELD: "Name"
+          VALUE: ${output.title}
+# the multi-line field reads no label of its own, so it is found under its label
+- tapOn:
+      below: "Contract text"
+      index: 0
+# Android's inputText drops a typed line break, so Return starts the clause's text
+- inputText: "Pickup"
+- pressKey: Enter
+- inputText: "Collect your pet within an hour."
+# the sheet's title puts the multi-line keyboard away, since Return adds a line
+- tapOn: "New contract"
+- tapOn: "Save as version 1"
+- extendedWaitUntil:
+      visible: "Version 1 · 0 signed · 0 waiting"
+      timeout: 30000
+- tapOn: "Send for signature"
+- runFlow:
+      when:
+          platform: iOS
+      commands:
+          - tapOn:
+                text: "Client"
+                index: 1
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - tapOn: "Choose a client"
+- tapOn: "Search"
+- inputText: ${output.name}
+# a row reads its initials, name and phone as one label
+- extendedWaitUntil:
+      visible: ".*${output.name}, .*"
+      timeout: 60000
+# the keyboard takes the first tap, so Return puts it away first
+- pressKey: Enter
+- tapOn: ".*${output.name}, .*"
+- scrollUntilVisible:
+      element: "Send link"
+      direction: DOWN
+- tapOn: "Send link"
+- extendedWaitUntil:
+      visible: "Check it before it goes out"
+      timeout: 30000
+- tapOn:
+      text: "Send"
+      index: 0
+- extendedWaitUntil:
+      visible: "Sent to ${output.name}."
+      timeout: 30000
+- tapOn: "Done"
+- runScript:
+      file: helpers/contract-sign.js
+      env:
+          PHONE: ${output.phone}
+          SIGNER: ${output.name}
+- assertTrue: ${output.contract.status === "signed" && output.contract.version === 1}
+- extendedWaitUntil:
+      visible: ".*${output.name}, Signed .*"
+      timeout: 60000
+- scrollUntilVisible:
+      element: "Edit text"
+      direction: DOWN
+- tapOn: "Edit text"
+- tapOn:
+      below: "Contract text"
+      index: 0
+- inputText: " We text you when it's time."
+- tapOn: "Saving publishes version 2.*"
+- tapOn: "Publish version 2"
+- extendedWaitUntil:
+      visible: "Version 2 · 1 signed · 0 waiting"
+      timeout: 30000
+# the row names the version its client signed once the contract has moved on
+- scrollUntilVisible:
+      element: ".*${output.name}, Signed .* · v1.*"
+      direction: UP
+- takeScreenshot: contract-versions
+- tapOn: ".*${output.name}, Signed .* · v1.*"
+- extendedWaitUntil:
+      visible: "Signed by"
+      timeout: 15000
+- assertVisible: "Version 1"
+- assertVisible: "Collect your pet within an hour."
+- assertNotVisible: ".*We text you when it's time.*"
+- scrollUntilVisible:
+      element: ${output.contract.signer_ip}
+      direction: DOWN
+- assertVisible: "Typed name"
+- takeScreenshot: contract-signed-copy
+- scrollUntilVisible:
+      element: "Share copy"
+      direction: DOWN
+- tapOn: "Share copy"
+- runFlow:
+      when:
+          platform: iOS
+      commands:
+          - extendedWaitUntil:
+                visible: "Save to Files"
+                timeout: 15000
+          - takeScreenshot: contract-share
+          - swipe:
+                start: "50%, 60%"
+                end: "50%, 98%"
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - waitForAnimationToEnd
+          - takeScreenshot: contract-share
+          - back
+# the first Close is the backdrop behind the sheet; the second is its button
+- scrollUntilVisible:
+      element:
+          text: "Close"
+          index: 1
+      direction: DOWN
+- tapOn:
+      text: "Close"
+      index: 1
+- extendedWaitUntil:
+      visible: "Version 2 · 1 signed · 0 waiting"
+      timeout: 15000

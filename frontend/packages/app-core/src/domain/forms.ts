@@ -2,7 +2,7 @@ import { useBusinessQuery as useQuery, useRemote } from "../hooks";
 import { failedFileLinks, useFileLinks, usePeoplePhotos } from "./files";
 import { afterReview, outgoing } from "./previews";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import {
     formatClock,
@@ -18,7 +18,7 @@ import { type PublicFormField, optionPair } from "./publicForm";
 import { useReplicaLoad } from "./sync";
 import { strings } from "../strings";
 import type { Intent, KeyValueRow, SelectOption } from "../ui";
-import { type ApiLike, failureMessage, newIdempotencyKey } from "../api";
+import { type ApiLike, type Attempt, attemptKey, failureMessage, newIdempotencyKey } from "../api";
 
 const FIELD_TYPE_LABEL: Record<string, string> = {
     get text() {
@@ -470,6 +470,7 @@ export function useSendToClient(
     const clients = useClients();
     const [clientId, setClientIdRaw] = useState("");
     const [sentTo, setSentTo] = useState<string | null>(null);
+    const attempt = useRef<Attempt | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
     return {
         clients: sendOptions(clients, photos.client),
@@ -499,13 +500,13 @@ export function useSendToClient(
                             : outgoing.contractSend(api, body.contract_id ?? "", chosen),
                 },
                 () => {
+                    const request = { ...body, client_id: chosen };
+                    const idempotencyKey = attemptKey(attempt, { path, request });
                     run(
-                        () =>
-                            api.post(
-                                path,
-                                { ...body, client_id: chosen },
-                                { idempotencyKey: newIdempotencyKey() },
-                            ),
+                        async () => {
+                            await api.post(path, request, { idempotencyKey });
+                            attempt.current = null;
+                        },
                         {
                             onSuccess: () => {
                                 setSentTo(name);
