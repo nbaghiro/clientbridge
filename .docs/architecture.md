@@ -832,7 +832,13 @@ entitlement and its liability are created.
   minutes of its own, so a removal reads the product's `duration_min`, and the product's length can't change
   while any pending or confirmed, unbilled visit carries it (409 `addon_length_in_use`, with the number of
   visits as `detail.count`). A removal still never shortens the visit below the service's length, since a
-  staff resize may have shortened it. A class seat keeps the class's length.
+  staff resize may have shortened it. A class seat keeps the class's length, and a completed visit takes or
+  drops an add-on without moving, since its time has passed. Adding and removing check the visit under its
+  lock, so an add-on that arrives while the visit is invoiced is refused with 409 `visit_invoiced` instead
+  of missing the invoice; voiding the visit's invoice by hand clears `bookings.invoice_id`, so the visit takes
+  add-ons and can be invoiced again. The text that sends the invoice asks for its balance after any deposit
+  sending applies. A visit on a live desk sale refuses add-on changes with 409 `visit_sold`, and the desk
+  rings a visit up with its add-ons as lines of their own, so a sale bills them as an invoice would.
 - **Crew:** a one-to-one visit can have helpers besides its lead, and only an owner or admin adds or removes
   them. `POST /v1/bookings/{id}/crew` locks the helper, checks their calendar the way a booking is checked
   (and that they offer the service), and writes an `hours` exception for the visit's window with the job as

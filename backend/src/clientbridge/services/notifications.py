@@ -486,8 +486,11 @@ def refund_failed_email(locale: str, amount: str, link: str) -> Notice:
 
 
 def invoice_sent_message(
-    locale: str, number: int | None, amount: str, business_name: str, link: str
+    locale: str, number: int | None, amount: str | None, business_name: str, link: str
 ) -> str:
+    """The invoice's balance to pay, or that nothing is left when a deposit settled it."""
+    if amount is None:
+        return message(locale, "invoice_sent.paid", number=str(number), business=business_name)
     values = {"number": str(number), "amount": amount, "business": business_name}
     if link:
         return message(locale, "invoice_sent.body_link", link=link, **values)
@@ -973,7 +976,8 @@ class Notifier:
         if business is None:
             return
         locale = locale_for(business=business)
-        amount = format_money(locale, invoice.total_cents, invoice.currency)
+        balance = await ledger.balance_once_sent(db, invoice)
+        amount = format_money(locale, balance, invoice.currency) if balance > 0 else None
         link = pay_link(invoice.pay_token) if invoice.pay_token else ""
         notice = invoice_sent_message(locale, invoice.number, amount, business.name, link)
         await self._to_client(db, invoice.client_id, notice)

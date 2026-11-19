@@ -79,6 +79,7 @@ function event(id: string, start: Date, end: Date, extra: Partial<ScheduleEvent>
         kind: "visit",
         itemId: "it_groom",
         priceCents: 7500,
+        seatAddonsCents: 0,
         serviceName: "Groom",
         clientName: "Ann",
         subjectName: null,

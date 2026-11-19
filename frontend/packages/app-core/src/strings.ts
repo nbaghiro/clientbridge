@@ -134,6 +134,8 @@ interface Strings {
         readonly visitDepositPaid: string;
         readonly serviceNotOffered: string;
         readonly visitNoRoom: string;
+        readonly visitAddonsChanged: string;
+        readonly visitInvoiced: string;
         readonly crewBusy: string;
         readonly resourceBusy: string;
         readonly noResource: string;

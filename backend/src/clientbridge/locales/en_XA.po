@@ -217,10 +217,13 @@ msgid "invoice_reminder.body_link"
 msgstr "[Å ŕéɱîñðéŕ ƒŕöɱ {business}: îñṽöîçé #{number} ĥåš {amount} šţîļļ ţö þåý. Þåý åţ {link}~~~~~~~~~~~~~~~~~~~]"
 
 msgid "invoice_sent.body"
-msgstr "[Îñṽöîçé #{number} ƒöŕ {amount} ƒŕöɱ {business}~~~~~~~]"
+msgstr "[Îñṽöîçé #{number} ƒŕöɱ {business}: {amount} ţö þåý~~~~~~~~~]"
 
 msgid "invoice_sent.body_link"
-msgstr "[Îñṽöîçé #{number} ƒöŕ {amount} ƒŕöɱ {business} — þåý åţ {link}~~~~~~~~~~~]"
+msgstr "[Îñṽöîçé #{number} ƒŕöɱ {business}: {amount} ţö þåý åţ {link}~~~~~~~~~~]"
+
+msgid "invoice_sent.paid"
+msgstr "[Îñṽöîçé #{number} ƒŕöɱ {business} îš åļŕéåðý þåîð îñ ƒûļļ~~~~~~~~~~~~~~]"
 
 msgid "login_code.body"
 msgid_plural "login_code.body"

@@ -58,10 +58,11 @@ describe("invoicing a visit", () => {
         expect(covered.result.current.canInvoice).toBe(true);
     });
 
-    it("offers no invoice for a visit already sold at the desk", () => {
+    it("offers no invoice and no add-on changes for a visit already sold at the desk", () => {
         invoiceRows = [{ invoice_id: null, covered: 0, sold: 1 }];
         const { result } = renderHook(() => useBookingAddons(invoicingApi(), EVENT, OWNER));
         expect(result.current.canInvoice).toBe(false);
+        expect(result.current.canEdit).toBe(false);
     });
 
     it("says in words when the desk sold the visit before the replica knew", async () => {
@@ -131,5 +132,82 @@ describe("invoicing a visit", () => {
             result.current.addons.openInvoice();
         });
         expect(result.current.task).toEqual({ kind: "record", type: "invoice", id: "inv_old" });
+    });
+});
+
+describe("changing a visit's add-ons", () => {
+    const keyed = () => {
+        const keys: string[] = [];
+        const record = <T>(_path: string, _body?: unknown, opts?: { idempotencyKey?: string }) => {
+            keys.push(opts?.idempotencyKey ?? "");
+            return Promise.resolve({ id: "inv_new" } as T);
+        };
+        const api: ApiLike = {
+            ...invoicingApi(),
+            post: record,
+            delete: (path, opts) => record(path, undefined, opts),
+        };
+        return { api, keys };
+    };
+
+    it("adds an item again after removing it, as a new command rather than a replay", async () => {
+        const { api, keys } = keyed();
+        const { result } = renderHook(() => useBookingAddons(api, EVENT, OWNER));
+        const steps = [
+            () => {
+                result.current.add("it_oven");
+            },
+            () => {
+                result.current.remove("ba_1");
+            },
+            () => {
+                result.current.add("it_oven");
+            },
+        ];
+        for (const step of steps) {
+            act(step);
+            await waitFor(() => {
+                expect(result.current.busy).toBe(false);
+            });
+        }
+        expect(keys).toHaveLength(3);
+        expect(new Set(keys).size).toBe(3);
+    });
+
+    it("invoices again after the first invoice is voided, and retries a failed attempt with its key", async () => {
+        const { api, keys } = keyed();
+        let fail = true;
+        const flaky: ApiLike = {
+            ...api,
+            post: <T>(path: string, body?: unknown, opts?: { idempotencyKey?: string }) => {
+                if (!fail) return api.post<T>(path, body, opts);
+                fail = false;
+                keys.push(opts?.idempotencyKey ?? "");
+                return Promise.reject(new TypeError("offline"));
+            },
+        };
+        const { result, rerender } = renderHook(() => useBookingAddons(flaky, EVENT, OWNER));
+        const invoice = async (sent: number): Promise<void> => {
+            act(() => {
+                result.current.createInvoice();
+            });
+            await waitFor(() => {
+                expect(keys).toHaveLength(sent);
+            });
+        };
+        await invoice(1);
+        await waitFor(() => {
+            expect(result.current.error).not.toBeNull();
+        });
+        await invoice(2);
+        // the draft reaches this device, then a void hands the visit back
+        invoiceRows = [{ invoice_id: "inv_new" }];
+        rerender();
+        invoiceRows = [];
+        rerender();
+        await invoice(3);
+        const [failed, retried, again] = keys;
+        expect(retried).toBe(failed);
+        expect(again).not.toBe(retried);
     });
 });

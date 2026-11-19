@@ -1,5 +1,5 @@
 import { type ModalProps, strings } from "@clientbridge/app-core";
-import { createContext, useContext, useEffect, useRef } from "react";
+import { type ReactNode, createContext, useContext, useEffect, useRef } from "react";
 import { theme } from "@clientbridge/tokens/native";
 import {
     Animated,
@@ -21,6 +21,11 @@ const c = theme.colors;
 const FlowContext = createContext(false);
 export function useModalFlow(): boolean {
     return useContext(FlowContext);
+}
+
+/** A picker inside a flow opens as its own sheet, since inline it lands below the fold. */
+export function OverFlow({ children }: { children: ReactNode }) {
+    return <FlowContext.Provider value={false}>{children}</FlowContext.Provider>;
 }
 
 export function Modal({

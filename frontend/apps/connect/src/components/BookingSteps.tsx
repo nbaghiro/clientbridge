@@ -7,6 +7,7 @@ import {
     icsFor,
     isPlace,
     strings,
+    formatList,
     formatParts,
     formatMoney,
     SUBJECT_ICON,
@@ -241,9 +242,7 @@ function visitFacts(flow: PublicBookingFlow): Fact[] {
             key: "service",
             icon: flow.kind === null ? "tag" : SUBJECT_ICON[flow.kind],
             title: flow.service.name,
-            ...(flow.service.duration_min !== null
-                ? { detail: durationLabel(flow.service.duration_min) }
-                : {}),
+            ...(flow.visitMinutes !== null ? { detail: durationLabel(flow.visitMinutes) } : {}),
         });
     if (flow.when !== null)
         facts.push({
@@ -253,6 +252,14 @@ function visitFacts(flow: PublicBookingFlow): Fact[] {
             ...(flow.slotStaff?.name ? { detail: s.withName(flow.slotStaff.name) } : {}),
         });
     return facts;
+}
+
+function extrasFacts(flow: PublicBookingFlow): Fact[] {
+    if (flow.addonLines.length === 0) return [];
+    const names = flow.addonLines.map((line) =>
+        strings.common.quantityOf(line.quantity, line.addon.name),
+    );
+    return [{ key: "extras", icon: "bag", title: formatList(names, "unit") }];
 }
 
 export function SuggestedExtras({ flow }: { flow: PublicBookingFlow }) {
@@ -441,7 +448,7 @@ export function DoneCard({
                           : s.doneNoSubject(when))}
             </p>
             <div className="mx-auto mt-5 max-w-sm rounded-lg border border-line bg-bg p-4 text-left">
-                <FactList facts={visitFacts(flow)} label={s.summary} />
+                <FactList facts={[...visitFacts(flow), ...extrasFacts(flow)]} label={s.summary} />
                 {flow.totals.depositCents > 0 && flow.result?.stripe_account_id != null ? (
                     <p className="mt-3 flex items-center gap-2 border-t border-line-soft pt-3 text-sm text-ok-fg">
                         <Icon name="check" size={14} />

@@ -342,7 +342,7 @@
         "message": "[Å þåçķåĝé öŕ ɱéɱƀéŕšĥîþ åļŕéåðý çöṽéŕéð ţĥîš ṽîšîţ, šö öñļý îţš åðð-öñš çåñ ƀé îñṽöîçéð. one two three four five six]"
     },
     "api.visitSold": {
-        "message": "[Ţĥîš ṽîšîţ ŵåš åļŕéåðý šöļð åţ ţĥé ðéšķ, šö îţ çåñ'ţ ƀé îñṽöîçéð. one two three four]"
+        "message": "[Ţĥîš ṽîšîţ îš öñ å ðéšķ šåļé, šö îţš îţéɱš åñð þåýɱéñţ åŕé ĥåñðļéð ţĥéŕé. one two three four five]"
     },
     "api.visitAlreadyCovered": {
         "message": "[Å þåçķåĝé öŕ ɱéɱƀéŕšĥîþ åļŕéåðý çöṽéŕéð ţĥîš ṽîšîţ. one two three four]"
@@ -355,6 +355,12 @@
     },
     "api.visitNoRoom": {
         "message": "[Ţĥé ṽîšîţ çåñ'ţ ŕûñ ţĥåţ ɱûçĥ ļöñĝéŕ, ƀéçåûšé ţĥé ţîɱé åƒţéŕ îţ îš ƀööķéð öŕ öûţšîðé ŵöŕķîñĝ ĥöûŕš. one two three four five six seven]"
+    },
+    "api.visitAddonsChanged": {
+        "message": "[Ţĥîš ṽîšîţ'š åðð-öñš çĥåñĝéð åƒţéŕ îţ ŵåš åððéð ţö ţĥé šåļé. Ŕéɱöṽé ţĥé ṽîšîţ åñð åðð îţ åĝåîñ ţö îñçļûðé ţĥéɱ. one two three four five six seven]"
+    },
+    "api.visitInvoiced": {
+        "message": "[Ţĥîš ṽîšîţ ŵåš ĵûšţ îñṽöîçéð, šö çĥåñĝé îţš îţéɱš öñ ţĥé îñṽöîçé îñšţéåð. one two three four five]"
     },
     "api.crewBusy": {
         "message": "[Ţĥåţ ţéåɱ ɱéɱƀéŕ îš ƀûšý ţĥéñ, åŵåý öŕ öûţšîðé ţĥéîŕ ĥöûŕš. Çĥööšé šöɱéöñé éļšé öŕ åñöţĥéŕ ţîɱé. one two three four five six]"
