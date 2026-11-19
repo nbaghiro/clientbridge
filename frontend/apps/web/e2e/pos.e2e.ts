@@ -806,6 +806,8 @@ test("SALE-E2E-20 a visit's add-ons ride on its desk ticket, and the sold visit 
             .filter({ has: page.getByText(visit.clientName, { exact: true }) })
             .filter({ has: page.getByRole("button", { name: d.checkOut, exact: true }) })
             .last();
+        // the desk builds the ticket from this device's replica, so the add-on must reach it first
+        await expect(row).toContainText(formatMoney(10_000, "CAD"), { timeout: 60_000 });
         await row.getByRole("button", { name: d.checkOut, exact: true }).click({ timeout: 60_000 });
         const ticket = saleTicket(page);
         await expect(ticket.getByText(balm.name, { exact: true })).toBeVisible();

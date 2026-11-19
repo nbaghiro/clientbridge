@@ -160,11 +160,14 @@ test(
         await expect(
             page.getByRole("heading", { name: strings.publicBooking.stepService }),
         ).toBeVisible();
-        // WebKit's goBack can fail across the host switch; the URL check below waits for the page.
-        await page.evaluate(() => {
-            history.back();
-        });
-        await expect(page).toHaveURL(`${home}#team`);
+        // WebKit can drop a back across the host switch, so it repeats until the homepage returns
+        await expect(async () => {
+            if (page.url().startsWith(on("book", booking)))
+                await page.evaluate(() => {
+                    history.back();
+                });
+            await expect(page).toHaveURL(`${home}#team`, { timeout: 5_000 });
+        }).toPass({ timeout: 30_000 });
         await expect(page.locator("#team")).toBeInViewport();
         expect(
             await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
