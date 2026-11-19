@@ -142,6 +142,7 @@ const FAILURES: Record<string, (detail: FailureDetail) => string> = {
     service_not_offered: () => strings.api.serviceNotOffered,
     visit_no_room: () => strings.api.visitNoRoom,
     visit_invoiced: () => strings.api.visitInvoiced,
+    visit_addons_changed: () => strings.api.visitAddonsChanged,
     crew_busy: () => strings.api.crewBusy,
     resource_busy: () => strings.api.resourceBusy,
     no_resource: () => strings.api.noResource,

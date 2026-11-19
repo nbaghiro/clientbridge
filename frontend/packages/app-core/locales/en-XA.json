@@ -356,6 +356,9 @@
     "api.visitNoRoom": {
         "message": "[Ţĥé ṽîšîţ çåñ'ţ ŕûñ ţĥåţ ɱûçĥ ļöñĝéŕ, ƀéçåûšé ţĥé ţîɱé åƒţéŕ îţ îš ƀööķéð öŕ öûţšîðé ŵöŕķîñĝ ĥöûŕš. one two three four five six seven]"
     },
+    "api.visitAddonsChanged": {
+        "message": "[Ţĥîš ṽîšîţ'š åðð-öñš çĥåñĝéð åƒţéŕ îţ ŵåš åððéð ţö ţĥé šåļé. Ŕéɱöṽé ţĥé ṽîšîţ åñð åðð îţ åĝåîñ ţö îñçļûðé ţĥéɱ. one two three four five six seven]"
+    },
     "api.visitInvoiced": {
         "message": "[Ţĥîš ṽîšîţ ŵåš ĵûšţ îñṽöîçéð, šö çĥåñĝé îţš îţéɱš öñ ţĥé îñṽöîçé îñšţéåð. one two three four five]"
     },

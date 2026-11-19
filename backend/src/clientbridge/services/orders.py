@@ -18,7 +18,7 @@ from clientbridge.models.catalog import GiftCard, Item
 from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Audit
-from clientbridge.models.scheduling import Booking
+from clientbridge.models.scheduling import Addon, Booking
 from clientbridge.schemas.orders import (
     CheckoutOut,
     ConnectionTokenOut,
@@ -557,7 +557,25 @@ class OrderService:
                 other = await self.db.get(Order, booking.order_id)
                 if other is not None and other.status != "void":
                     raise Conflict(f"this visit is already on sale S-{other.number}")
+            if booking.order_id != order.id:
+                await self._assert_addons_rung_up(booking, lines)
             booking.order_id = order.id
+
+    async def _assert_addons_rung_up(self, booking: Booking, lines: list[Line]) -> None:
+        """A visit joins a sale with all its add-ons, so one added after the desk read it shows."""
+        rung: dict[str, float] = {}
+        for ln in lines:
+            if ln.booking_id == booking.id and ln.item_id is not None:
+                rung[ln.item_id] = rung.get(ln.item_id, 0) + ln.quantity
+        added: dict[str, int] = {}
+        for addon in await self.db.scalars(
+            scoped(Addon, self.biz).where(Addon.booking_id == booking.id)
+        ):
+            added[addon.item_id] = added.get(addon.item_id, 0) + addon.quantity
+        if any(rung.get(item, 0) < quantity for item, quantity in added.items()):
+            raise Conflict(
+                "the visit has add-ons that aren't on this sale", code="visit_addons_changed"
+            )
 
     async def _currency(self, lines: list[Line]) -> str:
         """A sale is in its items' currency (the business's when it has only free-text lines)."""

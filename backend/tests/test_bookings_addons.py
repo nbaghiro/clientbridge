@@ -326,7 +326,8 @@ async def test_a_visit_on_a_desk_sale_takes_its_addons_there_until_the_sale_is_v
         await db.execute(select(Addon.id).where(Addon.booking_id == booking_id))
     ).scalars()
     line = {"description": "Visit", "unit_amount_cents": 4000, "booking_id": booking_id}
-    sale = ok(await as_owner.post("/v1/orders", json={"lines": [line]}), 201).json()
+    brush = {**_addon_line(booking_id, BRUSH), "staff_id": "st_owner"}
+    sale = ok(await as_owner.post("/v1/orders", json={"lines": [line, brush]}), 201).json()
     added = await as_owner.post(
         f"/v1/bookings/{booking_id}/addons", json={"item_id": SHAMPOO}, headers=key()
     )
@@ -337,6 +338,40 @@ async def test_a_visit_on_a_desk_sale_takes_its_addons_there_until_the_sale_is_v
     ok(await as_owner.post(f"/v1/orders/{sale['id']}/void"))
     await _add(as_owner, booking_id, SHAMPOO)
     assert await _addons(db, booking_id) == [(BRUSH, 1), (SHAMPOO, 1)]
+
+
+def _addon_line(booking_id: str, item_id: str, **extra: object) -> dict[str, object]:
+    return {
+        "description": "Add-on",
+        "unit_amount_cents": 1200,
+        "item_id": item_id,
+        "booking_id": booking_id,
+        **extra,
+    }
+
+
+async def test_a_visit_whose_addons_are_missing_from_the_sale_is_refused_at_the_desk(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    booking_id = await _staff_visit(as_owner, db, OPENING, "st_owner")
+    await _add(as_owner, booking_id, BRUSH)
+    await _add(as_owner, booking_id, SHAMPOO)
+    visit = {"description": "Visit", "unit_amount_cents": 4000, "booking_id": booking_id}
+    for lines in ([visit], [visit, _addon_line(booking_id, BRUSH)]):
+        refused = await as_owner.post("/v1/orders", json={"lines": lines}, headers=key())
+        assert refused.status_code == 409 and refused.json()["error"] == "visit_addons_changed"
+    row = await db.get(Booking, booking_id, populate_existing=True)
+    assert row is not None and row.order_id is None
+    comp = {"kind": "percent", "value": 100, "reason": "On the house"}
+    lines = [
+        visit,
+        _addon_line(booking_id, BRUSH),
+        _addon_line(booking_id, SHAMPOO, discount=comp),
+    ]
+    sale = ok(await as_owner.post("/v1/orders", json={"lines": lines}, headers=key()), 201).json()
+    assert sale["discount_cents"] == 1200 and sale["lines"][-1]["amount_cents"] == 0
+    row = await db.get(Booking, booking_id, populate_existing=True)
+    assert row is not None and row.order_id == sale["id"]
 
 
 async def test_a_completed_visit_takes_and_drops_an_addon_without_moving(

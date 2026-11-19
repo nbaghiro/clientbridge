@@ -1149,6 +1149,8 @@ Clients find the business, book and pay a deposit, and change their plans withou
    **Expect:** the visit takes add-ons again and can be invoiced again.
 7. Check out a visit with an add-on at the desk, then try to add another add-on to it.
    **Expect:** the add-on is on the ticket and in the total; once the visit is on the sale it takes no more add-ons until the sale is voided.
+8. Put a visit on a new desk ticket, add an add-on to it from the booking panel, then charge the ticket.
+   **Expect:** the charge is refused and asks to add the visit again; once re-added the new add-on is on the ticket. Comping an add-on with a 100% line discount still goes through.
 
 **Done when:** Add-ons always reach the invoice, are charged once and keep the visit's length right.
 

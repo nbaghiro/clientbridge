@@ -387,6 +387,9 @@
     "api.visitNoRoom": {
         "message": "The visit can't run that much longer, because the time after it is booked or outside working hours."
     },
+    "api.visitAddonsChanged": {
+        "message": "This visit's add-ons changed after it was added to the sale. Remove the visit and add it again to include them."
+    },
     "api.visitInvoiced": {
         "message": "This visit was just invoiced, so change its items on the invoice instead."
     },
