@@ -217,9 +217,10 @@ class BillingService:
                 raise Conflict("money was taken on this invoice", code="invoice_has_payments")
             if await payment_pending(self.db, invoice):
                 raise Conflict("this invoice has a payment in progress", code="payment_in_progress")
+            visits = await invoice_bookings(self.db, invoice, lock=True)
             await void_issued(self.db, invoice, cmd)
             # a voided visit can be invoiced again, with whatever was added to it meanwhile
-            for booking in await invoice_bookings(self.db, invoice, lock=True):
+            for booking in visits:
                 if booking.invoice_id == invoice.id:
                     booking.invoice_id = None
             await self.db.flush()
