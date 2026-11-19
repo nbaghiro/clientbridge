@@ -194,6 +194,7 @@ const FAILURES: Record<string, (detail: FailureDetail) => string> = {
     file_type_unsupported: () => strings.api.fileTypeUnsupported,
     file_too_large: () => strings.api.fileTooLarge,
     return_filed: () => strings.api.returnFiled,
+    return_changed: () => strings.api.returnChanged,
     period_open: () => strings.api.periodOpen,
 };
 

@@ -14,6 +14,10 @@ import {
     type TeamDay,
     mediaUrl,
     usePeoplePhotos,
+    filingNote,
+    formatMoney,
+    useBusinessZone,
+    BUSINESS_CURRENCY,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -100,7 +104,13 @@ export function TodayHeader({
 }
 
 /** Sales for staff; for an owner, whose figures sit in the strip above, what is overdue. */
-export function PaymentsSummary({ owner = false }: { owner?: boolean }) {
+export function PaymentsSummary({
+    owner = false,
+    children,
+}: {
+    owner?: boolean;
+    children?: ReactNode;
+}) {
     const openLink = useOpenLink();
     const nav = useShellNav(useViewer());
     const overdue = nav.badges.payments ?? 0;
@@ -151,7 +161,31 @@ export function PaymentsSummary({ owner = false }: { owner?: boolean }) {
                     </View>
                 </Panel>
             )}
+            {children}
         </Section>
+    );
+}
+
+/** The sales tax set aside and when its next return is due, a tap away from the returns. */
+export function FilingRow({
+    money,
+}: {
+    money: { setAsideCents: number; filingDue: Date | null; filingDays: number | null };
+}) {
+    const openLink = useOpenLink();
+    const zone = useBusinessZone();
+    return (
+        <Panel flush style={styles.filing}>
+            <ListRow
+                icon="building"
+                title={t.setAside}
+                detail={filingNote(money, zone)}
+                meta={formatMoney(money.setAsideCents, BUSINESS_CURRENCY)}
+                onPress={() => {
+                    openLink("taxReturns");
+                }}
+            />
+        </Panel>
     );
 }
 
@@ -701,6 +735,7 @@ const styles = StyleSheet.create({
     },
     kpiHint: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 11.5, marginTop: 2 },
     section: { paddingHorizontal: 20, marginTop: 22 },
+    filing: { marginTop: 10 },
     sectionHead: {
         flexDirection: "row",
         alignItems: "center",

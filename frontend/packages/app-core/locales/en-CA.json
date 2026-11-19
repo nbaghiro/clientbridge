@@ -311,6 +311,10 @@
         "message": "A return for this period was already recorded. The page now shows what's left to file.",
         "description": "Recording a tax return for days another return already covers"
     },
+    "api.returnChanged": {
+        "message": "What's left to file for this period changed since the form opened. Check the new amounts and record the return again.",
+        "description": "Recording a tax return whose amount changed after the form opened, e.g. another return covered part of it"
+    },
     "api.periodOpen": {
         "message": "This period hasn't ended yet. Record its return once it's over.",
         "description": "Recording a tax return before its period ends"
@@ -11777,7 +11781,7 @@
         "args": ["period", "which"]
     },
     "remittances.nothingToFile": {
-        "message": "Both returns for this period are filed."
+        "message": "Every return for this period is filed."
     },
     "remittances.noPeriods": {
         "message": "No tax periods yet"

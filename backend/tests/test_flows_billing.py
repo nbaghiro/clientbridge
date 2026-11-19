@@ -176,13 +176,13 @@ async def test_remittance_files_the_tax_payable(
     assert owed - payable == 1200  # BC GST 5% + PST 7%
 
     today = clock.today(await business_tz(db, BIZ))
-    unfiled = add_months(period_of(today, "quarterly")[0], -3)
+    current = period_of(today, "quarterly")[0]
     filed = ok(
         await api.post(
             "/v1/payments/remittances",
             json={
-                "period_start": unfiled.isoformat(),
-                "period_end": (today - timedelta(days=1)).isoformat(),
+                "period_start": add_months(current, -3).isoformat(),
+                "period_end": (current - timedelta(days=1)).isoformat(),
             },
             headers=retry_key(),
         ),

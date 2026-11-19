@@ -7,13 +7,7 @@ import type { ApiLike } from "../api";
 import { BusinessZoneContext, formatDate, formatShortDay, zonedDate } from "../datetime";
 import { formatList } from "../format";
 import { strings } from "../strings";
-import {
-    type FilingPeriod,
-    filedWhen,
-    filingWhen,
-    useFilingForm,
-    useTaxFilings,
-} from "./remittances";
+import { type FilingPeriod, filingWhen, useFilingForm, useTaxFilings } from "./remittances";
 
 afterEach(cleanup);
 
@@ -21,7 +15,17 @@ const ZONE = "America/Vancouver";
 
 const r = strings.remittances;
 
-type FiledReturn = FilingPeriod["federalReturns"][number];
+interface FiledReturn {
+    id: string;
+    family: "federal" | "provincial" | null;
+    period_start: string;
+    period_end: string;
+    by_code: Record<string, number>;
+    itc_cents: number;
+    paid_cents: number;
+    confirmation: string | null;
+    filed_on: string;
+}
 
 const due = zonedDate(2026, 7, 31, 12, 0, ZONE);
 
@@ -41,12 +45,6 @@ function period(extra: Partial<FilingPeriod>): FilingPeriod {
         provincialTaxableCents: 0,
         federalStatus: "due",
         provincialStatus: "none",
-        federalReturns: [],
-        provincialReturns: [],
-        federalPaidCents: 0,
-        provincialPaidCents: 0,
-        federalConfirmations: [],
-        provincialConfirmations: [],
         federalSpan: "",
         provincialSpan: "",
         ...extra,
@@ -66,40 +64,10 @@ const filed = (family: FiledReturn["family"], on: string): FiledReturn => ({
 });
 
 describe("filingWhen", () => {
-    it("says when a filed period was filed, federal return first", () => {
-        expect(
-            filingWhen(
-                period({
-                    status: "filed",
-                    federalReturns: [filed("federal", "2026-07-15")],
-                    provincialReturns: [filed("provincial", "2026-07-20")],
-                }),
-                ZONE,
-            ),
-        ).toBe(r.filedOn(formatShortDay(zonedDate(2026, 7, 15, 12, 0, ZONE), ZONE)));
-        expect(
-            filingWhen(
-                period({
-                    status: "filed",
-                    provincialReturns: [filed("provincial", "2026-07-20")],
-                }),
-                ZONE,
-            ),
-        ).toBe(r.filedOn(formatShortDay(zonedDate(2026, 7, 20, 12, 0, ZONE), ZONE)));
-    });
-
-    it("says filed, never due, for a filed period with no return row", () => {
+    it("says filed, never due, for a filed period", () => {
         for (const daysToDue of [10, 0, -30]) {
             expect(filingWhen(period({ status: "filed", daysToDue }), ZONE)).toBe(r.filed);
         }
-    });
-
-    it("dates a return in the history even while the period's other tax is due", () => {
-        const gstOnly = period({ federalReturns: [filed("federal", "2026-07-15")] });
-        expect(filedWhen(gstOnly, ZONE)).toBe(
-            r.filedOn(formatShortDay(zonedDate(2026, 7, 15, 12, 0, ZONE), ZONE)),
-        );
-        expect(filingWhen(gstOnly, ZONE)).toBe(r.dueIn(10, formatShortDay(due, ZONE)));
     });
 
     it("counts down to the due date and flags a late one", () => {
@@ -204,10 +172,10 @@ describe("useTaxFilings", () => {
             wrapper,
         });
         await waitFor(() => {
-            expect(result.current.filed).toHaveLength(1);
+            expect(result.current.history).toHaveLength(1);
         });
-        expect(result.current.filed[0]?.federalReturns.map((x) => x.id)).toEqual([both.id]);
-        expect(result.current.filed[0]?.provincialReturns).toEqual([]);
+        const [shown] = result.current.history;
+        expect([shown?.federalPaidCents, shown?.hasProvincial]).toEqual([both.paid_cents, false]);
     });
 
     it("adds up a tax filed in parts, and lists a period once one of its returns is in", async () => {
@@ -251,19 +219,25 @@ describe("useTaxFilings", () => {
             wrapper,
         });
         await waitFor(() => {
-            expect(result.current.filed).toHaveLength(3);
+            expect(result.current.history).toHaveLength(3);
         });
-        const [whole, gstOnly, partly] = result.current.filed;
+        const [whole, gstOnly, partlyFiled] = result.current.history;
         expect([whole?.federalPaidCents, whole?.provincialPaidCents]).toEqual([900, 700]);
         expect([whole?.federalConfirmations, whole?.provincialConfirmations]).toEqual([
             ["CRA-1"],
             ["BC-1", "BC-2"],
         ]);
-        expect([gstOnly?.status, gstOnly?.federalPaidCents]).toEqual(["due", 500]);
         const day = (y: number, m: number, d: number, full = false) => {
             const at = zonedDate(y, m, d, 12, 0, ZONE);
             return full ? formatDate(at, ZONE) : formatShortDay(at, ZONE);
         };
+        expect(whole?.span).toBe(r.span(day(2026, 7, 1), day(2026, 9, 30, true)));
+        expect([gstOnly?.hasProvincial, gstOnly?.federalPaidCents]).toEqual([false, 500]);
+        expect([partlyFiled?.title, partlyFiled?.span]).toEqual([
+            r.quarter(1, 2026),
+            r.span(day(2026, 2, 1), day(2026, 2, 28, true)),
+        ]);
+        const partly = result.current.periods[2];
         expect(partly?.federalSpan).toBe(partly?.span);
         expect(partly?.provincialSpan).toBe(
             formatList([
@@ -271,6 +245,69 @@ describe("useTaxFilings", () => {
                 r.span(day(2026, 3, 1), day(2026, 3, 31, true)),
             ]),
         );
+    });
+
+    it("lists each return once under its own dates after the filing frequency changes", async () => {
+        const quarter = {
+            ...filed("federal", "2026-10-10"),
+            id: "rt_q3",
+            period_start: "2026-07-01",
+            period_end: "2026-09-30",
+            paid_cents: 900,
+        };
+        const october = {
+            ...filed("federal", "2026-11-10"),
+            id: "rt_oct",
+            period_start: "2026-10-01",
+            period_end: "2026-10-31",
+            paid_cents: 300,
+        };
+        const month = (start: string, end: string, status: string) => ({
+            ...row(start, end, status, "none"),
+            returns: start < "2026-10-01" ? [quarter] : [october],
+        });
+        const get = vi.fn(() =>
+            Promise.resolve({
+                ...filings([
+                    month("2026-10-01", "2026-10-31", "filed"),
+                    month("2026-09-01", "2026-09-30", "filed"),
+                    month("2026-08-01", "2026-08-31", "filed"),
+                    month("2026-07-01", "2026-07-31", "filed"),
+                ]),
+                frequency: "monthly",
+            }),
+        );
+        const { result } = renderHook(() => useTaxFilings(api(get as ApiLike["get"])), {
+            wrapper,
+        });
+        await waitFor(() => {
+            expect(result.current.history).toHaveLength(2);
+        });
+        const day = (m: number, d: number, full = false) => {
+            const at = zonedDate(2026, m, d, 12, 0, ZONE);
+            return full ? formatDate(at, ZONE) : formatShortDay(at, ZONE);
+        };
+        expect(result.current.history.map((h) => [h.span, h.federalPaidCents])).toEqual([
+            [r.span(day(10, 1), day(10, 31, true)), 300],
+            [r.span(day(7, 1), day(9, 30, true)), 900],
+        ]);
+        expect(result.current.history[1]?.title).toBe(r.quarter(3, 2026));
+
+        get.mockResolvedValue(
+            filings([
+                {
+                    ...row("2026-10-01", "2026-12-31", "open", "none"),
+                    returns: [october],
+                },
+            ]),
+        );
+        act(() => {
+            result.current.refresh();
+        });
+        await waitFor(() => {
+            expect(result.current.history[0]?.title).toBe(r.quarter(4, 2026));
+        });
+        expect(result.current.history[0]?.span).toBe(r.span(day(10, 1), day(10, 31, true)));
     });
 
     it("stays on screen while it refreshes, so an open form keeps its answer", async () => {
@@ -360,8 +397,25 @@ describe("useFilingForm", () => {
         ]);
     });
 
+    it("sends the tax it showed, so a return that changed since is refused", () => {
+        const post = vi.fn(() => Promise.resolve({}));
+        const { result } = form(post as ApiLike["post"]);
+        act(() => {
+            result.current.setConfirmation("CRA-1");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        expect(post).toHaveBeenCalledWith(
+            "/v1/payments/remittances",
+            expect.objectContaining({ family: "federal", tax_cents: 1000 }),
+            expect.anything(),
+        );
+    });
+
     it.each([
         ["return_filed", strings.api.returnFiled, 1],
+        ["return_changed", strings.api.returnChanged, 1],
         ["period_open", strings.api.periodOpen, 0],
         ["invalid_filed_on", r.errors.filedOn, 0],
         ["invalid_itc", r.errors.itcTooHigh, 0],
