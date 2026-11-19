@@ -3,13 +3,16 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
+from clientbridge.core.locale import format_money
 from clientbridge.models.billing import Invoice
+from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking
 from clientbridge.services import ledger
-from tests.conftest import FakePaymentGateway
+from clientbridge.services.notifications import invoice_sent_message
+from tests.conftest import FakePaymentGateway, FakeSmsSender
 from tests.helpers import (
     begin,
     card_pay,
@@ -180,6 +183,38 @@ async def test_sending_the_invoice_applies_the_deposit(
     invoice.overdue_notified_at = clock.now()
     await db.flush()
     assert (await ledger.invoice_state(db, invoice))[0] == "overdue"
+
+
+async def test_the_invoice_text_asks_for_what_is_left_after_the_deposit(
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
+) -> None:
+    await db.execute(update(Client).where(Client.id == CL_AMELIE).values(phone="+16045550224"))
+    bid, _ = await _collected(as_owner, db, "2027-07-05T10:00:00Z")
+    draft = ok(await as_owner.post(f"/v1/invoices/from-booking/{bid}"), 201).json()
+    left = format_money("en_CA", draft["total_cents"] - 2000, "CAD")
+    whole = format_money("en_CA", draft["total_cents"], "CAD")
+    preview = ok(await as_owner.get(f"/v1/previews/invoices/{draft['id']}/send")).json()
+    assert left in preview["text"]["body"] and whole not in preview["text"]["body"]
+    ok(await as_owner.post(f"/v1/invoices/{draft['id']}/send"))
+    assert left in sms.sent[-1].body and whole not in sms.sent[-1].body
+
+
+async def test_an_invoice_the_deposit_settles_texts_that_it_is_paid_without_a_pay_link(
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
+) -> None:
+    await db.execute(update(Client).where(Client.id == CL_AMELIE).values(phone="+16045550225"))
+    bid, _ = await _collected(as_owner, db, "2027-07-06T10:00:00Z")
+    trim = {"description": "Nail trim", "unit_amount_cents": 1500, "booking_id": bid}
+    res = await as_owner.post("/v1/invoices", json={"client_id": CL_AMELIE, "lines": [trim]})
+    draft = ok(res, 201).json()
+    assert draft["total_cents"] <= 2000
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    preview = ok(await as_owner.get(f"/v1/previews/invoices/{draft['id']}/send")).json()
+    sent = ok(await as_owner.post(f"/v1/invoices/{draft['id']}/send")).json()
+    paid = invoice_sent_message("en_CA", sent["number"], None, business.name, "")
+    assert preview["text"]["body"] == paid
+    assert sms.sent[-1].body == paid
 
 
 async def test_a_visit_invoice_edited_with_its_line_references_still_takes_the_deposit(

@@ -433,6 +433,24 @@ async def invoice_balance(db: AsyncSession, invoice: Invoice) -> int:
     )
 
 
+async def balance_once_sent(db: AsyncSession, invoice: Invoice) -> int:
+    """What the client owes once the invoice goes out: a draft less the deposits sending applies."""
+    balance = await invoice_balance(db, invoice)
+    if invoice.status != "draft":
+        return balance
+    visits = await db.scalars(
+        scoped(Booking, invoice.business_id)
+        .where(
+            Booking.id.in_(select(Line.booking_id).where(Line.invoice_id == invoice.id)),
+            Booking.deposit_status == "collected",
+        )
+        .order_by(Booking.id)
+    )
+    for booking in visits:
+        balance -= min(await deposit_held(db, booking), balance)
+    return balance
+
+
 def _subject_legs(subject_type: str, subject_id: _Id) -> ColumnElement[bool]:
     return and_(Entry.subject_type == subject_type, Entry.subject_id == subject_id, _settled())
 

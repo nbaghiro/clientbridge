@@ -31,6 +31,7 @@ import type { Viewer } from "./auth";
 import { afterReview, outgoing } from "./previews";
 import { useInvoices } from "./billing";
 import {
+    addonsCentsSql,
     awaitingDepositSql,
     type ScheduleEvent,
     slotBookingsJoin,
@@ -85,6 +86,7 @@ interface AgendaRow {
     booking_id: string | null;
     booking_status: string | null;
     price_cents: number | null;
+    addons_cents: number;
     client_id: string | null;
     client_name: string | null;
     client_phone: string | null;
@@ -106,6 +108,7 @@ SELECT s.id AS slot_id, s.starts_at, s.ends_at, s.staff_id, s.capacity,
        i.name AS item_name, i.kind AS item_kind, i.color AS item_color, ${itemImageSql("i")} AS item_image_file_id,
        i.price_cents AS item_price_cents,
        b.id AS booking_id, b.status AS booking_status, b.price_cents, b.client_id,
+       ${addonsCentsSql} AS addons_cents,
        c.name AS client_name, c.phone AS client_phone, sj.name AS subject_name,
        sj.attributes AS subject_attributes,
        b.deposit_amount_cents, b.deposit_status, b.departed_at, b.checked_in_at,
@@ -198,8 +201,11 @@ export function buildAgenda(
                 staffColor: r.staff_color,
                 color: r.item_color,
                 priceCents: isClass
-                    ? seats.reduce((n, s) => n + (s.price_cents ?? s.item_price_cents ?? 0), 0)
-                    : (r.price_cents ?? r.item_price_cents ?? 0),
+                    ? seats.reduce(
+                          (n, s) => n + (s.price_cents ?? s.item_price_cents ?? 0) + s.addons_cents,
+                          0,
+                      )
+                    : (r.price_cents ?? r.item_price_cents ?? 0) + r.addons_cents,
                 isClass,
                 depositDue: !isClass && r.deposit_status === "pending",
                 depositAmountCents: r.deposit_amount_cents ?? 0,

@@ -356,6 +356,66 @@ describe("useTerminalConnection", () => {
     });
 });
 
+describe("a visit on the desk ticket", () => {
+    const wrapper = ({ children }: { children: ReactNode }) =>
+        createElement(BusinessZoneContext.Provider, { value: ZONE }, children);
+    const api: ApiLike = {
+        get: <T>() => Promise.resolve([] as T),
+        getText: () => Promise.resolve(""),
+        post: <T>() => Promise.resolve({} as T),
+        patch: <T>() => Promise.resolve({} as T),
+        delete: <T>() => Promise.resolve({} as T),
+    };
+    const sold = (key: string, kind: string, cents: number): SaleLine => ({
+        key,
+        itemId: `it_${key}`,
+        kind,
+        description: key,
+        unitAmountCents: cents,
+        quantity: 1,
+        taxClass: "standard",
+        staffId: null,
+        bookingId: "bk_1",
+        color: null,
+        imageFileId: null,
+        discount: null,
+    });
+    const visit = {
+        bookingId: "bk_1",
+        clientId: "cl_ann",
+        depositCents: 1000,
+        line: sold("bath", "service", 4500),
+        addonLines: [sold("shampoo", "product", 1200), sold("brush", "product", 800)],
+    } as CheckoutVisit;
+
+    it("rings up the visit with its add-ons, and drops one add-on without the visit", () => {
+        const { result } = renderHook(() => useSale(api, { platform: "web" }), { wrapper });
+        act(() => {
+            result.current.addVisit(visit);
+        });
+        expect(result.current.lines.map((l) => l.key)).toEqual(["bath", "shampoo", "brush"]);
+        expect(result.current.totals.depositCents).toBe(1000);
+        act(() => {
+            result.current.removeLine("shampoo");
+        });
+        expect(result.current.lines.map((l) => l.key)).toEqual(["bath", "brush"]);
+        expect(result.current.totals.depositCents).toBe(1000);
+    });
+
+    it("takes the visit's add-ons and deposit off with the visit", () => {
+        const { result } = renderHook(() => useSale(api, { platform: "web" }), { wrapper });
+        act(() => {
+            result.current.addVisit(visit);
+        });
+        act(() => {
+            result.current.removeLine("bath");
+        });
+        expect(result.current.lines).toEqual([]);
+        expect(result.current.hasVisit("bk_1")).toBe(false);
+        expect(result.current.totals.depositCents).toBe(0);
+    });
+});
+
 describe("useVisitCover", () => {
     const visit = (
         bookingId: string,
@@ -391,6 +451,7 @@ describe("useVisitCover", () => {
             imageFileId: null,
             discount: null,
         },
+        addonLines: [],
     });
     const recording = (reply: object) => {
         const sent: unknown[][] = [];

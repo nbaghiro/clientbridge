@@ -1,0 +1,91 @@
+appId: ${APP_ID}
+name: NATIVE-SCH-03 The owner adds an add-on to today's visit from its own picker sheet, sees it on the visit and its total, then removes it
+tags:
+    - lane
+onFlowComplete:
+    - runScript: helpers/restore-week.js
+---
+- evalScript: ${output.run = String(Date.now()).slice(-5)}
+- evalScript: ${output.phone = "250" + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000))}
+- evalScript: ${output.name = "Juniper Okoro"}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/clients
+          BODY: "${JSON.stringify({ name: output.name, phone: output.phone })}"
+- evalScript: ${output.clientId = output.response.id}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/items
+          BODY: "${JSON.stringify({ kind: 'service', name: 'Paw care ' + output.run, duration_min: 10, price_cents: 3000, deposit_type: 'none', online_bookable: false })}"
+- evalScript: ${output.itemId = output.response.id}
+- evalScript: ${output.addon = "Balm " + output.run}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/items
+          BODY: "${JSON.stringify({ kind: 'product', name: output.addon, price_cents: 1200, duration_min: 5 })}"
+- evalScript: ${output.addonId = output.response.id}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: PATCH
+          PATH: /v1/online-booking/addons
+          BODY: "${JSON.stringify({ offers: [{ id: output.addonId, addon: true, addon_for: [output.itemId] }] })}"
+- runScript:
+      file: helpers/book-today.js
+      env:
+          BODY: "${JSON.stringify({ client_id: output.clientId, item_id: output.itemId, staff_id: 'st_owner_' + E2E_NAMESPACE })}"
+- runFlow: helpers/owner.yaml
+- tapOn: "Schedule"
+- tapOn: ${output.dayLabel}
+- scrollUntilVisible:
+      element: ${".*" + output.name + ".*"}
+      direction: DOWN
+      timeout: 60000
+- swipe:
+      start: 50%, 70%
+      end: 50%, 40%
+      duration: 600
+- scrollUntilVisible:
+      element: ${".*" + output.name + ".*"}
+      direction: UP
+      timeout: 20000
+      centerElement: true
+- retry:
+      maxRetries: 3
+      commands:
+          - tapOn: ${".*" + output.name + ".*"}
+          - extendedWaitUntil:
+                visible: "Close"
+                timeout: 10000
+- scrollUntilVisible:
+      element: "Add to this visit"
+      direction: DOWN
+      timeout: 30000
+      centerElement: true
+# the picker opens as its own sheet over the visit, so its choices are on screen at once; the
+# field after its label reads "Add to this visit" on iOS and "Add to this visit, " on Android
+- tapOn:
+      text: "Add to this visit,? ?"
+      index: 1
+# each choice reads its name, then its price and the time it adds
+- extendedWaitUntil:
+      visible: ${output.addon + ", .*"}
+      timeout: 10000
+- takeScreenshot: addon-picker
+- tapOn: ${output.addon + ", .*"}
+- extendedWaitUntil:
+      visible: ${"1 × " + output.addon}
+      timeout: 30000
+- assertVisible: "Paid with the visit · \\$12\\.00"
+- takeScreenshot: addon-added
+- tapOn: "Remove"
+- extendedWaitUntil:
+      notVisible: ${"1 × " + output.addon}
+      timeout: 30000
+- takeScreenshot: addon-removed

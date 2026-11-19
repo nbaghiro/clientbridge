@@ -15,7 +15,7 @@ import { Choice } from "./Choice";
 import { Extras, FIELD_SIZE, Label, fieldStyles } from "./Field";
 import { Icon } from "./Icon";
 import { ItemImage } from "./ItemImage";
-import { Modal } from "./Modal";
+import { Modal, OverFlow } from "./Modal";
 import type { NativeProps } from "./props";
 import { SearchField } from "./SearchField";
 
@@ -247,36 +247,38 @@ export function SelectSheet<K extends string>({
             )}
             <Extras hint={hint} error={error} />
             {sheet ? (
-                <Modal
-                    open={open}
-                    onClose={close}
-                    size={options.length > SEARCH_AFTER ? "xl" : "md"}
-                >
-                    {label !== undefined || name !== undefined ? (
-                        <Text style={styles.sheetTitle} accessibilityRole="header">
-                            {label ?? name}
-                        </Text>
-                    ) : null}
-                    {withSearch ? (
-                        <SearchField
-                            value={q}
-                            onChange={setQ}
-                            placeholder={strings.ui.searchOptions}
-                            autoFocus={searchFirst}
-                        />
-                    ) : null}
-                    <View style={styles.list}>
-                        {shown.length === 0 ? (
-                            <Text style={styles.empty}>
-                                {options.length === 0
-                                    ? (emptyLabel ?? strings.ui.noOptions)
-                                    : strings.ui.noMatches}
+                <OverFlow>
+                    <Modal
+                        open={open}
+                        onClose={close}
+                        size={options.length > SEARCH_AFTER ? "xl" : "md"}
+                    >
+                        {label !== undefined || name !== undefined ? (
+                            <Text style={styles.sheetTitle} accessibilityRole="header">
+                                {label ?? name}
                             </Text>
-                        ) : (
-                            rows
-                        )}
-                    </View>
-                </Modal>
+                        ) : null}
+                        {withSearch ? (
+                            <SearchField
+                                value={q}
+                                onChange={setQ}
+                                placeholder={strings.ui.searchOptions}
+                                autoFocus={searchFirst}
+                            />
+                        ) : null}
+                        <View style={styles.list}>
+                            {shown.length === 0 ? (
+                                <Text style={styles.empty}>
+                                    {options.length === 0
+                                        ? (emptyLabel ?? strings.ui.noOptions)
+                                        : strings.ui.noMatches}
+                                </Text>
+                            ) : (
+                                rows
+                            )}
+                        </View>
+                    </Modal>
+                </OverFlow>
             ) : null}
         </View>
     );

@@ -114,6 +114,7 @@ def _builders() -> dict[str, Render]:
         "invoice_sent_message": lambda c: (
             n.invoice_sent_message(c, 1001, amount(c), NAME, LINK),
             n.invoice_sent_message(c, 1001, amount(c), NAME, ""),
+            n.invoice_sent_message(c, 1001, None, NAME, LINK),
         ),
         "invoice_overdue_message": lambda c: (
             n.invoice_overdue_message(c, 1001, amount(c), NAME, LINK),

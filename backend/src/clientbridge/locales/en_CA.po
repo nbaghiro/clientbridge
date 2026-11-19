@@ -232,10 +232,13 @@ msgid "invoice_reminder.body_link"
 msgstr "A reminder from {business}: invoice #{number} has {amount} still to pay. Pay at {link}"
 
 msgid "invoice_sent.body"
-msgstr "Invoice #{number} for {amount} from {business}"
+msgstr "Invoice #{number} from {business}: {amount} to pay"
 
 msgid "invoice_sent.body_link"
-msgstr "Invoice #{number} for {amount} from {business} — pay at {link}"
+msgstr "Invoice #{number} from {business}: {amount} to pay at {link}"
+
+msgid "invoice_sent.paid"
+msgstr "Invoice #{number} from {business} is already paid in full"
 
 msgid "login_code.body"
 msgid_plural "login_code.body"

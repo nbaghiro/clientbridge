@@ -1,12 +1,13 @@
 import { randomUUID } from "node:crypto";
 import {
     MEMBER_DISCOUNT_REASON,
+    dateKey,
     formatMoney,
     saleNumber,
     strings,
 } from "@clientbridge/app-core/public";
 import { expect, test, type Page } from "@playwright/test";
-import { bookingApi, createBookingFixture } from "./support/bookings";
+import { bookingApi, cancelOwnedBooking, createBookingFixture } from "./support/bookings";
 import { createClient, type ClientFixture } from "./support/clients";
 import { select } from "./support/db";
 import {
@@ -739,4 +740,102 @@ test("SALE-E2E-19 a member's perk takes a whole percent and comes off their prod
             discount_reason: MEMBER_DISCOUNT_REASON,
         },
     ]);
+});
+
+test("SALE-E2E-20 a visit's add-ons ride on its desk ticket, and the sold visit takes no more", async ({
+    page,
+    browser,
+    request,
+}, testInfo) => {
+    test.setTimeout(240_000);
+    await signIn(page);
+    const joining = await browser.newContext({ baseURL: new URL(page.url()).origin });
+    const member = await joinHoursStaff(await joining.newPage(), request).finally(() =>
+        joining.close(),
+    );
+    let bookingId: string | null = null;
+    try {
+        const visit = await createBookingFixture(page, {
+            price_cents: 8000,
+            tax_class: "federal_only",
+        });
+        const api = bookingApi();
+        const extra = await page.request.post(`${api}/v1/items`, {
+            headers: apiHeaders(page),
+            data: {
+                kind: "product",
+                name: `Paw balm for ${visit.clientName}`,
+                price_cents: 2000,
+                tax_class: "federal_only",
+            },
+        });
+        expect(extra.status(), await extra.text()).toBe(201);
+        const balm = (await extra.json()) as { id: string; name: string };
+        const step = 5 * 60_000;
+        const starts = new Date(Math.ceil((Date.now() + 2 * 60_000) / step) * step);
+        const booked = await page.request.post(`${api}/v1/bookings`, {
+            headers: apiHeaders(page),
+            data: {
+                client_id: visit.clientId,
+                item_id: visit.itemId,
+                staff_id: member.id,
+                starts_at: starts.toISOString(),
+                notify: false,
+            },
+        });
+        expect(booked.status(), await booked.text()).toBe(201);
+        bookingId = ((await booked.json()) as { id: string }).id;
+        const addAddon = () =>
+            page.request.post(`${api}/v1/bookings/${bookingId ?? ""}/addons`, {
+                headers: apiHeaders(page),
+                data: { item_id: balm.id },
+            });
+        const added = await addAddon();
+        expect(added.status(), await added.text()).toBe(201);
+        // the desk lists today's visits, so one booked past midnight waits for its day
+        if (dateKey(starts, visit.zone) !== dateKey(new Date(), visit.zone)) {
+            const wait = starts.getTime() - Date.now() + 5_000;
+            test.setTimeout(test.info().timeout + wait);
+            await page.waitForTimeout(wait);
+        }
+
+        await navigate(page, "/payments/sales");
+        const row = page
+            .getByRole("main")
+            .locator("div")
+            .filter({ has: page.getByText(visit.clientName, { exact: true }) })
+            .filter({ has: page.getByRole("button", { name: d.checkOut, exact: true }) })
+            .last();
+        // the desk builds the ticket from this device's replica, so the add-on must reach it first
+        await expect(row).toContainText(formatMoney(10_000, "CAD"), { timeout: 60_000 });
+        await row.getByRole("button", { name: d.checkOut, exact: true }).click({ timeout: 60_000 });
+        const ticket = saleTicket(page);
+        await expect(ticket.getByText(balm.name, { exact: true })).toBeVisible();
+        // the $80 visit and its $20 balm, with GST on both
+        await ticket.getByRole("button", { name: d.charge("$105.00"), exact: true }).click();
+        const payment = paymentPanel(page);
+        await payment
+            .getByRole("group", { name: d.tip, exact: true })
+            .getByRole("button", { name: d.tipNone, exact: true })
+            .click();
+        expect(await payExactCash(page, "$105.00")).toMatchObject({ amount_cents: 10500 });
+
+        const lines = await select<{ item_id: string; booking_id: string; amount_cents: number }>`
+            SELECT item_id, booking_id, amount_cents FROM lines
+            WHERE booking_id = ${bookingId} AND order_id IS NOT NULL ORDER BY amount_cents DESC`;
+        expect(lines).toEqual([
+            { item_id: visit.itemId, booking_id: bookingId, amount_cents: 8000 },
+            { item_id: balm.id, booking_id: bookingId, amount_cents: 2000 },
+        ]);
+        const refused = await addAddon();
+        expect(refused.status()).toBe(409);
+        expect(((await refused.json()) as { error: string }).error).toBe("visit_sold");
+        await testInfo.attach("desk-addon-lines", {
+            body: JSON.stringify({ booking: bookingId, lines }),
+            contentType: "application/json",
+        });
+    } finally {
+        if (bookingId !== null) await cancelOwnedBooking(page, bookingId);
+        await member.cleanup();
+    }
 });
