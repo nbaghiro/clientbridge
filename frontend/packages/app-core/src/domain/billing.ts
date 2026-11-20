@@ -213,7 +213,7 @@ function netTipSql(where: string): string {
 /** What an issued invoice with no number charged for: a membership period names its plan. */
 export function chargeNameSql(invoice: string): string {
     return `(SELECT cl.description FROM lines cl WHERE cl.invoice_id = ${invoice}.id
-        AND ${invoice}.number IS NULL AND ${invoice}.status <> 'draft'
+        AND ${invoice}.number IS NULL AND ${invoice}.issued_at IS NOT NULL
         ORDER BY cl.position LIMIT 1)`;
 }
 

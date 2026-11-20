@@ -15,7 +15,13 @@ import { joinHoursStaff } from "../../../web/e2e/support/hours";
 import { lapsedNotice } from "../../../web/e2e/support/plans";
 import { navigate, signIn } from "../../../web/e2e/support/session";
 import { apiCall } from "../../../web/e2e/support/visit";
-import { categoryTotals, clientMoney, press, registerPurchaser } from "./support/disputes";
+import {
+    categoryTotals,
+    clientMoney,
+    press,
+    registerPurchaser,
+    webhookRows,
+} from "./support/disputes";
 import {
     DAY,
     advanceClock,
@@ -497,11 +503,22 @@ test("ENT-E2E-11 a monthly membership renews a month on taxed at the registratio
         await owner.keyboard.press("Escape");
 
         await apiCall(owner, "POST", `/v1/clients/${client.id}/archive`, {}, 200);
+        // Stripe answers the archive with an update that has no cancel_at, only cancel_at_period_end
         await expect
-            .poll(async () => (await membershipRows(client.id))[0]?.ends_at?.getTime(), {
-                timeout: 60_000,
-            })
-            .toBe(renewed.current_period_end.getTime());
+            .poll(
+                async () => {
+                    const { updates } = await membershipEvidence(client.id);
+                    const scheduled = updates.filter((u) => u.cancel_at_period_end).at(-1);
+                    return scheduled === undefined
+                        ? []
+                        : (await webhookRows([scheduled.id])).map((r) => r.status);
+                },
+                { timeout: 120_000 },
+            )
+            .toEqual(["processed"]);
+        expect((await membershipRows(client.id))[0]?.ends_at?.getTime()).toBe(
+            renewed.current_period_end.getTime(),
+        );
         const ends = strings.clients.subscriptionEnds(formatDate(renewed.current_period_end, ZONE));
         await expect(
             membershipLine(await openWallet(owner, client, { archived: true }), item).getByText(

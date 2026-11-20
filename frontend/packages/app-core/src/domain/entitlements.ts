@@ -442,7 +442,7 @@ export interface EntitlementSummary {
 
 const day = (iso: string, zone: string): string => formatDate(readDate(iso, zone), zone);
 
-// membership rows: expires_at is the end, paid_cents the renewal backend _period_revenue picks
+// membership rows: expires_at is the end, paid_cents what its last renewal charged
 const membershipDates = (r: WalletRow): Parameters<typeof membershipPhase>[0] => ({
     status: r.status,
     current_period_end: r.period_end,
@@ -504,7 +504,7 @@ function summarizeEntitlement(r: WalletRow, zone: string): EntitlementSummary {
                           ? w.ends(when)
                           : w.renews(when),
             meter: null,
-            valueCents: r.price_cents ?? 0,
+            valueCents: r.paid_cents ?? r.price_cents ?? 0,
             note: status === "past_due" ? w.pastDueNote : card,
         };
     }

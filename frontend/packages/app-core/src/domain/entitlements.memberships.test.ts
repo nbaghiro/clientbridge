@@ -51,6 +51,7 @@ const ROWS = [
     membership("ended", "canceled", ENDED, 2625),
     membership("behind", "past_due", null, 2625),
     membership("paused", "paused", null, 2625),
+    membership("unbilled", "active", null, null),
 ];
 
 vi.mock("../hooks", async (importOriginal) => ({
@@ -102,7 +103,21 @@ describe("a membership in the Plans list and its panel", () => {
             ended: w.ended(monthDay(ENDED)),
             behind: w.retrying,
             paused: "",
+            unbilled: w.renews(monthDay(END)),
         });
+    });
+
+    it("values a membership at what its card is charged, and at the price before a renewal", () => {
+        const values = Object.fromEntries(wallet().summaries.map((x) => [x.row.id, x.valueCents]));
+        expect(values).toEqual({
+            renewing: 2625,
+            ending: 2625,
+            ended: 2625,
+            behind: 2625,
+            paused: 2625,
+            unbilled: 3000,
+        });
+        expect(wallet().totals.monthlyCents).toBe(2625 * 3 + 3000);
     });
 
     it("names the next charge at what the card is charged, not the item's price today", () => {

@@ -26,6 +26,7 @@ interface Renewal {
 export interface MembershipEvidence {
     subscriptions: { id: string; status: string }[];
     invoices: Renewal[];
+    updates: { id: string; created: number; cancel_at_period_end: boolean }[];
 }
 
 export function membershipEvidence(clientId: string): Promise<MembershipEvidence> {

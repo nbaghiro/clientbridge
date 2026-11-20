@@ -512,7 +512,12 @@ async def test_a_package_covered_visit_earns_on_the_session_share(
 
 
 async def _membership_visit(
-    as_owner: httpx.AsyncClient, db: AsyncSession, *, billed: int | None, former: int | None = None
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    *,
+    billed: int | None,
+    former: int | None = None,
+    later: int | None = None,
 ) -> str:
     """A started visit of Diego's covered by a $25 membership whose last renewal billed `billed`."""
     booking, slot = await _started_diego_visit(db)
@@ -545,6 +550,14 @@ async def _membership_visit(
         # a renewal recorded before this membership began, for an earlier one on the same plan
         await _plan_invoice(
             db, booking.client_id, plan, former, created=datetime(2026, 1, 5, tzinfo=UTC)
+        )
+    if later is not None:
+        await db.flush()
+        await db.refresh(sub)
+        # a renewal issued after the visit started bills the next period, not this visit's
+        issued = slot.starts_at + timedelta(minutes=30)
+        await _plan_invoice(
+            db, booking.client_id, plan, later, created=sub.created_at, issued=issued
         )
     if billed is not None:
         # the last renewal counts; an older, a void and a numbered invoice for the plan don't
@@ -591,7 +604,13 @@ async def _membership_visit(
 
 
 async def _plan_invoice(
-    db: AsyncSession, client_id: str, plan: Item, subtotal: int, *, created: datetime
+    db: AsyncSession,
+    client_id: str,
+    plan: Item,
+    subtotal: int,
+    *,
+    created: datetime,
+    issued: datetime | None = None,
 ) -> None:
     invoice = Invoice(
         id=new_id("invoice"),
@@ -599,7 +618,7 @@ async def _plan_invoice(
         client_id=client_id,
         status="sent",
         currency="CAD",
-        issued_at=clock.now() - timedelta(days=1),
+        issued_at=issued or clock.now() - timedelta(days=1),
         subtotal_cents=subtotal,
         tax_total_cents=0,
         total_cents=subtotal,
@@ -652,6 +671,21 @@ async def test_a_membership_covered_visit_ignores_an_earlier_membership_s_renewa
     # the client's earlier membership on this plan last billed $90, after this one's $20 renewal
     booking_id = await _membership_visit(as_owner, db, billed=2000, former=9000)
     assert await _membership_earning(db, booking_id) == 1200
+
+
+async def test_a_membership_covered_visit_earns_on_the_renewal_for_its_period(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    # the $20 renewal billed the visit's period; the $30 one after the visit started is the next
+    booking_id = await _membership_visit(as_owner, db, billed=2000, later=3000)
+    assert await _membership_earning(db, booking_id) == 1200
+
+
+async def test_a_membership_covered_visit_with_no_earlier_renewal_earns_on_the_latest(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    booking_id = await _membership_visit(as_owner, db, billed=None, later=3000)
+    assert await _membership_earning(db, booking_id) == 1800
 
 
 async def test_a_package_covered_visit_splits_between_its_crew(

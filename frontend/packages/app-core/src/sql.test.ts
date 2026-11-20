@@ -1276,6 +1276,35 @@ describe("app-core SQL against the replica schema", () => {
         ]);
     });
 
+    it("names an issued unnumbered invoice after its plan, but not a voided draft", () => {
+        scoped("invoices", [
+            {
+                id: "inv_renewal",
+                client_id: "cl_ann",
+                status: "sent",
+                total_cents: 5250,
+                issued_at: "2026-06-01T00:00:00Z",
+            },
+            { id: "inv_voided_draft", client_id: "cl_ann", status: "void", total_cents: 4000 },
+        ]);
+        scoped(
+            "lines",
+            ["inv_renewal", "inv_voided_draft"].map((invoice, i) => ({
+                id: `ln_named${String(i)}`,
+                invoice_id: invoice,
+                description: i === 0 ? "Monthly Daycare" : "Nail trim",
+                quantity: 1,
+                unit_amount_cents: 5000,
+                amount_cents: 5000,
+                position: 0,
+            })),
+        );
+        const name = (id: string) => pick(run("INVOICE_SQL", [id]), "charge_name")[0];
+        expect(name("inv_renewal")).toEqual({ charge_name: "Monthly Daycare" });
+        expect(name("inv_voided_draft")).toEqual({ charge_name: null });
+        expect(name("inv_2")).toEqual({ charge_name: null });
+    });
+
     it("reads amount paid, client value and balances through the ledger builders", () => {
         expect(value(collectedSql("invoice", "'inv_1'"))).toBe(4000);
         expect(value(collectedSql("invoice", "'inv_2'"))).toBe(0);

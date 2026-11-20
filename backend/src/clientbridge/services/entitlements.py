@@ -2,7 +2,7 @@ import secrets
 from calendar import monthrange
 from datetime import datetime, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -853,7 +853,8 @@ class SubscriptionService:
             booking.status, booking.completed_at = "completed", clock.now()
             await complete_when_done(self.db, slot)
             # the period's price was revenue when billed; staff earn one visit's share of it
-            share = await _period_revenue(self.db, sub, item) // item.visits_per_period
+            billed = await _period_revenue(self.db, sub, item, slot.starts_at)
+            share = billed // item.visits_per_period
             await accrue_covered_visit(self.db, booking, share, ("subscription", sub.id))
             await self.db.flush()
             cmd.record("subscription.cover", entity_type="booking", entity_id=booking.id)
@@ -928,9 +929,8 @@ class SubscriptionService:
         return row
 
 
-async def _period_revenue(db: AsyncSession, sub: Subscription, item: Item) -> int:
-    """What the membership's last renewal billed before tax, or its price before one is billed."""
-    # the wallet's last-charge query in app-core entitlements.ts picks the same renewal
+async def _period_revenue(db: AsyncSession, sub: Subscription, item: Item, at: datetime) -> int:
+    """What the renewal billing the visit's period charged before tax, or the price before one."""
     billed = await db.scalar(
         scoped(Invoice, sub.business_id)
         .with_only_columns(Invoice.subtotal_cents)
@@ -942,7 +942,10 @@ async def _period_revenue(db: AsyncSession, sub: Subscription, item: Item) -> in
             Invoice.created_at >= sub.created_at,
             Line.item_id == sub.item_id,
         )
-        .order_by(Invoice.issued_at.desc().nulls_last())
+        # the latest renewal issued by the visit's start, else the latest one
+        .order_by(
+            case((Invoice.issued_at <= at, 0), else_=1), Invoice.issued_at.desc().nulls_last()
+        )
         .limit(1)
     )
     return item.price_cents if billed is None else billed

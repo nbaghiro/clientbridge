@@ -3645,7 +3645,10 @@ async def _update_subscription(
         ended = _stamp(current, "ended_at") or _stamp(current, "canceled_at")
         sub.ends_at = ended or sub.ends_at or clock.now()
     else:
-        sub.ends_at = _stamp(current, "cancel_at")
+        at_period_end = current.get("cancel_at_period_end") is True
+        sub.ends_at = _stamp(current, "cancel_at") or (
+            sub.current_period_end if at_period_end else None
+        )
     billing = current.get("default_payment_method")
     if isinstance(billing, str):
         # Stripe decides what a membership bills, so a move it took and we lost is kept
