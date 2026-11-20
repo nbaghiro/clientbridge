@@ -13,7 +13,11 @@ class DashboardSummary(BaseModel):
         description="Sales tax collected and not yet filed (GST/HST, PST and QST)"
     )
     gst_hst_filing_due: date | None = Field(
-        description="Next GST/HST return due date; null unless tax-registered"
+        description="Due date of the oldest ended period with a return left to file, else of the "
+        "period in progress; null unless tax-registered"
+    )
+    gst_hst_filing_due_cents: int = Field(
+        description="Tax left to file for the period due by gst_hst_filing_due"
     )
 
 

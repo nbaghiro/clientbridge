@@ -14,7 +14,7 @@ import {
     useSubjectKind,
     formatList,
     formatParts,
-    formatMonthDay,
+    filingNote,
     formatMoney,
     BUSINESS_CURRENCY,
     useBusinessZone,
@@ -595,11 +595,7 @@ export function FilingCard({
             <div className="min-w-0">
                 <p className="text-sm font-semibold text-ink">{t.setAside}</p>
                 <p className="mt-0.5 truncate text-xs text-muted">
-                    {filingDue === null || filingDays === null
-                        ? t.notRegistered
-                        : filingDays < 0
-                          ? t.filingLate(formatMonthDay(filingDue, zone))
-                          : t.filing(formatMonthDay(filingDue, zone), filingDays)}
+                    {filingNote({ filingDue, filingDays }, zone)}
                 </p>
             </div>
             <span className="shrink-0 text-base font-semibold tabular-nums text-ink">

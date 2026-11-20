@@ -1642,6 +1642,8 @@ describe("app-core SQL against the replica schema", () => {
             { id: "pay_1", kind: "payment" },
             { id: "pay_r1", kind: "refund" },
         ]);
+        expect(pick(run("TODAY_TAX_SQL"), "id")).toEqual([{ id: "a_gst" }, { id: "a_pst" }]);
+        expect(run("TODAY_RETURNS_SQL")).toEqual([{ journal_id: "j_remit" }]);
         expect(run("FEES_SINCE_SQL", ["2026-06-01T00:00:00.000Z"])).toEqual([{ cents: 175 }]);
         expect(run("FEES_SINCE_SQL", ["2026-07-01T00:00:00.000Z"])).toEqual([{ cents: 0 }]);
         expect(run("STRIPE_BALANCE_SQL")).toEqual([{ cents: 0 }]);

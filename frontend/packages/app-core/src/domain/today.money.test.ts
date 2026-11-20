@@ -6,17 +6,22 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ApiLike } from "../api";
 import { BusinessZoneContext } from "../datetime";
 import { useLoad } from "../hooks";
-import { TODAY_PAYMENTS_SQL, useOwnerToday } from "./today";
+import { TODAY_PAYMENTS_SQL, TODAY_RETURNS_SQL, TODAY_TAX_SQL, useOwnerToday } from "./today";
 
 let payments: { id: string; kind: string }[] = [];
 let paymentsLoading = false;
+let taxes: { id: string; balance_cents: number }[] = [];
+let returns: { journal_id: string }[] = [];
 
 vi.mock("../hooks", async (importOriginal) => ({
     ...(await importOriginal<typeof import("../hooks")>()),
     useBusinessQuery: (sql: string) =>
         sql === TODAY_PAYMENTS_SQL
             ? { data: payments, isLoading: paymentsLoading }
-            : { data: [], isLoading: false },
+            : {
+                  data: sql === TODAY_TAX_SQL ? taxes : sql === TODAY_RETURNS_SQL ? returns : [],
+                  isLoading: false,
+              },
 }));
 
 vi.mock("./sync", async (importOriginal) => ({
@@ -34,14 +39,16 @@ interface Summary {
     today_revenue_cents: number;
     awaiting_payment_cents: number;
     gst_hst_set_aside_cents: number;
-    gst_hst_filing_due: null;
+    gst_hst_filing_due: string | null;
+    gst_hst_filing_due_cents: number;
 }
 
-const summary = (cents: number): Summary => ({
+const summary = (cents: number, setAsideCents = 0): Summary => ({
     today_revenue_cents: cents,
     awaiting_payment_cents: 0,
-    gst_hst_set_aside_cents: 0,
+    gst_hst_set_aside_cents: setAsideCents,
     gst_hst_filing_due: null,
+    gst_hst_filing_due_cents: 0,
 });
 
 function summaryApi(answer: () => Promise<Summary>): ApiLike & { reads: number } {
@@ -65,6 +72,8 @@ const wrapper = ({ children }: { children: ReactNode }) =>
 afterEach(() => {
     payments = [];
     paymentsLoading = false;
+    taxes = [];
+    returns = [];
 });
 
 describe("Today's money figures", () => {
@@ -92,6 +101,44 @@ describe("Today's money figures", () => {
         });
         expect(api.reads).toBe(2);
         expect(result.current.moneyLoad.state).toBe("ready");
+    });
+
+    it("reads the server's sums again when a filed return moves the tax set aside", async () => {
+        let setAside = 1200;
+        const api = summaryApi(() => Promise.resolve(summary(0, setAside)));
+        taxes = [{ id: "a_gst", balance_cents: -1200 }];
+        const { result, rerender } = renderHook(() => useOwnerToday(api, null), { wrapper });
+        await waitFor(() => {
+            expect(result.current.money.setAsideCents).toBe(1200);
+        });
+
+        setAside = 0;
+        taxes = [{ id: "a_gst", balance_cents: 0 }];
+        rerender();
+        await waitFor(() => {
+            expect(result.current.money.setAsideCents).toBe(0);
+        });
+        expect(api.reads).toBe(2);
+    });
+
+    it("reads the server's sums again when a $0 return is recorded, though no balance moves", async () => {
+        let due = "2026-10-31";
+        const api = summaryApi(() => Promise.resolve({ ...summary(0), gst_hst_filing_due: due }));
+        taxes = [{ id: "a_gst", balance_cents: 0 }];
+        const { result, rerender } = renderHook(() => useOwnerToday(api, null), { wrapper });
+        await waitFor(() => {
+            expect(result.current.money.filingDue).not.toBeNull();
+        });
+        const before = result.current.money.filingDue?.getTime();
+        expect(api.reads).toBe(1);
+
+        due = "2027-01-31";
+        returns = [{ journal_id: "jr_nil" }];
+        rerender();
+        await waitFor(() => {
+            expect(result.current.money.filingDue?.getTime()).not.toBe(before);
+        });
+        expect(api.reads).toBe(2);
     });
 
     it("settles when a payment arrives while the first read is still out", async () => {

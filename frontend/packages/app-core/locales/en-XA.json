@@ -284,6 +284,9 @@
     "api.returnFiled": {
         "message": "[Å ŕéţûŕñ ƒöŕ ţĥîš þéŕîöð ŵåš åļŕéåðý ŕéçöŕðéð. Ţĥé þåĝé ñöŵ šĥöŵš ŵĥåţ'š ļéƒţ ţö ƒîļé. one two three four five six]"
     },
+    "api.returnChanged": {
+        "message": "[Ŵĥåţ'š ļéƒţ ţö ƒîļé ƒöŕ ţĥîš þéŕîöð çĥåñĝéð šîñçé ţĥé ƒöŕɱ öþéñéð. Çĥéçķ ţĥé ñéŵ åɱöûñţš åñð ŕéçöŕð ţĥé ŕéţûŕñ åĝåîñ. one two three four five six seven]"
+    },
     "api.periodOpen": {
         "message": "[Ţĥîš þéŕîöð ĥåšñ'ţ éñðéð ýéţ. Ŕéçöŕð îţš ŕéţûŕñ öñçé îţ'š öṽéŕ. one two three four]"
     },
@@ -10896,7 +10899,7 @@
         "message": "[{which} ƒöŕ {period} ŕéçöŕðéð åš ƒîļéð. one two]"
     },
     "remittances.nothingToFile": {
-        "message": "[Ɓöţĥ ŕéţûŕñš ƒöŕ ţĥîš þéŕîöð åŕé ƒîļéð. one two three]"
+        "message": "[Éṽéŕý ŕéţûŕñ ƒöŕ ţĥîš þéŕîöð îš ƒîļéð. one two three]"
     },
     "remittances.noPeriods": {
         "message": "[Ñö ţåẋ þéŕîöðš ýéţ one two]"

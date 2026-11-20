@@ -110,6 +110,7 @@ interface Strings {
         readonly planActive: string;
         readonly planNotManaged: string;
         readonly returnFiled: string;
+        readonly returnChanged: string;
         readonly periodOpen: string;
         readonly giftCardNotFound: string;
         readonly giftCardUnusable: (status: string) => string;

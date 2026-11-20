@@ -3,7 +3,6 @@ import {
     type TaxFamily,
     type TaxFilings,
     filingStatusIntent,
-    filedWhen,
     filingWhen,
     formatMoney,
     formatShortDay,
@@ -143,6 +142,24 @@ export function Remittances() {
                                 <Text style={styles.dueBody}>
                                     {formatParts([due.title, due.span])}
                                 </Text>
+                                {due.federalStatus !== "filed" ? (
+                                    <View style={styles.dueLine}>
+                                        <Text style={styles.dueLabel}>{t.federalLabel}</Text>
+                                        <Text style={styles.dueAmount}>
+                                            {formatMoney(due.federalCents, BUSINESS_CURRENCY)}
+                                        </Text>
+                                    </View>
+                                ) : null}
+                                {t.provincialLabel !== null &&
+                                (due.provincialStatus === "due" ||
+                                    due.provincialStatus === "open") ? (
+                                    <View style={styles.dueLine}>
+                                        <Text style={styles.dueLabel}>{t.provincialLabel}</Text>
+                                        <Text style={styles.dueAmount}>
+                                            {formatMoney(due.provincialCents, BUSINESS_CURRENCY)}
+                                        </Text>
+                                    </View>
+                                ) : null}
                                 {due.status === "due" ? (
                                     <Button
                                         full
@@ -163,30 +180,43 @@ export function Remittances() {
                         ) : null}
                         <Text style={styles.caption}>{s.history}</Text>
                         <Panel flush>
-                            {t.filed.length === 0 ? (
+                            {t.history.length === 0 ? (
                                 <Empty message={s.noHistory} />
                             ) : (
-                                t.filed.map((p) => (
+                                t.history.map((p) => (
                                     <ListRow
                                         key={p.key}
-                                        icon={p.status === "filed" ? "checkCircle" : "clock"}
-                                        intent={p.status === "filed" ? "success" : "warning"}
+                                        icon="checkCircle"
+                                        intent="success"
                                         title={p.title}
-                                        detail={formatParts([
-                                            filedWhen(p, zone),
-                                            ...p.federalConfirmations,
-                                            t.provincialLabel !== null &&
-                                            p.provincialReturns.length > 0
-                                                ? strings.common.labelValue(
-                                                      t.provincialLabel,
-                                                      formatMoney(
-                                                          p.provincialPaidCents,
-                                                          BUSINESS_CURRENCY,
-                                                      ),
-                                                  )
-                                                : null,
-                                            ...p.provincialConfirmations,
-                                        ])}
+                                        detail={
+                                            <View>
+                                                <Text style={styles.lineSub}>
+                                                    {formatParts([p.span, p.when])}
+                                                </Text>
+                                                {p.federalConfirmations.map((n) => (
+                                                    <Text key={n} style={styles.lineSub}>
+                                                        {n}
+                                                    </Text>
+                                                ))}
+                                                {t.provincialLabel !== null && p.hasProvincial ? (
+                                                    <Text style={styles.lineSub}>
+                                                        {strings.common.labelValue(
+                                                            t.provincialLabel,
+                                                            formatMoney(
+                                                                p.provincialPaidCents,
+                                                                BUSINESS_CURRENCY,
+                                                            ),
+                                                        )}
+                                                    </Text>
+                                                ) : null}
+                                                {p.provincialConfirmations.map((n) => (
+                                                    <Text key={n} style={styles.lineSub}>
+                                                        {n}
+                                                    </Text>
+                                                ))}
+                                            </View>
+                                        }
                                         meta={formatMoney(p.federalPaidCents, BUSINESS_CURRENCY)}
                                     />
                                 ))
@@ -251,7 +281,10 @@ function RecordReturn({
                     ])}
                 </Text>
                 {form.families.length === 0 ? (
-                    <Notice tone="success">{s.nothingToFile}</Notice>
+                    <>
+                        {form.error !== null ? <Notice tone="info">{form.error}</Notice> : null}
+                        <Notice tone="success">{s.nothingToFile}</Notice>
+                    </>
                 ) : (
                     <>
                         {form.families.length > 1 ? (
@@ -402,6 +435,14 @@ const styles = StyleSheet.create({
     dueHead: { flexDirection: "row", alignItems: "center", gap: 6 },
     dueText: { color: c.warnFg, fontFamily: theme.fonts.ui, fontSize: 14, fontWeight: "700" },
     dueBody: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 14, lineHeight: 20 },
+    dueLine: { flexDirection: "row", justifyContent: "space-between" },
+    dueLabel: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 14 },
+    dueAmount: {
+        color: c.ink,
+        fontFamily: theme.fonts.ui,
+        fontSize: 14,
+        fontVariant: ["tabular-nums"],
+    },
     caption: {
         color: c.muted,
         fontFamily: theme.fonts.ui,

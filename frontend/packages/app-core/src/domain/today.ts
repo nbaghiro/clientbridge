@@ -64,6 +64,7 @@ interface TodaySummary {
     awaiting_payment_cents: number;
     gst_hst_set_aside_cents: number;
     gst_hst_filing_due: string | null;
+    gst_hst_filing_due_cents: number;
 }
 
 /** The server's money figures for Today; owners and admins only, so staff screens never call it. */
@@ -568,6 +569,17 @@ interface TodayMoney {
     filingDays: number | null;
 }
 
+/** The line under the tax set aside: when the next return is due, or that tax is off. */
+export function filingNote(
+    money: Pick<TodayMoney, "filingDue" | "filingDays">,
+    zone: string,
+): string {
+    const t = strings.today;
+    if (money.filingDue === null || money.filingDays === null) return t.notRegistered;
+    const due = formatMonthDay(money.filingDue, zone);
+    return money.filingDays < 0 ? t.filingLate(due) : t.filing(due, money.filingDays);
+}
+
 /** A new account's Today: the setup guide leads, and the money figures wait for the first sale. */
 export function firstRunLayout(
     agendaCount: number,
@@ -587,6 +599,14 @@ export function firstRunLayout(
 export const TODAY_PAYMENTS_SQL = `
 SELECT id, kind FROM payments
 WHERE status = 'succeeded' AND ${utcSql("COALESCE(paid_at, created_at)")} >= datetime(?)`;
+
+export const TODAY_TAX_SQL = `
+SELECT id, balance_cents FROM accounts WHERE owner_type = 'business' AND category = 'tax'
+ORDER BY id`;
+
+// a $0 return moves no tax balance, so the returns themselves are watched too
+export const TODAY_RETURNS_SQL = `
+SELECT DISTINCT journal_id FROM entries WHERE event = 'remittance' ORDER BY journal_id`;
 
 export interface OwnerToday {
     load: Load;
@@ -663,25 +683,29 @@ export function useOwnerToday(api: ApiLike, viewer: Viewer | null): OwnerToday {
     const payments = useQuery<{ id: string; kind: string }>(TODAY_PAYMENTS_SQL, [
         startOfDay(now, zone).toISOString(),
     ]);
+    const taxes = useQuery<{ id: string; balance_cents: number }>(TODAY_TAX_SQL);
+    const returns = useQuery<{ journal_id: string }>(TODAY_RETURNS_SQL);
     const s = summary.data;
     const filingDue = s?.gst_hst_filing_due
         ? combineDayAndTime(s.gst_hst_filing_due, "00:00", zone)
         : null;
     const open = invoices.filter((i) => OPEN_INVOICE.has(i.status) && (i.balance_cents ?? 0) > 0);
-    // the server's sums follow each payment and balance this device syncs, as its counts do
+    // the server's sums follow each payment, balance and return this device syncs, as its counts do
     const moneyKey = [
         ...payments.data.map((p) => p.id),
         ...open.map((i) => `${i.id}:${String(i.balance_cents ?? 0)}`),
+        ...taxes.data.map((a) => `${a.id}:${String(a.balance_cents)}`),
+        ...returns.data.map((r) => r.journal_id),
     ].join(",");
     const summed = useRef<string | null>(null);
     const reloadSummary = summary.reload;
     useEffect(() => {
-        if (payments.isLoading) return;
+        if (payments.isLoading || taxes.isLoading || returns.isLoading) return;
         // the read made on mount already answers for what the replica first loads
         const seen = summed.current;
         summed.current = moneyKey;
         if (seen !== null && seen !== moneyKey) reloadSummary().catch(() => undefined);
-    }, [moneyKey, payments.isLoading, reloadSummary]);
+    }, [moneyKey, payments.isLoading, taxes.isLoading, returns.isLoading, reloadSummary]);
     const pending = earnings.filter((e) => e.status === "pending");
     const attention = [
         ...requests,
@@ -695,7 +719,7 @@ export function useOwnerToday(api: ApiLike, viewer: Viewer | null): OwnerToday {
                 cents: pending.reduce((n, e) => n + e.amount_cents, 0),
             },
             filingDue,
-            filingCents: s?.gst_hst_set_aside_cents ?? 0,
+            filingCents: s?.gst_hst_filing_due_cents ?? 0,
             now,
             zone,
         }),

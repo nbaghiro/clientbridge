@@ -766,6 +766,7 @@ class DashboardService:
                 Entry.occurred_at >= day_start,
             )
         )
+        due = await RemittanceService(self.db, self.principal).next_due()
         return DashboardSummary(
             today_revenue_cents=int(received.scalar_one()),
             awaiting_payment_cents=await ledger.account_total(
@@ -774,7 +775,8 @@ class DashboardService:
             gst_hst_set_aside_cents=-await ledger.account_total(
                 self.db, self.biz, Account.category == "tax"
             ),
-            gst_hst_filing_due=await RemittanceService(self.db, self.principal).next_due(),
+            gst_hst_filing_due=due[0] if due else None,
+            gst_hst_filing_due_cents=due[1] if due else 0,
         )
 
 

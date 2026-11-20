@@ -197,6 +197,11 @@ class RemittanceIn(BaseModel):
     )
     confirmation: str | None = Field(default=None, max_length=80)
     filed_on: date | None = Field(default=None, description="Defaults to today")
+    tax_cents: int | None = Field(
+        default=None,
+        description="The tax the form showed, before credits; refused with return_changed when "
+        "the days left to file now hold another amount",
+    )
 
 
 class RemittanceOut(BaseModel):

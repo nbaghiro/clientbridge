@@ -21,6 +21,7 @@ import { DebugOverlay } from "../components/DebugOverlay";
 import {
     AgendaRows,
     AttentionList,
+    FilingRow,
     KpiSummary,
     KpiSummaryLoading,
     NextActions,
@@ -111,6 +112,8 @@ function OwnerToday({ bell, onSecretTap }: { bell: number; onSecretTap: () => vo
                 </NextCard>
             </Section>
         );
+    const filingRow =
+        !loading && owner.moneyLoad.state === "ready" ? <FilingRow money={owner.money} /> : null;
     const attentionSection =
         firstRun && view.attention.length === 0 ? null : (
             <Section title={t.needsYou}>
@@ -219,7 +222,9 @@ function OwnerToday({ bell, onSecretTap }: { bell: number; onSecretTap: () => vo
                                 {scheduleSection}
                             </View>
                             <View style={styles.side}>
-                                {figures ? <PaymentsSummary owner /> : null}
+                                {figures ? (
+                                    <PaymentsSummary owner>{filingRow}</PaymentsSummary>
+                                ) : null}
                                 {attentionSection}
                                 <TeamToday team={view.team} />
                             </View>
@@ -227,7 +232,7 @@ function OwnerToday({ bell, onSecretTap }: { bell: number; onSecretTap: () => vo
                     ) : (
                         <>
                             {focusSection}
-                            {figures ? <PaymentsSummary owner /> : null}
+                            {figures ? <PaymentsSummary owner>{filingRow}</PaymentsSummary> : null}
                             {attentionSection}
                             {scheduleSection}
                         </>

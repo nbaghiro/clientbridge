@@ -3,7 +3,6 @@ import {
     type FilingPeriod,
     type TaxFamily,
     type TaxFilings,
-    filedWhen,
     filingStatusIntent,
     filingWhen,
     formatMoney,
@@ -227,12 +226,12 @@ export function Remittances() {
                 </div>
 
                 <Panel flush title={s.history}>
-                    {t.filed.length === 0 ? (
+                    {t.history.length === 0 ? (
                         <p className="px-4 py-6 text-sm text-muted">{s.noHistory}</p>
                     ) : (
                         <table className="w-full text-sm">
                             <tbody>
-                                {t.filed.map((p) => (
+                                {t.history.map((p) => (
                                     <tr
                                         key={p.key}
                                         className="border-b border-line-soft last:border-0"
@@ -241,9 +240,7 @@ export function Remittances() {
                                             <p className="font-medium text-ink">{p.title}</p>
                                             <p className="text-xs text-muted">{p.span}</p>
                                         </td>
-                                        <td className="px-4 py-3 text-ink-soft">
-                                            {filedWhen(p, zone)}
-                                        </td>
+                                        <td className="px-4 py-3 text-ink-soft">{p.when}</td>
                                         <td className="hidden px-4 py-3 font-mono text-xs text-muted xl:table-cell">
                                             {[
                                                 ...p.federalConfirmations,
@@ -256,8 +253,7 @@ export function Remittances() {
                                             <p className="font-medium tabular-nums text-ink">
                                                 {formatMoney(p.federalPaidCents, BUSINESS_CURRENCY)}
                                             </p>
-                                            {t.provincialLabel !== null &&
-                                            p.provincialReturns.length > 0 ? (
+                                            {t.provincialLabel !== null && p.hasProvincial ? (
                                                 <p className="text-xs tabular-nums text-muted">
                                                     {strings.common.labelValue(
                                                         t.provincialLabel,
@@ -334,7 +330,10 @@ function RecordReturn({
             </p>
             <div className="mt-5 space-y-5">
                 {form.families.length === 0 ? (
-                    <Notice tone="success">{s.nothingToFile}</Notice>
+                    <>
+                        {form.error !== null ? <Notice tone="info">{form.error}</Notice> : null}
+                        <Notice tone="success">{s.nothingToFile}</Notice>
+                    </>
                 ) : (
                     <>
                         {form.families.length > 1 ? (

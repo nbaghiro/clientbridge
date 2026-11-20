@@ -75,29 +75,29 @@ export interface FilingPeriod {
     provincialTaxableCents: number;
     federalStatus: FilingStatus;
     provincialStatus: FilingStatus | "none";
-    // the returns that start in the period; one covering both taxes counts as federal
-    federalReturns: FiledReturn[];
-    provincialReturns: FiledReturn[];
-    federalPaidCents: number;
-    provincialPaidCents: number;
-    federalConfirmations: string[];
-    provincialConfirmations: string[];
     // the days each return still has to cover, which is the whole period until one is filed
     federalSpan: string;
     provincialSpan: string;
+}
+
+interface FiledRow {
+    key: string;
+    title: string;
+    // the days its returns cover, which is the whole period once every return is in
+    span: string;
+    when: string;
+    // a return covering both taxes counts as federal
+    federalPaidCents: number;
+    provincialPaidCents: number;
+    hasProvincial: boolean;
+    federalConfirmations: string[];
+    provincialConfirmations: string[];
 }
 
 const day = (key: string, zone: string): Date => parseDateKey(key, zone) ?? new Date(NaN);
 
 function filingDay(key: string, zone: string): string {
     return formatShortDay(day(key, zone), zone);
-}
-
-function periodTitle(row: FilingPeriodRow, frequency: string, zone: string): string {
-    const [year = 0, month = 1] = row.start.split("-").map(Number);
-    if (frequency === "annual") return String(year);
-    if (frequency === "monthly") return formatShortMonthYear(day(row.start, zone), zone);
-    return strings.remittances.quarter(Math.floor((month - 1) / 3) + 1, year);
 }
 
 const shiftKey = (key: string, days: number, zone: string): string =>
@@ -107,25 +107,53 @@ function spanOf(start: string, end: string, zone: string): string {
     return strings.remittances.span(filingDay(start, zone), formatDate(day(end, zone), zone));
 }
 
+/** A month, quarter or year by its name, any other run of days by its dates. */
+function titleOf(start: string, end: string, zone: string): string {
+    const [year = 0, month = 1, first = 1] = start.split("-").map(Number);
+    const [toYear = 0, toMonth = 1, next = 1] = shiftKey(end, 1, zone).split("-").map(Number);
+    const months = (toYear - year) * 12 + toMonth - month;
+    if (first === 1 && next === 1) {
+        if (months === 1) return formatShortMonthYear(day(start, zone), zone);
+        if (months === 3 && (month - 1) % 3 === 0)
+            return strings.remittances.quarter((month - 1) / 3 + 1, year);
+        if (months === 12 && month === 1) return String(year);
+    }
+    return spanOf(start, end, zone);
+}
+
+type Days = [string, string];
+
+function merged(ranges: Days[], zone: string): Days[] {
+    const out: Days[] = [];
+    for (const [first, last] of [...ranges].sort(([a], [b]) => a.localeCompare(b))) {
+        const prev = out.at(-1);
+        if (prev !== undefined && first <= shiftKey(prev[1], 1, zone)) {
+            if (last > prev[1]) prev[1] = last;
+        } else out.push([first, last]);
+    }
+    return out;
+}
+
 function unfiledSpan(row: FilingPeriodRow, family: TaxFamily, zone: string): string {
-    const covered = row.returns
-        .filter(
-            (r) =>
-                (r.family === family || r.family === null) &&
-                r.period_start <= row.end &&
-                row.start <= r.period_end,
-        )
-        .map((r) => [
-            r.period_start < row.start ? row.start : r.period_start,
-            r.period_end > row.end ? row.end : r.period_end,
-        ])
-        .sort(([a = ""], [b = ""]) => a.localeCompare(b));
+    const covered = merged(
+        row.returns
+            .filter(
+                (r) =>
+                    (r.family === family || r.family === null) &&
+                    r.period_start <= row.end &&
+                    row.start <= r.period_end,
+            )
+            .map((r): Days => [
+                r.period_start < row.start ? row.start : r.period_start,
+                r.period_end > row.end ? row.end : r.period_end,
+            ]),
+        zone,
+    );
     const gaps: string[] = [];
     let cursor = row.start;
-    for (const [first = row.start, last = row.end] of covered) {
+    for (const [first, last] of covered) {
         if (first > cursor) gaps.push(spanOf(cursor, shiftKey(first, -1, zone), zone));
-        const next = shiftKey(last, 1, zone);
-        if (next > cursor) cursor = next;
+        cursor = shiftKey(last, 1, zone);
     }
     if (cursor <= row.end) gaps.push(spanOf(cursor, row.end, zone));
     return gaps.length === 0 ? spanOf(row.start, row.end, zone) : formatList(gaps);
@@ -137,7 +165,50 @@ const confirmations = (returns: FiledReturn[]): string[] => [
     ...new Set(returns.flatMap((r) => (r.confirmation === null ? [] : [r.confirmation]))),
 ];
 
-function toPeriod(row: FilingPeriodRow, frequency: string, now: Date, zone: string): FilingPeriod {
+/** Every return once, under the period it falls in, or on its own when it runs past one. */
+function history(rows: FilingPeriodRow[], zone: string): FiledRow[] {
+    const groups = new Map<
+        string,
+        { start: string; end: string; first: FiledReturn; returns: FiledReturn[] }
+    >();
+    const seen = new Set<string>();
+    for (const r of rows.flatMap((row) => row.returns)) {
+        if (seen.has(r.id)) continue;
+        seen.add(r.id);
+        const home = rows.find((row) => row.start <= r.period_start && r.period_end <= row.end);
+        const start = home?.start ?? r.period_start;
+        const end = home?.end ?? r.period_end;
+        const key = `${start}:${end}`;
+        const group = groups.get(key) ?? { start, end, first: r, returns: [] };
+        group.returns.push(r);
+        groups.set(key, group);
+    }
+    return [...groups]
+        .sort(([a], [b]) => b.localeCompare(a))
+        .map(([key, g]) => {
+            const federal = g.returns.filter((r) => r.family !== "provincial");
+            const provincial = g.returns.filter((r) => r.family === "provincial");
+            const first = federal[0] ?? g.first;
+            return {
+                key,
+                title: titleOf(g.start, g.end, zone),
+                span: formatList(
+                    merged(
+                        g.returns.map((r): Days => [r.period_start, r.period_end]),
+                        zone,
+                    ).map(([a, b]) => spanOf(a, b, zone)),
+                ),
+                when: strings.remittances.filedOn(filingDay(first.filed_on, zone)),
+                federalPaidCents: paid(federal),
+                provincialPaidCents: paid(provincial),
+                hasProvincial: provincial.length > 0,
+                federalConfirmations: confirmations(federal),
+                provincialConfirmations: confirmations(provincial),
+            };
+        });
+}
+
+function toPeriod(row: FilingPeriodRow, now: Date, zone: string): FilingPeriod {
     const due = day(row.due, zone);
     const provincialDone = row.provincial_status === "none" || row.provincial_status === "filed";
     // the server decides when a period has ended, in the business's zone
@@ -147,15 +218,11 @@ function toPeriod(row: FilingPeriodRow, frequency: string, now: Date, zone: stri
             : row.federal_status === "due" || row.provincial_status === "due"
               ? "due"
               : "open";
-    // a return that runs past the period, from before a frequency change, shows where it starts
-    const own = row.returns.filter((r) => r.period_start >= row.start && r.period_start <= row.end);
-    const federalReturns = own.filter((r) => r.family !== "provincial");
-    const provincialReturns = own.filter((r) => r.family === "provincial");
     return {
         key: row.start,
         start: row.start,
         end: row.end,
-        title: periodTitle(row, frequency, zone),
+        title: titleOf(row.start, row.end, zone),
         span: spanOf(row.start, row.end, zone),
         due,
         daysToDue: daysUntil(due, zone, now),
@@ -166,12 +233,6 @@ function toPeriod(row: FilingPeriodRow, frequency: string, now: Date, zone: stri
         provincialTaxableCents: row.provincial_taxable_cents,
         federalStatus: row.federal_status,
         provincialStatus: row.provincial_status,
-        federalReturns,
-        provincialReturns,
-        federalPaidCents: paid(federalReturns),
-        provincialPaidCents: paid(provincialReturns),
-        federalConfirmations: confirmations(federalReturns),
-        provincialConfirmations: confirmations(provincialReturns),
         federalSpan: unfiledSpan(row, "federal", zone),
         provincialSpan: unfiledSpan(row, "provincial", zone),
     };
@@ -188,18 +249,9 @@ export function filingStatusIntent(status: FilingStatus): Intent {
     }
 }
 
-/** When a period's returns were filed, the GST/HST return first. */
-export function filedWhen(p: FilingPeriod, zone: string): string {
-    const filedOn = (p.federalReturns[0] ?? p.provincialReturns[0])?.filed_on;
-    // filed per the server, but with no return row to date it (e.g. recorded before returns)
-    return filedOn === undefined
-        ? strings.remittances.filed
-        : strings.remittances.filedOn(filingDay(filedOn, zone));
-}
-
-/** When a period is due, or was filed. */
+/** When a period is due, or that it was filed. */
 export function filingWhen(p: FilingPeriod, zone: string): string {
-    if (p.status === "filed") return filedWhen(p, zone);
+    if (p.status === "filed") return strings.remittances.filed;
     if (p.status === "due" && p.daysToDue < 0)
         return strings.remittances.overdue(formatShortDay(p.due, zone));
     if (p.status === "open") return strings.remittances.dueOn(formatShortDay(p.due, zone));
@@ -210,7 +262,7 @@ export interface TaxFilings {
     load: Load;
     periods: FilingPeriod[];
     federalUnfiled: FilingPeriod[];
-    filed: FilingPeriod[];
+    history: FiledRow[];
     federalSetAsideCents: number;
     provincialSetAsideCents: number;
     nextDue: FilingPeriod | null;
@@ -232,10 +284,10 @@ export function useTaxFilings(api: ApiLike): TaxFilings {
     const zone = useBusinessZone();
     const data = remote.data;
     const periods = useMemo(
-        () =>
-            data === null ? [] : data.periods.map((p) => toPeriod(p, data.frequency, now, zone)),
+        () => (data === null ? [] : data.periods.map((p) => toPeriod(p, now, zone))),
         [data, now, zone],
     );
+    const returns = useMemo(() => (data === null ? [] : history(data.periods, zone)), [data, zone]);
     const nextDue =
         data?.next_due === null || data === null
             ? null
@@ -254,9 +306,7 @@ export function useTaxFilings(api: ApiLike): TaxFilings {
         load,
         periods,
         federalUnfiled: periods.filter((p) => p.federalStatus !== "filed"),
-        filed: periods.filter(
-            (p) => p.status === "filed" || p.federalReturns.length + p.provincialReturns.length > 0,
-        ),
+        history: returns,
         federalSetAsideCents: data?.federal_set_aside_cents ?? 0,
         provincialSetAsideCents: data?.provincial_set_aside_cents ?? 0,
         nextDue,
@@ -383,6 +433,7 @@ export function useFilingForm(
                 itc_cents: itcCents,
                 confirmation: confirmation.trim(),
                 filed_on: filedOn,
+                tax_cents: owedCents,
             };
             const idempotencyKey = attemptKey(key, body);
             run(
@@ -390,7 +441,8 @@ export function useFilingForm(
                     try {
                         await api.post("/v1/payments/remittances", body, { idempotencyKey });
                     } catch (e) {
-                        if (failedCode(e) === "return_filed") onStale();
+                        const code = failedCode(e);
+                        if (code === "return_filed" || code === "return_changed") onStale();
                         throw e;
                     }
                 },

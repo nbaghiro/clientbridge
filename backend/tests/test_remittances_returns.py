@@ -20,7 +20,7 @@ from clientbridge.schemas.payments import RemittanceIn, TaxFilings
 from clientbridge.services import ledger
 from clientbridge.services.ledger import Leg
 from clientbridge.services.remittances import RemittanceService
-from clientbridge.services.reports import add_months, due_date, period_of
+from clientbridge.services.reports import DashboardService, add_months, due_date, period_of
 from clientbridge.services.tax import TaxResult
 from tests.conftest import BIZ, Factory
 from tests.helpers import key as retry_key
@@ -578,3 +578,186 @@ async def test_returns_inside_a_period_leave_gaps_that_file_together(
     # the credits go against the earlier gap's tax first, the rest against the later one
     assert first[2] == min(credits, first[1])
     assert last[2] == credits - first[2]
+
+
+async def test_a_form_opened_before_part_of_its_period_was_filed_409(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    start, end = await _last_period(db)
+    first_month_end = add_months(start, 1) - timedelta(days=1)
+    for days, pst in ((5, 700), (40, 300)):
+        at = datetime.combine(start + timedelta(days=days), datetime.min.time(), tzinfo=UTC)
+        await _invoice(db, issued_at=at + timedelta(hours=20), tax={"PST": pst})
+    before = (await as_owner.get("/v1/payments/remittances")).json()
+    shown = next(p for p in before["periods"] if p["start"] == start.isoformat())
+    whole = {"period_start": start.isoformat(), "period_end": end.isoformat()}
+    form = {**whole, "family": "provincial", "tax_cents": shown["provincial_cents"]}
+    month = {"period_start": start.isoformat(), "period_end": first_month_end.isoformat()}
+    part = await as_owner.post(
+        "/v1/payments/remittances", json={**month, "family": "provincial"}, headers=retry_key()
+    )
+    assert part.status_code == 201, part.text
+    filed = (await as_owner.get("/v1/payments/remittances")).json()
+
+    stale = await as_owner.post("/v1/payments/remittances", json=form, headers=retry_key())
+    assert (stale.status_code, stale.json()["error"]) == (409, "return_changed")
+    assert (await as_owner.get("/v1/payments/remittances")).json() == filed
+
+    left = next(p for p in filed["periods"] if p["start"] == start.isoformat())
+    rest = await as_owner.post(
+        "/v1/payments/remittances",
+        json={**form, "tax_cents": left["provincial_cents"]},
+        headers=retry_key(),
+    )
+    assert rest.status_code == 201, rest.text
+    assert rest.json()["total_cents"] == left["provincial_cents"]
+
+
+async def test_a_return_ending_inside_the_period_in_progress_422(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    today = clock.today(ZoneInfo(business.timezone))
+    start, _ = period_of(today, business.filing_frequency)
+    ended = {
+        "period_start": start.isoformat(),
+        "period_end": (today - timedelta(days=1)).isoformat(),
+    }
+    for family in ("federal", "provincial"):
+        res = await as_owner.post(
+            "/v1/payments/remittances", json={**ended, "family": family}, headers=retry_key()
+        )
+        assert (res.status_code, res.json()["error"]) == (422, "period_open")
+
+
+async def _registered(db: AsyncSession, factory: Factory) -> tuple[str, Principal]:
+    other = await factory.business()
+    other.tax_registered = True
+    user = await factory.user()
+    staff = await factory.staff(business=other, user=user, role="owner")
+    await factory.client(business=other)
+    return other.id, Principal(
+        user_id=user.id, business_id=other.id, staff_id=staff.id, role="owner"
+    )
+
+
+async def test_today_owes_the_oldest_period_left_to_file_else_the_period_in_progress(
+    db: AsyncSession, factory: Factory
+) -> None:
+    biz, principal = await _registered(db, factory)
+    in_q2 = datetime(2026, 5, 15, 18, tzinfo=UTC)
+    await _invoice(db, issued_at=in_q2, tax={"GST": 500, "PST": 200}, business_id=biz)
+    in_q4 = datetime(2026, 10, 5, 18, tzinfo=UTC)
+    await _invoice(db, issued_at=in_q4, tax={"GST": 300, "PST": 100}, business_id=biz)
+    service = RemittanceService(db, principal)
+    q2 = {"period_start": "2026-04-01", "period_end": "2026-06-30"}
+    q3 = {"period_start": "2026-07-01", "period_end": "2026-09-30"}
+
+    summary = await DashboardService(db, principal).summary()
+    assert (summary.gst_hst_filing_due, summary.gst_hst_filing_due_cents) == (
+        date(2026, 7, 31),
+        700,
+    )
+    await service.record(RemittanceIn.model_validate({**q2, "family": "federal"}), None)
+    assert await service.next_due() == (date(2026, 7, 31), 200)
+    await service.record(RemittanceIn.model_validate({**q2, "family": "provincial"}), None)
+    assert await service.next_due() == (date(2026, 10, 31), 0)
+    await service.record(RemittanceIn.model_validate({**q3, "family": "federal"}), None)
+    assert await service.next_due() == (date(2027, 1, 31), 400)
+
+
+async def test_a_return_reaching_into_a_period_leaves_only_its_other_days_to_file(
+    db: AsyncSession, factory: Factory
+) -> None:
+    biz, principal = await _registered(db, factory)
+    for day, pst in ((date(2026, 7, 5), 300), (date(2026, 8, 10), 700)):
+        at = datetime.combine(day, datetime.min.time(), tzinfo=UTC) + timedelta(hours=18)
+        await _invoice(db, issued_at=at, tax={"PST": pst}, business_id=biz)
+    service = RemittanceService(db, principal)
+    straddle = {"period_start": "2026-06-16", "period_end": "2026-07-15", "family": "provincial"}
+    assert (await service.record(RemittanceIn.model_validate(straddle), None)).total_cents == 300
+    shown = next(p for p in (await service.filings()).periods if p.start == date(2026, 7, 1))
+    assert (shown.provincial_status, shown.provincial_cents) == ("due", 700)
+
+    q3 = {"period_start": "2026-07-01", "period_end": "2026-09-30", "family": "provincial"}
+    rest = await service.record(RemittanceIn.model_validate({**q3, "tax_cents": 700}), None)
+    assert (rest.period_start, rest.total_cents) == (date(2026, 7, 16), 700)
+
+
+async def test_a_stale_form_for_a_return_split_by_credits_409_posts_nothing(
+    db: AsyncSession, factory: Factory
+) -> None:
+    biz, principal = await _registered(db, factory)
+    for day, gst in ((date(2026, 7, 5), 400), (date(2026, 8, 10), 500), (date(2026, 9, 15), 600)):
+        at = datetime.combine(day, datetime.min.time(), tzinfo=UTC) + timedelta(hours=18)
+        await _invoice(db, issued_at=at, tax={"GST": gst}, business_id=biz)
+    service = RemittanceService(db, principal)
+    august = {"period_start": "2026-08-01", "period_end": "2026-08-31", "family": "federal"}
+    await service.record(RemittanceIn.model_validate(august), None)
+    shown = next(p for p in (await service.filings()).periods if p.start == date(2026, 7, 1))
+    assert shown.federal_cents == 1000
+    late = datetime(2026, 9, 20, 18, tzinfo=UTC)
+    await _invoice(db, issued_at=late, tax={"GST": 50}, business_id=biz)
+    filed = await service.filed_returns()
+
+    async def bank() -> int:
+        return await ledger.balance(db, biz, owner_type="business", owner_id=biz, category="bank")
+
+    before = await bank()
+    q3 = {"period_start": "2026-07-01", "period_end": "2026-09-30", "family": "federal"}
+    form = RemittanceIn.model_validate({**q3, "itc_cents": 450, "tax_cents": 1000})
+    with pytest.raises(Conflict) as stale:
+        await service.record(form, None)
+    assert stale.value.code == "return_changed"
+    assert await service.filed_returns() == filed
+    assert await bank() == before
+
+    fresh = form.model_copy(update={"tax_cents": 1050})
+    rest = await service.record(fresh, None)
+    assert (rest.itc_cents, rest.total_cents) == (450, 600)
+    spans = sorted(
+        (r.period_start, r.itc_cents)
+        for r in await service.filed_returns()
+        if r.id not in {f.id for f in filed}
+    )
+    assert spans == [(date(2026, 7, 1), 400), (date(2026, 9, 1), 50)]
+
+
+async def test_a_form_for_every_code_with_tax_cents_checks_the_whole_tax(
+    db: AsyncSession, factory: Factory
+) -> None:
+    biz, principal = await _registered(db, factory)
+    at = datetime(2026, 8, 10, 18, tzinfo=UTC)
+    await _invoice(db, issued_at=at, tax={"GST": 500, "PST": 700}, business_id=biz)
+    service = RemittanceService(db, principal)
+    q3 = {"period_start": "2026-07-01", "period_end": "2026-09-30"}
+    with pytest.raises(Conflict) as stale:
+        await service.record(RemittanceIn.model_validate({**q3, "tax_cents": 500}), None)
+    assert stale.value.code == "return_changed"
+    assert await service.filed_returns() == []
+
+    every = await service.record(RemittanceIn.model_validate({**q3, "tax_cents": 1200}), None)
+    assert (every.family, every.by_code, every.total_cents) == (
+        None,
+        {"GST": 500, "PST": 700},
+        1200,
+    )
+
+
+async def test_a_month_ended_under_monthly_filing_waits_for_its_quarter_after_a_switch_422(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    clock.travel(datetime(2026, 11, 20, 18, tzinfo=UTC))
+    monthly = await as_owner.patch("/v1/business", json={"filing_frequency": "monthly"})
+    assert monthly.status_code == 200, monthly.text
+    await _invoice(db, issued_at=datetime(2026, 10, 15, 18, tzinfo=UTC), tax={"GST": 300})
+    periods = (await as_owner.get("/v1/payments/remittances")).json()["periods"]
+    october = next(p for p in periods if p["start"] == "2026-10-01")
+    assert (october["end"], october["federal_status"]) == ("2026-10-31", "due")
+
+    quarterly = await as_owner.patch("/v1/business", json={"filing_frequency": "quarterly"})
+    assert quarterly.status_code == 200, quarterly.text
+    month = {"period_start": "2026-10-01", "period_end": "2026-10-31", "family": "federal"}
+    res = await as_owner.post("/v1/payments/remittances", json=month, headers=retry_key())
+    assert (res.status_code, res.json()["error"]) == (422, "period_open")

@@ -5608,9 +5608,14 @@ export interface components {
             gst_hst_set_aside_cents: number;
             /**
              * Gst Hst Filing Due
-             * @description Next GST/HST return due date; null unless tax-registered
+             * @description Due date of the oldest ended period with a return left to file, else of the period in progress; null unless tax-registered
              */
             gst_hst_filing_due: string | null;
+            /**
+             * Gst Hst Filing Due Cents
+             * @description Tax left to file for the period due by gst_hst_filing_due
+             */
+            gst_hst_filing_due_cents: number;
         };
         /** DepositOut */
         DepositOut: {
@@ -9626,6 +9631,11 @@ export interface components {
              * @description Defaults to today
              */
             filed_on?: string | null;
+            /**
+             * Tax Cents
+             * @description The tax the form showed, before credits; refused with return_changed when the days left to file now hold another amount
+             */
+            tax_cents?: number | null;
         };
         /** RemittanceOut */
         RemittanceOut: {
