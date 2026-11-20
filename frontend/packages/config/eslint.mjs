@@ -55,6 +55,7 @@ const MAESTRO_GLOBALS = {
         "SURNAME",
         "ANSWERS",
         "SIGNER",
+        "ROOM",
     ]),
     output: "writable",
 };
