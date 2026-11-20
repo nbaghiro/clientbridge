@@ -635,8 +635,12 @@ test.describe(() => {
         const preview = page.getByRole("dialog").filter({
             has: page.getByRole("heading", { name: strings.previews.title, exact: true }),
         });
-        await expect(preview).toContainText(owed);
-        await expect(preview).not.toContainText(formatMoney(draft.total_cents, "CAD"));
+        // the printed draft beside it always shows the full total, so only the text is checked
+        const text = preview
+            .getByText(strings.ui.review.textTo(formatPhone(client.phone)), { exact: true })
+            .locator("..");
+        await expect(text).toContainText(owed);
+        await expect(text).not.toContainText(formatMoney(draft.total_cents, "CAD"));
         await preview
             .getByRole("button", { name: strings.billing.sendInvoice, exact: true })
             .click();
