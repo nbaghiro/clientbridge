@@ -136,6 +136,7 @@ class Signature(PKMixin, BusinessScoped, TimestampMixin, Base):
     parent_id: Mapped[str | None] = mapped_column(String)
     token: Mapped[str | None] = mapped_column(String)  # public sign-link key (server-minted)
     signed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    declined_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     signed_body: Mapped[str | None] = mapped_column(String)  # snapshot at signing
     ip: Mapped[str | None] = mapped_column(String)
     status: Mapped[SignatureStatus] = mapped_column(String, default="pending", nullable=False)

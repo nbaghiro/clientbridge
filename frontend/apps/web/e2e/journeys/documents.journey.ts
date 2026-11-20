@@ -1,11 +1,14 @@
-import { strings } from "@clientbridge/app-core/public";
+import { randomUUID } from "node:crypto";
+import { formatDate, strings } from "@clientbridge/app-core/public";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { newBusiness, textingNumber } from "../support/business";
 import { openClient } from "../support/clients";
 import { select } from "../support/db";
+import { freshPhone, textsTo } from "../support/auth";
 import {
     formEvidence,
     formResponses,
+    loseFirstAnswer,
     runIntake,
     saveForm,
     sendToClient,
@@ -29,6 +32,7 @@ const c = strings.contracts;
 const pc = strings.publicContract;
 const f = strings.forms;
 const pf = strings.publicForm;
+const BIRCHBARK_ZONE = "America/Vancouver";
 
 const firstTerms =
     "Drop-off and pickup\nWe use gentle handling and fragrance-free products when asked.";
@@ -560,4 +564,170 @@ test("DOC-E2E-11 a form saved with the phone editor's request shows on web with 
     await expect(questions.nth(1)).not.toContainText(f.required);
     // opened, not just created, so there is nothing to call saved
     await expect(main.getByText(f.saved, { exact: true })).toHaveCount(0);
+});
+
+test("DOC-E2E-12 a contract saved, sent and resent again after each first answer is lost is made, sent and texted once each", async ({
+    page,
+}) => {
+    test.setTimeout(180_000);
+    await signIn(page);
+    const client = await createDocumentClient(page);
+    const name = `Boarding terms for ${client.name}`;
+    const main = page.getByRole("main");
+
+    const created = await loseFirstAnswer(page, /\/v1\/contracts$/);
+    await navigate(page, "/inbox?segment=contracts");
+    await page.getByRole("button", { name: c.newContract, exact: true }).first().click();
+    const drawer = page.getByRole("dialog").filter({ hasText: c.newTitle });
+    await drawer.getByRole("textbox", { name: c.nameLabel, exact: true }).fill(name);
+    await drawer.getByRole("textbox", { name: c.text, exact: true }).fill(firstTerms);
+    await drawer.getByRole("button", { name: c.create, exact: true }).click();
+    await expect(drawer.getByText(c.newErrors.failed, { exact: true })).toBeVisible();
+    await drawer.getByRole("button", { name: c.create, exact: true }).click();
+    await expectOpened(main, name);
+    expect(created).toHaveLength(2);
+    expect(created[1]).toBe(created[0]);
+    const saved = await select<{ id: string }>`SELECT id FROM contracts WHERE name = ${name}`;
+    expect(saved).toHaveLength(1);
+
+    const sends = await loseFirstAnswer(page, /\/v1\/contracts\/send$/);
+    await page.getByRole("button", { name: c.send, exact: true }).click();
+    const dialog = page.getByRole("dialog").filter({ hasText: f.sendBody });
+    await dialog.getByRole("combobox", { name: f.client, exact: true }).fill(client.name);
+    await page
+        .getByRole("option")
+        .filter({ has: page.getByText(client.name, { exact: true }) })
+        .click();
+    const review = page.getByRole("dialog", { name: strings.previews.title, exact: true });
+    for (const outcome of [f.sendFailed, f.sent(client.name)]) {
+        await dialog.getByRole("button", { name: f.sendLink, exact: true }).click();
+        await review.getByRole("button", { name: strings.previews.send, exact: true }).click();
+        await expect(dialog.getByText(outcome, { exact: true })).toBeVisible();
+    }
+    await dialog.getByRole("button", { name: f.done, exact: true }).click();
+    expect(sends).toHaveLength(2);
+    expect(sends[1]).toBe(sends[0]);
+    const contractId = saved[0]?.id ?? "";
+    const requests = await select<{ id: string }>`
+        SELECT id FROM signatures WHERE contract_id = ${contractId} AND client_id = ${client.id}`;
+    expect(requests).toHaveLength(1);
+    await expect.poll(async () => (await textsTo(page.request, client.phone)).length).toBe(1);
+
+    const resends = await loseFirstAnswer(page, /\/v1\/signatures\/[^/]+\/resend$/);
+    const row = main.getByRole("listitem").filter({ hasText: client.name });
+    await row.getByRole("button", { name: c.resend, exact: true }).click({ timeout: 60_000 });
+    await review.getByRole("button", { name: strings.previews.sendAgain, exact: true }).click();
+    await expect(main.getByText(c.actionFailed, { exact: true })).toBeVisible();
+    await row.getByRole("button", { name: c.resend, exact: true }).click();
+    await review.getByRole("button", { name: strings.previews.sendAgain, exact: true }).click();
+    await expect(row.getByRole("button", { name: c.resent, exact: true })).toBeDisabled();
+    expect(resends).toHaveLength(2);
+    expect(resends[1]).toBe(resends[0]);
+    await expect.poll(async () => (await textsTo(page.request, client.phone)).length).toBe(2);
+});
+
+test("DOC-E2E-13 a signed copy prints as its own titled page with the text, time, IP address, method, version and reference, nothing on it or in the list is cut off, and a declined request is dated by its decline", async ({
+    page,
+}) => {
+    test.setTimeout(180_000);
+    await page.addInitScript(() => {
+        Object.assign(window, {
+            print: () => {
+                const sheet = document.querySelector(".print-sheet");
+                Object.assign(window, {
+                    printed: { title: document.title, text: sheet?.textContent ?? "" },
+                });
+            },
+        });
+    });
+    await signIn(page);
+    const api = stackUrl("VITE_API_URL").origin;
+    const command = async <T>(path: string, data: object): Promise<T> => {
+        const response = await page.request.post(`${api}${path}`, {
+            headers: { Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() },
+            data,
+        });
+        expect(response.status(), await response.text()).toBeLessThan(300);
+        return (await response.json()) as T;
+    };
+    const signer = await createDocumentClient(page);
+    // a long name in the narrow signatures panel, with a waiting request's two buttons beside it
+    const waiting = await command<{ id: string; name: string }>("/v1/clients", {
+        name: `Maximiliana Featherstonehaugh-Abernathy ${randomUUID().slice(0, 4)}`,
+        phone: freshPhone(),
+    });
+    const name = `Grooming release for ${signer.name}`;
+    const contract = await command<{ id: string }>("/v1/contracts", { name, body: firstTerms });
+    const signed = await command<{ id: string; token: string }>("/v1/contracts/send", {
+        contract_id: contract.id,
+        client_id: signer.id,
+    });
+    await command("/v1/contracts/send", { contract_id: contract.id, client_id: waiting.id });
+    const decliner = await command<{ id: string; name: string }>("/v1/clients", {
+        name: `Declining ${randomUUID().slice(0, 6)}`,
+        phone: freshPhone(),
+    });
+    const refused = await command<{ token: string }>("/v1/contracts/send", {
+        contract_id: contract.id,
+        client_id: decliner.id,
+    });
+    await command(`/contract/${refused.token}/decline`, {});
+    const [decline] = await select<{ declined_at: Date }>`
+        SELECT declined_at FROM signatures WHERE token = ${refused.token}`;
+    const signedAs = `${signer.name} Signer`;
+    await command(`/contract/${signed.token}/sign`, {
+        version: 1,
+        typed_name: signedAs,
+        strokes: null,
+        agreed: true,
+    });
+    const [evidence] = await select<{ ip: string }>`
+        SELECT ip FROM signatures WHERE id = ${signed.id}`;
+
+    const main = await openContract(page, name);
+    const pending = main.getByRole("listitem").filter({ hasText: waiting.name });
+    const [sentBefore = "", sentAfter = ""] = c.activity.pending("\u0000").split("\u0000");
+    const escaped = (part: string): string => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const sentLine = new RegExp(`^${escaped(sentBefore)}.+${escaped(sentAfter)}$`);
+    for (const line of [
+        pending.getByText(waiting.name, { exact: true }),
+        pending.getByText(sentLine),
+    ]) {
+        await expect(line).toBeVisible({ timeout: 60_000 });
+        expect(await line.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(true);
+    }
+
+    const declinedRow = main.getByRole("listitem").filter({ hasText: decliner.name });
+    await expect(
+        declinedRow.getByText(
+            c.activity.declined(formatDate(decline?.declined_at ?? new Date(0), BIRCHBARK_ZONE)),
+            { exact: true },
+        ),
+    ).toBeVisible({ timeout: 60_000 });
+
+    const row = main.getByRole("listitem").filter({ hasText: signer.name });
+    await row.getByRole("button", { name: c.signedCopy, exact: true }).click({ timeout: 60_000 });
+    const copy = page.getByRole("dialog").last();
+    await expect(copy.getByText(c.printNote, { exact: true })).toBeVisible();
+    const reference = copy
+        .getByText(signed.id.toUpperCase(), { exact: true })
+        .filter({ visible: true })
+        .first();
+    const paper = reference.locator("xpath=ancestor::section[1]");
+    const [ref, sheet] = await Promise.all([reference.boundingBox(), paper.boundingBox()]);
+    expect(ref && sheet && ref.x + ref.width <= sheet.x + sheet.width + 0.5).toBe(true);
+
+    await copy.getByRole("button", { name: c.print, exact: true }).click();
+    const printed = await page.waitForFunction(() => "printed" in window && window.printed);
+    const { title, text } = (await printed.jsonValue()) as { title: string; text: string };
+    expect(title).toBe(c.signedCopyTitle(name, signedAs));
+    for (const part of [
+        clause(firstTerms),
+        signedAs,
+        c.version(1),
+        evidence?.ip ?? "missing",
+        c.method.typed,
+        signed.id.toUpperCase(),
+    ])
+        expect(text).toContain(part);
 });

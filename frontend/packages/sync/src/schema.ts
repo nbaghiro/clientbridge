@@ -826,6 +826,7 @@ const signatures = new Table(
         parent_id: column.text,
         token: column.text,
         signed_at: column.text,
+        declined_at: column.text,
         signed_body: column.text,
         ip: column.text,
         status: column.text,

@@ -83,7 +83,7 @@ streams:
       - SELECT client_id, booking_id, requested_at, id, business_id, created_at, updated_at FROM review_requests WHERE business_id IN managed
       - SELECT created_by, name, body, audience, status, scheduled_at, recipient_count, excluded_count, id, business_id, created_at, updated_at FROM broadcasts WHERE business_id IN managed
       - SELECT form_id, client_id, parent_type, parent_id, status, submitted_at, opened_at, answers, id, business_id, created_at, updated_at FROM responses WHERE business_id IN managed
-      - SELECT contract_id, client_id, parent_type, parent_id, token, signed_at, signed_body, ip, status, contract_version, opened_at, method, signer_name, strokes, id, business_id, created_at, updated_at FROM signatures WHERE business_id IN managed
+      - SELECT contract_id, client_id, parent_type, parent_id, token, signed_at, declined_at, signed_body, ip, status, contract_version, opened_at, method, signer_name, strokes, id, business_id, created_at, updated_at FROM signatures WHERE business_id IN managed
 
   # A rolling window of history, subscribed by month (UTC): messages for every member, a member's own
   # visits and every visit for owner/admin. Older history is read from the API.

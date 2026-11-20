@@ -1106,6 +1106,7 @@ class Demo:
                 token=f"demo_signature_{self.code}_{key}",
                 status=status,
                 signed_at=signed if done else None,
+                declined_at=signed if status == "declined" else None,
                 signed_body=(contract.earlier_body if earlier else contract.body) if done else None,
                 contract_version=1 if earlier else contract.version,
                 signer_name=client.name if done else None,

@@ -156,6 +156,8 @@
     "FLOW-05-B": {"lanes": ["journeys"], "browsers": false, "status": "implemented"},
     "DOC-E2E-09": {"lanes": ["journeys"], "browsers": false, "status": "implemented"},
     "DOC-E2E-11": {"lanes": ["journeys"], "browsers": false, "status": "implemented"},
+    "DOC-E2E-12": {"lanes": ["journeys"], "browsers": false, "status": "implemented"},
+    "DOC-E2E-13": {"lanes": ["journeys"], "browsers": false, "status": "implemented"},
     "FLOW-06-A": {"lanes": ["journeys"], "browsers": false, "status": "implemented"},
     "FLOW-07-A": {"lanes": ["journeys"], "browsers": false, "status": "verified"},
     "FLOW-07-B": {"lanes": ["journeys"], "browsers": false, "status": "verified"},
@@ -286,6 +288,7 @@
     "NATIVE-SCH-03": {"lanes": ["native-ios", "native-android"], "browsers": false, "status": "verified"},
     "NATIVE-MSG-01": {"lanes": ["native-ios", "native-android"], "browsers": false, "status": "implemented"},
     "NATIVE-DOC-01": {"lanes": ["native-ios", "native-android"], "browsers": false, "status": "implemented"},
+    "NATIVE-DOC-02": {"lanes": ["native-ios", "native-android"], "browsers": false, "status": "implemented"},
     "NATIVE-MSG-02": {"lanes": ["native-ios", "native-android"], "browsers": false, "status": "implemented"},
     "NATIVE-MSG-03": {"lanes": ["native-ios", "native-android"], "browsers": false, "status": "implemented"}
 }

@@ -8,6 +8,7 @@ import {
     signatureBlock,
     signatureHistory,
     signatureIntent,
+    signedCopyTitle,
     signedText,
     strings,
     useContractDraft,
@@ -289,7 +290,7 @@ function ContractDetail({
                                         />
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-center gap-2">
-                                                <span className="truncate text-sm font-medium text-ink">
+                                                <span className="min-w-0 break-words text-sm font-medium text-ink">
                                                     {name}
                                                 </span>
                                                 {r.version !== c.version ? (
@@ -298,7 +299,7 @@ function ContractDetail({
                                                     </span>
                                                 ) : null}
                                             </div>
-                                            <div className="truncate text-xs text-muted">
+                                            <div className="text-xs text-muted">
                                                 {signatureActivity(r, zone)}
                                             </div>
                                         </div>
@@ -405,7 +406,7 @@ function SignedCopyDialog({
         <Button
             icon="printer"
             onPress={() => {
-                printing.print();
+                printing.print(signedCopyTitle(request));
             }}
         >
             {s.print}

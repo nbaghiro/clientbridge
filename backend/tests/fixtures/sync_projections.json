@@ -671,6 +671,7 @@
         "parent_id",
         "token",
         "signed_at",
+        "declined_at",
         "signed_body",
         "ip",
         "status",

@@ -1687,7 +1687,10 @@ class PublicContractService:
         if signature.status != "pending":
             raise Conflict("this contract is no longer awaiting a signature")
         if data.version != contract.version:
-            raise Conflict("the contract changed; review the current version before signing")
+            raise Conflict(
+                "the contract changed; review the current version before signing",
+                code="contract_changed",
+            )
         if not data.agreed:
             raise Unprocessable("agree to sign electronically first")
         if data.strokes is not None and not _valid_strokes(data.strokes):
@@ -1708,6 +1711,7 @@ class PublicContractService:
         if signature.status != "pending":
             raise Conflict("this contract is no longer awaiting a signature")
         signature.status = "declined"
+        signature.declined_at = clock.now()
         await self.db.commit()
         return await self._context(signature, contract, business)
 

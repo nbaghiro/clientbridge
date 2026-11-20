@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useAsyncAction } from "../hooks";
 import type { SignatureStrokes } from "../ui";
 import { type PublicBrand, usePublicResource } from "./publicResource";
-import { failedStatus, refusal } from "../api";
+import { failedCode, failedStatus, refusal } from "../api";
 
 export interface PublicContract {
     contract_name: string;
@@ -59,7 +59,13 @@ export function createPublicContractClient(baseUrl: string): PublicContractClien
 }
 
 type SignMode = "type" | "draw";
-type SigningError = "name-missing" | "drawing-missing" | "consent-missing" | "failed";
+type SigningError =
+    | "name-missing"
+    | "drawing-missing"
+    | "consent-missing"
+    | "terms-changed"
+    | "decline-failed"
+    | "failed";
 
 interface ContractSigning {
     status: "loading" | "not-found" | "error" | "pending" | "signed" | "declined";
@@ -73,6 +79,8 @@ interface ContractSigning {
     agreed: boolean;
     setAgreed: (v: boolean) => void;
     sign: () => void;
+    declining: boolean;
+    setDeclining: (v: boolean) => void;
     decline: () => void;
     busy: boolean;
     error: SigningError | null;
@@ -95,6 +103,7 @@ export function useContractSigning(
     const [strokes, setStrokesRaw] = useState<SignatureStrokes>([]);
     const [agreed, setAgreedRaw] = useState(false);
     const [problem, setProblem] = useState<SigningError | null>(null);
+    const [declining, setDecliningRaw] = useState(false);
     const action = useAsyncAction();
     const typedName = typed ?? doc?.signer_name ?? "";
     const status: ContractSigning["status"] =
@@ -155,18 +164,37 @@ export function useContractSigning(
                         }),
                     );
                 } catch (error) {
-                    if (failedStatus(error) === 409) {
-                        setAgreedRaw(false);
-                        setStrokesRaw([]);
-                        retry();
-                    }
-                    throw error;
+                    if (failedStatus(error) !== 409) throw error;
+                    // set before the reread, so a failed reread still says why and keeps the consent
+                    if (failedCode(error) === "contract_changed") setProblem("terms-changed");
+                    // the terms changed or the request closed: reread it in place, so the page doesn't jump
+                    const current = await contracts.getContract(token);
+                    setAgreedRaw(false);
+                    setStrokesRaw([]);
+                    setData(current);
                 }
             });
         },
+        declining,
+        setDeclining: (v) => {
+            setProblem(null);
+            setDecliningRaw(v);
+        },
         decline: () => {
+            setProblem(null);
             action.run(async () => {
-                setData(await contracts.decline(token));
+                try {
+                    setData(
+                        await contracts.decline(token).catch((error: unknown) => {
+                            // signed or declined elsewhere: show where it stands rather than a failure
+                            if (failedStatus(error) !== 409) throw error;
+                            return contracts.getContract(token);
+                        }),
+                    );
+                    setDecliningRaw(false);
+                } catch {
+                    setProblem("decline-failed");
+                }
             });
         },
         busy: action.busy,

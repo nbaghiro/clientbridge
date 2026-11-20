@@ -1,10 +1,12 @@
 import secrets
+from datetime import timedelta
 
 import httpx
 import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.core.errors import TooManyRequests
 from clientbridge.core.ids import new_id
@@ -130,7 +132,36 @@ async def test_public_decline_then_sign_409(api: httpx.AsyncClient, db: AsyncSes
     token = await _a_signature(db)
     declined = await api.post(f"/contract/{token}/decline")
     assert declined.status_code == 200 and declined.json()["status"] == "declined"
-    assert (await api.post(f"/contract/{token}/sign", json=SIGN)).status_code == 409
+    refused = await api.post(f"/contract/{token}/sign", json=SIGN)
+    assert (refused.status_code, refused.json()["error"]) == (409, "conflict")
+
+
+async def test_a_decline_keeps_its_time_through_a_client_merge(
+    as_owner: httpx.AsyncClient, api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    gone = await new_client(db, name="Merged Away")
+    kept = await new_client(db, name="Kept On")
+    signature = Signature(
+        id=new_id("signature"),
+        business_id=BIZ,
+        contract_id=WAIVER,
+        client_id=gone,
+        status="pending",
+        token=secrets.token_urlsafe(16),
+    )
+    db.add(signature)
+    await db.commit()
+    assert (await api.post(f"/contract/{signature.token}/decline")).status_code == 200
+    await db.refresh(signature)
+    declined_at = signature.declined_at
+    assert declined_at is not None
+    assert timedelta(0) <= clock.now() - declined_at < timedelta(seconds=5)
+    merged = await as_owner.post(
+        f"/v1/clients/{kept}/merge", json={"from_client_id": gone, "fields": {}}
+    )
+    assert merged.status_code == 200, merged.text
+    await db.refresh(signature)
+    assert (signature.client_id, signature.declined_at) == (kept, declined_at)
 
 
 async def test_public_unknown_token_404(api: httpx.AsyncClient) -> None:
@@ -163,7 +194,7 @@ async def test_sign_rejects_a_version_the_client_has_not_seen(
     contract.version += 1
     await db.commit()
     response = await api.post(f"/contract/{token}/sign", json=SIGN | {"version": seen["version"]})
-    assert response.status_code == 409
+    assert (response.status_code, response.json()["error"]) == (409, "contract_changed")
     signature = await db.scalar(select(Signature).where(Signature.token == token))
     assert signature is not None and signature.status == "pending"
     assert signature.signed_body is None

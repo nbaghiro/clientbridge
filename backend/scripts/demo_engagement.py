@@ -701,6 +701,7 @@ def _waiver(ctx: DemoContext) -> datetime:
             contract_version=2,
             created_at=ctx.now - timedelta(days=20),
             opened_at=ctx.now - timedelta(days=19, hours=20),
+            declined_at=ctx.now - timedelta(days=19, hours=19),
             updated_at=ctx.now - timedelta(days=19, hours=19),
         ),
     )
