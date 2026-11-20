@@ -1208,8 +1208,8 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 ### Business page and website embed (CB-28)
 
-**Covers:** Connect business page, embed script and widgets, host routing (the embed code and QR are web only)
-**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a scratch HTML page on another origin
+**Covers:** Connect business page, online booking link, QR and embed code (web only), the embed script with its inline and drawer widgets, host routing
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a scratch HTML page served from another origin, for example `python3 -m http.server` in a folder holding it; Stripe's test card 4000 0027 6000 3184, which asks for 3D Secure
 
 **Where to test**
 
@@ -1219,17 +1219,23 @@ Clients find the business, book and pay a deposit, and change their plans withou
 **QA steps**
 
 1. Open `<slug>.D` on a phone.
-   **Expect:** cover, logo, services and links to booking and the shop on their own hosts.
-2. Paste the embed snippet into the scratch page.
-   **Expect:** the drawer opens and closes with focus restored; an inline widget below the fold sizes itself.
-3. Book a visit inside the embedded page.
-   **Expect:** the booking completes and shows on the schedule.
-4. Post a message to the widget from another window.
+   **Expect:** cover, logo, services and links to booking and the shop on their own hosts, with nothing wider than the screen.
+2. On web, open Setup > Online booking, copy the booking link and the embed code, and download the QR.
+   **Expect:** the link and the scanned QR open the booking page; the code is a `<connect-booking>` element and the `embed.js` script from the `book.` host.
+3. Paste the copied code unchanged into the scratch page and open it on a phone and on a desktop, with the widget below the fold.
+   **Expect:** the widget loads from the `book.` host, sizes itself to its content as it changes, and the host page never scrolls sideways.
+4. Book a visit inside the embedded widget, paying the deposit with the 3D Secure test card.
+   **Expect:** the check and the payment finish inside the frame, the visit shows on the schedule once, and the host page receives one `connect:success` event for `booking`.
+5. Replace the code with the single script (`<script src=".../embed.js" data-slug="..." data-label="Book a visit">`), open the drawer, press Escape inside the widget, then open it and use Close.
+   **Expect:** the drawer opens and closes both ways and focus returns to the launcher.
+6. Repeat steps 3 to 5 in Safari and Firefox.
+   **Expect:** the same results.
+7. Post a message to the widget from another window.
    **Expect:** ignored; the brand renders as text.
-5. Open a booking link on the wrong host and an invalid token.
+8. Open a booking link on the wrong host and an invalid token.
    **Expect:** not found or a plain explanation, never a transaction.
 
-**Done when:** A business can send clients to its page or embed booking on its own site, and each works on a phone.
+**Done when:** A business can send clients to its page, its link or QR, or embed booking on its own site, and a client can book and pay a deposit through each on a phone and a desktop in Chrome, Safari and Firefox.
 
 **Automated by**
 
@@ -1242,7 +1248,11 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 **To automate**
 
-- `EMBED-E2E-02` in `apps/connect/e2e/embed.e2e.ts`: A booking completed inside the embed reaches the staff schedule.
+- `EMBED-E2E-02` in `apps/connect/e2e/embed.e2e.ts`, tagged `@browsers`: On a page served from another origin at phone width, a visit booked inside the inline booking widget reaches the staff schedule once, the host page gets one `connect:success` for `booking`, and the page never scrolls sideways.
+- `EMBED-E2E-03` in `apps/web/e2e/onlineBooking.e2e.ts`: Online booking settings copy the booking link and the embed code, the downloaded QR decodes to the same link, and the copied code served unchanged on another origin loads the booking widget from the `book.` host.
+- `EMBED-E2E-04` in `apps/connect/e2e/stripe/deposit.stripe.ts`: A deposit paid with a 3D Secure card inside the embedded widget completes in the frame, books the visit and posts the payment to the ledger once.
+- `EMBED-E2E-05` in `apps/connect/e2e/embed.e2e.ts`, tagged `@browsers`: The single-script drawer closes when Escape is pressed inside the widget and returns focus to the launcher.
+- `EMBED-E2E-06` in `apps/connect/e2e/embed.e2e.ts`: The `connect-pay`, `connect-form` and `connect-contract` elements load their pages from their own hosts and send `connect:success` when the client finishes.
 
 **Depends on:** Nothing
 
