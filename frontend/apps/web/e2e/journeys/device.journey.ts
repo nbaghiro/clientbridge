@@ -80,6 +80,8 @@ test("FLOW-09-A a member's write reaches their second device, an offline week su
             .getByRole("button", { name: strings.sync.signOutCancel, exact: true })
             .click();
 
+        // a closing page loses the offline emulation while its upload loop can still send, so it leaves the app first
+        await page.goto("about:blank");
         await page.close();
         const device = await context.newPage();
         await device.goto("/today");
