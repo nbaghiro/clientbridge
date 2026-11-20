@@ -101,6 +101,26 @@ for (
     if (sent.status === 201) output.booking = json(sent.body);
     else if (sent.status !== 409)
         throw new Error("POST /v1/bookings failed: " + sent.status + " " + sent.body);
+    // ROOM keeps that many minutes free after the visit, for a flow that lengthens it
+    if (output.booking !== null && typeof ROOM !== "undefined") {
+        var path = API_URL + "/v1/bookings/" + output.booking.id;
+        var longer = new Date(Date.parse(output.booking.ends_at) + Number(ROOM) * MINUTE);
+        var check = http.post(path + "/check", {
+            headers: headers,
+            body: JSON.stringify({ ends_at: longer.toISOString() }),
+        });
+        if (check.status !== 200) throw new Error("checking room failed: " + check.body);
+        if (!json(check.body).ok) {
+            var freed = http.request(path, {
+                method: "PATCH",
+                headers: headers,
+                body: JSON.stringify({ status: "canceled", notify: false }),
+            });
+            if (freed.status !== 200)
+                throw new Error("canceling a tight visit failed: " + freed.body);
+            output.booking = null;
+        }
+    }
 }
 if (output.booking === null)
     throw new Error(

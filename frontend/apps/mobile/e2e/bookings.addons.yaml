@@ -40,6 +40,7 @@ onFlowComplete:
       file: helpers/book-today.js
       env:
           BODY: "${JSON.stringify({ client_id: output.clientId, item_id: output.itemId, staff_id: 'st_owner_' + E2E_NAMESPACE })}"
+          ROOM: "5"
 - runFlow: helpers/owner.yaml
 - tapOn: "Schedule"
 - tapOn: ${output.dayLabel}
