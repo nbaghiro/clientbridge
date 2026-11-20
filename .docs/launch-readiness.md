@@ -1637,18 +1637,14 @@ Estimates become invoices, invoices are paid by link, saved card or by hand, and
 
 **QA steps**
 
-1. Print an invoice, an estimate and a receipt from web.
-   **Expect:** logo, address, GST/HST number, lines, taxes and totals match the record.
-2. Share the same from a phone.
+1. Print an invoice, an estimate and a receipt from web, and save each as a PDF from the print dialog.
+   **Expect:** logo, address, GST/HST number, lines, taxes and totals match the record; a long invoice carries on to a second page with nothing cut off and no blank page at the end.
+2. Print the same from their Connect pages.
+   **Expect:** the same content and pages as on web.
+3. Share the same from a phone.
    **Expect:** the client can open it.
-3. Decide whether a downloadable PDF is still a launch requirement.
-   **Expect:** a written decision on this ticket.
 
-**Done when:** Every printed document matches its record, and the PDF question is decided.
-
-**By hand only**
-
-- Physical print output.
+**Done when:** Every printed document matches its record on every page. A separate PDF download isn't a launch requirement, since Save as PDF in the print dialog gives the client one, and that PDF is what the cases check.
 
 **Automated by**
 
@@ -1656,7 +1652,8 @@ Estimates become invoices, invoices are paid by link, saved card or by hand, and
 
 **To automate**
 
-- `BILL-DOC-24` in `apps/web/e2e/billing.e2e.ts`: Printed invoice content matches the record.
+- `BILL-DOC-27` in `apps/web/e2e/billing.e2e.ts`: An invoice, an estimate and a receipt printed to PDF with Chromium's `page.pdf()` carry the record's logo, address, GST/HST number, lines, taxes and totals, and a long invoice breaks onto a second page with its last line and total, no text outside the page and no blank page.
+- `DOC-E2E-14` in `apps/connect/e2e/publicPay.e2e.ts`: The invoice, estimate and receipt pages print to PDF with the same content and page checks as web.
 
 **Depends on:** Nothing
 
