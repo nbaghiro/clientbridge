@@ -683,3 +683,81 @@ async def test_a_return_reaching_into_a_period_leaves_only_its_other_days_to_fil
     q3 = {"period_start": "2026-07-01", "period_end": "2026-09-30", "family": "provincial"}
     rest = await service.record(RemittanceIn.model_validate({**q3, "tax_cents": 700}), None)
     assert (rest.period_start, rest.total_cents) == (date(2026, 7, 16), 700)
+
+
+async def test_a_stale_form_for_a_return_split_by_credits_409_posts_nothing(
+    db: AsyncSession, factory: Factory
+) -> None:
+    biz, principal = await _registered(db, factory)
+    for day, gst in ((date(2026, 7, 5), 400), (date(2026, 8, 10), 500), (date(2026, 9, 15), 600)):
+        at = datetime.combine(day, datetime.min.time(), tzinfo=UTC) + timedelta(hours=18)
+        await _invoice(db, issued_at=at, tax={"GST": gst}, business_id=biz)
+    service = RemittanceService(db, principal)
+    august = {"period_start": "2026-08-01", "period_end": "2026-08-31", "family": "federal"}
+    await service.record(RemittanceIn.model_validate(august), None)
+    shown = next(p for p in (await service.filings()).periods if p.start == date(2026, 7, 1))
+    assert shown.federal_cents == 1000
+    late = datetime(2026, 9, 20, 18, tzinfo=UTC)
+    await _invoice(db, issued_at=late, tax={"GST": 50}, business_id=biz)
+    filed = await service.filed_returns()
+
+    async def bank() -> int:
+        return await ledger.balance(db, biz, owner_type="business", owner_id=biz, category="bank")
+
+    before = await bank()
+    q3 = {"period_start": "2026-07-01", "period_end": "2026-09-30", "family": "federal"}
+    form = RemittanceIn.model_validate({**q3, "itc_cents": 450, "tax_cents": 1000})
+    with pytest.raises(Conflict) as stale:
+        await service.record(form, None)
+    assert stale.value.code == "return_changed"
+    assert await service.filed_returns() == filed
+    assert await bank() == before
+
+    fresh = form.model_copy(update={"tax_cents": 1050})
+    rest = await service.record(fresh, None)
+    assert (rest.itc_cents, rest.total_cents) == (450, 600)
+    spans = sorted(
+        (r.period_start, r.itc_cents)
+        for r in await service.filed_returns()
+        if r.id not in {f.id for f in filed}
+    )
+    assert spans == [(date(2026, 7, 1), 400), (date(2026, 9, 1), 50)]
+
+
+async def test_a_form_for_every_code_with_tax_cents_checks_the_whole_tax(
+    db: AsyncSession, factory: Factory
+) -> None:
+    biz, principal = await _registered(db, factory)
+    at = datetime(2026, 8, 10, 18, tzinfo=UTC)
+    await _invoice(db, issued_at=at, tax={"GST": 500, "PST": 700}, business_id=biz)
+    service = RemittanceService(db, principal)
+    q3 = {"period_start": "2026-07-01", "period_end": "2026-09-30"}
+    with pytest.raises(Conflict) as stale:
+        await service.record(RemittanceIn.model_validate({**q3, "tax_cents": 500}), None)
+    assert stale.value.code == "return_changed"
+    assert await service.filed_returns() == []
+
+    every = await service.record(RemittanceIn.model_validate({**q3, "tax_cents": 1200}), None)
+    assert (every.family, every.by_code, every.total_cents) == (
+        None,
+        {"GST": 500, "PST": 700},
+        1200,
+    )
+
+
+async def test_a_month_ended_under_monthly_filing_waits_for_its_quarter_after_a_switch_422(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    clock.travel(datetime(2026, 11, 20, 18, tzinfo=UTC))
+    monthly = await as_owner.patch("/v1/business", json={"filing_frequency": "monthly"})
+    assert monthly.status_code == 200, monthly.text
+    await _invoice(db, issued_at=datetime(2026, 10, 15, 18, tzinfo=UTC), tax={"GST": 300})
+    periods = (await as_owner.get("/v1/payments/remittances")).json()["periods"]
+    october = next(p for p in periods if p["start"] == "2026-10-01")
+    assert (october["end"], october["federal_status"]) == ("2026-10-31", "due")
+
+    quarterly = await as_owner.patch("/v1/business", json={"filing_frequency": "quarterly"})
+    assert quarterly.status_code == 200, quarterly.text
+    month = {"period_start": "2026-10-01", "period_end": "2026-10-31", "family": "federal"}
+    res = await as_owner.post("/v1/payments/remittances", json=month, headers=retry_key())
+    assert (res.status_code, res.json()["error"]) == (422, "period_open")

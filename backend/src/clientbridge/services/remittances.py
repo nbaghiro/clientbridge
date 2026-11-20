@@ -2,7 +2,7 @@ from datetime import date, datetime, timedelta
 from typing import Literal
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
@@ -33,6 +33,7 @@ from clientbridge.services.reports import (
 from clientbridge.services.tax import FAMILY_CODES, rates_on
 
 _HISTORY_YEARS = 2
+_FAMILIES: tuple[TaxFamily, ...] = ("federal", "provincial")
 
 
 def _covers(meta: dict[str, object], family: str | None) -> bool:
@@ -278,14 +279,78 @@ class RemittanceService:
             return None
         tz = zone(business.timezone)
         today = clock.today(tz)
-        filed = await self.filed_returns()
-        for start, end in await self._ranges(business, today):
-            federal = await self._gap_tax(start, end, "federal", filed, tz)
-            provincial = await self._gap_tax(start, end, "provincial", filed, tz)
-            no_return = not _covering(filed, start, end, "federal")
-            if end >= today or federal or provincial or no_return:
+        ranges = await self._ranges(business, today)
+        return await self._next_due(ranges, business, today, tz, await self.filed_returns())
+
+    async def _next_due(
+        self,
+        ranges: list[tuple[date, date]],
+        business: Business,
+        today: date,
+        tz: ZoneInfo,
+        filed: list[FiledReturn],
+    ) -> tuple[date, int] | None:
+        windows: list[tuple[date, date, TaxFamily]] = []
+        candidates: list[tuple[date, bool, range, range]] = []
+        for start, end in ranges:
+            spans: list[range] = []
+            for family in _FAMILIES:
+                first = len(windows)
+                covering = _covering(filed, start, end, family)
+                windows.extend((a, b, family) for a, b in _gaps(start, end, covering))
+                spans.append(range(first, len(windows)))
+            last = end >= today or not _covering(filed, start, end, "federal")
+            candidates.append((end, last, spans[0], spans[1]))
+            # every later period is skipped once this one is due, so their gaps aren't summed
+            if last:
+                break
+        taxes = await self._window_taxes(windows, tz)
+        for end, last, federal_at, provincial_at in candidates:
+            federal = sum(taxes[i] for i in federal_at)
+            provincial = sum(taxes[i] for i in provincial_at)
+            if last or federal or provincial:
                 return due_date(end, business.filing_frequency), federal + provincial
         return None
+
+    async def _window_taxes(
+        self, windows: list[tuple[date, date, TaxFamily]], tz: ZoneInfo
+    ) -> list[int]:
+        """Each window's family tax, as `_gap_tax` sums it, read in one query."""
+        if not windows:
+            return []
+        bounds = [(*period_bounds(a, b, tz), family) for a, b, family in windows]
+        sums = [
+            func.coalesce(
+                func.sum(
+                    case(
+                        (
+                            and_(
+                                Entry.occurred_at >= lo,
+                                Entry.occurred_at < hi,
+                                Account.code.in_(FAMILY_CODES[family]),
+                            ),
+                            Entry.amount_cents,
+                        ),
+                        else_=0,
+                    )
+                ),
+                0,
+            )
+            for lo, hi, family in bounds
+        ]
+        row = await self.db.execute(
+            scoped(Entry, self.biz)
+            .with_only_columns(*sums)
+            .join_from(Entry, Account, Account.id == Entry.account_id)
+            .where(
+                Account.category == "tax",
+                Entry.currency == BUSINESS_CURRENCY,
+                Entry.event != "remittance",
+                Entry.occurred_at >= min(lo for lo, _, _ in bounds),
+                Entry.occurred_at < max(hi for _, hi, _ in bounds),
+            )
+        )
+        return [-int(cents) for cents in row.one()]
 
     async def filings(self) -> TaxFilings:
         business = await self._business()
@@ -296,9 +361,10 @@ class RemittanceService:
         federal = next((r for r in rates if r.jurisdiction in FAMILY_CODES["federal"]), None)
         provincial = next((r for r in rates if r.jurisdiction in FAMILY_CODES["provincial"]), None)
         filed = await self.filed_returns()
+        ranges = await self._ranges(business, today)
         periods = [
             await self._period(start, end, frequency, today, tz, filed)
-            for start, end in reversed(await self._ranges(business, today))
+            for start, end in reversed(ranges)
         ]
         set_aside = await self._set_aside()
         return TaxFilings(
@@ -313,7 +379,10 @@ class RemittanceService:
             provincial_set_aside_cents=sum(
                 set_aside.get(code, 0) for code in FAMILY_CODES["provincial"]
             ),
-            next_due=due[0] if (due := await self.next_due()) else None,
+            next_due=due[0]
+            if business.tax_registered
+            and (due := await self._next_due(ranges, business, today, tz, filed))
+            else None,
             periods=periods,
         )
 

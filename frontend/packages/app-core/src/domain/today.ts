@@ -604,6 +604,10 @@ export const TODAY_TAX_SQL = `
 SELECT id, balance_cents FROM accounts WHERE owner_type = 'business' AND category = 'tax'
 ORDER BY id`;
 
+// a $0 return moves no tax balance, so the returns themselves are watched too
+export const TODAY_RETURNS_SQL = `
+SELECT DISTINCT journal_id FROM entries WHERE event = 'remittance' ORDER BY journal_id`;
+
 export interface OwnerToday {
     load: Load;
     view: TodayView;
@@ -680,6 +684,7 @@ export function useOwnerToday(api: ApiLike, viewer: Viewer | null): OwnerToday {
         startOfDay(now, zone).toISOString(),
     ]);
     const taxes = useQuery<{ id: string; balance_cents: number }>(TODAY_TAX_SQL);
+    const returns = useQuery<{ journal_id: string }>(TODAY_RETURNS_SQL);
     const s = summary.data;
     const filingDue = s?.gst_hst_filing_due
         ? combineDayAndTime(s.gst_hst_filing_due, "00:00", zone)
@@ -690,16 +695,17 @@ export function useOwnerToday(api: ApiLike, viewer: Viewer | null): OwnerToday {
         ...payments.data.map((p) => p.id),
         ...open.map((i) => `${i.id}:${String(i.balance_cents ?? 0)}`),
         ...taxes.data.map((a) => `${a.id}:${String(a.balance_cents)}`),
+        ...returns.data.map((r) => r.journal_id),
     ].join(",");
     const summed = useRef<string | null>(null);
     const reloadSummary = summary.reload;
     useEffect(() => {
-        if (payments.isLoading || taxes.isLoading) return;
+        if (payments.isLoading || taxes.isLoading || returns.isLoading) return;
         // the read made on mount already answers for what the replica first loads
         const seen = summed.current;
         summed.current = moneyKey;
         if (seen !== null && seen !== moneyKey) reloadSummary().catch(() => undefined);
-    }, [moneyKey, payments.isLoading, taxes.isLoading, reloadSummary]);
+    }, [moneyKey, payments.isLoading, taxes.isLoading, returns.isLoading, reloadSummary]);
     const pending = earnings.filter((e) => e.status === "pending");
     const attention = [
         ...requests,

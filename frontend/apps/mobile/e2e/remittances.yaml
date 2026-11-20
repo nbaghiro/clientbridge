@@ -130,9 +130,12 @@ onFlowComplete:
       element: "Filed returns"
       direction: DOWN
 - assertNotVisible: "Record filed return"
+# the row lists each confirmation number and the PST paid on lines of their own
 - scrollUntilVisible:
-      element: ".*CRA-WEB · PST \\$7\\.00 · BC-PHONE"
+      element: "BC-PHONE"
       direction: DOWN
       timeout: 30000
+- assertVisible: "CRA-WEB"
+- assertVisible: "PST \\$7\\.00"
 - assertVisible: "\\$4\\.00"
 - takeScreenshot: both-filed
