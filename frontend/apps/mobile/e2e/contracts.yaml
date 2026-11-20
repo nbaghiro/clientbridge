@@ -93,7 +93,20 @@ name: NATIVE-DOC-02 A contract written on the phone goes out after its preview a
       below: "Contract text"
       index: 0
 - inputText: " We text you when it's time."
-- tapOn: "Saving publishes version 2.*"
+# Android's keyboard covers the note below the field, so the sheet's title puts it away there
+- runFlow:
+      when:
+          platform: iOS
+      commands:
+          - tapOn: "Saving publishes version 2.*"
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - tapOn: "Edit text"
+- scrollUntilVisible:
+      element: "Publish version 2"
+      direction: DOWN
 - tapOn: "Publish version 2"
 - extendedWaitUntil:
       visible: "Version 2 · 1 signed · 0 waiting"
