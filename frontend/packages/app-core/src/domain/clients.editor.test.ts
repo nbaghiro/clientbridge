@@ -9,6 +9,7 @@ import { strings } from "../strings";
 import {
     CLIENT_CONSENT_SQL,
     type ClientListRow,
+    LIVE_MEMBERS_SQL,
     NUMBER_REPLY_SQL,
     useClientEditor,
 } from "./clients";
@@ -322,4 +323,12 @@ it("drops a choice made before a STOP landed once the START lifts it", () => {
     expect(result.current.consentLocked).toBe(false);
     expect(result.current.draft.consent).toBe(true);
     expect(result.current.dirty).toBe(false);
+});
+
+it("says an archive ends the client's memberships only when they hold a live one", () => {
+    const { result, rerender } = editor([ann]);
+    expect(result.current.archiveBody).toBe(strings.clients.edit.archiveBody);
+    replica.rows = (sql) => (sql === LIVE_MEMBERS_SQL ? [{ client_id: "cl_ann" }] : []);
+    rerender({ rows: [ann] });
+    expect(result.current.archiveBody).toBe(strings.clients.edit.archiveBodyMember);
 });

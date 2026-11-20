@@ -10,6 +10,7 @@ import {
     CLIENT_BULK_MAX,
     CLIENT_FOOTPRINT_SQL,
     type ClientListRow,
+    LIVE_MEMBERS_SQL,
     useClientMerge,
     useClientSelection,
 } from "./clients";
@@ -233,4 +234,24 @@ it("asks for a narrower list before a bulk write the API would refuse as too lar
     expect(post).not.toHaveBeenCalled();
     expect(applied).not.toHaveBeenCalled();
     expect(result.current.selected).toHaveLength(CLIENT_BULK_MAX + 1);
+});
+
+it("says a bulk archive ends memberships only when a selected client holds a live one", () => {
+    replica.rows = (sql) => (sql === LIVE_MEMBERS_SQL ? [{ client_id: "cl_other" }] : []);
+    const { result } = renderHook(
+        () =>
+            useClientSelection(
+                apiPosting(() => Promise.reject(new Error("unused"))),
+                [kept, other],
+            ),
+        { wrapper },
+    );
+    act(() => {
+        result.current.toggle(kept.id);
+    });
+    expect(result.current.archiveBody).toBe(s.archiveBody);
+    act(() => {
+        result.current.toggle(other.id);
+    });
+    expect(result.current.archiveBody).toBe(s.archiveBodyMember);
 });

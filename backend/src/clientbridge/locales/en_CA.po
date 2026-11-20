@@ -584,13 +584,13 @@ msgid "staff_invite.subject"
 msgstr "You're invited to Clientbridge"
 
 msgid "stripe.subscription_product"
-msgstr "Subscription"
+msgstr "Membership"
 
 msgid "subscription_canceled.body"
-msgstr "Your subscription to {business} was canceled."
+msgstr "Your membership with {business} has ended."
 
 msgid "subscription_past_due.body"
-msgstr "Your subscription payment to {business} failed. Please update your payment method."
+msgstr "Your membership payment to {business} didn't go through. Please contact them to update your card."
 
 msgid "trial.action"
 msgstr "Choose a plan"

@@ -1,0 +1,40 @@
+appId: ${APP_ID}
+name: NATIVE-ENT-04 A client's memberships on the phone say when one renews, that one's payment failed, that one is paused and that a canceled one ended
+---
+- runFlow: helpers/owner.yaml
+- tapOn: "Clients"
+- runFlow:
+      file: helpers/membership-wording.yaml
+      env:
+          SURNAME: "Okafor"
+          NAME: "David Okafor"
+          RECORD: "Renews .*"
+          WALLET: "Next charge .*"
+          NOT: "The card was declined.*"
+# a declined renewal reads as failed, not as a coming charge
+- runFlow:
+      file: helpers/membership-wording.yaml
+      env:
+          SURNAME: "Wright"
+          NAME: "Ethan Wright"
+          RECORD: "Payment failed"
+          WALLET: "The card was declined; payment will be retried automatically\\."
+          NOT: "Next charge .*"
+- takeScreenshot: native-membership-past-due
+- runFlow:
+      file: helpers/membership-wording.yaml
+      env:
+          SURNAME: "Adeyemi"
+          NAME: "Priscilla Adeyemi"
+          RECORD: "Paused"
+          WALLET: "Paused"
+          NOT: "Next charge .*"
+# a canceled membership says in the wallet that it ended, with no next charge
+- runFlow:
+      file: helpers/membership-wording.yaml
+      env:
+          SURNAME: "Lin"
+          NAME: "Grace Lin"
+          RECORD: ""
+          WALLET: "Ended .+"
+          NOT: "Next charge .*"

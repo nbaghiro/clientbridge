@@ -74,7 +74,7 @@ export function ClientEditorSheet({
         if (editor.client === null) return;
         confirm({
             title: e.archiveTitle(editor.client.name),
-            message: e.archiveBody,
+            message: editor.archiveBody,
             confirmLabel: e.archiveConfirm,
             destructive: true,
         })

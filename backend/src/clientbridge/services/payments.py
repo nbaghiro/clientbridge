@@ -3640,6 +3640,15 @@ async def _update_subscription(
     end = _period(current, "end")
     if end is not None:
         sub.current_period_end = end
+    # a canceled one says when it ended; a live one, the end Stripe has scheduled, if any
+    if sub.status == "canceled":
+        ended = _stamp(current, "ended_at") or _stamp(current, "canceled_at")
+        sub.ends_at = ended or sub.ends_at or clock.now()
+    else:
+        at_period_end = current.get("cancel_at_period_end") is True
+        sub.ends_at = _stamp(current, "cancel_at") or (
+            sub.current_period_end if at_period_end else None
+        )
     billing = current.get("default_payment_method")
     if isinstance(billing, str):
         # Stripe decides what a membership bills, so a move it took and we lost is kept
@@ -3711,6 +3720,7 @@ async def end_memberships_at_period_end(
         await gateway.cancel_subscription(
             account_id, subscription_id=sub.provider_ref, at_period_end=True
         )
+        sub.ends_at = sub.current_period_end
         cmd.record(
             "subscription.cancel_at_period_end", entity_type="subscription", entity_id=sub.id
         )
@@ -3751,6 +3761,7 @@ async def keep_memberships(
         except Conflict:
             _log.warning("membership %s could not be kept renewing", sub.id)
             continue
+        sub.ends_at = None
         cmd.record("subscription.keep", entity_type="subscription", entity_id=sub.id)
 
 
@@ -3779,7 +3790,7 @@ async def _end_disputed_membership(
     if sub.provider_ref is not None and account is not None:
         with contextlib.suppress(Conflict):  # already gone from Stripe
             await gateway.cancel_subscription(account, subscription_id=sub.provider_ref)
-    sub.status = "canceled"
+    sub.status, sub.ends_at = "canceled", clock.now()
     db.add(
         Audit(
             id=new_id("audit"),

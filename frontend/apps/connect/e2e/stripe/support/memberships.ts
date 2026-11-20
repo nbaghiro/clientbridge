@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { formatMoney, strings } from "@clientbridge/app-core/public";
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { bookingApi } from "../../../../web/e2e/support/bookings";
 import { type ClientFixture, openWallet } from "../../../../web/e2e/support/clients";
 import { select } from "../../../../web/e2e/support/db";
@@ -26,6 +26,7 @@ interface Renewal {
 export interface MembershipEvidence {
     subscriptions: { id: string; status: string }[];
     invoices: Renewal[];
+    updates: { id: string; created: number; cancel_at_period_end: boolean }[];
 }
 
 export function membershipEvidence(clientId: string): Promise<MembershipEvidence> {
@@ -91,11 +92,13 @@ export async function saveCardUi(
         .toBe(before + 1);
 }
 
-export async function startMembershipUi(
+/** Picks the plan in the wallet's sale sheet and charges the saved card, returning the answer. */
+async function chargeMembership(
     page: Page,
     client: ClientFixture,
     item: { id: string; name: string },
-): Promise<void> {
+    chargedCents: number,
+): Promise<{ sheet: Locator; status: number; body: string }> {
     const wallet = await openWallet(page, client);
     await wallet
         .getByRole("button", { name: strings.clients.startSubscriptionLink, exact: true })
@@ -112,18 +115,53 @@ export async function startMembershipUi(
         (r) => new URL(r.url()).pathname === "/v1/subscriptions" && r.request().method() === "POST",
     );
     await sheet
-        .getByRole("button", { name: w.charge(formatMoney(2000, "CAD")), exact: true })
+        .getByRole("button", { name: w.charge(formatMoney(chargedCents, "CAD")), exact: true })
         .click();
     const response = await created;
-    expect(response.status(), await response.text()).toBe(201);
-    await expect(sheet.getByText(w.doneTitle, { exact: true })).toBeVisible();
+    return { sheet, status: response.status(), body: await response.text() };
+}
+
+export async function startMembershipUi(
+    page: Page,
+    client: ClientFixture,
+    item: { id: string; name: string },
+    chargedCents = 2000,
+): Promise<void> {
+    const { sheet, status, body } = await chargeMembership(page, client, item, chargedCents);
+    expect(status, body).toBe(201);
+    await expect(sheet.getByText(strings.entitlements.doneTitle, { exact: true })).toBeVisible();
     await sheet.getByRole("button", { name: strings.common.close, exact: true }).click();
 }
 
+/** Starts the membership again while it is live, and checks the sheet refuses it in words. */
+export async function refusedMembershipUi(
+    page: Page,
+    client: ClientFixture,
+    item: { id: string; name: string },
+    chargedCents = 2000,
+): Promise<void> {
+    const { sheet, status, body } = await chargeMembership(page, client, item, chargedCents);
+    expect(status, body).toBe(409);
+    await expect(sheet.getByText(strings.api.membershipExists, { exact: true })).toBeVisible();
+    await sheet.getByRole("button", { name: strings.common.cancel, exact: true }).click();
+    await expect(sheet).toBeHidden();
+}
+
 export async function membershipRows(clientId: string) {
-    return select<{ id: string; status: string; provider_ref: string | null }>`
-        SELECT id, status, provider_ref FROM subscriptions
+    return select<{
+        id: string;
+        status: string;
+        provider_ref: string | null;
+        current_period_end: Date | null;
+        ends_at: Date | null;
+    }>`
+        SELECT id, status, provider_ref, current_period_end, ends_at FROM subscriptions
         WHERE client_id = ${clientId} ORDER BY created_at`;
+}
+
+/** The plan's line in the client's wallet, which says when it next charges, ends or ended. */
+export function membershipLine(wallet: Locator, item: { name: string }): Locator {
+    return wallet.getByRole("listitem").filter({ hasText: item.name });
 }
 
 export async function pastDueNotices(subscriptionId: string) {

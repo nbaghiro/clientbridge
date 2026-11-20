@@ -162,6 +162,8 @@ class Subscription(PKMixin, BusinessScoped, TimestampMixin, Base):
     item_id: Mapped[str] = mapped_column(ForeignKey("items.id"), nullable=False)
     status: Mapped[SubscriptionStatus] = mapped_column(String, default="active", nullable=False)
     current_period_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # when it stops renewing: an end Stripe has scheduled, or when a canceled one ended
+    ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     payment_method_id: Mapped[str | None] = mapped_column(ForeignKey("payment_methods.id"))
     provider_ref: Mapped[str | None] = mapped_column(String)
 

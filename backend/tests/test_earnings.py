@@ -2,16 +2,17 @@
 
 import itertools
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import httpx
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice, Line, Order
 from clientbridge.models.business import Business, Staff
-from clientbridge.models.catalog import Item, Package
+from clientbridge.models.catalog import Item, Package, Subscription
 from clientbridge.models.clients import Client
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
@@ -436,10 +437,7 @@ async def test_a_non_payee_earns_nothing_on_a_loose_line(
     assert await _line_journals(db, inv_id) == []
 
 
-async def _covered_visit(
-    as_owner: httpx.AsyncClient, db: AsyncSession, *, paid: int, crew: bool = False
-) -> str:
-    """A started visit of Diego's covered by a five-session package bought for `paid`."""
+async def _started_diego_visit(db: AsyncSession) -> tuple[Booking, Slot]:
     booking = await _diego_visit(db)
     start = datetime(2026, 10, 13, 15, tzinfo=UTC)
     await db.execute(
@@ -450,6 +448,14 @@ async def _covered_visit(
     await db.execute(update(Booking).where(Booking.id == booking.id).values(starts_at=start))
     slot = await db.get(Slot, booking.slot_id, populate_existing=True)
     assert slot is not None
+    return booking, slot
+
+
+async def _covered_visit(
+    as_owner: httpx.AsyncClient, db: AsyncSession, *, paid: int, crew: bool = False
+) -> str:
+    """A started visit of Diego's covered by a five-session package bought for `paid`."""
+    booking, slot = await _started_diego_visit(db)
     await db.execute(update(Item).where(Item.id == "it_pkg5").values(covers_item_id=slot.item_id))
     plan = Package(
         id=new_id("package"),
@@ -503,6 +509,183 @@ async def test_a_package_covered_visit_earns_on_the_session_share(
     earning = await load_earning(db, BIZ, journal)
     assert earning is not None
     assert (earning.staff_id, earning.amount_cents, earning.status) == ("st_diego", 2400, "pending")
+
+
+async def _membership_visit(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    *,
+    billed: int | None,
+    former: int | None = None,
+    later: int | None = None,
+) -> str:
+    """A started visit of Diego's covered by a $25 membership whose last renewal billed `billed`."""
+    booking, slot = await _started_diego_visit(db)
+    plan = Item(
+        id=new_id("item"),
+        business_id=BIZ,
+        kind="subscription",
+        name="Nail club",
+        price_cents=2500,
+        currency="CAD",
+        tax_class="federal_only",
+        interval=1,
+        frequency="month",
+        visits_per_period=1,
+        covers_item_id=slot.item_id,
+    )
+    db.add(plan)
+    await db.flush()
+    sub = Subscription(
+        id=new_id("subscription"),
+        business_id=BIZ,
+        client_id=booking.client_id,
+        item_id=plan.id,
+        status="active",
+        provider_ref=f"sub_{new_id('subscription')}",
+        current_period_end=clock.now() + timedelta(days=20),
+    )
+    db.add(sub)
+    if former is not None:
+        # a renewal recorded before this membership began, for an earlier one on the same plan
+        await _plan_invoice(
+            db, booking.client_id, plan, former, created=datetime(2026, 1, 5, tzinfo=UTC)
+        )
+    if later is not None:
+        await db.flush()
+        await db.refresh(sub)
+        # a renewal issued after the visit started bills the next period, not this visit's
+        issued = slot.starts_at + timedelta(minutes=30)
+        await _plan_invoice(
+            db, booking.client_id, plan, later, created=sub.created_at, issued=issued
+        )
+    if billed is not None:
+        # the last renewal counts; an older, a void and a numbered invoice for the plan don't
+        for subtotal, days_ago, number, status in (
+            (billed, 10, None, "sent"),
+            (9900, 40, None, "sent"),
+            (5500, 2, None, "void"),
+            (7700, 1, 12, "sent"),
+        ):
+            invoice = Invoice(
+                id=new_id("invoice"),
+                business_id=BIZ,
+                client_id=booking.client_id,
+                number=number,
+                status=status,
+                currency="CAD",
+                issued_at=clock.now() - timedelta(days=days_ago),
+                subtotal_cents=subtotal,
+                tax_total_cents=100,
+                total_cents=subtotal + 100,
+            )
+            db.add(invoice)
+            await db.flush()
+            db.add(
+                Line(
+                    id=new_id("line"),
+                    business_id=BIZ,
+                    invoice_id=invoice.id,
+                    description=plan.name,
+                    item_id=plan.id,
+                    quantity=1,
+                    unit_amount_cents=subtotal,
+                    amount_cents=subtotal,
+                    tax_amount_cents=100,
+                    position=0,
+                )
+            )
+    await db.flush()
+    res = await as_owner.post(
+        f"/v1/subscriptions/{sub.id}/cover", json={"booking_id": booking.id}, headers=retry_key()
+    )
+    assert res.status_code == 200, res.text
+    return booking.id
+
+
+async def _plan_invoice(
+    db: AsyncSession,
+    client_id: str,
+    plan: Item,
+    subtotal: int,
+    *,
+    created: datetime,
+    issued: datetime | None = None,
+) -> None:
+    invoice = Invoice(
+        id=new_id("invoice"),
+        business_id=BIZ,
+        client_id=client_id,
+        status="sent",
+        currency="CAD",
+        issued_at=issued or clock.now() - timedelta(days=1),
+        subtotal_cents=subtotal,
+        tax_total_cents=0,
+        total_cents=subtotal,
+        created_at=created,
+    )
+    db.add(invoice)
+    await db.flush()
+    db.add(
+        Line(
+            id=new_id("line"),
+            business_id=BIZ,
+            invoice_id=invoice.id,
+            description=plan.name,
+            item_id=plan.id,
+            quantity=1,
+            unit_amount_cents=subtotal,
+            amount_cents=subtotal,
+            tax_amount_cents=0,
+            position=0,
+        )
+    )
+
+
+async def _membership_earning(db: AsyncSession, booking_id: str) -> int:
+    [journal] = await _journals(db, booking_id)
+    earning = await load_earning(db, BIZ, journal)
+    assert earning is not None and earning.staff_id == "st_diego"
+    return earning.amount_cents
+
+
+async def test_a_membership_covered_visit_earns_on_what_the_period_billed_before_tax(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    # a member still on an older $20 price is billed $20 before tax, whatever the item now says
+    booking_id = await _membership_visit(as_owner, db, billed=2000)
+    assert await _membership_earning(db, booking_id) == 1200
+
+
+async def test_a_membership_covered_visit_before_its_first_renewal_earns_on_the_price(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    # the $25 price is before tax, so none is taken out of it
+    booking_id = await _membership_visit(as_owner, db, billed=None)
+    assert await _membership_earning(db, booking_id) == 1500
+
+
+async def test_a_membership_covered_visit_ignores_an_earlier_membership_s_renewal(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    # the client's earlier membership on this plan last billed $90, after this one's $20 renewal
+    booking_id = await _membership_visit(as_owner, db, billed=2000, former=9000)
+    assert await _membership_earning(db, booking_id) == 1200
+
+
+async def test_a_membership_covered_visit_earns_on_the_renewal_for_its_period(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    # the $20 renewal billed the visit's period; the $30 one after the visit started is the next
+    booking_id = await _membership_visit(as_owner, db, billed=2000, later=3000)
+    assert await _membership_earning(db, booking_id) == 1200
+
+
+async def test_a_membership_covered_visit_with_no_earlier_renewal_earns_on_the_latest(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    booking_id = await _membership_visit(as_owner, db, billed=None, later=3000)
+    assert await _membership_earning(db, booking_id) == 1800
 
 
 async def test_a_package_covered_visit_splits_between_its_crew(

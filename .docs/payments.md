@@ -342,6 +342,10 @@ saved card or bank account and the platform fee as `application_fee_percent`. It
   retry after a lost response succeeds quietly.
 - Archiving a client cancels their memberships at the end of the paid period. A lost dispute on a
   membership charge cancels the membership at once and audits `subscription.cancel`.
+- `subscriptions.ends_at` says when a membership stops: the period end an archive scheduled (cleared when a
+  restore keeps it renewing), or when a canceled one ended. Webhooks copy it from Stripe's `cancel_at` or
+  `ended_at`, so the record and wallet say Ends or Ended instead of a next charge. Starting a membership the
+  client already has is refused with `membership_exists`.
 - Changing an item's price doesn't move existing members; they keep the price they joined at, and the item
   editor says so.
 - When the business's own plan lapses, its memberships keep billing. The owner can still cancel them
@@ -356,7 +360,10 @@ saved card or bank account and the platform fee as `application_fee_percent`. It
   renewal left the stored end in the past) and refuses past the count
   with `membership_visits_used`. The visit records the membership in `bookings.subscription_id` and is
   completed. The period's price was revenue when it was billed, so a covered visit books no revenue;
-  staff earn on one visit's share of the period's price before tax.
+  staff earn on one visit's share of what the membership's last renewal billed before tax (the item's
+  price before the first renewal is recorded). A renewal belongs to the membership when it was recorded
+  after the membership began, so an earlier membership on the same plan never sets the share, and the
+  wallet's next charge reads the same renewal.
 - **Member discount.** A desk sale or an invoice for a client with an active membership takes the best
   member discount among their memberships on every retail line, as a line discount named Member
   discount on the receipt. It follows a client chosen on the sale or invoice; a draft or held sale

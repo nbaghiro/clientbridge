@@ -1276,6 +1276,35 @@ describe("app-core SQL against the replica schema", () => {
         ]);
     });
 
+    it("names an issued unnumbered invoice after its plan, but not a voided draft", () => {
+        scoped("invoices", [
+            {
+                id: "inv_renewal",
+                client_id: "cl_ann",
+                status: "sent",
+                total_cents: 5250,
+                issued_at: "2026-06-01T00:00:00Z",
+            },
+            { id: "inv_voided_draft", client_id: "cl_ann", status: "void", total_cents: 4000 },
+        ]);
+        scoped(
+            "lines",
+            ["inv_renewal", "inv_voided_draft"].map((invoice, i) => ({
+                id: `ln_named${String(i)}`,
+                invoice_id: invoice,
+                description: i === 0 ? "Monthly Daycare" : "Nail trim",
+                quantity: 1,
+                unit_amount_cents: 5000,
+                amount_cents: 5000,
+                position: 0,
+            })),
+        );
+        const name = (id: string) => pick(run("INVOICE_SQL", [id]), "charge_name")[0];
+        expect(name("inv_renewal")).toEqual({ charge_name: "Monthly Daycare" });
+        expect(name("inv_voided_draft")).toEqual({ charge_name: null });
+        expect(name("inv_2")).toEqual({ charge_name: null });
+    });
+
     it("reads amount paid, client value and balances through the ledger builders", () => {
         expect(value(collectedSql("invoice", "'inv_1'"))).toBe(4000);
         expect(value(collectedSql("invoice", "'inv_2'"))).toBe(0);
@@ -1741,6 +1770,86 @@ describe("app-core SQL against the replica schema", () => {
                 { event: "consumption", cents: 9000 },
             ],
         );
+    });
+
+    it("gives a membership its end and what its last renewal charged, ignoring numbered, void and earlier memberships' invoices", () => {
+        const membership = (): Row[] =>
+            pick(
+                run("WALLET_SQL", ["cl_ann"]).filter((r) => r.kind === "membership"),
+                "expires_at",
+                "paid_cents",
+            );
+        expect(membership()).toEqual([{ expires_at: null, paid_cents: null }]);
+        scoped("invoices", [
+            {
+                id: "inv_m1",
+                client_id: "cl_ann",
+                status: "sent",
+                total_cents: 5600,
+                issued_at: "2026-05-01T00:00:00Z",
+            },
+            {
+                id: "inv_m2",
+                client_id: "cl_ann",
+                status: "sent",
+                total_cents: 5250,
+                issued_at: "2026-06-01T00:00:00Z",
+            },
+            {
+                id: "inv_m3",
+                client_id: "cl_ann",
+                number: 9,
+                status: "sent",
+                total_cents: 9900,
+                issued_at: "2026-06-20T00:00:00Z",
+            },
+            {
+                id: "inv_m4",
+                client_id: "cl_ann",
+                status: "void",
+                total_cents: 1000,
+                issued_at: "2026-06-25T00:00:00Z",
+            },
+            {
+                id: "inv_m5",
+                client_id: "cl_ann",
+                status: "sent",
+                total_cents: 7700,
+                issued_at: "2026-06-28T00:00:00Z",
+                created_at: "2026-06-26 08:59:59.5+00",
+            },
+        ]);
+        scoped(
+            "lines",
+            ["inv_m1", "inv_m2", "inv_m3", "inv_m4", "inv_m5"].map((invoice, i) => ({
+                id: `ln_m${String(i)}`,
+                invoice_id: invoice,
+                description: "Plan",
+                item_id: "it_plan",
+                quantity: 1,
+                unit_amount_cents: 5000,
+                amount_cents: 5000,
+                position: 0,
+            })),
+        );
+        db.run("UPDATE subscriptions SET ends_at = '2026-07-01T00:00:00Z' WHERE id = 'sub_1'");
+        expect(membership()).toEqual([{ expires_at: "2026-07-01T00:00:00Z", paid_cents: 5250 }]);
+        expect(run("LIVE_MEMBERS_SQL")).toEqual([{ client_id: "cl_ann" }]);
+        db.run("UPDATE subscriptions SET status = 'canceled' WHERE id = 'sub_1'");
+        expect(run("LIVE_MEMBERS_SQL")).toEqual([]);
+        db.run("UPDATE subscriptions SET status = 'active' WHERE id = 'sub_1'");
+        expect(pick(run("CLIENT_SUBSCRIPTIONS_SQL", ["cl_ann"]), "id", "ends_at")).toEqual([
+            { id: "sub_1", ends_at: "2026-07-01T00:00:00Z" },
+        ]);
+        expect(
+            pick(
+                run("CLIENT_PLANS_SQL", ["cl_ann", "cl_ann"]).filter(
+                    (r) => r.kind === "subscription",
+                ),
+                "renews_at",
+                "ends_at",
+            ),
+        ).toEqual([{ renews_at: "2026-07-01T00:00:00Z", ends_at: "2026-07-01T00:00:00Z" }]);
     });
 
     it("reads a package or gift card past its date as lapsed before the sweep expires it", () => {

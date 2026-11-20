@@ -100,3 +100,4 @@ class SubscriptionOut(Mirror):
     item_id: str
     status: SubscriptionStatus
     current_period_end: datetime | None
+    ends_at: datetime | None

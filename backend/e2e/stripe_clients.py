@@ -455,7 +455,34 @@ async def client_action(
     return {
         "subscriptions": [{"id": s.id, "status": s.status} for s in subscriptions],
         "invoices": sorted(renewals, key=lambda row: int(cast(int, row["created"]))),
+        "updates": await subscription_updates(account, subscriptions),
     }
+
+
+async def subscription_updates(
+    account: str, subscriptions: list[stripe.Subscription]
+) -> list[dict[str, object]]:
+    """The customer.subscription.updated events Stripe sent the app about these subscriptions."""
+    if not subscriptions:
+        return []
+    owned = {s.id for s in subscriptions}
+    listed = await stripe.Event.list_async(
+        type="customer.subscription.updated",
+        created={"gte": min(s.created for s in subscriptions)},
+        stripe_account=account,
+    )
+    updates: list[dict[str, object]] = []
+    async for event in listed.auto_paging_iter():
+        current = event.data.object.to_dict()
+        if current.get("id") in owned:
+            updates.append(
+                {
+                    "id": event.id,
+                    "created": event.created,
+                    "cancel_at_period_end": current.get("cancel_at_period_end") is True,
+                }
+            )
+    return sorted(updates, key=lambda row: int(cast(int, row["created"])))
 
 
 async def clients_main(argv: list[str]) -> None:

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import {
     combineDayAndTime,
     dateKey,
+    formatDate,
     formatMoney,
     formatParts,
     formatPhone,
@@ -9,7 +10,7 @@ import {
     strings,
 } from "@clientbridge/app-core/public";
 import { expect, type Locator, test } from "@playwright/test";
-import { addPet } from "./support/clients";
+import { addPet, type ClientFixture, openWallet } from "./support/clients";
 import { select } from "./support/db";
 import { freshPhone, textsTo } from "./support/auth";
 import {
@@ -27,7 +28,7 @@ import {
 import { joinHoursStaff } from "./support/hours";
 import { navigate, signIn } from "./support/session";
 import { apiCall, visitEvidence } from "./support/visit";
-import { runEmail, runUrl } from "@clientbridge/config/e2e/run";
+import { demoId, runEmail, runUrl } from "@clientbridge/config/e2e/run";
 
 const w = strings.entitlements;
 const r = strings.refunds;
@@ -803,4 +804,68 @@ test("ENT-E2E-07 a gift card and a package stay usable until they expire, and th
         body: JSON.stringify({ ahead, passed }),
         contentType: "application/json",
     });
+});
+
+test("ENT-E2E-10 a client's memberships say when one renews, that one's payment failed, that one is paused and when one ended", async ({
+    page,
+}) => {
+    const zone = "America/Vancouver";
+    const seeded = [
+        ["sub_david", "cl_david", "David Okafor"],
+        ["sub_pastdue", "cl_ethan", "Ethan Wright"],
+        ["sub_priscilla", "cl_priscilla", "Priscilla Adeyemi"],
+        ["sub_canceled", "cl_grace", "Grace Lin"],
+    ] as const;
+    const rows = await select<{ id: string; current_period_end: Date; ends_at: Date | null }>`
+        SELECT id, current_period_end, ends_at FROM subscriptions
+        WHERE id = ANY(${seeded.map(([sub]) => demoId(sub))}::text[])`;
+    const day = (sub: string, column: "current_period_end" | "ends_at"): string => {
+        const at = rows.find((r) => r.id === demoId(sub))?.[column];
+        if (!at) throw new Error(`the seed has no ${column} on ${sub}`);
+        return formatDate(at, zone);
+    };
+    const [david, ethan, priscilla, grace] = seeded.map(([, id, name]) => ({
+        id: demoId(id),
+        name,
+        phone: "",
+    })) as [ClientFixture, ClientFixture, ClientFixture, ClientFixture];
+    await signIn(page);
+
+    // the record's summary: a failed payment and a pause are said instead of a renewal date
+    for (const [client, detail] of [
+        [david, strings.clients.record.renews(day("sub_david", "current_period_end"))],
+        [ethan, w.retrying],
+        [priscilla, w.statusLabel.paused],
+    ] as const) {
+        await navigate(page, `/clients?open=${client.id}`);
+        const record = page.getByRole("complementary", { name: client.name, exact: true });
+        await expect(record.getByText(detail, { exact: true })).toBeVisible({ timeout: 60_000 });
+    }
+
+    const line = async (client: ClientFixture): Promise<Locator> =>
+        (await openWallet(page, client))
+            .getByRole("listitem")
+            .filter({ hasText: "Monthly Daycare" });
+    await expect(
+        (await line(david)).getByText(
+            strings.clients.nextCharge(day("sub_david", "current_period_end")),
+            { exact: true },
+        ),
+    ).toBeVisible();
+    await expect((await line(ethan)).getByText(w.pastDueNote, { exact: true })).toBeVisible();
+    await expect((await line(ethan)).getByText(strings.clients.nextCharge("").trim())).toHaveCount(
+        0,
+    );
+    await expect(
+        (await line(priscilla)).getByText(w.statusLabel.paused, { exact: true }),
+    ).toBeVisible();
+    await expect(
+        (await line(priscilla)).getByText(strings.clients.nextCharge("").trim()),
+    ).toHaveCount(0);
+    await expect(
+        (await line(grace)).getByText(
+            strings.clients.subscriptionEnded(day("sub_canceled", "ends_at")),
+            { exact: true },
+        ),
+    ).toBeVisible();
 });

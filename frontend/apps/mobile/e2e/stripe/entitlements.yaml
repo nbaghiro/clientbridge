@@ -1,0 +1,230 @@
+appId: ${APP_ID}
+name: NATIVE-ENT-05 On a phone, staff start a membership on a saved card from a sheet, are told in words it is already running, cover a visit with it at the desk, see archiving end it with the period paid, and cancel it, after which it reads Canceled and Ended
+onFlowComplete:
+    - runScript: ../helpers/restore-week.js
+---
+# a number outside 555-01xx, which is set aside for fiction and never texted
+- evalScript: ${output.phone = "250" + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000))}
+- evalScript: ${output.tag = String(100000 + Math.floor(Math.random() * 900000))}
+- evalScript: ${output.name = "Juniper Oakhart " + output.tag}
+- evalScript: ${output.plan = "Coat club " + output.tag}
+- evalScript: ${output.expiry = "12" + String((new Date().getFullYear() + 3) % 100)}
+- runScript:
+      file: ../helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/clients
+          BODY: "${JSON.stringify({ name: output.name, phone: output.phone })}"
+- evalScript: ${output.client = output.response.id}
+# the lane files the client before the app gives it a Stripe customer, so cleanup owns what it saves
+- runScript:
+      file: ../helpers/control.js
+      env:
+          ACTION: purchaser
+          PAYLOAD: ${output.client}
+- runScript:
+      file: ../helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/items
+          BODY: "${JSON.stringify({ kind: 'service', name: 'Coat brush ' + output.tag, duration_min: 1, price_cents: 3000, tax_class: 'exempt', deposit_type: 'none', online_bookable: false })}"
+- evalScript: ${output.service = output.response.id}
+- runScript:
+      file: ../helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/items
+          BODY: "${JSON.stringify({ kind: 'subscription', name: output.plan, price_cents: 2500, tax_class: 'exempt', interval: 1, frequency: 'month', visits_per_period: 1, covers_item_id: output.service, active: true })}"
+- runFlow: ../helpers/owner.yaml
+- tapOn: "Clients"
+- tapOn: "Search name, phone or pet"
+- inputText: ${output.phone}
+- hideKeyboard
+- extendedWaitUntil:
+      visible: ${".*" + output.name + ".*"}
+      timeout: 60000
+- tapOn: ${".*" + output.name + ".*"}
+- extendedWaitUntil:
+      visible: "Book"
+      timeout: 60000
+# iOS calls Manage visible while it sits under the sticky actions, where a tap lands on Edit
+- swipe:
+      start: "50%,70%"
+      end: "50%,25%"
+      duration: 500
+- tapOn: "Manage"
+- assertVisible: "Payment methods"
+- scrollUntilVisible:
+      element: "Add card"
+      direction: DOWN
+- tapOn: "Add card"
+- extendedWaitUntil:
+      visible: "Card number"
+      timeout: 30000
+# Stripe's card field moves on to the expiry, the code and the postal code as each fills
+- tapOn: "Card number"
+- inputText: "4242424242424242"
+- inputText: ${output.expiry}
+- inputText: "123"
+- inputText: "V8W1A1"
+- tapOn: "Save card"
+- extendedWaitUntil:
+      visible: ".*4242.*"
+      timeout: 90000
+# the sale opens in a sheet over the wallet rather than below its last panel
+- scrollUntilVisible:
+      element: "\\+ Start membership"
+      direction: DOWN
+- tapOn: "\\+ Start membership"
+- extendedWaitUntil:
+      visible: "Choose one"
+      timeout: 20000
+- tapOn:
+      text: "${output.plan}.*"
+      below: "Choose one"
+- scrollUntilVisible:
+      element: "Charge \\$25\\.00"
+      direction: DOWN
+- tapOn: "Charge \\$25\\.00"
+- extendedWaitUntil:
+      visible: "Sold\\..*${output.plan} is on ${output.name}'s account\\."
+      timeout: 60000
+# the sheet's backdrop is a Close too, so the button is the one under the notice
+- tapOn:
+      text: "Close"
+      below: "Sold\\..*"
+- extendedWaitUntil:
+      visible: "Next charge .*"
+      timeout: 60000
+# starting it again while it runs is refused in words, not with "try again"
+- tapOn: "\\+ Start membership"
+- extendedWaitUntil:
+      visible: "Choose one"
+      timeout: 20000
+- tapOn:
+      text: "${output.plan}.*"
+      below: "Choose one"
+- scrollUntilVisible:
+      element: "Charge \\$25\\.00"
+      direction: DOWN
+- tapOn: "Charge \\$25\\.00"
+- extendedWaitUntil:
+      visible: "This client already has this membership\\. Cancel it first to start it again\\."
+      timeout: 30000
+- takeScreenshot: native-membership-already-running
+- tapOn:
+      text: "Cancel"
+      leftOf: "Charge \\$25\\.00"
+- runScript:
+      file: ../helpers/stripe-money.js
+      env:
+          CLIENT: ${output.client}
+          PAYMENTS: "payment:succeeded:2500"
+- tapOn: "Back"
+# Back can land on the list with the record already closed
+- runFlow:
+      when:
+          visible: "Book"
+      commands:
+          - runFlow: ../helpers/close-sheet.yaml
+# the included visit settles a started visit at the desk
+- runScript:
+      file: ../helpers/book-today.js
+      env:
+          STARTED: "1"
+          BODY: "${JSON.stringify({ client_id: output.client, item_id: output.service, staff_id: 'st_priya_' + E2E_NAMESPACE })}"
+- tapOn: "Today"
+- scrollUntilVisible:
+      element: "View payments"
+      direction: DOWN
+- tapOn: "View payments"
+- tapOn: "Sales"
+- scrollUntilVisible:
+      element: "${output.name}"
+      direction: DOWN
+      centerElement: true
+      timeout: 60000
+- scrollUntilVisible:
+      element:
+          text: "Use membership"
+          below: "${output.name}"
+      direction: DOWN
+- tapOn:
+      text: "Use membership"
+      below: "${output.name}"
+- extendedWaitUntil:
+      visible: "Covered by the membership\\."
+      timeout: 30000
+- takeScreenshot: native-membership-covered
+- tapOn: "Back"
+# archiving says the membership ends with the period paid, and the record and wallet then say so
+- tapOn: "Clients"
+- tapOn: "Search name, phone or pet"
+- eraseText: 30
+- inputText: ${output.phone}
+- hideKeyboard
+- tapOn: ${".*" + output.name + ".*"}
+- extendedWaitUntil:
+      visible: "Edit"
+      timeout: 60000
+- tapOn: "Edit"
+- scrollUntilVisible:
+      element: "Archive client"
+      direction: DOWN
+- tapOn: "Archive client"
+- extendedWaitUntil:
+      visible: ".*their memberships end with the period already paid.*"
+      timeout: 10000
+- tapOn: "^Archive$"
+- extendedWaitUntil:
+      visible: "Archived.*"
+      timeout: 30000
+- tapOn: "Cancel"
+- swipe:
+      start: "50%,70%"
+      end: "50%,25%"
+      duration: 500
+- extendedWaitUntil:
+      visible: "Ends .*"
+      timeout: 60000
+- takeScreenshot: native-membership-ending
+- tapOn: "Manage"
+- scrollUntilVisible:
+      element: "Memberships"
+      direction: DOWN
+      centerElement: true
+- assertVisible: "Ends .*"
+- assertNotVisible: "Next charge .*"
+- tapOn: "Back"
+# restoring keeps it renewing, and canceling ends it; Back can leave the record closed in Archived
+- runFlow:
+      when:
+          notVisible: "Restore"
+      commands:
+          - tapOn: "Archived.*"
+          - tapOn: ${".*" + output.name + ".*"}
+- tapOn:
+      text: "Restore"
+      index: 0
+- extendedWaitUntil:
+      visible: "Renews .*"
+      timeout: 60000
+- tapOn: "Manage"
+- scrollUntilVisible:
+      element: "Memberships"
+      direction: DOWN
+      centerElement: true
+- tapOn:
+      text: "Cancel"
+      below: "Memberships"
+- extendedWaitUntil:
+      visible: "Cancel ${output.plan}\\? It stops now and the card isn't charged again\\."
+      timeout: 10000
+- tapOn:
+      text: "Cancel membership"
+      index: 1
+- extendedWaitUntil:
+      visible: "Canceled"
+      timeout: 60000
+- assertVisible: "Ended .*"
+- takeScreenshot: native-membership-canceled

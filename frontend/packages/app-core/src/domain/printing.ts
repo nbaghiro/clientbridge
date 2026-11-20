@@ -147,6 +147,8 @@ interface PrintSource {
     kind: PrintedKind;
     currency: string;
     number: string | null;
+    // what an unnumbered document goes by instead of a number, such as a membership charge's plan
+    reference?: string | null;
     partyName: string;
     partyLines: readonly string[];
     meta: readonly { label: string; value: string }[];
@@ -180,15 +182,16 @@ export function printedDoc(
     fallbackColor: string,
 ): PrintedDoc {
     const title = s.kinds[src.kind];
-    const reference = docReference(src.number);
+    const named = src.reference ?? null;
+    const reference = named ?? docReference(src.number);
     const last = src.meta[2];
     return {
         kind: src.kind,
         currency: src.currency,
         title,
-        number: src.number ?? s.draftNumber,
+        number: src.number ?? src.reference ?? s.draftNumber,
         reference,
-        heading: s.heading(title, reference),
+        heading: named === null ? s.heading(title, reference) : s.headingFor(title, named),
         deadline: last === undefined ? "" : s.deadline(last.label, last.value),
         business: {
             name: letterhead.name,

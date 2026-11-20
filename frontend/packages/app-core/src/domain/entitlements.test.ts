@@ -14,6 +14,7 @@ import {
     consumeSession,
     giftDefault,
     giftPresets,
+    membershipPhase,
     nextSessionCents,
     sessionsRemaining,
     subscriptionTiming,
@@ -99,28 +100,66 @@ describe("gift card presets", () => {
 describe("subscriptionTiming", () => {
     const zone = "America/Vancouver";
     const end = "2026-11-13T08:00:00Z";
+    const canceledAt = "2026-10-20T17:00:00Z";
     const date = formatDate(parseTimestamp(end), zone);
-    const sub = (status: string, periodEnd: string | null = end) => ({
+    const sub = (status: string, periodEnd: string | null = end, endsAt: string | null = null) => ({
         id: "su_1",
         client_id: "cl_ann",
         item_id: "it_plan",
         item_name: "Monthly Plan",
         status,
         current_period_end: periodEnd,
+        ends_at: endsAt,
         payment_method_id: null,
     });
 
-    it("says when a billing membership charges next and when a canceled one ended", () => {
+    it("says when a renewing membership charges next and when an ending one stops", () => {
         expect(subscriptionTiming(sub("active"), zone)).toBe(strings.clients.nextCharge(date));
-        expect(subscriptionTiming(sub("past_due"), zone)).toBe(strings.clients.nextCharge(date));
-        expect(subscriptionTiming(sub("canceled"), zone)).toBe(
-            strings.clients.subscriptionEnded(date),
+        expect(subscriptionTiming(sub("active", end, end), zone)).toBe(
+            strings.clients.subscriptionEnds(date),
         );
     });
 
-    it("says nothing for a membership not yet billing or without a period", () => {
-        expect(subscriptionTiming(sub("incomplete"), zone)).toBeNull();
+    it("dates a canceled membership by when it ended, never by the period it would have run to", () => {
+        expect(subscriptionTiming(sub("canceled", end, canceledAt), zone)).toBe(
+            strings.clients.subscriptionEnded(formatDate(parseTimestamp(canceledAt), zone)),
+        );
+        expect(subscriptionTiming(sub("canceled"), zone)).toBeNull();
+    });
+
+    it("says a past-due membership's payment failed instead of promising a charge", () => {
+        expect(subscriptionTiming(sub("past_due"), zone)).toBe(strings.entitlements.pastDueNote);
+    });
+
+    it("says nothing for a paused membership or one without a period", () => {
+        expect(subscriptionTiming(sub("paused"), zone)).toBeNull();
         expect(subscriptionTiming(sub("active", null), zone)).toBeNull();
+    });
+});
+
+describe("membershipPhase", () => {
+    const at = (status: string, endsAt: string | null = null) =>
+        membershipPhase({ status, current_period_end: "2026-11-13T08:00:00Z", ends_at: endsAt });
+
+    it("renews a live membership at its period end unless an end is set", () => {
+        expect(at("active")).toEqual({ phase: "renews", at: "2026-11-13T08:00:00Z" });
+        expect(at("active", "2026-11-13T08:00:00Z")).toEqual({
+            phase: "ends",
+            at: "2026-11-13T08:00:00Z",
+        });
+    });
+
+    it("puts a failed payment and a pause ahead of any date", () => {
+        expect(at("past_due", "2026-11-13T08:00:00Z")).toEqual({ phase: "failed", at: null });
+        expect(at("paused")).toEqual({ phase: "paused", at: null });
+    });
+
+    it("ends a canceled membership when it ended, never at the period it would have run to", () => {
+        expect(at("canceled", "2026-10-20T17:00:00Z")).toEqual({
+            phase: "ended",
+            at: "2026-10-20T17:00:00Z",
+        });
+        expect(at("canceled")).toEqual({ phase: "ended", at: null });
     });
 });
 

@@ -1801,6 +1801,7 @@ def seed_coverage() -> None:
             item_id="it_daycare",
             status="canceled",
             current_period_end=at(-10, 0),
+            ends_at=at(-10, 0),
             provider_ref="sub_demo_grace",
         )
     )

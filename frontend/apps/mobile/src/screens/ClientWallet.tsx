@@ -248,7 +248,9 @@ function SubscriptionLine({ sub }: { sub: SubscriptionRow }) {
     const cancel = (): void => {
         confirm({
             title: strings.clients.cancelSubscriptionTitle,
-            message: strings.clients.cancelSubscriptionConfirm,
+            message: strings.clients.cancelSubscriptionConfirm(
+                sub.item_name ?? strings.clients.subscriptionFallback,
+            ),
             confirmLabel: strings.clients.cancelSubscriptionTitle,
             cancelLabel: strings.clients.keep,
             destructive: true,
@@ -368,10 +370,13 @@ function Plans({ clientId, archived }: { clientId: string; archived: boolean }) 
                     packages.map((pkg) => <PackageLine key={pkg.id} pkg={pkg} />)
                 )}
             </Panel>
-            {selling === "package" ? <SellPackage clientId={clientId} onClose={close} /> : null}
-            {selling === "subscription" ? (
-                <StartSubscription clientId={clientId} onClose={close} />
-            ) : null}
+            <Modal open={selling !== null} size="xl" onClose={close}>
+                {selling === "package" ? (
+                    <SellPackage clientId={clientId} onClose={close} />
+                ) : selling === "subscription" ? (
+                    <StartSubscription clientId={clientId} onClose={close} />
+                ) : null}
+            </Modal>
         </>
     );
 }

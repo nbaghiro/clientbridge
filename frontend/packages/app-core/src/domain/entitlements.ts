@@ -128,12 +128,13 @@ export interface SubscriptionRow {
     item_name: string | null;
     status: string;
     current_period_end: string | null;
+    ends_at: string | null;
     payment_method_id: string | null;
 }
 
 export const CLIENT_SUBSCRIPTIONS_SQL = `
 SELECT s.id, s.client_id, s.item_id, i.name AS item_name, s.status,
-       s.current_period_end, s.payment_method_id
+       s.current_period_end, s.ends_at, s.payment_method_id
 FROM subscriptions s LEFT JOIN items i ON i.id = s.item_id
 WHERE s.client_id = ? ORDER BY s.created_at DESC`;
 
@@ -141,14 +142,31 @@ export function useClientSubscriptions(clientId: string): SubscriptionRow[] {
     return useQuery<SubscriptionRow>(CLIENT_SUBSCRIPTIONS_SQL, [clientId]).data;
 }
 
-/** When a membership next charges, or when a canceled one ended; nothing for any other state. */
+export type MembershipPhase = "renews" | "ends" | "ended" | "failed" | "paused";
+
+/** Where a membership stands and the day that goes with it: renewing, ending, ended, behind or paused. */
+export function membershipPhase(m: {
+    status: string;
+    current_period_end: string | null;
+    ends_at: string | null;
+}): { phase: MembershipPhase; at: string | null } {
+    if (m.status === "canceled") return { phase: "ended", at: m.ends_at };
+    if (m.status === "past_due") return { phase: "failed", at: null };
+    if (m.status === "paused") return { phase: "paused", at: null };
+    if (m.ends_at !== null) return { phase: "ends", at: m.ends_at };
+    return { phase: "renews", at: m.current_period_end };
+}
+
+/** When a membership next charges, ends or ended, or that its last charge failed. */
 export function subscriptionTiming(sub: SubscriptionRow, zone: string): string | null {
-    if (sub.current_period_end === null) return null;
-    const date = formatDate(parseTimestamp(sub.current_period_end), zone);
-    if (sub.status === "canceled") return strings.clients.subscriptionEnded(date);
-    return sub.status === "active" || sub.status === "past_due"
-        ? strings.clients.nextCharge(date)
-        : null;
+    const { phase, at } = membershipPhase(sub);
+    if (phase === "failed") return strings.entitlements.pastDueNote;
+    if (phase === "paused" || at === null) return null;
+    const date = formatDate(parseTimestamp(at), zone);
+    if (phase === "ended") return strings.clients.subscriptionEnded(date);
+    return phase === "ends"
+        ? strings.clients.subscriptionEnds(date)
+        : strings.clients.nextCharge(date);
 }
 
 export function entitlementStatusLabel(status: string): string {
@@ -327,9 +345,13 @@ LEFT JOIN payments pay ON pay.id = p.payment_id
 LEFT JOIN subjects sj ON sj.id = p.subject_id
 WHERE ${pkg}
 UNION ALL
-SELECT 'membership', s.id, s.client_id, i.name, s.status, NULL, NULL, NULL, NULL, NULL,
-       i.price_cents, NULL, s.current_period_end, pm.brand, pm.last4, NULL, NULL, s.created_at,
-       NULL, NULL, 0
+SELECT 'membership', s.id, s.client_id, i.name, s.status, NULL, NULL, s.ends_at, NULL, NULL,
+       i.price_cents, NULL, s.current_period_end, pm.brand, pm.last4, NULL,
+       (SELECT inv.total_cents FROM invoices inv JOIN lines l ON l.invoice_id = inv.id
+        WHERE inv.client_id = s.client_id AND l.item_id = s.item_id AND inv.number IS NULL
+          AND inv.status = 'sent' AND ${utcSql("inv.created_at")} >= ${utcSql("s.created_at")}
+        ORDER BY inv.issued_at DESC LIMIT 1),
+       s.created_at, NULL, NULL, 0
 FROM subscriptions s LEFT JOIN items i ON i.id = s.item_id
 LEFT JOIN payment_methods pm ON pm.id = s.payment_method_id
 WHERE ${sub}
@@ -420,6 +442,13 @@ export interface EntitlementSummary {
 
 const day = (iso: string, zone: string): string => formatDate(readDate(iso, zone), zone);
 
+// membership rows: expires_at is the end, paid_cents what its last renewal charged
+const membershipDates = (r: WalletRow): Parameters<typeof membershipPhase>[0] => ({
+    status: r.status,
+    current_period_end: r.period_end,
+    ends_at: r.expires_at,
+});
+
 function summarizeEntitlement(r: WalletRow, zone: string): EntitlementSummary {
     const status = walletStatus(r);
     const base = {
@@ -459,17 +488,23 @@ function summarizeEntitlement(r: WalletRow, zone: string): EntitlementSummary {
             r.method_last4 !== null
                 ? strings.payments.savedCardLabel(cardNoun(r.method_brand), r.method_last4)
                 : null;
+        const { phase, at } = membershipPhase(membershipDates(r));
+        const when = at === null ? "" : formatMonthDay(readDate(at, zone), zone);
         return {
             ...base,
             title: r.item_name ?? w.kindNoun.membership,
             balanceLabel:
-                status === "past_due"
+                phase === "failed"
                     ? w.retrying
-                    : r.period_end !== null
-                      ? w.renews(formatMonthDay(readDate(r.period_end, zone), zone))
-                      : "",
+                    : phase === "paused" || at === null
+                      ? ""
+                      : phase === "ended"
+                        ? w.ended(when)
+                        : phase === "ends"
+                          ? w.ends(when)
+                          : w.renews(when),
             meter: null,
-            valueCents: r.price_cents ?? 0,
+            valueCents: r.paid_cents ?? r.price_cents ?? 0,
             note: status === "past_due" ? w.pastDueNote : card,
         };
     }
@@ -637,13 +672,19 @@ export function useEntitlementDetail(
     } else if (r.kind === "membership") {
         if (summary.note !== null && summary.status !== "past_due")
             facts.push({ label: w.factPaid, value: summary.note });
-        if (r.period_end !== null)
+        const { phase, at } = membershipPhase(membershipDates(r));
+        if (at !== null && phase === "renews")
             facts.push({
                 label: w.factNextCharge,
                 value: formatParts([
-                    day(r.period_end, zone),
-                    formatMoney(r.price_cents, BUSINESS_CURRENCY),
+                    day(at, zone),
+                    r.paid_cents === null ? null : formatMoney(r.paid_cents, BUSINESS_CURRENCY),
                 ]),
+            });
+        if (at !== null && (phase === "ends" || phase === "ended"))
+            facts.push({
+                label: phase === "ends" ? w.factEnds : w.factEnded,
+                value: day(at, zone),
             });
         if (summary.status !== "canceled") actions.push("cancel");
     } else {

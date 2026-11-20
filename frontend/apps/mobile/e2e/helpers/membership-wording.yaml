@@ -1,0 +1,55 @@
+appId: ${APP_ID}
+---
+# opens SURNAME's record, checks its plan line reads RECORD and its wallet line WALLET, and closes it
+- runFlow:
+      file: search-clients.yaml
+      env:
+          QUERY: ${SURNAME}
+- tapOn: ${".*" + NAME + ", .*"}
+- extendedWaitUntil:
+      visible: "Book"
+      timeout: 60000
+# iOS calls Manage visible while it sits under the sticky actions, where a tap lands on Edit
+- swipe:
+      start: "50%,70%"
+      end: "50%,25%"
+      duration: 500
+# a short Android screen keeps the plan line below the notes, past the swipe
+- runFlow:
+      when:
+          true: ${RECORD !== ""}
+      commands:
+          - scrollUntilVisible:
+                element: ${RECORD}
+                direction: DOWN
+                centerElement: true
+                timeout: 60000
+- scrollUntilVisible:
+      element: "Manage"
+      direction: DOWN
+      centerElement: true
+- tapOn: "Manage"
+- scrollUntilVisible:
+      element: "Memberships"
+      direction: DOWN
+      centerElement: true
+- extendedWaitUntil:
+      visible: ${WALLET}
+      timeout: 60000
+- assertNotVisible: ${NOT}
+- runFlow:
+      when:
+          platform: iOS
+      commands:
+          - tapOn: "Back"
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - back
+# Back can land on the list with the record already closed
+- runFlow:
+      when:
+          visible: "Book"
+      commands:
+          - runFlow: close-sheet.yaml
