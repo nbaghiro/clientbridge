@@ -10129,6 +10129,8 @@ export interface components {
             status: "active" | "paused" | "canceled" | "past_due";
             /** Current Period End */
             current_period_end: string | null;
+            /** Ends At */
+            ends_at: string | null;
         };
         /** T4APayee */
         T4APayee: {

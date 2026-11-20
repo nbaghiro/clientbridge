@@ -590,13 +590,13 @@ msgid "staff_invite.subject"
 msgstr "[Ýöû'ŕé îñṽîţéð ţö Çļîéñţƀŕîðĝé~~~~~~~~~~~]"
 
 msgid "stripe.subscription_product"
-msgstr "[Šûƀšçŕîþţîöñ~~~~~]"
+msgstr "[Ṁéɱƀéŕšĥîþ~~~~]"
 
 msgid "subscription_canceled.body"
-msgstr "[Ýöûŕ šûƀšçŕîþţîöñ ţö {business} ŵåš çåñçéļéð.~~~~~~~~~~~~~]"
+msgstr "[Ýöûŕ ɱéɱƀéŕšĥîþ ŵîţĥ {business} ĥåš éñðéð.~~~~~~~~~~~~]"
 
 msgid "subscription_past_due.body"
-msgstr "[Ýöûŕ šûƀšçŕîþţîöñ þåýɱéñţ ţö {business} ƒåîļéð. Þļéåšé ûþðåţé ýöûŕ þåýɱéñţ ɱéţĥöð.~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+msgstr "[Ýöûŕ ɱéɱƀéŕšĥîþ þåýɱéñţ ţö {business} ðîðñ'ţ ĝö ţĥŕöûĝĥ. Þļéåšé çöñţåçţ ţĥéɱ ţö ûþðåţé ýöûŕ çåŕð.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
 
 msgid "trial.action"
 msgstr "[Çĥööšé å þļåñ~~~~~]"

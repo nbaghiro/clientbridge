@@ -60,7 +60,7 @@ export function ClientsScreen() {
     const askArchive = (): void => {
         confirm({
             title: t.archiveTitle(n),
-            message: t.archiveBody,
+            message: sel.archiveBody,
             confirmLabel: t.archiveConfirm,
             destructive: true,
         })

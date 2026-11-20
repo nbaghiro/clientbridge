@@ -887,7 +887,8 @@ export function useInvoiceRecord(id: string | null, payBase: string): InvoiceRec
     if (row.issued_at !== null)
         timeline.push({
             key: "sent",
-            label: s.event.sent,
+            // a membership renewal is charged to the saved card, never sent
+            label: row.charge_name === null ? s.event.sent : s.event.issued,
             at: stampLabel(parseTimestamp(row.issued_at), zone, now),
             intent: "accent",
         });
@@ -919,7 +920,7 @@ export function useInvoiceRecord(id: string | null, payBase: string): InvoiceRec
     const open = ["sent", "partial", "overdue"].includes(status);
     return {
         row,
-        title: invoiceLabel(row.number),
+        title: row.charge_name ?? invoiceLabel(row.number),
         status,
         statusLabel: s.statusLabel[status],
         intent: invoiceIntent(status),
@@ -1055,12 +1056,14 @@ export function printedInvoice(
             kind: "invoice",
             currency: rec.currency,
             number: r.number === null ? null : String(r.number),
+            reference: r.charge_name,
             partyName: r.client_name ?? "",
             partyLines: partyLines(r),
             meta: [
                 {
-                    label: p.invoiceNumber,
-                    value: r.number === null ? p.draftNumber : s.number(r.number),
+                    label: r.number === null && r.charge_name !== null ? p.plan : p.invoiceNumber,
+                    value:
+                        r.number === null ? (r.charge_name ?? p.draftNumber) : s.number(r.number),
                 },
                 {
                     label: p.issued,

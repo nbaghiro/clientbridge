@@ -130,7 +130,9 @@ function SubscriptionLine({ sub }: { sub: SubscriptionRow }) {
     const cancel = (): void => {
         confirm({
             title: strings.clients.cancelSubscriptionTitle,
-            message: strings.clients.cancelSubscriptionConfirm,
+            message: strings.clients.cancelSubscriptionConfirm(
+                sub.item_name ?? strings.clients.subscriptionFallback,
+            ),
             confirmLabel: strings.clients.cancelSubscriptionTitle,
             cancelLabel: strings.clients.keep,
             destructive: true,

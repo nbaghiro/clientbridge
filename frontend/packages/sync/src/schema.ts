@@ -217,6 +217,7 @@ const subscriptions = new Table(
         item_id: column.text,
         status: column.text,
         current_period_end: column.text,
+        ends_at: column.text,
         payment_method_id: column.text,
         business_id: column.text,
         created_at: column.text,

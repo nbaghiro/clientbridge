@@ -41,6 +41,7 @@ import type { Intent, SelectOption, TimelineEntry } from "../ui";
 import { personMedia } from "./files";
 import { utcSql } from "../datetime";
 import { TEXTS_STOPPED_SQL } from "./broadcasts";
+import { type MembershipPhase, membershipPhase } from "./entitlements";
 import { clientValueSql, invoiceStatusSql } from "./ledger";
 import {
     type SavedCardRow,
@@ -499,17 +500,26 @@ export function packageBalance(subjectName: string | null, balance: string): str
     return subjectName === null ? balance : strings.entitlements.forSubject(subjectName, balance);
 }
 
+export const LIVE_MEMBERS_SQL = `
+SELECT DISTINCT client_id FROM subscriptions WHERE status <> 'canceled'`;
+
+/** Clients whose membership still renews or runs out a paid period, which an archive ends. */
+function useLiveMembers(): ReadonlySet<string> {
+    const { data } = useQuery<{ client_id: string }>(LIVE_MEMBERS_SQL);
+    return new Set(data.map((r) => r.client_id));
+}
+
 export const CLIENT_PLANS_SQL = `
 SELECT 'package' AS kind, p.id, i.name AS item_name, p.status, p.sessions_total,
        (SELECT COUNT(DISTINCT le.journal_id) FROM entries le WHERE le.event = 'consumption'
           AND le.subject_type = 'package' AND le.subject_id = p.id) AS sessions_used,
-       NULL AS renews_at, sj.name AS subject_name
+       NULL AS renews_at, NULL AS ends_at, sj.name AS subject_name
 FROM packages p LEFT JOIN items i ON i.id = p.item_id
 LEFT JOIN subjects sj ON sj.id = p.subject_id
 WHERE p.client_id = ? AND p.status IN ('active', 'pending')
 UNION ALL
 SELECT 'subscription' AS kind, sb.id, i.name AS item_name, sb.status, NULL, NULL,
-       sb.current_period_end AS renews_at, NULL
+       sb.current_period_end AS renews_at, sb.ends_at, NULL
 FROM subscriptions sb LEFT JOIN items i ON i.id = sb.item_id
 WHERE sb.client_id = ? AND sb.status IN ('active', 'past_due', 'paused')`;
 
@@ -521,6 +531,7 @@ interface PlanDbRow {
     sessions_total: number | null;
     sessions_used: number | null;
     renews_at: string | null;
+    ends_at: string | null;
     subject_name: string | null;
 }
 
@@ -543,14 +554,20 @@ function toPlan(r: PlanDbRow, zone: string): ClientPlan {
             ),
         };
     }
-    return {
-        id: r.id,
-        name,
-        detail:
-            r.renews_at === null
-                ? ""
-                : s.record.renews(formatDate(parseTimestamp(r.renews_at), zone)),
-    };
+    const { phase, at } = membershipPhase({
+        status: r.status,
+        current_period_end: r.renews_at,
+        ends_at: r.ends_at,
+    });
+    return { id: r.id, name, detail: planTiming(phase, at, zone) };
+}
+
+function planTiming(phase: MembershipPhase, at: string | null, zone: string): string {
+    if (phase === "failed") return strings.entitlements.retrying;
+    if (phase === "paused") return strings.entitlements.statusLabel.paused;
+    if (at === null) return "";
+    const day = formatDate(parseTimestamp(at), zone);
+    return phase === "ends" ? s.record.ends(day) : phase === "renews" ? s.record.renews(day) : "";
 }
 
 /** Archives or restores a client, from the editor or their record. */
@@ -799,6 +816,7 @@ export interface ClientEditor {
     textsStopped: string | null;
     consentLocked: boolean;
     archivedNote: string | null;
+    archiveBody: string;
     busy: boolean;
     error: string | null;
     submit: () => void;
@@ -834,6 +852,7 @@ export function useClientEditor(
     const client = directory.find((c) => c.id === clientId) ?? null;
     const zone = useBusinessZone();
     const kind = useSubjectKind();
+    const members = useLiveMembers();
     const consentRow = useQuery<ConsentDbRow>(CLIENT_CONSENT_SQL, [clientId ?? ""]).data[0];
     const agreed = offersAllowed(consentRow);
     // an edited record keeps only the fields touched, so a field synced in meanwhile shows through
@@ -970,6 +989,10 @@ export function useClientEditor(
                     ? s.edit.archivedNoDate
                     : s.edit.archivedBanner(formatDate(client.archivedAt, zone))
                 : null,
+        archiveBody:
+            client !== null && members.has(client.id)
+                ? s.edit.archiveBodyMember
+                : s.edit.archiveBody,
         busy: busy || lifecycle.busy,
         error: error ?? lifecycle.error,
         submit,
@@ -1687,6 +1710,7 @@ export interface ClientSelection {
     addTag: (tag: string) => void;
     apply: (onApplied?: () => void) => void;
     archive: () => void;
+    archiveBody: string;
     busy: boolean;
     archiving: boolean;
     error: string | null;
@@ -1704,6 +1728,7 @@ export function useClientSelection(api: ApiLike, rows: readonly ClientListRow[])
     const archiveAttempt = useRef<Attempt | null>(null);
     const tagging = useAsyncAction();
     const archiving = useAsyncAction();
+    const members = useLiveMembers();
     const directory = tagDirectory(rows);
     const tagsById = new Map(rows.map((r) => [r.id, r.tags]));
     const tagsOf = (id: string): string[] => tagsById.get(id) ?? [];
@@ -1791,6 +1816,9 @@ export function useClientSelection(api: ApiLike, rows: readonly ClientListRow[])
                 },
             );
         },
+        archiveBody: selected.some((id) => members.has(id))
+            ? s.tidy.archiveBodyMember
+            : s.tidy.archiveBody,
         busy: tagging.busy,
         archiving: archiving.busy,
         error: tagging.error ?? archiving.error,

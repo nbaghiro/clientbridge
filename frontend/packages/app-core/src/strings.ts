@@ -74,6 +74,7 @@ interface Strings {
         readonly estimateChanged: string;
         readonly estimateAnswered: string;
         readonly paymentInProgress: string;
+        readonly membershipExists: string;
         readonly membershipVisitsUsed: string;
         readonly paymentMethodInUse: string;
         readonly bankSetupInProgress: string;
@@ -322,6 +323,7 @@ interface Strings {
         readonly event: {
             readonly created: string;
             readonly sent: string;
+            readonly issued: string;
             readonly payment: (amount: string, method: string) => string;
             readonly depositApplied: (amount: string) => string;
             readonly refund: (amount: string) => string;
@@ -558,6 +560,8 @@ interface Strings {
         readonly saleNumber: (n: number) => string;
         readonly heading: (title: string, reference: string) => string;
         readonly deadline: (label: string, date: string) => string;
+        readonly headingFor: (title: string, name: string) => string;
+        readonly plan: string;
         readonly draftNumber: string;
     };
     readonly pos: {
@@ -992,6 +996,8 @@ interface Strings {
         readonly moneyLeft: (amount: string) => string;
         readonly ofAmount: (amount: string) => string;
         readonly renews: (when: string) => string;
+        readonly ends: (when: string) => string;
+        readonly ended: (when: string) => string;
         readonly retrying: string;
         readonly expires: (when: string) => string;
         readonly expired: (when: string) => string;
@@ -1020,6 +1026,8 @@ interface Strings {
         readonly factRecipient: string;
         readonly factBalance: string;
         readonly factNextCharge: string;
+        readonly factEnds: string;
+        readonly factEnded: string;
         readonly factCode: string;
         readonly history: string;
         readonly ledgerPackage: (share: string) => string;
@@ -1845,8 +1853,9 @@ interface Strings {
         readonly subscriptionFallback: string;
         readonly nextCharge: (date: string) => string;
         readonly subscriptionEnded: (date: string) => string;
+        readonly subscriptionEnds: (date: string) => string;
         readonly cancelSubscriptionTitle: string;
-        readonly cancelSubscriptionConfirm: string;
+        readonly cancelSubscriptionConfirm: (name: string) => string;
         readonly cancelSubscriptionError: string;
         readonly keep: string;
         readonly packages: string;
@@ -1880,6 +1889,7 @@ interface Strings {
             readonly manageWallet: string;
             readonly noCards: string;
             readonly renews: (when: string) => string;
+            readonly ends: (when: string) => string;
             readonly backToRecord: string;
             readonly book: string;
             readonly message: string;
@@ -1944,6 +1954,7 @@ interface Strings {
             readonly archive: string;
             readonly archiveTitle: (name: string) => string;
             readonly archiveBody: string;
+            readonly archiveBodyMember: string;
             readonly archiveConfirm: string;
             readonly archiveError: string;
             readonly archivedBanner: (when: string) => string;
@@ -2064,6 +2075,7 @@ interface Strings {
             readonly archiveError: string;
             readonly archiveTitle: (n: number) => string;
             readonly archiveBody: string;
+            readonly archiveBodyMember: string;
             readonly archiveConfirm: string;
             readonly archived: (n: number) => string;
             readonly tagsUpdated: (n: number) => string;

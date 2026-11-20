@@ -14,7 +14,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.core.phones import e164
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.stripe import PaymentGateway
-from clientbridge.models.billing import Invoice
+from clientbridge.models.billing import Invoice, Line
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import GiftCard, Item, Package, Subscription
 from clientbridge.models.clients import Client
@@ -51,7 +51,7 @@ from clientbridge.services.payments import (
     subscription_fee_percent,
     subscription_terms,
 )
-from clientbridge.services.tax import tax_for_amount, tax_within
+from clientbridge.services.tax import tax_for_amount
 
 _CODE_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"  # base32, no easily-confused 0/1/8/9
 
@@ -718,7 +718,10 @@ class SubscriptionService:
                 )
             )
             if live is not None:
-                raise Conflict("a subscription for this client and item already exists")
+                raise Conflict(
+                    "a subscription for this client and item already exists",
+                    code="membership_exists",
+                )
             customer_id = await ensure_customer(self.db, self.gateway, account_id, client)
             price_id = await ensure_subscription_price(
                 self.db,
@@ -754,7 +757,10 @@ class SubscriptionService:
             except IntegrityError as exc:
                 # a concurrent create won; end the duplicate Stripe just started billing
                 await self.gateway.cancel_subscription(account_id, subscription_id=result.id)
-                raise Conflict("a subscription for this client and item already exists") from exc
+                raise Conflict(
+                    "a subscription for this client and item already exists",
+                    code="membership_exists",
+                ) from exc
             cmd.record("subscription.create", entity_type="subscription", entity_id=row.id)
             return _subscription_out(row)
 
@@ -783,7 +789,7 @@ class SubscriptionService:
         async def run(cmd: Command) -> SubscriptionOut:
             if provider_ref is not None and account_id is not None:
                 await self.gateway.cancel_subscription(account_id, subscription_id=provider_ref)
-            sub.status = "canceled"
+            sub.status, sub.ends_at = "canceled", clock.now()
             await self.db.flush()
             cmd.record("subscription.cancel", entity_type="subscription", entity_id=sub.id)
             return _subscription_out(sub)
@@ -847,10 +853,7 @@ class SubscriptionService:
             booking.status, booking.completed_at = "completed", clock.now()
             await complete_when_done(self.db, slot)
             # the period's price was revenue when billed; staff earn one visit's share of it
-            priced = await tax_within(
-                self.db, self.biz, item.price_cents, tax_class=item.tax_class, at=start
-            )
-            share = priced.subtotal_cents // item.visits_per_period
+            share = await _period_revenue(self.db, sub, item) // item.visits_per_period
             await accrue_covered_visit(self.db, booking, share, ("subscription", sub.id))
             await self.db.flush()
             cmd.record("subscription.cover", entity_type="booking", entity_id=booking.id)
@@ -925,6 +928,26 @@ class SubscriptionService:
         return row
 
 
+async def _period_revenue(db: AsyncSession, sub: Subscription, item: Item) -> int:
+    """What the membership's last renewal billed before tax, or its price before one is billed."""
+    # the wallet's last-charge query in app-core entitlements.ts picks the same renewal
+    billed = await db.scalar(
+        scoped(Invoice, sub.business_id)
+        .with_only_columns(Invoice.subtotal_cents)
+        .join(Line, Line.invoice_id == Invoice.id)
+        .where(
+            Invoice.client_id == sub.client_id,
+            Invoice.number.is_(None),
+            Invoice.status == "sent",
+            Invoice.created_at >= sub.created_at,
+            Line.item_id == sub.item_id,
+        )
+        .order_by(Invoice.issued_at.desc().nulls_last())
+        .limit(1)
+    )
+    return item.price_cents if billed is None else billed
+
+
 def _subscription_out(sub: Subscription) -> SubscriptionOut:
     return SubscriptionOut(
         id=sub.id,
@@ -932,6 +955,7 @@ def _subscription_out(sub: Subscription) -> SubscriptionOut:
         item_id=sub.item_id,
         status=sub.status,
         current_period_end=sub.current_period_end,
+        ends_at=sub.ends_at,
     )
 
 

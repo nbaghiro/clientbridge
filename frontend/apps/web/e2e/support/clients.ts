@@ -51,18 +51,25 @@ export async function openClient(page: Page, client: ClientFixture): Promise<Loc
     return record;
 }
 
-export async function openWallet(page: Page, client: ClientFixture): Promise<Locator> {
+export async function openWallet(
+    page: Page,
+    client: ClientFixture,
+    { archived = false }: { archived?: boolean } = {},
+): Promise<Locator> {
     await navigate(page, `/clients?open=${client.id}`);
     const pane = page.getByRole("complementary", { name: client.name, exact: true });
-    const addCard = pane.getByRole("button", { name: strings.clients.addCard, exact: true });
+    // an archived client's wallet offers no card to add, so its memberships show it is open
+    const open = archived
+        ? pane.getByText(strings.clients.subscriptions, { exact: true })
+        : pane.getByRole("button", { name: strings.clients.addCard, exact: true });
     const manage = pane.getByRole("button", {
         name: strings.clients.record.manageWallet,
         exact: true,
     });
     // the record keeps its wallet pane open across visits, so open it only when it is closed
-    await expect(addCard.or(manage)).toBeVisible({ timeout: 60_000 });
-    if (!(await addCard.isVisible())) await manage.click();
-    await expect(addCard).toBeVisible({ timeout: 60_000 });
+    await expect(open.or(manage)).toBeVisible({ timeout: 60_000 });
+    if (!(await open.isVisible())) await manage.click();
+    await expect(open).toBeVisible({ timeout: 60_000 });
     return pane;
 }
 

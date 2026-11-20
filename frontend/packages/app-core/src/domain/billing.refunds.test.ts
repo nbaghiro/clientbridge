@@ -19,6 +19,7 @@ const invoice = () => ({
     client_name: "Ann",
     client_phone: null,
     number: 7,
+    charge_name: null,
     status: replica.status,
     subtotal_cents: 5714,
     tax_total_cents: 286,

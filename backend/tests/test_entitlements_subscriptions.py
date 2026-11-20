@@ -9,6 +9,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
+from clientbridge.core.errors import Conflict
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice
 from clientbridge.models.business import Business
@@ -244,7 +245,7 @@ async def test_duplicate_active_subscription_conflicts(
     r1 = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id), headers=key())
     assert r1.status_code == 201, r1.text
     r2 = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id), headers=key())
-    assert r2.status_code == 409, r2.text
+    assert (r2.status_code, r2.json()["error"]) == (409, "membership_exists"), r2.text
     assert len(gateway.created_subscriptions) == 1  # the duplicate never minted a second Stripe sub
 
 
@@ -265,9 +266,12 @@ async def test_cancel_subscription(
     db.add(sub)
     await db.flush()
     headers = key()
+    before = clock.now()
     res = await as_owner.post(f"/v1/subscriptions/{sub.id}/cancel", headers=headers)
     assert res.status_code == 200, res.text
     assert res.json()["status"] == "canceled"
+    # it ended now, not at the end of the period it had paid for
+    assert before <= datetime.fromisoformat(res.json()["ends_at"]) <= clock.now()
     assert gateway.canceled_subscriptions.count("sub_existing") == 1
     replay = await as_owner.post(f"/v1/subscriptions/{sub.id}/cancel", headers=headers)
     assert replay.json() == res.json()
@@ -477,6 +481,56 @@ async def test_subscription_updated_flips_status(
     assert row.status == "past_due"
     # the epoch timestamps parsed into the exact period, not just "something non-null"
     assert row.current_period_end == datetime(2025, 2, 1, tzinfo=UTC)
+
+
+async def test_a_membership_shows_the_end_stripe_scheduled_and_then_when_it_ended(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    sub = await _seed_sub(db, ref="sub_ending")
+    scheduled, ended = 1738368000, 1736000000
+    stripe_state: dict[str, object] = {"id": "sub_ending", "status": "active"}
+    gateway.objects[("acct_test", "subscription", "sub_ending")] = stripe_state
+
+    async def update(event_id: str, **changes: object) -> datetime | None:
+        stripe_state.update(changes)
+        event = _sub_event(event_id, "customer.subscription.updated", dict(stripe_state))
+        res = await api.post("/webhooks/stripe", content=event, headers=GOOD)
+        assert res.status_code == 200, res.text
+        await db.refresh(sub)
+        return sub.ends_at
+
+    assert await update("evt_end1", cancel_at=scheduled) == datetime.fromtimestamp(scheduled, UTC)
+    # kept renewing at Stripe, so the scheduled end goes
+    assert await update("evt_end2", cancel_at=None) is None
+    assert await update("evt_end3", status="canceled", ended_at=ended) == datetime.fromtimestamp(
+        ended, UTC
+    )
+    # a later update that leaves out when it ended keeps the date
+    del stripe_state["ended_at"]
+    assert await update("evt_end4") == datetime.fromtimestamp(ended, UTC)
+
+
+async def test_a_membership_stripe_ends_without_an_end_date_is_dated_when_it_was_canceled(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    asked, quiet = await _seed_sub(db, ref="sub_asked"), await _seed_sub(db, ref="sub_quiet")
+    canceled_at = 1736000000
+    for ref, state in (
+        ("sub_asked", {"status": "incomplete_expired", "canceled_at": canceled_at}),
+        ("sub_quiet", {"status": "canceled"}),
+    ):
+        current: dict[str, object] = {"id": ref, **state}
+        gateway.objects[("acct_test", "subscription", ref)] = current
+        event = _sub_event(f"evt_{ref}", "customer.subscription.updated", current)
+        res = await api.post("/webhooks/stripe", content=event, headers=GOOD)
+        assert res.status_code == 200, res.text
+    await db.refresh(asked)
+    await db.refresh(quiet)
+    assert asked.ends_at == datetime.fromtimestamp(canceled_at, UTC)
+    # with no date from Stripe at all it ended when we heard, never at a period still to come
+    assert quiet.ends_at is not None and quiet.ends_at <= clock.now()
 
 
 async def test_invoice_payment_succeeded_records_payment(
@@ -1274,6 +1328,7 @@ async def test_archiving_a_client_ends_their_memberships_at_period_end(
 ) -> None:
     await enable_payments(db)
     sub = await _active_sub(db, "sub_archive")
+    sub.current_period_end = clock.now() + timedelta(days=12)
     ended = await _seed_sub(db, ref="sub_archive_done", status="canceled")
     res = await as_owner.post(f"/v1/clients/{sub.client_id}/archive", headers=key())
     assert res.status_code == 200, res.text
@@ -1281,6 +1336,7 @@ async def test_archiving_a_client_ends_their_memberships_at_period_end(
     assert ended.provider_ref not in gateway.canceled_subscriptions
     await db.refresh(sub)
     assert sub.status == "active"  # it bills nothing more and ends when Stripe says so
+    assert sub.ends_at == sub.current_period_end
 
 
 async def test_restoring_a_client_keeps_their_memberships_renewing(
@@ -1288,11 +1344,39 @@ async def test_restoring_a_client_keeps_their_memberships_renewing(
 ) -> None:
     await enable_payments(db)
     sub = await _active_sub(db, "sub_restore")
+    sub.current_period_end = clock.now() + timedelta(days=12)
     archived = await as_owner.post(f"/v1/clients/{sub.client_id}/archive", headers=key())
     assert archived.status_code == 200, archived.text
+    await db.refresh(sub)
+    assert sub.ends_at is not None
     restored = await as_owner.post(f"/v1/clients/{sub.client_id}/restore", headers=key())
     assert restored.status_code == 200, restored.text
     assert gateway.kept_subscriptions == ["sub_restore"]
+    await db.refresh(sub)
+    assert sub.ends_at is None
+
+
+async def test_a_restore_stripe_refuses_leaves_the_membership_ending(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await enable_payments(db)
+    sub = await _active_sub(db, "sub_unkept")
+    sub.current_period_end = clock.now() + timedelta(days=12)
+    archived = await as_owner.post(f"/v1/clients/{sub.client_id}/archive", headers=key())
+    assert archived.status_code == 200, archived.text
+
+    async def refuse(account_id: str, *, subscription_id: str) -> None:
+        raise Conflict("this subscription already ended")
+
+    monkeypatch.setattr(gateway, "keep_subscription", refuse)
+    restored = await as_owner.post(f"/v1/clients/{sub.client_id}/restore", headers=key())
+    assert restored.status_code == 200, restored.text
+    await db.refresh(sub)
+    # Stripe still ends it at period end, so the record keeps saying so
+    assert sub.ends_at == sub.current_period_end
 
 
 async def test_an_archived_client_cannot_start_a_membership(
@@ -1440,12 +1524,18 @@ async def test_a_lost_dispute_on_a_renewal_cancels_the_membership_now(
     dispute = {"id": "dp_sub", "payment_intent": "pi_disputed", "amount": 5600}
     await stripe_event(as_owner, "charge.dispute.created", {**dispute, "status": "needs_response"})
     assert gateway.canceled_subscriptions == []
+    before = clock.now()
     await stripe_event(as_owner, "charge.dispute.closed", {**dispute, "status": "lost"})
     assert gateway.canceled_subscriptions == [sub_ref]
-    status = await db.scalar(
-        select(Subscription.status).where(Subscription.provider_ref == sub_ref)
-    )
+    status, ends_at = (
+        await db.execute(
+            select(Subscription.status, Subscription.ends_at).where(
+                Subscription.provider_ref == sub_ref
+            )
+        )
+    ).one()
     assert status == "canceled"
+    assert ends_at is not None and before <= ends_at <= clock.now()
 
 
 async def test_a_price_edit_leaves_existing_members_on_their_price(

@@ -135,6 +135,7 @@
         "item_id",
         "status",
         "current_period_end",
+        "ends_at",
         "payment_method_id",
         "id",
         "business_id",

@@ -193,7 +193,7 @@ export function ClientEditorDialog({
         if (editor.client === null) return;
         confirm({
             title: s.archiveTitle(editor.client.name),
-            message: s.archiveBody,
+            message: editor.archiveBody,
             confirmLabel: s.archiveConfirm,
             destructive: true,
         })

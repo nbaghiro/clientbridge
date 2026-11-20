@@ -60,7 +60,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 7. Gift cards, packages and memberships | Package, membership and gift card items                     | [CB-15](https://linear.app/clientbridgeca/issue/CB-15) | Automated        |
 | 7. Gift cards, packages and memberships | Gift cards: sell and redeem                                 | [CB-38](https://linear.app/clientbridgeca/issue/CB-38) | Automated        |
 | 7. Gift cards, packages and memberships | Packages: sell, use and expire                              | [CB-39](https://linear.app/clientbridgeca/issue/CB-39) | Automated        |
-| 7. Gift cards, packages and memberships | Memberships: renewals and failed payments                   | [CB-40](https://linear.app/clientbridgeca/issue/CB-40) | Partly automated |
+| 7. Gift cards, packages and memberships | Memberships: renewals and failed payments                   | [CB-40](https://linear.app/clientbridgeca/issue/CB-40) | Automated        |
 | 8. Refunds and the books                | Refunds and credit notes                                    | [CB-42](https://linear.app/clientbridgeca/issue/CB-42) | Automated        |
 | 8. Refunds and the books                | Disputes and chargebacks                                    | [CB-43](https://linear.app/clientbridgeca/issue/CB-43) | Partly automated |
 | 8. Refunds and the books                | Bookkeeper reports and exports                              | [CB-45](https://linear.app/clientbridgeca/issue/CB-45) | Partly automated |
@@ -1801,39 +1801,40 @@ The business sells gift cards, packages and memberships, and each is used, renew
 
 ### Memberships: renewals and failed payments (CB-40)
 
-**Covers:** Membership checkout, Stripe subscriptions, client panel, covered visits
+**Covers:** Membership checkout on web and mobile, Stripe subscriptions, client panel and wallet, renewal invoices, covered visits, archive and restore
 **Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; Stripe test clocks
 
 **Where to test**
 
-- **Local:** `make up migrate seed`, then `make dev-api dev-web worker`. Open web at [http://localhost:8700](http://localhost:8700). Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
-- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile worker`. Open web at [http://localhost:8700](http://localhost:8700) and mobile in the iOS simulator. Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first.
 
 **QA steps**
 
-1. Start a monthly membership on a saved card.
-   **Expect:** active with the first invoice Paid.
+1. Start a monthly membership on a saved card from the client's wallet.
+   **Expect:** it opens in a sheet; active with the first invoice Paid, named by the plan; the wallet says when it next charges; starting it again while it runs is refused in words.
 2. Advance the test clock a month.
-   **Expect:** the second invoice is Paid and taxed at the current registration.
+   **Expect:** the second invoice is Paid for the same amount, taxed at the registration in force for its period, named by the plan and Issued rather than sent; the plan's panel names the next charge with its tax.
 3. Fail a renewal.
-   **Expect:** past due and exactly one notice per failed invoice.
+   **Expect:** past due; the record and the wallet say the payment failed instead of a next charge; exactly one notice per failed invoice.
 4. Book a covered service.
-   **Expect:** it is covered at the desk.
+   **Expect:** it is covered at the desk, and the staff member earns on what the period billed before tax.
 5. Cancel, then sell the same membership again.
-   **Expect:** one active subscription.
+   **Expect:** the confirmation names the plan; the canceled one says it ended today; one active subscription.
 6. Archive the client.
-   **Expect:** the membership ends at period end.
+   **Expect:** the confirmation says memberships end with the period already paid; the record and the wallet say when it ends; it ends at period end with nothing more charged; restoring keeps it renewing.
 
 **Done when:** Every membership balance matches what Stripe charged, and failures are told once.
-
-**By hand only**
-
-- Pause is not built; record whether it is still a launch need.
 
 **Automated by**
 
 - `STR-E07 (stripe)`
 - `ENT-E2E-08 (stripe)`
+- `ENT-E2E-11 (stripe)`
+- `ENT-E2E-10 (web)`
+- `NATIVE-ENT-04 (native-ios, native-android)`
+- `NATIVE-ENT-05 (stripe-native)`
+- `backend: test_earnings.py › test_a_membership_covered_visit_earns_on_what_the_period_billed_before_tax`
 
 **Depends on:** Nothing
 

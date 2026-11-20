@@ -176,6 +176,9 @@
     "api.paymentInProgress": {
         "message": "[Å þåýɱéñţ öñ ţĥîš îñṽöîçé îš šţîļļ ĝöîñĝ ţĥŕöûĝĥ. Ŵåîţ ƒöŕ îţ ţö ƒîñîšĥ, ţĥéñ ţŕý åĝåîñ. one two three four five six]"
     },
+    "api.membershipExists": {
+        "message": "[Ţĥîš çļîéñţ åļŕéåðý ĥåš ţĥîš ɱéɱƀéŕšĥîþ. Çåñçéļ îţ ƒîŕšţ ţö šţåŕţ îţ åĝåîñ. one two three four five]"
+    },
     "api.membershipVisitsUsed": {
         "message": "[Ţĥîš ɱéɱƀéŕšĥîþ'š îñçļûðéð ṽîšîţš ƒöŕ ţĥé þéŕîöð åŕé ûšéð. Ŕîñĝ ţĥé ṽîšîţ ûþ îñšţéåð. one two three four five six]"
     },
@@ -896,6 +899,9 @@
     "billing.event.sent": {
         "message": "[Šéñţ ţö ţĥé çļîéñţ one two]"
     },
+    "billing.event.issued": {
+        "message": "[Îššûéð one]"
+    },
     "billing.event.payment": {
         "message": "[Þåýɱéñţ öƒ {amount}, {method} one two]"
     },
@@ -1540,6 +1546,12 @@
     },
     "printing.deadline": {
         "message": "{label} {date}"
+    },
+    "printing.headingFor": {
+        "message": "[{title} ƒöŕ {name} one]"
+    },
+    "printing.plan": {
+        "message": "[Þļåñ one]"
     },
     "printing.draftNumber": {
         "message": "[Đŕåƒţ one]"
@@ -2774,6 +2786,12 @@
     "entitlements.renews": {
         "message": "[Ŕéñéŵš {when} one]"
     },
+    "entitlements.ends": {
+        "message": "[Éñðš {when} one]"
+    },
+    "entitlements.ended": {
+        "message": "[Éñðéð {when} one]"
+    },
     "entitlements.retrying": {
         "message": "[Þåýɱéñţ ƒåîļéð one two]"
     },
@@ -2851,6 +2869,12 @@
     },
     "entitlements.factNextCharge": {
         "message": "[Ñéẋţ çĥåŕĝé one two]"
+    },
+    "entitlements.factEnds": {
+        "message": "[Éñðš one]"
+    },
+    "entitlements.factEnded": {
+        "message": "[Éñðéð one]"
     },
     "entitlements.factCode": {
         "message": "[Çöðé one]"
@@ -5175,16 +5199,16 @@
         "message": "[Šåṽé {noun} one]"
     },
     "clients.subscriptions": {
-        "message": "[Šûƀšçŕîþţîöñš one two]"
+        "message": "[Ṁéɱƀéŕšĥîþš one two]"
     },
     "clients.startSubscriptionLink": {
-        "message": "[+ Šţåŕţ šûƀšçŕîþţîöñ one two]"
+        "message": "[+ Šţåŕţ ɱéɱƀéŕšĥîþ one two]"
     },
     "clients.noSubscriptions": {
-        "message": "[Ñö šûƀšçŕîþţîöñš ýéţ. one two]"
+        "message": "[Ñö ɱéɱƀéŕšĥîþš ýéţ. one two]"
     },
     "clients.subscriptionFallback": {
-        "message": "[Šûƀšçŕîþţîöñ one two]"
+        "message": "[Ṁéɱƀéŕšĥîþ one two]"
     },
     "clients.nextCharge": {
         "message": "[Ñéẋţ çĥåŕĝé {date} one two]"
@@ -5192,14 +5216,17 @@
     "clients.subscriptionEnded": {
         "message": "[Éñðéð {date} one]"
     },
+    "clients.subscriptionEnds": {
+        "message": "[Éñðš {date} one]"
+    },
     "clients.cancelSubscriptionTitle": {
-        "message": "[Çåñçéļ šûƀšçŕîþţîöñ one two]"
+        "message": "[Çåñçéļ ɱéɱƀéŕšĥîþ one two]"
     },
     "clients.cancelSubscriptionConfirm": {
-        "message": "[Çåñçéļ ţĥîš šûƀšçŕîþţîöñ? one two three]"
+        "message": "[Çåñçéļ {name}? Îţ šţöþš ñöŵ åñð ţĥé çåŕð îšñ'ţ çĥåŕĝéð åĝåîñ. one two three four]"
     },
     "clients.cancelSubscriptionError": {
-        "message": "[Çöûļðñ'ţ çåñçéļ ţĥîš šûƀšçŕîþţîöñ. Þļéåšé ţŕý åĝåîñ. one two three four]"
+        "message": "[Çöûļðñ'ţ çåñçéļ ţĥîš ɱéɱƀéŕšĥîþ. Þļéåšé ţŕý åĝåîñ. one two three four]"
     },
     "clients.keep": {
         "message": "[Ķééþ one]"
@@ -5293,6 +5320,9 @@
     },
     "clients.record.renews": {
         "message": "[Ŕéñéŵš {when} one]"
+    },
+    "clients.record.ends": {
+        "message": "[Éñðš {when} one]"
     },
     "clients.record.backToRecord": {
         "message": "[Ɓåçķ ţö ŕéçöŕð one two]"
@@ -5479,6 +5509,9 @@
     },
     "clients.edit.archiveBody": {
         "message": "[Ţĥéý ļéåṽé šéåŕçĥ åñð ƀööķîñĝ þîçķéŕš. Ţĥéîŕ ƀööķîñĝš, îñṽöîçéš åñð þåýɱéñţš šţåý, åñð ýöû çåñ ŕéšţöŕé ţĥéɱ åñý ţîɱé. one two three four five six seven eight]"
+    },
+    "clients.edit.archiveBodyMember": {
+        "message": "[Ţĥéý ļéåṽé šéåŕçĥ åñð ƀööķîñĝ þîçķéŕš, åñð ţĥéîŕ ɱéɱƀéŕšĥîþš éñð ŵîţĥ ţĥé þéŕîöð åļŕéåðý þåîð. Ţĥéîŕ ƀööķîñĝš, îñṽöîçéš åñð þåýɱéñţš šţåý, åñð ýöû çåñ ŕéšţöŕé ţĥéɱ åñý ţîɱé. one two three four five six seven eight nine ten one]"
     },
     "clients.edit.archiveConfirm": {
         "message": "[Åŕçĥîṽé one]"
@@ -6171,7 +6204,7 @@
         "message": "[Öñļý öŵñéŕš åñð åðɱîñš çåñ åðð öŕ ŕéɱöṽé þåýɱéñţ ɱéţĥöðš. one two three four]"
     },
     "clients.wallet.archived": {
-        "message": "[Ţĥîš çļîéñţ îš åŕçĥîṽéð. Ŕéšţöŕé ţĥéɱ ţö åðð å çåŕð öŕ ƀåñķ åççöûñţ, šéļļ å þåçķåĝé öŕ šţåŕţ å šûƀšçŕîþţîöñ. one two three four five six seven]"
+        "message": "[Ţĥîš çļîéñţ îš åŕçĥîṽéð. Ŕéšţöŕé ţĥéɱ ţö åðð å çåŕð öŕ ƀåñķ åççöûñţ, šéļļ å þåçķåĝé öŕ šţåŕţ å ɱéɱƀéŕšĥîþ. one two three four five six seven]"
     },
     "clients.tidy.select": {
         "message": "[Šéļéçţ one]"
@@ -6229,6 +6262,9 @@
     },
     "clients.tidy.archiveBody": {
         "message": "[Ţĥéý ļéåṽé šéåŕçĥ åñð ƀööķîñĝ þîçķéŕš. Ţĥéîŕ ƀööķîñĝš, îñṽöîçéš åñð þåýɱéñţš šţåý, åñð ýöû çåñ ŕéšţöŕé ţĥéɱ ƒŕöɱ Åŕçĥîṽéð. one two three four five six seven eight]"
+    },
+    "clients.tidy.archiveBodyMember": {
+        "message": "[Ţĥéý ļéåṽé šéåŕçĥ åñð ƀööķîñĝ þîçķéŕš, åñð ţĥéîŕ ɱéɱƀéŕšĥîþš éñð ŵîţĥ ţĥé þéŕîöð åļŕéåðý þåîð. Ţĥéîŕ ƀööķîñĝš, îñṽöîçéš åñð þåýɱéñţš šţåý, åñð ýöû çåñ ŕéšţöŕé ţĥéɱ ƒŕöɱ Åŕçĥîṽéð. one two three four five six seven eight nine ten one]"
     },
     "clients.tidy.archiveConfirm": {
         "message": "[Åŕçĥîṽé one]"

@@ -202,6 +202,9 @@
     "api.paymentInProgress": {
         "message": "A payment on this invoice is still going through. Wait for it to finish, then try again."
     },
+    "api.membershipExists": {
+        "message": "This client already has this membership. Cancel it first to start it again."
+    },
     "api.membershipVisitsUsed": {
         "message": "This membership's included visits for the period are used. Ring the visit up instead."
     },
@@ -980,6 +983,10 @@
     "billing.event.sent": {
         "message": "Sent to the client"
     },
+    "billing.event.issued": {
+        "message": "Issued",
+        "description": "A membership renewal invoice, charged to the saved card rather than sent to the client."
+    },
     "billing.event.payment": {
         "message": "Payment of {amount}, {method}",
         "args": ["amount", "method"]
@@ -1692,6 +1699,15 @@
         "message": "{label} {date}",
         "args": ["label", "date"],
         "description": "A date and what it is, such as Due October 20, 2026."
+    },
+    "printing.headingFor": {
+        "message": "{title} for {name}",
+        "args": ["title", "name"],
+        "description": "An unnumbered document named by what it charges for, such as Invoice for Monthly Daycare."
+    },
+    "printing.plan": {
+        "message": "Plan",
+        "description": "Label for the membership plan a renewal invoice charged, printed where a numbered invoice shows its number."
     },
     "printing.draftNumber": {
         "message": "Draft"
@@ -3027,6 +3043,15 @@
         "message": "Renews {when}",
         "args": ["when"]
     },
+    "entitlements.ends": {
+        "message": "Ends {when}",
+        "description": "A membership that stops at the end of its paid period and won't renew.",
+        "args": ["when"]
+    },
+    "entitlements.ended": {
+        "message": "Ended {when}",
+        "args": ["when"]
+    },
     "entitlements.retrying": {
         "message": "Payment failed"
     },
@@ -3114,6 +3139,12 @@
     },
     "entitlements.factNextCharge": {
         "message": "Next charge"
+    },
+    "entitlements.factEnds": {
+        "message": "Ends"
+    },
+    "entitlements.factEnded": {
+        "message": "Ended"
     },
     "entitlements.factCode": {
         "message": "Code"
@@ -5621,16 +5652,16 @@
         "args": ["noun"]
     },
     "clients.subscriptions": {
-        "message": "Subscriptions"
+        "message": "Memberships"
     },
     "clients.startSubscriptionLink": {
-        "message": "+ Start subscription"
+        "message": "+ Start membership"
     },
     "clients.noSubscriptions": {
-        "message": "No subscriptions yet."
+        "message": "No memberships yet."
     },
     "clients.subscriptionFallback": {
-        "message": "Subscription"
+        "message": "Membership"
     },
     "clients.nextCharge": {
         "message": "Next charge {date}",
@@ -5640,14 +5671,20 @@
         "message": "Ended {date}",
         "args": ["date"]
     },
+    "clients.subscriptionEnds": {
+        "message": "Ends {date}",
+        "description": "A membership that stops at the end of its paid period and won't renew.",
+        "args": ["date"]
+    },
     "clients.cancelSubscriptionTitle": {
-        "message": "Cancel subscription"
+        "message": "Cancel membership"
     },
     "clients.cancelSubscriptionConfirm": {
-        "message": "Cancel this subscription?"
+        "message": "Cancel {name}? It stops now and the card isn't charged again.",
+        "args": ["name"]
     },
     "clients.cancelSubscriptionError": {
-        "message": "Couldn't cancel this subscription. Please try again."
+        "message": "Couldn't cancel this membership. Please try again."
     },
     "clients.keep": {
         "message": "Keep"
@@ -5749,6 +5786,11 @@
     },
     "clients.record.renews": {
         "message": "Renews {when}",
+        "args": ["when"]
+    },
+    "clients.record.ends": {
+        "message": "Ends {when}",
+        "description": "A membership that stops at the end of its paid period and won't renew.",
         "args": ["when"]
     },
     "clients.record.backToRecord": {
@@ -5952,6 +5994,10 @@
     },
     "clients.edit.archiveBody": {
         "message": "They leave search and booking pickers. Their bookings, invoices and payments stay, and you can restore them any time."
+    },
+    "clients.edit.archiveBodyMember": {
+        "message": "They leave search and booking pickers, and their memberships end with the period already paid. Their bookings, invoices and payments stay, and you can restore them any time.",
+        "description": "Archive confirmation for a client with a live membership."
     },
     "clients.edit.archiveConfirm": {
         "message": "Archive"
@@ -6737,7 +6783,7 @@
         "message": "Only owners and admins can add or remove payment methods."
     },
     "clients.wallet.archived": {
-        "message": "This client is archived. Restore them to add a card or bank account, sell a package or start a subscription."
+        "message": "This client is archived. Restore them to add a card or bank account, sell a package or start a membership."
     },
     "clients.tidy.select": {
         "message": "Select"
@@ -6800,6 +6846,10 @@
     },
     "clients.tidy.archiveBody": {
         "message": "They leave search and booking pickers. Their bookings, invoices and payments stay, and you can restore them from Archived."
+    },
+    "clients.tidy.archiveBodyMember": {
+        "message": "They leave search and booking pickers, and their memberships end with the period already paid. Their bookings, invoices and payments stay, and you can restore them from Archived.",
+        "description": "Bulk archive confirmation when at least one selected client has a live membership."
     },
     "clients.tidy.archiveConfirm": {
         "message": "Archive"
