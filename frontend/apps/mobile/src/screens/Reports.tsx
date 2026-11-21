@@ -1,7 +1,6 @@
 import {
     EXPORT_KINDS,
     type ExportKind,
-    type PackRequest,
     useBookkeeperPack,
     type IconName,
     REPORT_PERIODS,
@@ -58,14 +57,8 @@ async function shareCsv(csv: string, filename: string): Promise<void> {
     await shareFile(csv, filename, "text/csv");
 }
 
-async function sharePack(request: PackRequest, filename: string): Promise<void> {
-    const response = await api.authFetch("/v1/reports/export", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(request),
-    });
-    if (!response.ok) throw new Error(`export → ${String(response.status)}`);
-    await shareFile(new Uint8Array(await response.arrayBuffer()), filename, "application/zip");
+async function shareZip(zip: Uint8Array<ArrayBuffer>, filename: string): Promise<void> {
+    await shareFile(zip, filename, "application/zip");
 }
 
 function figure(key: ReportKey, v: ReportsView): string {
@@ -73,7 +66,7 @@ function figure(key: ReportKey, v: ReportsView): string {
         case "income":
             return formatMoney(v.netCents, BUSINESS_CURRENCY);
         case "salesByItem":
-            return s.sold(v.unitsSold);
+            return s.itemCount(v.items.length);
         case "gstHst":
             return formatMoney(v.gst.collectedCents, BUSINESS_CURRENCY);
         case "pst":
@@ -87,9 +80,9 @@ function figure(key: ReportKey, v: ReportsView): string {
 
 export function Reports() {
     const r = useMoneyReports(api);
-    const file = useReportFile(api, r.span, shareCsv);
-    const pack = useBookkeeperPack(r.span, sharePack);
     const [open, setOpen] = useState<ReportKey | null>(null);
+    const file = useReportFile(api, r.span, open, shareCsv);
+    const pack = useBookkeeperPack(api, r.span, shareZip);
     const [packing, setPacking] = useState(false);
     const v = r.view;
     const name = (key: ExportKind): string =>

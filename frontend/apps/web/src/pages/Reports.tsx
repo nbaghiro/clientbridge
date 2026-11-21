@@ -1,6 +1,5 @@
 import {
     type ExportKind,
-    type PackRequest,
     REPORT_PERIODS,
     type ReportKey,
     type ReportPeriodKey,
@@ -41,23 +40,15 @@ import { usePrintSheet } from "../lib/print";
 const s = strings.reports;
 const REPORTS: ReportKey[] = ["income", "salesByItem", "gstHst", "pst", "t4a"];
 
-async function downloadZip(request: PackRequest, filename: string): Promise<void> {
-    const res = await api.authFetch("/v1/reports/export", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(request),
-    });
-    if (!res.ok) throw new Error(`export → ${String(res.status)}`);
-    saveFile(await res.blob(), filename);
-}
-
 export function Reports() {
     const r = useMoneyReports(api);
-    const file = useReportFile(api, r.span, (csv, name) => {
+    const [open, setOpen] = useState<ReportKey>("income");
+    const file = useReportFile(api, r.span, open, (csv, name) => {
         saveFile(new Blob([csv], { type: "text/csv" }), name);
     });
-    const pack = useBookkeeperPack(r.span, downloadZip);
-    const [open, setOpen] = useState<ReportKey>("income");
+    const pack = useBookkeeperPack(api, r.span, (zip, name) => {
+        saveFile(new Blob([zip], { type: "application/zip" }), name);
+    });
     const [packing, setPacking] = useState(false);
     const ready = r.load.state === "ready";
     const printing = usePrintSheet();

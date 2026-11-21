@@ -3838,6 +3838,7 @@ interface Strings {
             readonly payouts: string;
             readonly staffPay: string;
         } & Labels;
+        readonly itemCount: (n: number) => string;
         readonly libraryHint: {
             readonly income: string;
             readonly salesByItem: string;
@@ -3908,7 +3909,6 @@ interface Strings {
         readonly colTips: string;
         readonly tipsValue: (amount: string) => string;
         readonly qty: (n: number) => string;
-        readonly sold: (n: number) => string;
         readonly taxableSales: string;
         readonly gstLine105: (code: string) => string;
         readonly gstNumber: (n: string) => string;

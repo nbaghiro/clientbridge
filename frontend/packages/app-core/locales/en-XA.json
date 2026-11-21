@@ -10523,6 +10523,9 @@
     "reports.library.staffPay": {
         "message": "[Šţåƒƒ þåý one]"
     },
+    "reports.itemCount": {
+        "message": "[{n,plural,one{# îţéɱ} other{# îţéɱš}} one two]"
+    },
     "reports.libraryHint.income": {
         "message": "[Šåļéš åñð ĥöŵ çļîéñţš þåîð one two three]"
     },
@@ -10708,9 +10711,6 @@
     },
     "reports.qty": {
         "message": "{n, number, ::.00/w}"
-    },
-    "reports.sold": {
-        "message": "[{n, number, ::.00/w} šöļð one]"
     },
     "reports.taxableSales": {
         "message": "[Ţåẋåƀļé šåļéš (ļîñé 101) one two]"

@@ -484,3 +484,52 @@ describe("refused requests", () => {
         });
     });
 });
+
+describe("binary bodies", () => {
+    const zip = new Uint8Array([0x50, 0x4b, 3, 4]);
+    const make = (binaryFetch?: (url: string, init: RequestInit) => Promise<Response>) =>
+        createSession({
+            baseUrl: "https://api.test",
+            mode: "token",
+            store: {
+                get: () => Promise.resolve({ userId: "us_first", sessionToken: "ory_st_first" }),
+                clear: () => Promise.resolve(),
+            },
+            onSignedOut: () => undefined,
+            ...(binaryFetch ? { binaryFetch } : {}),
+        }).forBusiness("bz_first");
+
+    it("posts JSON and reads the body as bytes through the binary transport", async () => {
+        const seen = requests();
+        const binary = vi.fn<(url: string, init: RequestInit) => Promise<Response>>(() =>
+            Promise.resolve(new Response(zip.slice())),
+        );
+        const bytes = await make(binary).postBytes("/v1/reports/export", { kinds: ["income"] });
+        expect([...bytes]).toEqual([...zip]);
+        expect(seen).toEqual([]);
+        const [url, init] = binary.mock.calls[0] ?? [];
+        expect(url).toBe("https://api.test/v1/reports/export");
+        expect(init?.method).toBe("POST");
+        expect(init?.body).toBe(JSON.stringify({ kinds: ["income"] }));
+        const headers = new Headers(init?.headers);
+        expect(headers.get("X-Session-Token")).toBe("ory_st_first");
+        expect(headers.get("X-Business-Id")).toBe("bz_first");
+        expect(headers.get("Content-Type")).toBe("application/json");
+    });
+
+    it("falls back to fetch and reports a refusal by its code", async () => {
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(() => Promise.resolve(new Response(zip.slice()))),
+        );
+        expect([...(await make().postBytes("/v1/reports/export", {}))]).toEqual([...zip]);
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(() => Promise.resolve(Response.json({ error: "forbidden" }, { status: 403 }))),
+        );
+        await expect(make().postBytes("/v1/reports/export", {})).rejects.toMatchObject({
+            status: 403,
+            code: "forbidden",
+        });
+    });
+});
