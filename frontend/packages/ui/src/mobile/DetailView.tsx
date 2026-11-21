@@ -1,12 +1,13 @@
 import { type DetailSectionProps, type DetailViewProps, strings } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { Keyboard, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { IconButton } from "./IconButton";
 import { useTabletLayout } from "./layout";
 import { Modal, useModalFlow } from "./Modal";
 import type { NativeProps } from "./props";
+import { RevealProvider, useScrollReveal } from "./reveal";
 import { StatusPill } from "./StatusPill";
 
 const c = theme.colors;
@@ -33,6 +34,10 @@ export function DetailView({
     const scrolling = useRef(false);
     const restoreScroll = () =>
         body.current?.scrollTo({ y: scrollOffset.current, animated: false });
+    const revealed = useCallback((y: number) => {
+        scrollOffset.current = y;
+    }, []);
+    const { reveal, onScroll, ...tracking } = useScrollReveal(body, revealed);
 
     useEffect(() => {
         scrolling.current = false;
@@ -79,22 +84,25 @@ export function DetailView({
             </View>
             <ScrollView
                 ref={body}
-                onLayout={() => {
+                onLayout={(event) => {
+                    tracking.onLayout(event);
                     if (open) restoreScroll();
                 }}
                 onScrollBeginDrag={() => {
                     scrolling.current = true;
                 }}
                 onScroll={(event) => {
+                    onScroll(event);
                     if (open && scrolling.current)
                         scrollOffset.current = event.nativeEvent.contentOffset.y;
                 }}
+                onContentSizeChange={tracking.onContentSizeChange}
                 scrollEventThrottle={16}
                 style={[styles.body, tablet && styles.fillBody]}
                 contentContainerStyle={styles.bodyContent}
                 keyboardShouldPersistTaps="handled"
             >
-                {children}
+                <RevealProvider value={reveal}>{children}</RevealProvider>
             </ScrollView>
             {hasActions || hasFooter ? (
                 <View style={styles.footer}>

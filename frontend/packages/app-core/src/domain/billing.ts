@@ -85,6 +85,7 @@ export interface InvoiceRow {
     total_cents: number | null;
     balance_cents: number | null;
     paid_cents: number | null;
+    due_once_sent_cents: number | null;
     // tips the client added on top, which the invoice total and its balance leave out
     tip_cents: number;
     currency: string;
@@ -226,6 +227,11 @@ SELECT i.id, i.client_id, c.name AS client_name, c.phone AS client_phone,
        CASE WHEN i.status = 'draft' THEN 0
             ELSE i.total_cents - COALESCE(${subjectNetSql("receivable", "invoice", "i.id")}, 0)
        END AS paid_cents,
+       CASE WHEN i.status = 'draft' THEN MAX(0, i.total_cents - COALESCE((
+            SELECT -SUM(${subjectNetSql("deposit", "booking", "db.id")}) FROM bookings db
+            WHERE db.deposit_status = 'collected'
+              AND db.id IN (SELECT dl.booking_id FROM lines dl WHERE dl.invoice_id = i.id)), 0))
+       END AS due_once_sent_cents,
        (SELECT MAX(pe.occurred_at) FROM entries pe JOIN accounts pa ON pa.id = pe.account_id
         WHERE pa.category = 'receivable' AND pe.subject_type = 'invoice' AND pe.subject_id = i.id
           AND pe.amount_cents < 0 AND ${settledSql("pe")}) AS paid_at,
@@ -935,7 +941,10 @@ export function useInvoiceRecord(id: string | null, payBase: string): InvoiceRec
         facts: [
             {
                 label: s.balanceDue,
-                value: formatMoney(draft ? (row.total_cents ?? 0) : balanceCents, currency),
+                value: formatMoney(
+                    draft ? (row.due_once_sent_cents ?? row.total_cents ?? 0) : balanceCents,
+                    currency,
+                ),
             },
             {
                 label: s.colIssued,
@@ -951,13 +960,14 @@ export function useInvoiceRecord(id: string | null, payBase: string): InvoiceRec
         canSend: draft,
         canRemind: open,
         canRecord: open && balanceCents > 0 && settling !== "arriving",
+        // an applied deposit goes back to its visit on void, so only taken or pending money blocks it
         canVoid:
             draft ||
             (status !== "void" &&
                 status !== "paid" &&
                 status !== "refunded" &&
-                status !== "partial" &&
-                (row.paid_cents ?? 0) === 0),
+                !credits.some((c) => c.event === "payment") &&
+                !payments.some((pm) => pm.status === "pending")),
         rateNote: rateNote(rates),
     };
 }

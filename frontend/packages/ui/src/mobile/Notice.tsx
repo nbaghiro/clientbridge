@@ -1,8 +1,10 @@
 import type { NoticeProps, NoticeTone } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
+import { useEffect, useRef } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import type { NativeProps } from "./props";
+import { useReveal } from "./reveal";
 
 const c = theme.colors;
 
@@ -15,15 +17,28 @@ const BOX: Record<NoticeTone, { bg: string; fg: string }> = {
 
 export function Notice({ tone, banner = false, children, style }: NativeProps<NoticeProps>) {
     const role = tone === "danger" ? "alert" : "text";
+    const reveal = useReveal();
+    const line = useRef<Text>(null);
+    const box = useRef<View>(null);
+    useEffect(() => {
+        const target = line.current ?? box.current;
+        // an error usually lands at the end of a sheet, below the fold
+        if (tone === "danger" && reveal !== null && target !== null) reveal(target);
+    }, [tone, reveal, children]);
     if (!banner) {
         return (
-            <Text accessibilityRole={role} style={[styles.line, { color: LINE[tone] }, style]}>
+            <Text
+                ref={line}
+                accessibilityRole={role}
+                style={[styles.line, { color: LINE[tone] }, style]}
+            >
                 {children}
             </Text>
         );
     }
     return (
         <View
+            ref={box}
             accessibilityRole={role}
             style={[styles.box, { backgroundColor: BOX[tone].bg }, style]}
         >

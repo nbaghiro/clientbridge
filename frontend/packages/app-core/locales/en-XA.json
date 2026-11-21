@@ -3723,7 +3723,7 @@
         "message": "[Çĥööšé åñ åðð-öñ one two]"
     },
     "bookings.addonAdds": {
-        "message": "[Åððš {n, number} ɱîñ one]"
+        "message": "[Åððš {length} one]"
     },
     "bookings.addonAddError": {
         "message": "[Çöûļðñ'ţ åðð ţĥîš îţéɱ. Þļéåšé ţŕý åĝåîñ. one two three]"

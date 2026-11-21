@@ -1126,7 +1126,7 @@ Clients find the business, book and pay a deposit, and change their plans withou
 ### Booking add-ons billed once (CB-26)
 
 **Covers:** Connect extras step, booking panel add-ons (web and phone), invoice from booking, desk checkout of a visit
-**Before you start:** Brightwater Home Cleaning (AB, GST, properties): owner owner@brightwater.example, cleaners joy@brightwater.example, harpreet@brightwater.example and tomasz@brightwater.example, password demo1234. Its oven, fridge, window and laundry add-ons lengthen a clean; Wei Zhang's move-out next Monday has a collected deposit and three add-ons.
+**Before you start:** Brightwater Home Cleaning (AB, GST, properties): owner owner@brightwater.example, cleaners joy@brightwater.example, harpreet@brightwater.example and tomasz@brightwater.example, password demo1234. Its oven, fridge, window and laundry add-ons lengthen a clean; Wei Zhang's move-out, about five days out with Harpreet (Tomasz helping), has a collected deposit and three add-ons.
 
 **Where to test**
 

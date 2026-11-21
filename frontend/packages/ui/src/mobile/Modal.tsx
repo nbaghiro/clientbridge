@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTabletLayout } from "./layout";
 import { useModalLayer, useOverlay } from "./layers";
 import type { NativeProps } from "./props";
+import { RevealProvider, useScrollReveal } from "./reveal";
 
 const c = theme.colors;
 const FlowContext = createContext(false);
@@ -53,6 +54,7 @@ export function Modal({
         Animated.timing(slide, { toValue: 1, duration: 220, useNativeDriver: true }).start();
     }, [open, panel, slide]);
     const scroller = useRef<ScrollView>(null);
+    const { reveal, ...tracking } = useScrollReveal(scroller);
     useEffect(() => {
         scroller.current?.scrollTo({ y: 0, animated: false });
     }, [page]);
@@ -62,8 +64,10 @@ export function Modal({
             style={styles.scroll}
             contentContainerStyle={styles.framed}
             keyboardShouldPersistTaps="handled"
+            scrollEventThrottle={16}
+            {...tracking}
         >
-            {children}
+            <RevealProvider value={reveal}>{children}</RevealProvider>
         </ScrollView>
     ) : (
         children

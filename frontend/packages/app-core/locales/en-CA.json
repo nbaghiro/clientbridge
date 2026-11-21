@@ -4064,8 +4064,9 @@
         "message": "Choose an add-on"
     },
     "bookings.addonAdds": {
-        "message": "Adds {n, number} min",
-        "args": ["n"]
+        "message": "Adds {length}",
+        "description": "Beside an add-on that lengthens the visit, e.g. Adds 1 h 15 min",
+        "args": ["length"]
     },
     "bookings.addonAddError": {
         "message": "Couldn't add this item. Please try again."

@@ -587,10 +587,14 @@ export function TicketPanel({
                                                 setSelected(selected === v.key ? null : v.key);
                                             }}
                                             pressLabel={d.discountLine(v.title)}
-                                            onRemove={() => {
-                                                sale.removeLine(v.key);
-                                            }}
-                                            removeLabel={d.removeLine(v.title)}
+                                            {...(v.removable
+                                                ? {
+                                                      onRemove: () => {
+                                                          sale.removeLine(v.key);
+                                                      },
+                                                      removeLabel: d.removeLine(v.title),
+                                                  }
+                                                : {})}
                                         />
                                         {selected === v.key ? (
                                             <LineDiscountEditor
