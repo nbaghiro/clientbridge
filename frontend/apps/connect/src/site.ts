@@ -15,4 +15,6 @@ export const links = {
     shop: (slug: string): string => shopPageUrl(config.urls.shopUrl, slug),
     receipt: (token: string): string =>
         `${config.urls.payUrl.replace(/\/+$/, "")}/r/${encodeURIComponent(token)}`,
+    estimate: (token: string): string =>
+        `${config.urls.payUrl.replace(/\/+$/, "")}/e/${encodeURIComponent(token)}`,
 };

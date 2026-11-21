@@ -244,7 +244,6 @@ export function InvoicePanel({ id, onClose }: { id: string; onClose: () => void 
                     )}
                     <div className="min-h-0 @max-4xl:hidden">
                         <DocumentPane
-                            businessName={letterhead.name}
                             doc={printedInvoice(rec, letterhead, cssVar("accent"))}
                             attached={sentAt}
                         />
@@ -253,7 +252,6 @@ export function InvoicePanel({ id, onClose }: { id: string; onClose: () => void 
             </div>
             {previewing ? (
                 <DocumentPreview
-                    businessName={letterhead.name}
                     doc={printedInvoice(rec, letterhead, cssVar("accent"))}
                     attached={sentAt}
                     onClose={() => {
@@ -533,17 +531,12 @@ export function EstimatePanel({ id, onClose }: { id: string; onClose: () => void
                         </DetailSection>
                     </DetailView>
                     <div className="min-h-0 @max-4xl:hidden">
-                        <DocumentPane
-                            businessName={letterhead.name}
-                            doc={estimateDoc}
-                            attached={estimateSent}
-                        />
+                        <DocumentPane doc={estimateDoc} attached={estimateSent} />
                     </div>
                 </div>
             </div>
             {previewing ? (
                 <DocumentPreview
-                    businessName={letterhead.name}
                     doc={estimateDoc}
                     attached={estimateSent}
                     onClose={() => {

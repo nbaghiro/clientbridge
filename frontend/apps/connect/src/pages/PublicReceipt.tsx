@@ -6,11 +6,14 @@ import {
     usePublicReceipt,
     formatParts,
     formatList,
+    printedSaleReceipt,
+    printedTitle,
     saleNumber,
     taxList,
     taxName,
 } from "@clientbridge/app-core/public";
-import { Button, DocTotals, StatusPill } from "@clientbridge/ui";
+import { cssVar } from "@clientbridge/tokens";
+import { Button, DocTotals, PrintedDocument, StatusPill, usePrintSheet } from "@clientbridge/ui";
 import { useParams } from "react-router-dom";
 
 import { PublicDocument } from "../components/PublicDocument";
@@ -24,6 +27,7 @@ const r = strings.publicReceipt;
 export function PublicReceipt() {
     const { token = "" } = useParams<{ token: string }>();
     const page = usePublicReceipt(receipts, token);
+    const printing = usePrintSheet();
     const receipt = page.receipt;
     if (page.status === "loading") return <PublicStatus kind="loading" />;
     if (page.status === "not-found")
@@ -34,6 +38,7 @@ export function PublicReceipt() {
         .filter((p) => p.kind !== "refund")
         .reduce((n, p) => n + p.amount_cents, 0);
     const status = r.status[receipt.status] ?? receipt.status;
+    const doc = printedSaleReceipt(receipt, cssVar("accent"));
     return (
         <PublicDocument
             brand={receipt.brand}
@@ -134,7 +139,7 @@ export function PublicReceipt() {
                             full
                             icon="printer"
                             onPress={() => {
-                                window.print();
+                                printing.print(printedTitle(doc));
                             }}
                         >
                             {r.print}
@@ -147,6 +152,7 @@ export function PublicReceipt() {
                     </div>
                 </article>
             </main>
+            {printing.sheet(<PrintedDocument doc={doc} />)}
         </PublicDocument>
     );
 }

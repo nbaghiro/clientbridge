@@ -3,18 +3,18 @@ import {
     type ReviewDocument,
     printedEstimate,
     printedInvoice,
+    printedTitle,
     strings,
     useEstimateRecord,
     useInvoiceRecord,
     useLetterhead,
 } from "@clientbridge/app-core";
 import { cssVar } from "@clientbridge/tokens";
-import { Button, Icon, IconButton, Modal, PrintedDocument } from "@clientbridge/ui";
+import { Button, Icon, IconButton, Modal, PrintedDocument, usePrintSheet } from "@clientbridge/ui";
 import type { ReactNode } from "react";
 
 import { config } from "../config";
 import { apiBaseUrl } from "../lib/api";
-import { usePrintSheet } from "../lib/print";
 
 const d = strings.billing.doc;
 
@@ -48,26 +48,10 @@ export function Paper({ doc }: { doc: PrintedDoc }) {
 }
 
 /** A record's letterhead page: print it, or save it as PDF. */
-export function DocumentPane({
-    doc,
-    attached,
-    businessName,
-}: {
-    doc: PrintedDoc;
-    attached: string;
-    businessName: string;
-}) {
+export function DocumentPane({ doc, attached }: { doc: PrintedDoc; attached: string }) {
     const printing = usePrintSheet();
     const print = (): void => {
-        printing.print(
-            d
-                .fileName(
-                    businessName.replace(/[^A-Za-z0-9]+/g, "-"),
-                    d.kinds[doc.kind],
-                    doc.number,
-                )
-                .replace(/\.pdf$/, ""),
-        );
+        printing.print(printedTitle(doc));
     };
     return (
         <PaperPane
@@ -100,12 +84,10 @@ export function DocumentPane({
 export function DocumentPreview({
     doc,
     attached,
-    businessName,
     onClose,
 }: {
     doc: PrintedDoc;
     attached: string;
-    businessName: string;
     onClose: () => void;
 }) {
     return (
@@ -120,7 +102,7 @@ export function DocumentPreview({
                     </div>
                 </header>
                 <div className="min-h-0 flex-1">
-                    <DocumentPane doc={doc} attached={attached} businessName={businessName} />
+                    <DocumentPane doc={doc} attached={attached} />
                 </div>
             </div>
         </Modal>

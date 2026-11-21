@@ -1,0 +1,17 @@
+/* Print only the sheet a print button renders at the body, as the PDF a client gets; a page without one prints itself. */
+.print-sheet {
+    display: none;
+}
+@media print {
+    body:has(> .print-sheet) > :not(.print-sheet) {
+        display: none !important;
+    }
+    .print-sheet {
+        display: block;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    .print-sheet * {
+        box-shadow: none !important;
+    }
+}

@@ -568,7 +568,6 @@ function BookingDocuments({ event }: { event: ScheduleEvent }) {
             {receipt.error !== null ? <Notice tone="danger">{receipt.error}</Notice> : null}
             {doc !== null ? (
                 <DocumentPreview
-                    businessName={doc.business.name}
                     doc={doc}
                     attached={strings.billing.doc.attachedVisit}
                     onClose={receipt.close}

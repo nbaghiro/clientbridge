@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "@clientbridge/tokens/themes.css";
 @import "@clientbridge/tokens/tailwind.css";
+@import "@clientbridge/ui/print.css";
 @source "../../../packages/ui/src";
 
 html,
@@ -198,23 +199,5 @@ body {
     .bd-drift,
     .bd-breathe {
         animation: none;
-    }
-}
-
-/* Print only the sheet a print button renders at the body, as the PDF a client gets. */
-.print-sheet {
-    display: none;
-}
-@media print {
-    body > :not(.print-sheet) {
-        display: none !important;
-    }
-    .print-sheet {
-        display: block;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-    }
-    .print-sheet * {
-        box-shadow: none !important;
     }
 }

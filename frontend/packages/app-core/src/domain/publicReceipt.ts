@@ -58,6 +58,11 @@ export interface VisitReceipt extends PublicReceipt {
     practitioner_title: string | null;
 }
 
+/** A visit's receipt as staff open it, with the link that opens it for the client. */
+export interface BookingReceipt extends VisitReceipt {
+    link: string | null;
+}
+
 interface PublicReceiptClient {
     getReceipt: (token: string) => Promise<PublicReceipt>;
     getVisitReceipt: (manageToken: string) => Promise<VisitReceipt>;
@@ -83,16 +88,13 @@ function amountPaid(receipt: PublicReceipt): number {
     );
 }
 
-/** The visit's receipt as a printed page: the document's lines and payments, with the practitioner. */
-export function printedVisitReceipt(receipt: VisitReceipt, fallbackColor: string): PrintedDoc {
+function printedReceipt(
+    receipt: PublicReceipt,
+    number: string | null,
+    meta: readonly { label: string; value: string }[],
+    fallbackColor: string,
+): PrintedDoc {
     const pr = strings.printing;
-    const helpers = receipt.served_by.filter((name) => name !== receipt.practitioner);
-    const number =
-        receipt.number === null
-            ? null
-            : receipt.source === "sale"
-              ? saleNumber(receipt.number)
-              : String(receipt.number);
     return printedDoc(
         {
             kind: "receipt",
@@ -100,21 +102,7 @@ export function printedVisitReceipt(receipt: VisitReceipt, fallbackColor: string
             number,
             partyName: receipt.client_name ?? "",
             partyLines: [],
-            meta: [
-                {
-                    label: receipt.source === "sale" ? pr.forSale : pr.forInvoice,
-                    value: number ?? "",
-                },
-                {
-                    label: pr.practitioner,
-                    value: formatParts([receipt.practitioner, receipt.practitioner_title]),
-                },
-                ...(helpers.length === 0
-                    ? []
-                    : [{ label: pr.assistedBy, value: formatList(helpers, "unit") }]),
-                { label: pr.serviceDate, value: longDate(receipt.visit_at, receipt.timezone) },
-                { label: pr.service, value: receipt.service },
-            ],
+            meta,
             lines: publicDocLines(receipt.lines),
             taxes: publicDocTaxes(receipt.taxes),
             totals: publicReceiptTotals(receipt),
@@ -136,8 +124,60 @@ export function printedVisitReceipt(receipt: VisitReceipt, fallbackColor: string
     );
 }
 
+/** A desk sale's receipt as a printed page: the sale's lines and payments, and who served. */
+export function printedSaleReceipt(receipt: PublicReceipt, fallbackColor: string): PrintedDoc {
+    const pr = strings.printing;
+    const number = receipt.number === null ? null : saleNumber(receipt.number);
+    return printedReceipt(
+        receipt,
+        number,
+        [
+            { label: pr.forSale, value: number ?? "" },
+            { label: pr.issued, value: longDate(receipt.created_at, receipt.timezone) },
+            ...(receipt.served_by.length === 0
+                ? []
+                : [{ label: pr.servedBy, value: formatList(receipt.served_by, "unit") }]),
+        ],
+        fallbackColor,
+    );
+}
+
+/** The visit's receipt as a printed page: the document's lines and payments, with the practitioner. */
+export function printedVisitReceipt(receipt: VisitReceipt, fallbackColor: string): PrintedDoc {
+    const pr = strings.printing;
+    const helpers = receipt.served_by.filter((name) => name !== receipt.practitioner);
+    const number =
+        receipt.number === null
+            ? null
+            : receipt.source === "sale"
+              ? saleNumber(receipt.number)
+              : String(receipt.number);
+    return printedReceipt(
+        receipt,
+        number,
+        [
+            {
+                label: receipt.source === "sale" ? pr.forSale : pr.forInvoice,
+                value: number ?? "",
+            },
+            {
+                label: pr.practitioner,
+                value: formatParts([receipt.practitioner, receipt.practitioner_title]),
+            },
+            ...(helpers.length === 0
+                ? []
+                : [{ label: pr.assistedBy, value: formatList(helpers, "unit") }]),
+            { label: pr.serviceDate, value: longDate(receipt.visit_at, receipt.timezone) },
+            { label: pr.service, value: receipt.service },
+        ],
+        fallbackColor,
+    );
+}
+
 export interface VisitReceiptView {
     doc: PrintedDoc | null;
+    // where the client opens the receipt themselves; staff share it from a phone
+    link: string | null;
     busy: boolean;
     error: string | null;
     open: () => void;
@@ -146,25 +186,30 @@ export interface VisitReceiptView {
 
 /** Fetches the visit's receipt on demand; a visit not billed or not yet paid says so. */
 export function useVisitReceipt(
-    fetchReceipt: () => Promise<VisitReceipt>,
+    fetchReceipt: () => Promise<VisitReceipt | BookingReceipt>,
     fallbackColor: string,
 ): VisitReceiptView {
-    const [doc, setDoc] = useState<PrintedDoc | null>(null);
+    const [opened, setOpened] = useState<{ doc: PrintedDoc; link: string | null } | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
     return {
-        doc,
+        doc: opened?.doc ?? null,
+        link: opened?.link ?? null,
         busy,
         error,
         open: () => {
             run(
                 async () => {
-                    setDoc(printedVisitReceipt(await fetchReceipt(), fallbackColor));
+                    const receipt = await fetchReceipt();
+                    setOpened({
+                        doc: printedVisitReceipt(receipt, fallbackColor),
+                        link: "link" in receipt ? receipt.link : null,
+                    });
                 },
                 { errorMessage: (e) => failureMessage(e, strings.publicReceipt.visitError) },
             );
         },
         close: () => {
-            setDoc(null);
+            setOpened(null);
             setError(null);
         },
     };

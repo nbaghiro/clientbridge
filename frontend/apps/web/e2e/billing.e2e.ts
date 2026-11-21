@@ -1,4 +1,10 @@
-import { formatCredit, formatMoney, formatPhone, strings } from "@clientbridge/app-core/public";
+import {
+    formatCredit,
+    formatMoney,
+    formatPhone,
+    saleNumber,
+    strings,
+} from "@clientbridge/app-core/public";
 import { expect, type Locator, type Page } from "@playwright/test";
 import {
     billingAction,
@@ -24,8 +30,12 @@ import {
     sendDocument,
     sendEstimate,
     taxLegs,
+    longInvoiceLines,
+    printedLetterhead,
+    printedRecord,
     type DocumentClient,
     type DocumentRecord,
+    type PrintableRecord,
 } from "./support/billing";
 import { businessEvidence, newBusiness, patchBusiness, type NewBusiness } from "./support/business";
 import {
@@ -45,6 +55,7 @@ import { reports } from "./support/reports";
 import { customerContext, navigate, signIn, test } from "./support/session";
 import { randomUUID } from "node:crypto";
 import { demoId, runUrl } from "@clientbridge/config/e2e/run";
+import { expectPrinted, printToPdf, type Printed } from "@clientbridge/config/e2e/printed";
 
 test("BILL-PILOT-01 cash payment persists and reaches an independent replica", async ({
     page,
@@ -1442,4 +1453,128 @@ test("BILL-DOC-24 an e-Transfer and a cheque are recorded once each, named on th
             await context.close();
         }
     });
+});
+
+test("BILL-DOC-27 an invoice, an estimate and a receipt printed to PDF carry the record's logo, address, GST/HST number, lines, taxes and totals, and a long invoice carries on to a second page with nothing cut off and no blank page", async ({
+    page,
+}) => {
+    test.setTimeout(300_000);
+    await signIn(page);
+    const api = runUrl("VITE_API_URL");
+    const d = strings.billing.doc;
+    const letterhead = await printedLetterhead();
+    const record = async (path: string): Promise<PrintableRecord> => {
+        const response = await page.request.get(`${api}${path}`);
+        expect(response.status(), await response.text()).toBe(200);
+        return (await response.json()) as PrintableRecord;
+    };
+    const expectCopy = (
+        printed: Printed,
+        kind: "invoice" | "estimate" | "receipt",
+        copy: PrintableRecord,
+        { content: extra = [], once = [] }: { content?: string[]; once?: string[] } = {},
+    ): void => {
+        const number =
+            copy.source === "sale" && copy.number !== null
+                ? saleNumber(copy.number)
+                : String(copy.number);
+        expect(printed.title).toMatch(new RegExp(`-${strings.printing.kinds[kind]}-${number}$`));
+        const { content, together } = printedRecord(copy);
+        expectPrinted(printed, {
+            content: [...letterhead.head, ...content, ...extra],
+            footer: letterhead.footer,
+            together,
+            once,
+        });
+    };
+    const printFrom = async (path: string, button: string): Promise<Printed> => {
+        await navigate(page, path);
+        return printToPdf(page, () =>
+            page.getByRole("dialog").getByRole("button", { name: button, exact: true }).click({
+                timeout: 60_000,
+            }),
+        );
+    };
+    const client = await createDocumentClient(page);
+
+    // around the lengths where the footer, then the totals, are the first thing past a page
+    for (let count = 36; count <= 44; count++) {
+        const lines = longInvoiceLines(count);
+        const invoice = await apiCall<{ id: string; pay_token: string }>(
+            page,
+            "POST",
+            "/v1/invoices",
+            { client_id: client.id, lines, send: true },
+            201,
+        );
+        const printed = await printFrom(`/payments/invoices?open=${invoice.id}`, d.print);
+        const copy = await record(`/pay/${invoice.pay_token}`);
+        expectCopy(printed, "invoice", copy, {
+            once: copy.lines.map((line) => line.description),
+        });
+        expect(printed.pages.length).toBeGreaterThan(1);
+        const later = printed.pages
+            .slice(1)
+            .map((p) => p.text)
+            .join(" ");
+        expect(later).toContain(String(lines.at(-1)?.description));
+        expect(later).toContain(formatMoney(copy.total_cents, copy.currency));
+    }
+
+    const estimate = await apiCall<{ id: string; view_token: string }>(
+        page,
+        "POST",
+        "/v1/estimates",
+        { client_id: client.id, lines: longInvoiceLines(3), send: true },
+        201,
+    );
+    const estimateCopy = await printFrom(
+        `/payments/invoices?open=${estimate.id}&doc=estimates`,
+        d.download,
+    );
+    expectCopy(estimateCopy, "estimate", await record(`/estimate/${estimate.view_token}`), {
+        content: [strings.printing.acceptOnline(`${runUrl("PAY_URL")}/e/${estimate.view_token}`)],
+    });
+    expect(estimateCopy.pages).toHaveLength(1);
+
+    // a visit paid on its invoice, then one paid at the desk, each printed as its receipt
+    for (const paidOn of ["invoice", "sale"] as const) {
+        const visits = await select<{ id: string }>`
+            SELECT id FROM bookings
+            WHERE business_id = ${demoId("bz_birchbark")} AND status = 'completed'
+                AND deleted_at IS NULL
+                AND CASE WHEN invoice_id IS NOT NULL THEN 'invoice'
+                    WHEN order_id IS NOT NULL THEN 'sale' END = ${paidOn}
+            ORDER BY id LIMIT 20`;
+        let paid: { id: string; receipt: PrintableRecord } | undefined;
+        for (const visit of visits) {
+            const response = await page.request.get(`${api}/v1/bookings/${visit.id}/receipt`);
+            if (response.status() === 200) {
+                paid = { id: visit.id, receipt: (await response.json()) as PrintableRecord };
+                break;
+            }
+        }
+        if (paid === undefined) throw new Error(`no completed visit paid on a ${paidOn}`);
+        expect(paid.receipt.source).toBe(paidOn);
+        await navigate(page, `/schedule?open=${paid.id}`);
+        // the visit reloads with its day, which would close a receipt opened before
+        await expect(page.getByText(strings.bookings.loading, { exact: true })).toHaveCount(0, {
+            timeout: 60_000,
+        });
+        await page
+            .getByRole("button", { name: strings.bookings.receipt, exact: true })
+            .click({ timeout: 60_000 });
+        const receiptCopy = await printToPdf(page, () =>
+            page
+                .getByRole("dialog")
+                .last()
+                .getByRole("button", { name: d.print, exact: true })
+                .click(),
+        );
+        expectCopy(receiptCopy, "receipt", paid.receipt);
+        expect(receiptCopy.pages).toHaveLength(1);
+        // leaving the visit closes its receipt, and the sheet it printed goes with it
+        await navigate(page, "/payments");
+        await expect(page.locator(".print-sheet")).toHaveCount(0);
+    }
 });

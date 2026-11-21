@@ -179,7 +179,7 @@ function PaymentBox({ doc }: { doc: Doc }) {
 function HowToPay({ doc, code = true }: { doc: Doc; code?: boolean }) {
     if (doc.instructions.length === 0) return null;
     return (
-        <div className="flex items-center justify-between gap-6 rounded-md border border-line px-4 py-3">
+        <div className="flex break-inside-avoid items-center justify-between gap-6 rounded-md border border-line px-4 py-3">
             <div className="text-[11px] leading-relaxed">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">
                     {doc.labels.howToPay}
@@ -215,14 +215,11 @@ function Stamp({ text }: { text: string }) {
 
 function Footer({ doc }: { doc: Doc }) {
     return (
-        <footer className="mt-auto flex items-end justify-between gap-6 border-t border-line pt-3 text-[10px] text-muted">
-            <div>
-                <p className="text-ink-soft">{doc.footer}</p>
-                <p className="mt-0.5">
-                    {formatParts([doc.business.registration, doc.business.website])}
-                </p>
-            </div>
-            <p>{doc.labels.page}</p>
+        <footer className="mt-auto break-inside-avoid border-t border-line pt-3 text-[10px] text-muted">
+            <p className="text-ink-soft">{doc.footer}</p>
+            <p className="mt-0.5">
+                {formatParts([doc.business.registration, doc.business.website])}
+            </p>
         </footer>
     );
 }
@@ -258,7 +255,7 @@ function Classic({ doc }: { doc: Doc }) {
             <div className="mt-6">
                 <LinesTable doc={doc} />
             </div>
-            <div className="mt-4 grid grid-cols-1 items-start gap-6 @xl:grid-cols-[1fr_270px] @xl:gap-8">
+            <div className="mt-4 grid break-inside-avoid grid-cols-1 items-start gap-6 @xl:grid-cols-[1fr_270px] @xl:gap-8">
                 <div className="space-y-4">
                     <TaxSummary doc={doc} />
                     <PaymentBox doc={doc} />
@@ -283,7 +280,7 @@ export function PrintedDocument({ doc, className }: WebProps<PrintedDocumentProp
                 className="relative flex min-h-[129.4cqw] w-full flex-col overflow-hidden rounded-sm bg-surface p-6 text-ink @xl:p-12 shadow-page"
             >
                 <Classic doc={doc} />
-                <div className="mt-8 flex flex-1 flex-col">
+                <div className="mt-8 flex flex-1 break-before-avoid flex-col">
                     <Footer doc={doc} />
                 </div>
             </article>

@@ -10,14 +10,14 @@ import {
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { ScrollView, Share, StyleSheet, View } from "react-native";
-import { Button, Modal, PrintedDocument, SheetHeader } from "@clientbridge/ui";
+import { Button, Modal, OverFlow, PrintedDocument, SheetHeader } from "@clientbridge/ui";
 
 import { apiUrl, payUrl } from "../lib/config";
 
 const c = theme.colors;
 const d = strings.billing.doc;
 
-/** The letterhead page on the phone; Share hands the client's link to another app. */
+/** The letterhead page as its own sheet; Share hands the client's link to another app. */
 export function DocumentPreview({
     doc,
     shareUrl,
@@ -28,28 +28,30 @@ export function DocumentPreview({
     onClose: () => void;
 }) {
     return (
-        <Modal onClose={onClose} size="xl">
-            <SheetHeader title={d.kinds[doc.kind]} />
-            <ScrollView style={styles.page}>
-                <PrintedDocument doc={doc} />
-            </ScrollView>
-            <View style={styles.footer}>
-                <Button variant="quiet" onPress={onClose}>
-                    {strings.common.close}
-                </Button>
-                {shareUrl !== null ? (
-                    <Button
-                        grow
-                        icon="external"
-                        onPress={() => {
-                            Share.share({ message: shareUrl }).catch(() => undefined);
-                        }}
-                    >
-                        {d.share}
+        <OverFlow>
+            <Modal onClose={onClose} size="xl">
+                <SheetHeader title={d.kinds[doc.kind]} />
+                <ScrollView style={styles.page}>
+                    <PrintedDocument doc={doc} />
+                </ScrollView>
+                <View style={styles.footer}>
+                    <Button variant="quiet" onPress={onClose}>
+                        {strings.common.close}
                     </Button>
-                ) : null}
-            </View>
-        </Modal>
+                    {shareUrl !== null ? (
+                        <Button
+                            grow
+                            icon="external"
+                            onPress={() => {
+                                Share.share({ message: shareUrl }).catch(() => undefined);
+                            }}
+                        >
+                            {d.share}
+                        </Button>
+                    ) : null}
+                </View>
+            </Modal>
+        </OverFlow>
     );
 }
 

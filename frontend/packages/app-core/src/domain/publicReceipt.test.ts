@@ -1,13 +1,19 @@
-import { describe, expect, it } from "vitest";
+// @vitest-environment happy-dom
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { formatList } from "../format";
 import { strings } from "../strings";
 import {
     type PublicReceipt,
     type VisitReceipt,
+    printedSaleReceipt,
     printedVisitReceipt,
     publicReceiptTotals,
+    useVisitReceipt,
 } from "./publicReceipt";
+
+afterEach(cleanup);
 
 const r = strings.publicReceipt;
 
@@ -144,5 +150,57 @@ describe("printedVisitReceipt", () => {
         expect(doc.meta[0]).toEqual({ label: p.forSale, value: "S-42" });
         expect(doc.meta[1]?.value).toBe("");
         expect(doc.stamp).toBeNull();
+    });
+});
+
+describe("printedSaleReceipt", () => {
+    const p = strings.printing;
+
+    it("numbers the sale, dates it and names who served", () => {
+        const doc = printedSaleReceipt(receipt({ served_by: ["Amy", "Priya"] }), "#000");
+        expect([doc.kind, doc.number]).toEqual(["receipt", "S-42"]);
+        expect(doc.meta).toEqual([
+            { label: p.forSale, value: "S-42" },
+            { label: p.issued, value: "October 7, 2026" },
+            { label: p.servedBy, value: formatList(["Amy", "Priya"], "unit") },
+        ]);
+    });
+
+    it("leaves out who served when nobody is named", () => {
+        const doc = printedSaleReceipt(receipt({ served_by: [] }), "#000");
+        expect(doc.meta.map((m) => m.label)).toEqual([p.forSale, p.issued]);
+    });
+});
+
+describe("useVisitReceipt", () => {
+    it("keeps the link staff share with the receipt, and drops it on close", async () => {
+        const link = "https://book.test/m/tok";
+        const { result } = renderHook(() =>
+            useVisitReceipt(() => Promise.resolve({ ...visit(), link }), "#000"),
+        );
+        act(() => {
+            result.current.open();
+        });
+        await waitFor(() => {
+            expect(result.current.doc?.number).toBe("42");
+        });
+        expect(result.current.link).toBe(link);
+        act(() => {
+            result.current.close();
+        });
+        expect([result.current.doc, result.current.link]).toEqual([null, null]);
+    });
+
+    it("has no link for the receipt a client opens from their own page", async () => {
+        const { result } = renderHook(() =>
+            useVisitReceipt(() => Promise.resolve(visit()), "#000"),
+        );
+        act(() => {
+            result.current.open();
+        });
+        await waitFor(() => {
+            expect(result.current.doc).not.toBeNull();
+        });
+        expect(result.current.link).toBeNull();
     });
 });
