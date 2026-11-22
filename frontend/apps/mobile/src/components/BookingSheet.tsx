@@ -486,7 +486,7 @@ function Documents({ event }: { event: ScheduleEvent }) {
             </View>
             {receipt.error !== null ? <Notice tone="danger">{receipt.error}</Notice> : null}
             {doc !== null ? (
-                <DocumentPreview doc={doc} shareUrl={null} onClose={receipt.close} />
+                <DocumentPreview doc={doc} shareUrl={receipt.link} onClose={receipt.close} />
             ) : null}
         </DetailSection>
     );

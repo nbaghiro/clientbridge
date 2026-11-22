@@ -57,6 +57,35 @@ async def test_page_shows_lines_and_unticked_addons(
     assert page["taxes"] == [{"code": "GST", "rate_bps": 500, "base_cents": 6000, "cents": 300}]
 
 
+async def test_page_carries_the_business_address_and_phone_for_its_printed_copy(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await db.execute(
+        update(Business)
+        .where(Business.id == BIZ)
+        .values(
+            unit=None,
+            street_number="1207",
+            street_name="Government Street",
+            city="Victoria",
+            province="BC",
+            postal_code="V8W 1Y9",
+            legal_phone="+12505550110",
+        )
+    )
+    est = await _sent_estimate(as_owner, db)
+    page = ok(await as_owner.get(f"/estimate/{est['view_token']}")).json()
+    assert page["address"] == {
+        "unit": None,
+        "street_number": "1207",
+        "street_name": "Government Street",
+        "city": "Victoria",
+        "province": "BC",
+        "postal_code": "V8W 1Y9",
+    }
+    assert page["phone"] == "+12505550110"
+
+
 async def test_accept_with_an_addon_ticked(
     as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:

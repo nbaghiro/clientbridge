@@ -64,6 +64,7 @@ export { Meter } from "./Meter";
 export { OccurrenceList } from "./OccurrenceList";
 export { PayCode } from "./PayCode";
 export { PrintedDocument } from "./PrintedDocument";
+export { usePrintSheet } from "./print";
 export { ProgressSteps } from "./ProgressSteps";
 export { SignaturePad } from "./SignaturePad";
 export { Skeleton } from "./Skeleton";

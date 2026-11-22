@@ -1,6 +1,11 @@
 import { BusinessNavigation } from "./BusinessNavigation";
-import { type PrintedDoc, type PublicBrand, strings } from "@clientbridge/app-core/public";
-import { Button, IconButton, Modal, PrintedDocument } from "@clientbridge/ui";
+import {
+    type PrintedDoc,
+    type PublicBrand,
+    printedTitle,
+    strings,
+} from "@clientbridge/app-core/public";
+import { Button, IconButton, Modal, PrintedDocument, usePrintSheet } from "@clientbridge/ui";
 import type { ReactNode } from "react";
 
 import { brandStyle, BusinessCover, PoweredBy } from "./PublicPage";
@@ -90,7 +95,7 @@ export function DocumentLetter({
                 <article className="overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
                     <div className="p-6">{children}</div>
                     {actions !== undefined ? (
-                        <footer className="space-y-3 border-t border-line bg-bg/70 px-6 py-6">
+                        <footer className="space-y-3 border-t border-line bg-bg/70 px-6 py-6 print:hidden">
                             {actions}
                         </footer>
                     ) : null}
@@ -110,6 +115,7 @@ export function PrintModal({
     printLabel: string;
     onClose: () => void;
 }) {
+    const printing = usePrintSheet();
     return (
         <Modal onClose={onClose} size="xl" framed={false}>
             <div className="flex max-h-[92vh] flex-col overflow-hidden rounded-lg border border-line bg-bg shadow-card">
@@ -117,7 +123,7 @@ export function PrintModal({
                     <Button
                         icon="printer"
                         onPress={() => {
-                            window.print();
+                            printing.print(printedTitle(doc));
                         }}
                     >
                         {printLabel}
@@ -125,11 +131,12 @@ export function PrintModal({
                     <IconButton icon="x" label={strings.common.close} onPress={onClose} />
                 </div>
                 <div className="overflow-y-auto px-4 py-6">
-                    <div className="print-area mx-auto max-w-[44rem]">
+                    <div className="mx-auto max-w-[44rem]">
                         <PrintedDocument doc={doc} />
                     </div>
                 </div>
             </div>
+            {printing.sheet(<PrintedDocument doc={doc} />)}
         </Modal>
     );
 }

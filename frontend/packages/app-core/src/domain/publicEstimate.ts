@@ -4,7 +4,14 @@ import { formatMoney } from "../format";
 import { useAsyncAction, useRemote } from "../hooks";
 import { strings } from "../strings";
 import type { DocTotalLine, PrintedDoc } from "../ui";
-import { discountReason, docReference, longDate, printedDoc } from "./printing";
+import {
+    type PostalParts,
+    discountReason,
+    docReference,
+    longDate,
+    printedDoc,
+    publicAddressLines,
+} from "./printing";
 import { type PublicDocLine, type PublicDocTax, publicDocLines, publicDocTaxes } from "./publicPay";
 import { type PublicBrand, usePublicResource } from "./publicResource";
 import { failedCode, failureMessage, refusal } from "../api";
@@ -21,6 +28,8 @@ export interface PublicEstimate {
     number: number | null;
     business_name: string;
     brand: PublicBrand;
+    address: PostalParts;
+    phone: string | null;
     contact_email: string | null;
     gst_hst_number: string | null;
     qst_number: string | null;
@@ -99,7 +108,7 @@ interface PublicEstimatePage {
     error: string | null;
     accept: () => void;
     decline: () => void;
-    printed: (fallbackColor: string) => PrintedDoc | null;
+    printed: (acceptUrl: string, fallbackColor: string) => PrintedDoc | null;
 }
 
 /** The client's estimate page: optional add-ons start unticked, and the server quotes each choice. */
@@ -234,10 +243,11 @@ export function usePublicEstimatePage(
                 { errorMessage: (e) => failureMessage(e, pe.answerError) },
             );
         },
-        printed: (fallbackColor) => {
+        printed: (acceptUrl, fallbackColor) => {
             if (data === null) return null;
             const pr = strings.printing;
             const number = data.number === null ? null : String(data.number);
+            const open = data.status === "sent";
             return printedDoc(
                 {
                     kind: "estimate",
@@ -257,10 +267,15 @@ export function usePublicEstimatePage(
                     taxes,
                     totals,
                     headline: { label: pr.estimateTotal, cents: totalCents },
-                    instructions:
-                        data.status === "sent" && data.valid_until !== null
-                            ? [pr.acceptBy(longDate(data.valid_until, data.timezone))]
-                            : [],
+                    payUrl: open ? acceptUrl : null,
+                    instructions: open
+                        ? [
+                              pr.acceptOnline(acceptUrl),
+                              ...(data.valid_until !== null
+                                  ? [pr.acceptBy(longDate(data.valid_until, data.timezone))]
+                                  : []),
+                          ]
+                        : [],
                     message: data.notes,
                 },
                 {
@@ -271,6 +286,8 @@ export function usePublicEstimatePage(
                     email: data.contact_email,
                     gstHstNumber: data.gst_hst_number,
                     qstNumber: data.qst_number,
+                    address: publicAddressLines(data.address),
+                    phone: data.phone,
                 },
                 fallbackColor,
             );

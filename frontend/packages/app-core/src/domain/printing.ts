@@ -97,9 +97,6 @@ const PRINT_LABELS: PrintedDocLabels = {
     get paymentMethod() {
         return s.paymentMethod;
     },
-    get page() {
-        return s.page(1, 1);
-    },
     forSubject: s.forSubject,
     qtyTimes: strings.billing.qtyTimes,
 };
@@ -184,7 +181,6 @@ export function printedDoc(
     const title = s.kinds[src.kind];
     const named = src.reference ?? null;
     const reference = named ?? docReference(src.number);
-    const last = src.meta[2];
     return {
         kind: src.kind,
         currency: src.currency,
@@ -192,7 +188,6 @@ export function printedDoc(
         number: src.number ?? src.reference ?? s.draftNumber,
         reference,
         heading: named === null ? s.heading(title, reference) : s.headingFor(title, named),
-        deadline: last === undefined ? "" : s.deadline(last.label, last.value),
         business: {
             name: letterhead.name,
             initials: initials(letterhead.name),
@@ -224,6 +219,14 @@ export function printedDoc(
                 ? { ...PRINT_LABELS, howToPay: s.howToAccept, scanToPay: s.scanToAccept }
                 : PRINT_LABELS,
     };
+}
+
+/** The name Save as PDF offers for a printed document ("Birchbark-Pet-Studio-Invoice-1002"). */
+export function printedTitle(doc: PrintedDoc): string {
+    const business = doc.business.name.replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "");
+    return business === ""
+        ? s.fileTitleUnnamed(doc.title, doc.number)
+        : s.fileTitle(business, doc.title, doc.number);
 }
 
 /** A tax's name from its jurisdiction code ("GST", "QST"). */

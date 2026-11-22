@@ -1358,9 +1358,6 @@
     "billing.doc.kinds.receipt": {
         "message": "[Ŕéçéîþţ one]"
     },
-    "billing.doc.fileName": {
-        "message": "[{business}-{kind}-{n}.þðƒ one]"
-    },
     "billing.doc.print": {
         "message": "[Þŕîñţ one]"
     },
@@ -1445,6 +1442,9 @@
     "printing.practitioner": {
         "message": "[Þŕåçţîţîöñéŕ one two]"
     },
+    "printing.servedBy": {
+        "message": "[Šéŕṽéð ƀý one]"
+    },
     "printing.assistedBy": {
         "message": "[Åššîšţéð ƀý one two]"
     },
@@ -1499,8 +1499,11 @@
     "printing.thanks": {
         "message": "[Ţĥåñķ ýöû ƒöŕ ýöûŕ ƀûšîñéšš. one two three]"
     },
-    "printing.page": {
-        "message": "[Þåĝé {page, number} öƒ {pages, number} one]"
+    "printing.fileTitle": {
+        "message": "{business}-{kind}-{n}"
+    },
+    "printing.fileTitleUnnamed": {
+        "message": "{kind}-{n}"
     },
     "printing.streetLine": {
         "message": "{number} {street}"
@@ -1543,9 +1546,6 @@
     },
     "printing.heading": {
         "message": "{title} {reference}"
-    },
-    "printing.deadline": {
-        "message": "{label} {date}"
     },
     "printing.headingFor": {
         "message": "[{title} ƒöŕ {name} one]"
