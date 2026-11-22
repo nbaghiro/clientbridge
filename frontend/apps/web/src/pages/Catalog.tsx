@@ -498,7 +498,7 @@ function ShopLinkPanel() {
                         copyLabel={s.shopLinkCopy}
                     />
                 </div>
-                <PayCode value={shop.link} size={72} label={s.shopQrLabel} />
+                <PayCode value={shop.link} size={128} label={s.shopQrLabel} />
             </div>
         </Panel>
     );

@@ -6,6 +6,7 @@ import {
     cardFrame,
     checkoutDiagnostics,
     enterStripeCard,
+    expectSettled,
     openStripeInvoice,
     openRegisteredStripeInvoice,
     registerStripeInvoice,
@@ -13,9 +14,16 @@ import {
     stripeReady,
     stripeChallenge,
     stripeEvidence,
+    stripeInvoice,
     submitStripeCard,
     unpaidStripeInvoice,
 } from "./support/provider";
+import {
+    expectSizedToContent,
+    inWindow,
+    openSite,
+    successes,
+} from "../../../web/e2e/support/onlineBooking";
 import { signIn } from "../../../web/e2e/support/session";
 import { expectPaid, openInvoice, recordPayment } from "../../../web/e2e/support/billing";
 import { bookingApi } from "../../../web/e2e/support/bookings";
@@ -132,6 +140,46 @@ test(
         expect(paid.stripe[0]?.id).toBe(pending.stripe[0]?.id);
     },
 );
+
+test("EMBED-E2E-07 an invoice paid with a 3D Secure card inside the pay element on another site at phone width shows the challenge in the site's window, settles once and tells the site once", async ({
+    page,
+    request,
+}) => {
+    const invoice = await stripeInvoice(request);
+    await page.setViewportSize({ width: 390, height: 844 });
+    const site = await openSite(
+        page,
+        `<connect-pay token="${invoice.pay_token}"></connect-pay>\n<script src="${on("book", "/embed.js")}" async></script>`,
+    );
+    const frame = page.locator("connect-pay iframe");
+    const widget = frame.contentFrame();
+    await expect(widget.getByText("Grooming consultation", { exact: true })).toBeVisible();
+    await widget
+        .getByRole("button", { name: strings.publicPay.continueToPay, exact: true })
+        .click();
+    await enterStripeCard(await cardFrame(page), authenticatedCard);
+    await widget
+        .getByRole("button", {
+            name: strings.checkout.pay(formatMoneyWithCurrency(2000, "CAD")),
+            exact: true,
+        })
+        .click();
+    const complete = (await stripeChallenge(page)).getByRole("button", {
+        name: "Complete",
+        exact: true,
+    });
+    await expect.poll(() => inWindow(page, complete)).toBe(true);
+    await complete.click();
+    await expect(widget.getByRole("heading", { name: strings.publicPay.paidTitle })).toBeVisible();
+    await expectSizedToContent(frame);
+    const paid = await expectSettled(request, invoice);
+    expect(paid.stripe[0]?.three_d_secure).toMatchObject({
+        result: "authenticated",
+        authentication_flow: "challenge",
+    });
+    expect(page.url()).toBe(`${site}/`);
+    await expect.poll(() => successes(page)).toEqual(["pay"]);
+});
 
 test("STRIPE-BROWSER-04 closing a real 3DS challenge leaves the invoice unpaid after reload", async ({
     page,

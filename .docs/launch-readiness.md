@@ -46,7 +46,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 4. Book online                          | Returning-client sign-in by text code                       | [CB-25](https://linear.app/clientbridgeca/issue/CB-25) | Partly automated |
 | 4. Book online                          | Booking add-ons billed once                                 | [CB-26](https://linear.app/clientbridgeca/issue/CB-26) | Automated        |
 | 4. Book online                          | Reschedule and cancel by link                               | [CB-27](https://linear.app/clientbridgeca/issue/CB-27) | Automated        |
-| 4. Book online                          | Business page and website embed                             | [CB-28](https://linear.app/clientbridgeca/issue/CB-28) | Partly automated |
+| 4. Book online                          | Business page and website embed                             | [CB-28](https://linear.app/clientbridgeca/issue/CB-28) | Automated        |
 | 5. Sell at the desk and online          | Desk sales and receipts                                     | [CB-29](https://linear.app/clientbridgeca/issue/CB-29) | Partly automated |
 | 5. Sell at the desk and online          | Card payments at the desk                                   | [CB-30](https://linear.app/clientbridgeca/issue/CB-30) | Partly automated |
 | 5. Sell at the desk and online          | Tap to Pay                                                  | [CB-31](https://linear.app/clientbridgeca/issue/CB-31) | Partly automated |
@@ -1218,14 +1218,14 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 **QA steps**
 
-1. Open `<slug>.D` on a phone.
+1. Open the business page on its `<slug>.` host on a phone.
    **Expect:** cover, logo, services and links to booking and the shop on their own hosts, with nothing wider than the screen.
 2. On web, open Setup > Online booking, copy the booking link and the embed code, and download the QR.
-   **Expect:** the link and the scanned QR open the booking page; the code is a `<connect-booking>` element and the `embed.js` script from the `book.` host.
+   **Expect:** the link, the QR on screen and the downloaded QR file, scanned with a phone's camera, open the booking page; the code is a `<connect-booking>` element and the `embed.js` script from the `book.` host.
 3. Paste the copied code unchanged into the scratch page and open it on a phone and on a desktop, with the widget below the fold.
    **Expect:** the widget loads from the `book.` host, sizes itself to its content as it changes, and the host page never scrolls sideways.
 4. Book a visit inside the embedded widget, paying the deposit with the 3D Secure test card.
-   **Expect:** the check and the payment finish inside the frame, the visit shows on the schedule once, and the host page receives one `connect:success` event for `booking`.
+   **Expect:** the check and the payment finish inside the frame, with the bank's challenge in view on the phone without scrolling, the visit shows on the schedule once, and the host page receives one `connect:success` event for `booking`.
 5. Replace the code with the single script (`<script src=".../embed.js" data-slug="..." data-label="Book a visit">`), open the drawer, press Escape inside the widget, then open it and use Close.
    **Expect:** the drawer opens and closes both ways and focus returns to the launcher.
 6. Repeat steps 3 to 5 in Safari and Firefox.
@@ -1240,19 +1240,19 @@ Clients find the business, book and pay a deposit, and change their plans withou
 **Automated by**
 
 - `EMBED-E2E-01 (connect)`
+- `EMBED-E2E-02 (connect)`
+- `EMBED-E2E-03 (web)`
+- `EMBED-E2E-04 (stripe)`
+- `EMBED-E2E-05 (connect)`
+- `EMBED-E2E-06 (connect)`
+- `EMBED-E2E-07 (stripe)`
 - `OPS-E2E-06 (connect)`
 - `XB-E2E-09 (connect)`
-- `connect: embed.e2e.ts › the single-script booking drawer opens, closes and restores focus`
+- `app-core: payCode.test.ts › encodes $value as the reference version $version symbol`
+- `connect: publicLanding.e2e.ts › the business page on a phone shows its cover, logo and services and links to booking and the shop on their own hosts`
 - `connect: shell.e2e.ts › every client page explains an invalid link without offering a transaction`
+- `connect: shell.e2e.ts › the business page renders without overflow at phone width`
 - `connect: smoke/connect.smoke.ts (hosts, framing, widgets)`
-
-**To automate**
-
-- `EMBED-E2E-02` in `apps/connect/e2e/embed.e2e.ts`, tagged `@browsers`: On a page served from another origin at phone width, a visit booked inside the inline booking widget reaches the staff schedule once, the host page gets one `connect:success` for `booking`, and the page never scrolls sideways.
-- `EMBED-E2E-03` in `apps/web/e2e/onlineBooking.e2e.ts`: Online booking settings copy the booking link and the embed code, the downloaded QR decodes to the same link, and the copied code served unchanged on another origin loads the booking widget from the `book.` host.
-- `EMBED-E2E-04` in `apps/connect/e2e/stripe/deposit.stripe.ts`: A deposit paid with a 3D Secure card inside the embedded widget completes in the frame, books the visit and posts the payment to the ledger once.
-- `EMBED-E2E-05` in `apps/connect/e2e/embed.e2e.ts`, tagged `@browsers`: The single-script drawer closes when Escape is pressed inside the widget and returns focus to the launcher.
-- `EMBED-E2E-06` in `apps/connect/e2e/embed.e2e.ts`: The `connect-pay`, `connect-form` and `connect-contract` elements load their pages from their own hosts and send `connect:success` when the client finishes.
 
 **Depends on:** Nothing
 

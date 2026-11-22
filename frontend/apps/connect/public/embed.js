@@ -176,6 +176,8 @@
                 dismiss: () => {
                     if (dialog.open) dialog.close();
                 },
+                resize: () => undefined,
+                overlay: () => undefined,
                 updateBrand: (brand) => {
                     if (!isBrand(brand)) return;
                     const initial = brand.name.slice(0, 1);
@@ -216,8 +218,33 @@
             const footer = document.createElement("footer");
             frame.append(header, iframe, footer);
             root.append(style, frame);
+            let requested = 200;
+            let overlaid = false;
+            let returnTo = 0;
+            const fit = () => {
+                if (!iframe.isConnected) window.removeEventListener("resize", fit);
+                const height = overlaid ? Math.min(requested, window.innerHeight) : requested;
+                iframe.style.height = String(height) + "px";
+            };
             return {
                 dismiss: () => undefined,
+                resize: (height) => {
+                    requested = height;
+                    fit();
+                },
+                overlay: (open) => {
+                    if (open === overlaid) return;
+                    overlaid = open;
+                    if (open) {
+                        returnTo = window.scrollY;
+                        window.addEventListener("resize", fit);
+                    } else {
+                        window.removeEventListener("resize", fit);
+                    }
+                    fit();
+                    if (open) iframe.scrollIntoView({ block: "nearest" });
+                    else window.scrollTo({ top: returnTo });
+                },
                 updateBrand: (brand) => {
                     if (!isBrand(brand)) return;
                     name.textContent = brand.name.slice(0, 160);
@@ -268,7 +295,7 @@
                             ? drawer(this, iframe, base, title)
                             : inline(this, iframe, base, title);
                         this.frame = iframe;
-                        registry.push({ host: this, iframe, base, floating, ...parts });
+                        registry.push({ host: this, iframe, base, ...parts });
                     }
                     disconnectedCallback() {
                         registry = registry.filter((entry) => entry.host !== this);
@@ -306,9 +333,14 @@
             const entry = registry.find((r) => r.iframe.contentWindow === e.source);
             if (entry?.base !== e.origin) return;
             if (data.type === "resize" && "height" in data && typeof data.height === "number") {
-                if (entry.floating) return;
                 const height = Number.isFinite(data.height) ? data.height : 200;
-                entry.iframe.style.height = String(Math.min(Math.max(height, 120), 20000)) + "px";
+                entry.resize(Math.min(Math.max(height, 120), 20000));
+            } else if (
+                data.type === "overlay" &&
+                "open" in data &&
+                typeof data.open === "boolean"
+            ) {
+                entry.overlay(data.open);
             } else if (data.type === "dismiss") {
                 entry.dismiss();
             } else if (data.type === "brand") {

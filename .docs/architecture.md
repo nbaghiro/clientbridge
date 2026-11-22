@@ -1253,7 +1253,7 @@ The public surfaces (book/pay/form/contract + a per-business landing) live in th
 Each `public*` domain is a `createPublicXClient(baseUrl)` factory doing plain `fetch` against token/slug-
 authed endpoints (the URL is the only credential). `apps/connect/public/embed.js` is the host-side iframe
 loader: custom elements (`<connect-booking|shop|pay|form|contract>`) that mount the widget from its own
-host, with a `postMessage` resize and success protocol. `make gen-strings` builds it from `src/embedLoader.ts` with the `embed.*` catalog messages
+host, with a `postMessage` resize, success and overlay protocol: while a widget shows a modal layer, such as a dialog or Stripe's 3D Secure challenge, an inline frame shrinks to at most the window's height and scrolls into view, since the layer centres in the frame's own viewport, and the page scrolls back to where it was when the layer closes. `make gen-strings` builds it from `src/embedLoader.ts` with the `embed.*` catalog messages
 inlined, so the host page loads neither React nor the catalog. The lean-bundle boundary is **enforced by lint**: `no-restricted-imports` bans `@powersync/*`
 from Connect and `app-core/public`.
 
