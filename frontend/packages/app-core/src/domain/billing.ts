@@ -960,14 +960,13 @@ export function useInvoiceRecord(id: string | null, payBase: string): InvoiceRec
         canSend: draft,
         canRemind: open,
         canRecord: open && balanceCents > 0 && settling !== "arriving",
-        // an applied deposit goes back to its visit on void, so only taken or pending money blocks it
+        // a deposit goes back to its visit on void, and the server refuses a payment in progress
         canVoid:
             draft ||
             (status !== "void" &&
                 status !== "paid" &&
                 status !== "refunded" &&
-                !credits.some((c) => c.event === "payment") &&
-                !payments.some((pm) => pm.status === "pending")),
+                !credits.some((c) => c.event === "payment")),
         rateNote: rateNote(rates),
     };
 }
