@@ -34,6 +34,10 @@ onFlowComplete:
 - tapOn: "Send invite"
 - assertVisible: ${output.first + " already has an invite. Resend it from Pending invites."}
 - takeScreenshot: invite-refused
+# the sheet scrolls the error into view, which can take its header above the fold
+- scrollUntilVisible:
+      element: "Cancel"
+      direction: UP
 - tapOn: "Cancel"
 - tapOn: "Invite teammate"
 - tapOn: "sam@example.com"

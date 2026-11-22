@@ -1,6 +1,6 @@
 import type { NoticeProps, NoticeTone } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import { useEffect, useRef } from "react";
+import { Children, useEffect, useRef } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import type { NativeProps } from "./props";
@@ -20,11 +20,15 @@ export function Notice({ tone, banner = false, children, style }: NativeProps<No
     const reveal = useReveal();
     const line = useRef<Text>(null);
     const box = useRef<View>(null);
+    // keyed on the text, since JSX children are new on every parent render
+    const text = Children.toArray(children)
+        .filter((child) => typeof child === "string" || typeof child === "number")
+        .join("");
     useEffect(() => {
         const target = line.current ?? box.current;
         // an error usually lands at the end of a sheet, below the fold
         if (tone === "danger" && reveal !== null && target !== null) reveal(target);
-    }, [tone, reveal, children]);
+    }, [tone, reveal, text]);
     if (!banner) {
         return (
             <Text

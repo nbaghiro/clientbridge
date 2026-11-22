@@ -37,7 +37,7 @@ export function DetailView({
     const revealed = useCallback((y: number) => {
         scrollOffset.current = y;
     }, []);
-    const { reveal, onScroll, ...tracking } = useScrollReveal(body, revealed);
+    const { reveal, innerViewRef } = useScrollReveal(body, revealed);
 
     useEffect(() => {
         scrolling.current = false;
@@ -84,19 +84,17 @@ export function DetailView({
             </View>
             <ScrollView
                 ref={body}
-                onLayout={(event) => {
-                    tracking.onLayout(event);
+                innerViewRef={innerViewRef}
+                onLayout={() => {
                     if (open) restoreScroll();
                 }}
                 onScrollBeginDrag={() => {
                     scrolling.current = true;
                 }}
                 onScroll={(event) => {
-                    onScroll(event);
                     if (open && scrolling.current)
                         scrollOffset.current = event.nativeEvent.contentOffset.y;
                 }}
-                onContentSizeChange={tracking.onContentSizeChange}
                 scrollEventThrottle={16}
                 style={[styles.body, tablet && styles.fillBody]}
                 contentContainerStyle={styles.bodyContent}

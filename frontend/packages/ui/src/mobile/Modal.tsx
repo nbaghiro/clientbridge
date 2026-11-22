@@ -54,7 +54,7 @@ export function Modal({
         Animated.timing(slide, { toValue: 1, duration: 220, useNativeDriver: true }).start();
     }, [open, panel, slide]);
     const scroller = useRef<ScrollView>(null);
-    const { reveal, ...tracking } = useScrollReveal(scroller);
+    const { reveal, innerViewRef } = useScrollReveal(scroller);
     useEffect(() => {
         scroller.current?.scrollTo({ y: 0, animated: false });
     }, [page]);
@@ -64,8 +64,7 @@ export function Modal({
             style={styles.scroll}
             contentContainerStyle={styles.framed}
             keyboardShouldPersistTaps="handled"
-            scrollEventThrottle={16}
-            {...tracking}
+            innerViewRef={innerViewRef}
         >
             <RevealProvider value={reveal}>{children}</RevealProvider>
         </ScrollView>
