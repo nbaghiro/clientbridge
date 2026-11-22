@@ -29,26 +29,28 @@ export function DocumentPreview({
 }) {
     return (
         <OverFlow>
-            <Modal onClose={onClose} size="xl">
-                <SheetHeader title={d.kinds[doc.kind]} />
-                <ScrollView style={styles.page}>
-                    <PrintedDocument doc={doc} />
-                </ScrollView>
-                <View style={styles.footer}>
-                    <Button variant="quiet" onPress={onClose}>
-                        {strings.common.close}
-                    </Button>
-                    {shareUrl !== null ? (
-                        <Button
-                            grow
-                            icon="external"
-                            onPress={() => {
-                                Share.share({ message: shareUrl }).catch(() => undefined);
-                            }}
-                        >
-                            {d.share}
+            <Modal onClose={onClose} size="xl" framed={false}>
+                <View style={styles.frame}>
+                    <SheetHeader title={d.kinds[doc.kind]} />
+                    <ScrollView style={styles.page}>
+                        <PrintedDocument doc={doc} />
+                    </ScrollView>
+                    <View style={styles.footer}>
+                        <Button variant="quiet" onPress={onClose}>
+                            {strings.common.close}
                         </Button>
-                    ) : null}
+                        {shareUrl !== null ? (
+                            <Button
+                                grow
+                                icon="external"
+                                onPress={() => {
+                                    Share.share({ message: shareUrl }).catch(() => undefined);
+                                }}
+                            >
+                                {d.share}
+                            </Button>
+                        ) : null}
+                    </View>
                 </View>
             </Modal>
         </OverFlow>
@@ -56,7 +58,9 @@ export function DocumentPreview({
 }
 
 const styles = StyleSheet.create({
-    page: { maxHeight: 520 },
+    // the footer stays on screen however short the phone, with the page scrolling above it
+    frame: { flex: 1, padding: 22, paddingBottom: 36, backgroundColor: c.surface },
+    page: { flex: 1, minHeight: 0 },
     footer: { flexDirection: "row", gap: 10, paddingTop: 12 },
 });
 

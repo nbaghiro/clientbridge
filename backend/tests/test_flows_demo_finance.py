@@ -292,20 +292,18 @@ def test_demo_sent_estimate_offers_addons_unpicked_and_totals_match_conversion()
         discount_value=10,
     )
     ctx.add(invoice)
-    for position, item_id in enumerate(("it_service",)):
-        source = ctx.get(Line, f"ln_optional_{position}")
-        ctx.add(
-            Line(
-                id=f"ln_accepted_{position}",
-                business_id=ctx.business_id,
-                invoice_id=invoice.id,
-                item_id=item_id,
-                quantity=source.quantity,
-                unit_amount_cents=source.unit_amount_cents,
-                amount_cents=source.amount_cents,
-                position=position,
-            )
+    ctx.add(
+        Line(
+            id="ln_accepted_0",
+            business_id=ctx.business_id,
+            invoice_id=invoice.id,
+            item_id="it_service",
+            quantity=base.quantity,
+            unit_amount_cents=base.unit_amount_cents,
+            amount_cents=base.amount_cents,
+            position=0,
         )
+    )
     accepted = Estimate(
         id="est_accepted_snapshot",
         business_id=ctx.business_id,

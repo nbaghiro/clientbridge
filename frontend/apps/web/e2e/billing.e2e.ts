@@ -1557,20 +1557,20 @@ test("BILL-DOC-27 an invoice, an estimate and a receipt printed to PDF carry the
         if (paid === undefined) throw new Error(`no completed visit paid on a ${paidOn}`);
         expect(paid.receipt.source).toBe(paidOn);
         await navigate(page, `/schedule?open=${paid.id}`);
-        // the visit reloads with its day, which would close a receipt opened before
-        await expect(page.getByText(strings.bookings.loading, { exact: true })).toHaveCount(0, {
-            timeout: 60_000,
-        });
         await page
             .getByRole("button", { name: strings.bookings.receipt, exact: true })
             .click({ timeout: 60_000 });
-        const receiptCopy = await printToPdf(page, () =>
-            page
-                .getByRole("dialog")
-                .last()
-                .getByRole("button", { name: d.print, exact: true })
-                .click(),
-        );
+        const printReceipt = page
+            .getByRole("dialog")
+            .last()
+            .getByRole("button", { name: d.print, exact: true });
+        await expect(printReceipt).toBeVisible();
+        // the schedule finishing the visit's day behind it leaves the open receipt in place
+        await expect(
+            page.getByRole("status", { name: strings.bookings.loading, exact: true }),
+        ).toHaveCount(0, { timeout: 60_000 });
+        await expect(printReceipt).toBeVisible();
+        const receiptCopy = await printToPdf(page, () => printReceipt.click());
         expectCopy(receiptCopy, "receipt", paid.receipt);
         expect(receiptCopy.pages).toHaveLength(1);
         // leaving the visit closes its receipt, and the sheet it printed goes with it
