@@ -243,7 +243,7 @@ async def test_package_tax_and_dated_visit_consumption_use_real_posting(
     assert all(row.occurred_at == used_at and row.source_id == booking.id for row in entries)
 
 
-def test_demo_optional_estimate_totals_exclude_unselected_addons_and_match_conversion() -> None:
+def test_demo_sent_estimate_offers_addons_unpicked_and_totals_match_conversion() -> None:
     ctx = DemoContext(datetime(2026, 10, 8, tzinfo=UTC), "bz_test", "us_test")
     ctx.add(Business(id=ctx.business_id, province="BC", tax_registered=True))
     for item_id, price, tax_class in (
@@ -276,14 +276,15 @@ def test_demo_optional_estimate_totals_exclude_unselected_addons_and_match_conve
     prepare_estimates(ctx)
     price_documents(ctx)
     assert (estimate.subtotal_cents, estimate.tax_total_cents, estimate.total_cents) == (
-        10800,
-        540,
-        11340,
+        9000,
+        450,
+        9450,
     )
-    selected, unselected = ctx.get(Line, "ln_optional_1"), ctx.get(Line, "ln_optional_2")
-    assert selected.optional and selected.selected and selected.sale_discount_cents == 200
-    assert unselected.optional and not unselected.selected and unselected.sale_discount_cents == 0
-    assert unselected.amount_cents == 2400 and unselected.tax_amount_cents == 288
+    base, deshed, shampoo = (ctx.get(Line, f"ln_optional_{n}") for n in range(3))
+    assert not base.optional and base.sale_discount_cents == 1000
+    for addon in (deshed, shampoo):
+        assert addon.optional and not addon.selected and addon.sale_discount_cents == 0
+    assert shampoo.amount_cents == 2400 and shampoo.tax_amount_cents == 288
     invoice = Invoice(
         id="inv_accepted_snapshot",
         business_id=ctx.business_id,
@@ -291,20 +292,18 @@ def test_demo_optional_estimate_totals_exclude_unselected_addons_and_match_conve
         discount_value=10,
     )
     ctx.add(invoice)
-    for position, item_id in enumerate(("it_service", "it_deshed")):
-        source = ctx.get(Line, f"ln_optional_{position}")
-        ctx.add(
-            Line(
-                id=f"ln_accepted_{position}",
-                business_id=ctx.business_id,
-                invoice_id=invoice.id,
-                item_id=item_id,
-                quantity=source.quantity,
-                unit_amount_cents=source.unit_amount_cents,
-                amount_cents=source.amount_cents,
-                position=position,
-            )
+    ctx.add(
+        Line(
+            id="ln_accepted_0",
+            business_id=ctx.business_id,
+            invoice_id=invoice.id,
+            item_id="it_service",
+            quantity=base.quantity,
+            unit_amount_cents=base.unit_amount_cents,
+            amount_cents=base.amount_cents,
+            position=0,
         )
+    )
     accepted = Estimate(
         id="est_accepted_snapshot",
         business_id=ctx.business_id,
@@ -316,7 +315,7 @@ def test_demo_optional_estimate_totals_exclude_unselected_addons_and_match_conve
     price_documents(ctx)
     assert accepted.total_cents == invoice.total_cents == estimate.total_cents
     assert accepted.discount_kind == "percent" and accepted.discount_value == 10
-    assert len([r for r in ctx.all(Line) if r.estimate_id == accepted.id]) == 2
+    assert len([r for r in ctx.all(Line) if r.estimate_id == accepted.id]) == 1
 
 
 @pytest.mark.parametrize("hour", [0, 7, 12, 18, 23])

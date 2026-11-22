@@ -2194,6 +2194,8 @@ class PublicEstimateService:
             number=estimate.number,
             business_name=business.name,
             brand=public_brand(business),
+            address=public_address(business),
+            phone=business.legal_phone,
             contact_email=business.billing_email,
             gst_hst_number=business.gst_hst_number,
             qst_number=business.qst_number,

@@ -1067,7 +1067,6 @@ export interface PrintedDocLabels {
     howToPay: string;
     scanToPay: string;
     paymentMethod: string;
-    page: string;
     forSubject: (name: string) => string;
     qtyTimes: (qty: number, price: string) => string;
 }
@@ -1081,8 +1080,6 @@ export interface PrintedDoc {
     // The number as printed ("#1002", "Draft") and with the kind ("Invoice #1002").
     reference: string;
     heading: string;
-    // The last meta row as one line under the headline ("Due October 20, 2026").
-    deadline: string;
     business: {
         name: string;
         initials: string;

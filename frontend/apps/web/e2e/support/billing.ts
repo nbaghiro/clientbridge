@@ -3,11 +3,19 @@ import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { demoPerson } from "@clientbridge/config/e2e/demo";
-import { strings, formatMoney } from "@clientbridge/app-core/public";
+import {
+    type PostalParts,
+    addressLines,
+    formatMoney,
+    formatPhone,
+    registrationLine,
+    strings,
+    taxRateLabel,
+} from "@clientbridge/app-core/public";
 import { expect, type Page, type Locator } from "@playwright/test";
 import { requireLocalMail } from "./evidence";
 import { navigate } from "./session";
-import { runUrl } from "@clientbridge/config/e2e/run";
+import { demoId, runUrl } from "@clientbridge/config/e2e/run";
 import { freshPhone, type Text, textsTo } from "./auth";
 import { select } from "./db";
 
@@ -472,4 +480,62 @@ export async function cardPaid(
         },
     );
     return JSON.parse(stdout) as Record<string, string | null>;
+}
+
+/** A printed document's record as its public page and receipt endpoints return it. */
+export interface PrintableRecord {
+    number: number | null;
+    source?: "invoice" | "sale";
+    client_name: string | null;
+    currency: string;
+    total_cents: number;
+    tip_cents?: number;
+    lines: { description: string; amount_cents: number }[];
+    taxes: { code: string; rate_bps: number; cents: number }[];
+}
+
+/** What a printed copy must show of its record: who it's for, each line, each tax and the total. */
+export function printedRecord(record: PrintableRecord): { content: string[]; together: string[] } {
+    const money = (cents: number): string => formatMoney(cents, record.currency);
+    const total = money(record.total_cents + (record.tip_cents ?? 0));
+    return {
+        content: [
+            record.client_name ?? "",
+            ...record.lines.flatMap((line) => [line.description, money(line.amount_cents)]),
+            ...record.taxes.map((tax) => taxRateLabel(tax.code, tax.rate_bps)),
+        ].filter((text) => text !== ""),
+        together: [...record.taxes.map((tax) => money(tax.cents)), total],
+    };
+}
+
+/** The run's Birchbark as its documents print it: the letterhead, and the closing lines. */
+export async function printedLetterhead(): Promise<{ head: string[]; footer: string[] }> {
+    const [business] = await select<
+        PostalParts & {
+            name: string;
+            legal_phone: string | null;
+            gst_hst_number: string | null;
+            qst_number: string | null;
+        }
+    >`
+        SELECT name, unit, street_number, street_name, city, province, postal_code, legal_phone,
+            gst_hst_number, qst_number
+        FROM businesses WHERE id = ${demoId("bz_birchbark")}`;
+    if (business === undefined) throw new Error("the run's Birchbark is missing");
+    const registration = registrationLine(business.gst_hst_number, business.qst_number);
+    expect(registration).not.toBe("");
+    return {
+        head: [business.name, ...addressLines(business), formatPhone(business.legal_phone)],
+        footer: [strings.printing.thanks, registration],
+    };
+}
+
+/** Enough lines, half of them taxed GST and PST and the rest exempt, to run an invoice past a page. */
+export function longInvoiceLines(count: number): Record<string, unknown>[] {
+    return Array.from({ length: count }, (_, i) => ({
+        description: `Coat care visit ${String(i + 1)} with brushing and nail trim`,
+        quantity: 1 + (i % 3),
+        unit_amount_cents: 1000 + i * 125,
+        tax_class: i % 2 === 0 ? "standard" : "exempt",
+    }));
 }

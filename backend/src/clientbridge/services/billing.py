@@ -31,7 +31,7 @@ from clientbridge.schemas.billing import (
     InvoiceUpdate,
     LineInput,
 )
-from clientbridge.schemas.orders import VisitReceipt
+from clientbridge.schemas.orders import BookingReceipt
 from clientbridge.services import ledger
 from clientbridge.services.bookings import apply_deposit, hold_estimate, is_program, unapply_deposit
 from clientbridge.services.business import business_tz, businesses_at_hour
@@ -53,7 +53,12 @@ from clientbridge.services.lines import (
     replace_lines,
     set_discount,
 )
-from clientbridge.services.notifications import queued_notifier
+from clientbridge.services.notifications import (
+    pay_link,
+    queued_notifier,
+    receipt_link,
+    visit_link,
+)
 from clientbridge.services.payments import close_settled_visit, sync_invoice
 from clientbridge.services.tax import (
     TaxSettings,
@@ -490,7 +495,7 @@ class BillingService:
             request={"booking_id": booking_id},
         )
 
-    async def visit_receipt(self, booking_id: str) -> VisitReceipt:
+    async def visit_receipt(self, booking_id: str) -> BookingReceipt:
         assert_role(
             self.principal, "owner", "admin", message="only an owner or admin can print receipts"
         )
@@ -498,9 +503,17 @@ class BillingService:
         business = await self.db.get(Business, self.biz)
         if business is None:
             raise NotFound("business not found")
-        from clientbridge.services.public import visit_receipt
+        from clientbridge.services.public import visit_document, visit_receipt
 
-        return await visit_receipt(self.db, booking, business)
+        receipt = await visit_receipt(self.db, booking, business)
+        link = visit_link(booking)
+        if link is None:
+            document = await visit_document(self.db, booking)
+            if isinstance(document, Invoice) and document.pay_token is not None:
+                link = pay_link(document.pay_token)
+            elif isinstance(document, Order) and document.receipt_token is not None:
+                link = receipt_link(document.receipt_token)
+        return BookingReceipt(**dict(receipt), link=link)
 
     async def _booking(self, booking_id: str, *, lock: bool = False) -> Booking:
         query = scoped(Booking, self.biz, soft_delete=True).where(Booking.id == booking_id)

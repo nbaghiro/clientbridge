@@ -26,6 +26,15 @@ const sent: PublicEstimate = {
     number: 4,
     business_name: "Birch Studio",
     brand: { logo_url: null, primary: null, tagline: null },
+    address: {
+        unit: null,
+        street_number: null,
+        street_name: null,
+        city: null,
+        province: null,
+        postal_code: null,
+    },
+    phone: null,
     contact_email: null,
     gst_hst_number: null,
     qst_number: null,
@@ -127,14 +136,24 @@ it("shows a converted estimate as an invoice to come and offers nothing more to 
     await waitFor(() => {
         expect(result.current.status).toBe("converted");
     });
-    const printed = result.current.printed("#000");
-    expect(printed?.instructions).toEqual([]);
+    const printed = result.current.printed("https://pay.test/e/tok", "#000");
+    expect([printed?.instructions, printed?.payUrl]).toEqual([[], null]);
     expect(printed?.labels.howToPay).toBe(strings.printing.howToAccept);
 });
 
-it("tells the client to accept before the date while the estimate is open", async () => {
+it("prints where to accept online and the date to accept by, with the business's address and phone, while the estimate is open", async () => {
     const client = {
-        getEstimate: vi.fn().mockResolvedValue({ ...sent, valid_until: "2026-10-27" }),
+        getEstimate: vi.fn().mockResolvedValue({
+            ...sent,
+            valid_until: "2026-10-27",
+            address: {
+                ...sent.address,
+                street_number: "1207",
+                street_name: "Government Street",
+                city: "Victoria",
+            },
+            phone: "+12505550110",
+        }),
         quote: vi.fn(),
         accept: vi.fn(),
         decline: vi.fn(),
@@ -143,8 +162,17 @@ it("tells the client to accept before the date while the estimate is open", asyn
     await waitFor(() => {
         expect(result.current.status).toBe("open");
     });
-    expect(result.current.printed("#000")?.instructions).toEqual([
-        strings.printing.acceptBy(longDate("2026-10-27", "America/Vancouver")),
+    const printed = result.current.printed("https://pay.test/e/tok", "#000");
+    expect([printed?.payUrl, printed?.instructions]).toEqual([
+        "https://pay.test/e/tok",
+        [
+            strings.printing.acceptOnline("https://pay.test/e/tok"),
+            strings.printing.acceptBy(longDate("2026-10-27", "America/Vancouver")),
+        ],
+    ]);
+    expect([printed?.business.address, printed?.business.phone]).toEqual([
+        ["1207 Government Street", "Victoria"],
+        "(250) 555-0110",
     ]);
 });
 

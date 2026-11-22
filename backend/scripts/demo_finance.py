@@ -196,9 +196,7 @@ def prepare_estimates(ctx: DemoContext) -> None:
             _line(ctx, "it_groom_lg", f"ln_{estimate.id}", estimate_id=estimate.id)
         if estimate.id == "est_1001":
             for line in lines:
-                if line.item_id in {"it_deshed", "it_shampoo"}:
-                    line.optional = True
-                    line.selected = line.item_id == "it_deshed"
+                line.optional = line.item_id in {"it_deshed", "it_shampoo"}
         if estimate.accepted_at:
             estimate.created_at = estimate.accepted_at - timedelta(days=2)
             estimate.updated_at = estimate.accepted_at

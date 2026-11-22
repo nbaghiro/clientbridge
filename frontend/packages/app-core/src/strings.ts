@@ -492,7 +492,6 @@ interface Strings {
                 readonly estimate: string;
                 readonly receipt: string;
             } & Labels;
-            readonly fileName: (business: string, kind: string, n: string) => string;
             readonly print: string;
             readonly download: string;
             readonly share: string;
@@ -526,6 +525,7 @@ interface Strings {
         readonly forInvoice: string;
         readonly forSale: string;
         readonly practitioner: string;
+        readonly servedBy: string;
         readonly assistedBy: string;
         readonly serviceDate: string;
         readonly service: string;
@@ -544,7 +544,8 @@ interface Strings {
         readonly acceptOnline: (url: string) => string;
         readonly acceptBy: (when: string) => string;
         readonly thanks: string;
-        readonly page: (page: number, pages: number) => string;
+        readonly fileTitle: (business: string, kind: string, n: string) => string;
+        readonly fileTitleUnnamed: (kind: string, n: string) => string;
         readonly streetLine: (number: string, street: string) => string;
         readonly unitStreetLine: (unit: string, number: string, street: string) => string;
         readonly registration: (first: string, second: string) => string;
@@ -559,7 +560,6 @@ interface Strings {
         readonly reference: (number: string) => string;
         readonly saleNumber: (n: number) => string;
         readonly heading: (title: string, reference: string) => string;
-        readonly deadline: (label: string, date: string) => string;
         readonly headingFor: (title: string, name: string) => string;
         readonly plan: string;
         readonly draftNumber: string;

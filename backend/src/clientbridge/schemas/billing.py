@@ -6,7 +6,7 @@ from clientbridge.core.mirrors import Mirror
 from clientbridge.models.billing import DiscountKind, Estimate, Invoice, Line
 from clientbridge.models.catalog import TaxClass
 from clientbridge.schemas.payments import PublicDocLine, PublicDocTax
-from clientbridge.schemas.public import PublicBrand
+from clientbridge.schemas.public import PublicAddress, PublicBrand
 
 
 class DiscountIn(BaseModel):
@@ -166,6 +166,8 @@ class PublicEstimate(BaseModel):
     number: int | None
     business_name: str
     brand: PublicBrand
+    address: PublicAddress = Field(default_factory=PublicAddress)
+    phone: str | None = Field(default=None, description="The business's legal phone number")
     contact_email: str | None
     gst_hst_number: str | None
     qst_number: str | None
