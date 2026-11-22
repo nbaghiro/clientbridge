@@ -332,9 +332,11 @@ function brandField(brand: string | null, key: string): string | null {
     }
 }
 
-export function useLetterhead(apiBaseUrl: string): Letterhead {
+// `loaded` stays false until the business row is read, so nothing prints a blank letterhead
+export function useLetterhead(apiBaseUrl: string): Letterhead & { loaded: boolean } {
     const row = useQuery<LetterheadRow>(LETTERHEAD_SQL).data[0];
     return {
+        loaded: row !== undefined,
         name: row?.name ?? "",
         avatarUrl: mediaUrl(apiBaseUrl, brandField(row?.brand ?? null, "logo_file_id")),
         tagline: brandField(row?.brand ?? null, "tagline"),

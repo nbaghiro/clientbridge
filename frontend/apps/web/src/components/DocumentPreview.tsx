@@ -48,7 +48,15 @@ export function Paper({ doc }: { doc: PrintedDoc }) {
 }
 
 /** A record's letterhead page: print it, or save it as PDF. */
-export function DocumentPane({ doc, attached }: { doc: PrintedDoc; attached: string }) {
+export function DocumentPane({
+    doc,
+    attached,
+    ready = true,
+}: {
+    doc: PrintedDoc;
+    attached: string;
+    ready?: boolean;
+}) {
     const printing = usePrintSheet();
     const print = (): void => {
         printing.print(printedTitle(doc));
@@ -64,10 +72,10 @@ export function DocumentPane({ doc, attached }: { doc: PrintedDoc; attached: str
                         </p>
                     ) : null}
                     <div className="ml-auto flex items-center gap-2">
-                        <Button variant="outline" icon="printer" onPress={print}>
+                        <Button variant="outline" icon="printer" disabled={!ready} onPress={print}>
                             {d.print}
                         </Button>
-                        <Button icon="receipt" onPress={print}>
+                        <Button icon="receipt" disabled={!ready} onPress={print}>
                             {d.download}
                         </Button>
                     </div>
@@ -84,10 +92,12 @@ export function DocumentPane({ doc, attached }: { doc: PrintedDoc; attached: str
 export function DocumentPreview({
     doc,
     attached,
+    ready = true,
     onClose,
 }: {
     doc: PrintedDoc;
     attached: string;
+    ready?: boolean;
     onClose: () => void;
 }) {
     return (
@@ -102,7 +112,7 @@ export function DocumentPreview({
                     </div>
                 </header>
                 <div className="min-h-0 flex-1">
-                    <DocumentPane doc={doc} attached={attached} />
+                    <DocumentPane doc={doc} attached={attached} ready={ready} />
                 </div>
             </div>
         </Modal>

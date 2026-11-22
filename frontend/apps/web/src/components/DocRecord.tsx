@@ -246,6 +246,7 @@ export function InvoicePanel({ id, onClose }: { id: string; onClose: () => void 
                         <DocumentPane
                             doc={printedInvoice(rec, letterhead, cssVar("accent"))}
                             attached={sentAt}
+                            ready={letterhead.loaded}
                         />
                     </div>
                 </div>
@@ -254,6 +255,7 @@ export function InvoicePanel({ id, onClose }: { id: string; onClose: () => void 
                 <DocumentPreview
                     doc={printedInvoice(rec, letterhead, cssVar("accent"))}
                     attached={sentAt}
+                    ready={letterhead.loaded}
                     onClose={() => {
                         setPreviewing(false);
                     }}
@@ -531,7 +533,11 @@ export function EstimatePanel({ id, onClose }: { id: string; onClose: () => void
                         </DetailSection>
                     </DetailView>
                     <div className="min-h-0 @max-4xl:hidden">
-                        <DocumentPane doc={estimateDoc} attached={estimateSent} />
+                        <DocumentPane
+                            doc={estimateDoc}
+                            attached={estimateSent}
+                            ready={letterhead.loaded}
+                        />
                     </div>
                 </div>
             </div>
@@ -539,6 +545,7 @@ export function EstimatePanel({ id, onClose }: { id: string; onClose: () => void
                 <DocumentPreview
                     doc={estimateDoc}
                     attached={estimateSent}
+                    ready={letterhead.loaded}
                     onClose={() => {
                         setPreviewing(false);
                     }}
