@@ -66,7 +66,7 @@ import {
     usePeoplePhotos,
 } from "./files";
 import { canManagePayments } from "./payments";
-import { isPlace, mapsUrl, visitAddress } from "./publicBooking";
+import { durationLabel, isPlace, mapsUrl, visitAddress } from "./publicBooking";
 import { type BookingReceipt, type VisitReceiptView, useVisitReceipt } from "./publicReceipt";
 import { type ResourceRow, activePool, resourceName, useResources } from "./resources";
 import { type StaffRow, staffName, staffNameSql, useStaff } from "./staff";
@@ -2998,7 +2998,9 @@ export function useBookingAddons(
                 label: x.name,
                 detail: formatParts([
                     formatMoney(x.price_cents, BUSINESS_CURRENCY),
-                    (x.duration_min ?? 0) > 0 ? s.addonAdds(x.duration_min ?? 0) : null,
+                    (x.duration_min ?? 0) > 0
+                        ? s.addonAdds(durationLabel(x.duration_min ?? 0))
+                        : null,
                 ]),
             })),
         // a key serves retries of a failed attempt; once one lands the next one is a new command

@@ -1276,6 +1276,29 @@ describe("app-core SQL against the replica schema", () => {
         ]);
     });
 
+    it("takes a visit's held deposit off what a draft will ask for once sent", () => {
+        const due = () => pick(run("INVOICE_SQL", ["inv_2"]), "due_once_sent_cents")[0];
+        expect(due()).toEqual({ due_once_sent_cents: 5000 });
+        scoped("lines", [
+            {
+                id: "ln_draft_visit",
+                invoice_id: "inv_2",
+                description: "Cut",
+                booking_id: "bk_1",
+                quantity: 1,
+                unit_amount_cents: 5000,
+                amount_cents: 5000,
+                position: 0,
+            },
+        ]);
+        expect(due()).toEqual({ due_once_sent_cents: 2250 });
+        db.run("UPDATE bookings SET deposit_status = 'refunded' WHERE id = 'bk_1'");
+        expect(due()).toEqual({ due_once_sent_cents: 5000 });
+        expect(pick(run("INVOICE_SQL", ["inv_1"]), "due_once_sent_cents")).toEqual([
+            { due_once_sent_cents: null },
+        ]);
+    });
+
     it("names an issued unnumbered invoice after its plan, but not a voided draft", () => {
         scoped("invoices", [
             {

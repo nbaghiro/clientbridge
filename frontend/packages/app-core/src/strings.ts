@@ -1320,7 +1320,7 @@ interface Strings {
         readonly addonRemoveError: string;
         readonly addonAdd: string;
         readonly addonPick: string;
-        readonly addonAdds: (n: number) => string;
+        readonly addonAdds: (length: string) => string;
         readonly addonAddError: string;
         readonly crewTitle: string;
         readonly crewHint: string;

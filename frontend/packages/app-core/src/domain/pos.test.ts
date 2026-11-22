@@ -388,18 +388,22 @@ describe("a visit on the desk ticket", () => {
         addonLines: [sold("shampoo", "product", 1200), sold("brush", "product", 800)],
     } as CheckoutVisit;
 
-    it("rings up the visit with its add-ons, and drops one add-on without the visit", () => {
+    it("rings up the visit with its add-ons, which stay on the ticket while the visit does", () => {
         const { result } = renderHook(() => useSale(api, { platform: "web" }), { wrapper });
         act(() => {
             result.current.addVisit(visit);
         });
         expect(result.current.lines.map((l) => l.key)).toEqual(["bath", "shampoo", "brush"]);
         expect(result.current.totals.depositCents).toBe(1000);
+        expect(result.current.views.map((v) => [v.key, v.removable])).toEqual([
+            ["bath", true],
+            ["shampoo", false],
+            ["brush", false],
+        ]);
         act(() => {
             result.current.removeLine("shampoo");
         });
-        expect(result.current.lines.map((l) => l.key)).toEqual(["bath", "brush"]);
-        expect(result.current.totals.depositCents).toBe(1000);
+        expect(result.current.lines.map((l) => l.key)).toEqual(["bath", "shampoo", "brush"]);
     });
 
     it("takes the visit's add-ons and deposit off with the visit", () => {

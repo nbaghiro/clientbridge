@@ -678,6 +678,13 @@ test.describe(() => {
                 .filter((entry) => entry.event === "application")
                 .map((entry) => [entry.category, entry.amount_cents]),
         ).toEqual([["receivable", -deposit]]);
+
+        // only the deposit paid toward it, so staff can still void it and the deposit goes back
+        expect(await voidInvoice(page, draft.id)).toBe(200);
+        const voided = await documentEvidence("invoice", draft.id);
+        expect(voided.bookings).toEqual([
+            { id: visit, status: "confirmed", deposit_status: "collected", invoice_id: null },
+        ]);
     });
 
     test("BILL-DOC-22 a declined estimate can't be converted, and a client answering after conversion is refused", async ({
