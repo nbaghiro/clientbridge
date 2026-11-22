@@ -60,6 +60,7 @@ export function Remittances() {
     const csv = useReportFile(
         api,
         due === null ? { start: "", end: "" } : { start: due.start, end: due.end },
+        "gstHst",
         saveCsv,
     );
 

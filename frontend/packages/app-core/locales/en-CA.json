@@ -11396,6 +11396,11 @@
     "reports.library.staffPay": {
         "message": "Staff pay"
     },
+    "reports.itemCount": {
+        "message": "{n, plural, one {# item} other {# items}}",
+        "description": "How many different items sold in the period, beside Sales by item.",
+        "args": ["n"]
+    },
     "reports.libraryHint.income": {
         "message": "Sales and how clients paid"
     },
@@ -11590,10 +11595,6 @@
     },
     "reports.qty": {
         "message": "{n, number, ::.00/w}",
-        "args": ["n"]
-    },
-    "reports.sold": {
-        "message": "{n, number, ::.00/w} sold",
         "args": ["n"]
     },
     "reports.taxableSales": {

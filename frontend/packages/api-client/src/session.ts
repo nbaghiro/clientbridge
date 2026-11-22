@@ -21,7 +21,11 @@ interface SessionOptions {
     onSignedOut: () => void;
     /** Called when the session needs a second factor before the API answers. */
     onStepUp?: () => void;
+    /** Carries `postBytes`; mobile swaps it because expo/fetch drops `application/zip` bodies on iOS. */
+    binaryFetch?: Transport;
 }
+
+type Transport = (url: string, init: RequestInit) => Promise<Response>;
 
 /** `idempotencyKey` is sent as `Idempotency-Key` so a retried command dedups server-side. */
 export interface PostOptions {
@@ -33,6 +37,8 @@ export interface Session {
     /** Authenticated GET returning the raw body text (non-JSON endpoints, e.g. report .csv exports). */
     getText(path: string): Promise<string>;
     post<T>(path: string, body: unknown, opts?: PostOptions): Promise<T>;
+    /** Authenticated POST returning the raw body bytes (the bookkeeper ZIP). */
+    postBytes(path: string, body: unknown): Promise<Uint8Array<ArrayBuffer>>;
     patch<T>(path: string, body: unknown): Promise<T>;
     delete<T>(path: string, opts?: PostOptions): Promise<T>;
     /** Authenticated fetch with the same sign-out-on-401 behavior — used by the PowerSync connector. */
@@ -98,6 +104,7 @@ export function createSession(opts: SessionOptions): Session {
         init: RequestInit = {},
         subject?: string,
         businessId?: string | null,
+        transport: Transport = fetch,
     ): Promise<Response> => {
         const generation = epoch.value;
         const assertCurrent = (): void => {
@@ -121,7 +128,7 @@ export function createSession(opts: SessionOptions): Session {
         init.signal?.addEventListener("abort", abort, { once: true });
         if (init.signal?.aborted) controller.abort();
         try {
-            const res = await fetch(`${opts.baseUrl}${path}`, {
+            const res = await transport(`${opts.baseUrl}${path}`, {
                 ...init,
                 headers,
                 signal: controller.signal,
@@ -158,6 +165,25 @@ export function createSession(opts: SessionOptions): Session {
         return value;
     };
 
+    const bytes = async (
+        path: string,
+        body: unknown,
+        businessId: string | null,
+    ): Promise<Uint8Array<ArrayBuffer>> => {
+        const generation = epoch.value;
+        const res = await authFetch(
+            path,
+            { method: "POST", headers: JSON_HEADERS, body: JSON.stringify(body) },
+            undefined,
+            businessId,
+            opts.binaryFetch,
+        );
+        if (!res.ok) throw await refused(res, `POST ${path}`);
+        const value = new Uint8Array(await res.arrayBuffer());
+        if (generation !== epoch.value) throw new Error("session changed during response");
+        return value;
+    };
+
     const bound = (businessId: string | null): Session => ({
         authFetch: (path, init) => authFetch(path, init, undefined, businessId),
         authFetchFor: (subject) => (path, init) => authFetch(path, init, subject, businessId),
@@ -176,6 +202,8 @@ export function createSession(opts: SessionOptions): Session {
                 },
                 businessId,
             ),
+        postBytes: (path: string, body: unknown): Promise<Uint8Array<ArrayBuffer>> =>
+            bytes(path, body, businessId),
         patch: <T>(path: string, body: unknown, options?: PostOptions): Promise<T> =>
             json<T>(
                 path,

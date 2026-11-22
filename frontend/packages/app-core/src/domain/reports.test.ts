@@ -6,7 +6,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ApiLike } from "../api";
 import { strings } from "../strings";
 import { BusinessZoneContext, zonedDate } from "../datetime";
-import { periodSpan, spanLabel, useMoneyReports, useReportFile } from "./reports";
+import {
+    type ExportKind,
+    periodSpan,
+    spanLabel,
+    useBookkeeperPack,
+    useMoneyReports,
+    useReportFile,
+} from "./reports";
 
 afterEach(cleanup);
 
@@ -177,21 +184,6 @@ describe("useMoneyReports", () => {
         const view = (await loaded(summary({ income }))).view;
         expect(view?.taxLines.map((t) => t.code)).toEqual(["GST", "HST", "PST"]);
     });
-
-    it("shows part quantities added up without float noise", async () => {
-        const row = { kind: "product", sales_cents: 240, tax_cents: 0, refunded_cents: 0 };
-        const view = (
-            await loaded(
-                summary({
-                    sales_by_item: [
-                        { ...row, item_id: "it_1", name: "Tea", quantity: 0.1 },
-                        { ...row, item_id: "it_2", name: "Coffee", quantity: 0.2 },
-                    ],
-                }),
-            )
-        ).view;
-        expect(strings.reports.sold(view?.unitsSold ?? 0)).toBe(strings.reports.sold(0.3));
-    });
 });
 
 describe("useReportFile", () => {
@@ -199,7 +191,7 @@ describe("useReportFile", () => {
         const fake = api(summary(), "csv");
         const save = vi.fn();
         const span = { start: "2026-11-01", end: "2026-11-14" };
-        const { result } = renderHook(() => useReportFile(fake, span, save));
+        const { result } = renderHook(() => useReportFile(fake, span, null, save));
         act(() => {
             result.current.download("t4a");
         });
@@ -216,5 +208,156 @@ describe("useReportFile", () => {
             "/v1/reports/t4a.csv?year=2026",
             "/v1/reports/sales-by-item.csv?start=2026-11-01&end=2026-11-14",
         ]);
+    });
+});
+
+describe("useReportFile notices", () => {
+    const november = { start: "2026-11-01", end: "2026-11-14" };
+    const october = { start: "2026-10-01", end: "2026-10-31" };
+
+    function render(fake: ApiLike) {
+        return renderHook(
+            ({ span, shown }: { span: typeof november; shown: ExportKind }) =>
+                useReportFile(fake, span, shown, () => undefined),
+            { initialProps: { span: november, shown: "income" } },
+        );
+    }
+
+    it("shows the download notice only on its own report and period", async () => {
+        const { result, rerender } = render(api(summary(), "csv"));
+        act(() => {
+            result.current.download("income");
+        });
+        await waitFor(() => {
+            expect(result.current.done).toBe(
+                strings.reports.downloaded("income-2026-11-01-to-2026-11-14.csv"),
+            );
+        });
+        rerender({ span: november, shown: "salesByItem" });
+        expect(result.current.done).toBeNull();
+        rerender({ span: october, shown: "income" });
+        expect(result.current.done).toBeNull();
+        rerender({ span: november, shown: "income" });
+        expect(result.current.done).not.toBeNull();
+    });
+
+    it("keeps a failed download's error on the report that failed", async () => {
+        const failing = {
+            ...api(summary()),
+            getText: () => Promise.reject(new TypeError("offline")),
+        };
+        const { result, rerender } = render(failing);
+        act(() => {
+            result.current.download("income");
+        });
+        await waitFor(() => {
+            expect(result.current.error).toBe(strings.reports.downloadFailed);
+        });
+        rerender({ span: october, shown: "income" });
+        expect(result.current.error).toBeNull();
+    });
+
+    it("ignores another report's download while one is running", async () => {
+        let finish: (csv: string) => void = () => undefined;
+        const fake = api(summary());
+        const slow = {
+            ...fake,
+            getText: (path: string) => {
+                fake.paths.push(path);
+                return new Promise<string>((resolve) => {
+                    finish = resolve;
+                });
+            },
+        };
+        const { result, rerender } = render(slow);
+        act(() => {
+            result.current.download("income");
+        });
+        await waitFor(() => {
+            expect(result.current.busyKind).toBe("income");
+        });
+        rerender({ span: november, shown: "salesByItem" });
+        act(() => {
+            result.current.download("salesByItem");
+        });
+        expect(result.current.busyKind).toBe("income");
+        act(() => {
+            finish("csv");
+        });
+        await waitFor(() => {
+            expect(result.current.busyKind).toBeNull();
+        });
+        expect(fake.paths).toEqual(["/v1/reports/income.csv?start=2026-11-01&end=2026-11-14"]);
+        expect(result.current.done).toBeNull();
+        rerender({ span: november, shown: "income" });
+        expect(result.current.done).toBe(
+            strings.reports.downloaded("income-2026-11-01-to-2026-11-14.csv"),
+        );
+    });
+});
+
+describe("useBookkeeperPack", () => {
+    const november = { start: "2026-11-01", end: "2026-11-14" };
+    const october = { start: "2026-10-01", end: "2026-10-31" };
+
+    function render(bytes: Uint8Array<ArrayBuffer>) {
+        const posted: unknown[] = [];
+        const save = vi.fn();
+        const fake = {
+            postBytes: (path: string, body: unknown) => {
+                posted.push([path, body]);
+                return Promise.resolve(bytes);
+            },
+        };
+        const hook = renderHook(({ span }) => useBookkeeperPack(fake, span, save), {
+            initialProps: { span: november },
+        });
+        return { ...hook, posted, save };
+    }
+
+    it("posts the chosen reports and saves the ZIP under the period's name", async () => {
+        const zip = new Uint8Array([0x50, 0x4b, 3, 4]);
+        const { result, posted, save } = render(zip);
+        act(() => {
+            result.current.download();
+        });
+        await waitFor(() => {
+            expect(result.current.done).toBe(true);
+        });
+        expect(posted).toEqual([
+            [
+                "/v1/reports/export",
+                {
+                    kinds: ["income", "sales-by-item", "gst-hst", "pst"],
+                    start: "2026-11-01",
+                    end: "2026-11-14",
+                },
+            ],
+        ]);
+        expect(save).toHaveBeenCalledWith(zip, "bookkeeper-2026-11-01-to-2026-11-14.zip");
+    });
+
+    it("refuses an empty ZIP instead of saving it", async () => {
+        const { result, save } = render(new Uint8Array());
+        act(() => {
+            result.current.download();
+        });
+        await waitFor(() => {
+            expect(result.current.error).toBe(strings.reports.packFailed);
+        });
+        expect(result.current.done).toBe(false);
+        expect(save).not.toHaveBeenCalled();
+    });
+
+    it("drops the outcome once the period changes", async () => {
+        const { result, rerender } = render(new Uint8Array([1]));
+        act(() => {
+            result.current.download();
+        });
+        await waitFor(() => {
+            expect(result.current.done).toBe(true);
+        });
+        rerender({ span: october });
+        expect(result.current.done).toBe(false);
     });
 });
