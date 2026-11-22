@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { setPseudoLocale } from "../locale";
 import { strings } from "../strings";
-import { shortDate } from "./printing";
+import { printedTitle, shortDate } from "./printing";
 import {
     printedPublicInvoice,
     publicDocLines,
@@ -190,6 +190,7 @@ describe("the public pay page", () => {
         const doc = printedPublicInvoice(
             publicInvoice({
                 number: 1002,
+                business_name: "Café Olé & Co.",
                 currency: "USD",
                 issued_at: "2026-10-02T05:30:00Z",
                 gst_hst_number: "84720 1539 RT0001",
@@ -207,7 +208,10 @@ describe("the public pay page", () => {
             "USD",
         ]);
         expect(doc.meta[1]?.value).toBe("October 1, 2026");
-        expect(doc.labels.page).toBe("Page 1 of 1");
+        expect(printedTitle(doc)).toBe("Café-Olé-Co-Invoice-1002");
+        expect(printedTitle({ ...doc, business: { ...doc.business, name: "&&" } })).toBe(
+            "Invoice-1002",
+        );
         expect(doc.labels.taxBase("$10.00")).toBe("On $10.00");
         expect(doc.business.registration).toBe("GST/HST 84720 1539 RT0001 · QST 1234567890 TQ0001");
         expect([doc.business.address, doc.business.phone]).toEqual([
@@ -441,7 +445,6 @@ describe("printed documents in the pseudo-locale", () => {
             doc.title,
             doc.reference,
             doc.heading,
-            doc.deadline,
             doc.partyLabel,
             doc.footer,
             doc.business.registration,
@@ -451,7 +454,7 @@ describe("printed documents in the pseudo-locale", () => {
             ...doc.totals.map((t) => t.label),
             doc.headline.label,
             ...[l.from, l.item, l.qty, l.price, l.tax, l.amount, l.taxSummary, l.howToPay],
-            ...[l.scanToPay, l.paymentMethod, l.page, l.taxBase("1"), l.forSubject("Rex")],
+            ...[l.scanToPay, l.paymentMethod, l.taxBase("1"), l.forSubject("Rex")],
             l.qtyTimes(2, "3"),
         ];
         expect(copy.filter((text) => /[A-Za-z]/.test(text) && !text.startsWith("["))).toEqual([]);

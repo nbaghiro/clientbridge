@@ -43,7 +43,7 @@ from clientbridge.schemas.bookings import (
     VisitNeeds,
     VisitPage,
 )
-from clientbridge.schemas.orders import VisitReceipt
+from clientbridge.schemas.orders import BookingReceipt
 from clientbridge.services.billing import BillingService
 from clientbridge.services.bookings import (
     BookingService,
@@ -129,10 +129,10 @@ async def client_visits(
     return await BookingService(db, principal, gateway).visits(client_id, before, before_id, limit)
 
 
-@router.get("/{booking_id}/receipt", response_model=VisitReceipt)
+@router.get("/{booking_id}/receipt", response_model=BookingReceipt)
 async def booking_receipt(
     booking_id: str, principal: CurrentPrincipal, db: DbSession
-) -> VisitReceipt:
+) -> BookingReceipt:
     return await BillingService(db, principal).visit_receipt(booking_id)
 
 

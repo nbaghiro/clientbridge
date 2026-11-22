@@ -1,0 +1,36 @@
+appId: ${APP_ID}
+---
+# an invoice or estimate: its printed page from More, Share with its link on HOST, then back to the list
+- tapOn: "More"
+- tapOn: "PDF"
+- extendedWaitUntil:
+      visible: "Share"
+      timeout: 15000
+- assertVisible: ${TITLE}
+- takeScreenshot: ${TITLE.toLowerCase() + "-sheet"}
+- tapOn: "Share"
+- runFlow:
+      file: share-sheet.yaml
+      env:
+          HOST: ${HOST}
+# the first Close is the backdrop behind the sheet; the second is its button, then the record's
+- tapOn:
+      text: "Close"
+      index: 1
+- waitForAnimationToEnd
+- runFlow:
+      when:
+          visible: "More"
+      commands:
+          - tapOn:
+                text: "Close"
+                index: 1
+- extendedWaitUntil:
+      visible: "Search client or number"
+      timeout: 10000
+# the search takes focus back, and Android's first tap would only close its keyboard
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - hideKeyboard

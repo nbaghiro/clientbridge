@@ -3,18 +3,18 @@ import {
     type ReviewDocument,
     printedEstimate,
     printedInvoice,
+    printedTitle,
     strings,
     useEstimateRecord,
     useInvoiceRecord,
     useLetterhead,
 } from "@clientbridge/app-core";
 import { cssVar } from "@clientbridge/tokens";
-import { Button, Icon, IconButton, Modal, PrintedDocument } from "@clientbridge/ui";
+import { Button, Icon, IconButton, Modal, PrintedDocument, usePrintSheet } from "@clientbridge/ui";
 import type { ReactNode } from "react";
 
 import { config } from "../config";
 import { apiBaseUrl } from "../lib/api";
-import { usePrintSheet } from "../lib/print";
 
 const d = strings.billing.doc;
 
@@ -51,23 +51,15 @@ export function Paper({ doc }: { doc: PrintedDoc }) {
 export function DocumentPane({
     doc,
     attached,
-    businessName,
+    ready = true,
 }: {
     doc: PrintedDoc;
     attached: string;
-    businessName: string;
+    ready?: boolean;
 }) {
     const printing = usePrintSheet();
     const print = (): void => {
-        printing.print(
-            d
-                .fileName(
-                    businessName.replace(/[^A-Za-z0-9]+/g, "-"),
-                    d.kinds[doc.kind],
-                    doc.number,
-                )
-                .replace(/\.pdf$/, ""),
-        );
+        printing.print(printedTitle(doc));
     };
     return (
         <PaperPane
@@ -80,10 +72,10 @@ export function DocumentPane({
                         </p>
                     ) : null}
                     <div className="ml-auto flex items-center gap-2">
-                        <Button variant="outline" icon="printer" onPress={print}>
+                        <Button variant="outline" icon="printer" disabled={!ready} onPress={print}>
                             {d.print}
                         </Button>
-                        <Button icon="receipt" onPress={print}>
+                        <Button icon="receipt" disabled={!ready} onPress={print}>
                             {d.download}
                         </Button>
                     </div>
@@ -100,12 +92,12 @@ export function DocumentPane({
 export function DocumentPreview({
     doc,
     attached,
-    businessName,
+    ready = true,
     onClose,
 }: {
     doc: PrintedDoc;
     attached: string;
-    businessName: string;
+    ready?: boolean;
     onClose: () => void;
 }) {
     return (
@@ -120,7 +112,7 @@ export function DocumentPreview({
                     </div>
                 </header>
                 <div className="min-h-0 flex-1">
-                    <DocumentPane doc={doc} attached={attached} businessName={businessName} />
+                    <DocumentPane doc={doc} attached={attached} ready={ready} />
                 </div>
             </div>
         </Modal>

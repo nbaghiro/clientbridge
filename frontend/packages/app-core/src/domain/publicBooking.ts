@@ -1080,6 +1080,11 @@ export function usePublicBookingFlow(
             ? (programChoices(programs ?? [], zone).find((x) => x.key === slot.starts_at)?.label ??
               null)
             : null;
+    const slotTitle = slot
+        ? programRun === null
+            ? whenTitle(slot.starts_at, today, zone)
+            : formatParts([programRun, timeRange])
+        : null;
 
     const taxStart = page?.tax_starts_on ?? null;
     const visitDay = slot === null ? null : dateKey(parseTimestamp(slot.starts_at), zone);
@@ -1233,6 +1238,14 @@ export function usePublicBookingFlow(
         },
         addonLines,
         visitMinutes: serviceMinutes === null ? null : serviceMinutes + extraMin,
+        // the phone bar stands in for the summary, so it carries the visit's length too
+        barLabel:
+            service === null
+                ? null
+                : formatParts([
+                      slotTitle ?? service.name,
+                      serviceMinutes === null ? null : durationLabel(serviceMinutes + extraMin),
+                  ]),
         returningToken,
         subjectId,
         setReturning: (identity: { token: string; subjectId: string | null } | null): void => {
@@ -1297,11 +1310,7 @@ export function usePublicBookingFlow(
         programs: program ? programChoices(programs ?? [], zone) : null,
         programNote: program ? s.programNote : null,
         when: slot ? (program ? programRun : whenLabel(slot.starts_at, today, zone)) : null,
-        whenTitle: slot
-            ? programRun === null
-                ? whenTitle(slot.starts_at, today, zone)
-                : formatParts([programRun, timeRange])
-            : null,
+        whenTitle: slotTitle,
         timeRange,
         result,
         waitlistBody:

@@ -29,13 +29,13 @@ import {
     Panel,
     Skeleton,
     Tabs,
+    usePrintSheet,
 } from "@clientbridge/ui";
 import { useState } from "react";
 
 import { DeskBar } from "../components/Desk";
 import { api } from "../lib/api";
 import { saveFile } from "../lib/files";
-import { usePrintSheet } from "../lib/print";
 
 const s = strings.reports;
 const REPORTS: ReportKey[] = ["income", "salesByItem", "gstHst", "pst", "t4a"];

@@ -94,6 +94,7 @@ class OrderService:
                 number=await next_order_number(self.db, self.biz),
                 status="open",
                 receipt_phone=data.receipt_phone,
+                receipt_token=secrets.token_urlsafe(16),
                 note=data.note,
             )
             set_discount(order, data.discount)

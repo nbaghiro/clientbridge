@@ -1,0 +1,28 @@
+appId: ${APP_ID}
+---
+# the system share sheet opened over the app with the link on HOST, then dismissed
+- runFlow:
+      when:
+          platform: iOS
+      commands:
+          - extendedWaitUntil:
+                visible: "Copy"
+                timeout: 15000
+          # the sheet's header is the link's host alone, unlike the printed page behind it
+          - assertVisible: ${HOST}
+          - takeScreenshot: share-sheet
+          # a tap above the sheet dismisses it without reaching the app behind
+          - tapOn:
+                point: "50%, 12%"
+          - extendedWaitUntil:
+                notVisible: "Save to Files"
+                timeout: 10000
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - extendedWaitUntil:
+                visible: ${".*" + HOST + ".*"}
+                timeout: 15000
+          - takeScreenshot: share-sheet
+          - back

@@ -55,7 +55,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 5. Sell at the desk and online          | Online shop orders and pickup                               | [CB-41](https://linear.app/clientbridgeca/issue/CB-41) | Automated        |
 | 6. Invoice and get paid                 | Estimates to invoices                                       | [CB-33](https://linear.app/clientbridgeca/issue/CB-33) | Automated        |
 | 6. Invoice and get paid                 | Invoices and payment links                                  | [CB-34](https://linear.app/clientbridgeca/issue/CB-34) | Automated        |
-| 6. Invoice and get paid                 | Printed and shared documents                                | [CB-36](https://linear.app/clientbridgeca/issue/CB-36) | Manual           |
+| 6. Invoice and get paid                 | Printed and shared documents                                | [CB-36](https://linear.app/clientbridgeca/issue/CB-36) | Automated        |
 | 6. Invoice and get paid                 | Deposits applied to the bill                                | [CB-37](https://linear.app/clientbridgeca/issue/CB-37) | Partly automated |
 | 7. Gift cards, packages and memberships | Package, membership and gift card items                     | [CB-15](https://linear.app/clientbridgeca/issue/CB-15) | Automated        |
 | 7. Gift cards, packages and memberships | Gift cards: sell and redeem                                 | [CB-38](https://linear.app/clientbridgeca/issue/CB-38) | Automated        |
@@ -1126,7 +1126,7 @@ Clients find the business, book and pay a deposit, and change their plans withou
 ### Booking add-ons billed once (CB-26)
 
 **Covers:** Connect extras step, booking panel add-ons (web and phone), invoice from booking, desk checkout of a visit
-**Before you start:** Brightwater Home Cleaning (AB, GST, properties): owner owner@brightwater.example, cleaners joy@brightwater.example, harpreet@brightwater.example and tomasz@brightwater.example, password demo1234. Its oven, fridge, window and laundry add-ons lengthen a clean; Wei Zhang's move-out next Monday has a collected deposit and three add-ons.
+**Before you start:** Brightwater Home Cleaning (AB, GST, properties): owner owner@brightwater.example, cleaners joy@brightwater.example, harpreet@brightwater.example and tomasz@brightwater.example, password demo1234. Its oven, fridge, window and laundry add-ons lengthen a clean; Wei Zhang's move-out, about five days out with Harpreet (Tomasz helping), has a collected deposit and three add-ons.
 
 **Where to test**
 
@@ -1658,12 +1658,9 @@ Estimates become invoices, invoices are paid by link, saved card or by hand, and
 
 **Automated by**
 
-- No e2e case yet
-
-**To automate**
-
-- `BILL-DOC-27` in `apps/web/e2e/billing.e2e.ts`: An invoice, an estimate and a receipt printed to PDF with Chromium's `page.pdf()` carry the record's logo, address, GST/HST number, lines, taxes and totals, and a long invoice breaks onto a second page with its last line and total, no text outside the page and no blank page.
-- `DOC-E2E-14` in `apps/connect/e2e/publicPay.e2e.ts`: The invoice, estimate and receipt pages print to PDF with the same content and page checks as web.
+- `BILL-DOC-27 (web)`
+- `DOC-E2E-14 (connect)`
+- `NATIVE-BILL-04 (native-ios, native-android)`
 
 **Depends on:** Nothing
 

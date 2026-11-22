@@ -11,7 +11,8 @@
             "react-native": "./src/mobile/index.ts",
             "default": "./src/web/index.ts"
         },
-        "./logo": "./src/web/Logo.tsx"
+        "./logo": "./src/web/Logo.tsx",
+        "./print.css": "./src/web/print.css"
     },
     "scripts": {
         "typecheck": "tsc --noEmit -p src/web && tsc --noEmit -p src/mobile"

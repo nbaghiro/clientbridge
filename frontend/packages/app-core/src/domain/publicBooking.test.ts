@@ -462,6 +462,9 @@ it("asks for extras before the time and looks for times long enough for them", a
         );
     });
     expect(result.current.visitMinutes).toBe(150);
+    expect(result.current.barLabel).toBe(
+        formatParts([result.current.service?.name ?? "", s.hoursMinutes(2, 30)]),
+    );
     expect(addsLabel(mount)).toBe(s.addsTime(s.minutes(30)));
     expect(extraMinutes([mount], { mount: 2 }, "service")).toBe(60);
     expect(extraMinutes([mount], { mount: 2 }, "class")).toBe(0);

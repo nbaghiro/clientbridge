@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "@clientbridge/tokens/themes.css";
 @import "@clientbridge/tokens/tailwind.css";
+@import "@clientbridge/ui/print.css";
 @source "../../../packages/ui/src";
 
 html,
@@ -24,22 +25,4 @@ html[data-embed] body,
 html[data-embed] #root {
     height: auto;
     background: transparent;
-}
-
-/* Print only the document a preview shows, as the PDF a client gets. */
-@media print {
-    body * {
-        visibility: hidden;
-    }
-    .print-area,
-    .print-area * {
-        visibility: visible;
-    }
-    .print-area {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        max-width: none;
-    }
 }

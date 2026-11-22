@@ -35,6 +35,7 @@ import {
     Panel,
     StatusPill,
     TextField,
+    usePrintSheet,
 } from "@clientbridge/ui";
 import { useState } from "react";
 
@@ -43,7 +44,6 @@ import { Loaded } from "../components/Loaded";
 import { SendToClientDialog } from "../components/SendToClient";
 import { config } from "../config";
 import { api } from "../lib/api";
-import { usePrintSheet } from "../lib/print";
 
 const s = strings.contracts;
 

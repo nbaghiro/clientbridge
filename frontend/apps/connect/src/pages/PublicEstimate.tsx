@@ -18,6 +18,7 @@ import { PrintModal, PublicDocument } from "../components/PublicDocument";
 import { PublicStatus } from "../components/PublicStatus";
 import { config } from "../config";
 import { useEmbedSuccess } from "../embed";
+import { links } from "../site";
 
 const client = createPublicEstimateClient(config.apiUrl);
 const pe = strings.publicEstimate;
@@ -36,7 +37,7 @@ export function PublicEstimate() {
 
     const biz = est.business_name;
     const open = page.status === "open";
-    const doc = page.printed(cssVar("accent"));
+    const doc = page.printed(links.estimate(token), cssVar("accent"));
 
     return (
         <PublicDocument

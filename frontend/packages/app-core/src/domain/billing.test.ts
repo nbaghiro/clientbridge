@@ -247,6 +247,7 @@ function invoice(extra: Partial<InvoiceRow> = {}): InvoiceRow {
         total_cents: 5000,
         balance_cents: 5000,
         paid_cents: 0,
+        due_once_sent_cents: null,
         tip_cents: 0,
         issued_at: null,
         due_at: null,
