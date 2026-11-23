@@ -182,6 +182,30 @@ async def test_a_visit_without_an_invoice_or_sale_has_no_receipt(
     assert voided.json()["error"] == "visit_not_billed"
 
 
+async def test_a_paid_visit_that_was_canceled_or_missed_has_no_receipt(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    booking = await _visit(db)
+    invoice = await _invoiced(as_owner, booking)
+    ok(
+        await as_owner.post(
+            f"/v1/invoices/{invoice['id']}/payments",
+            json={"method": "cash", "amount_cents": invoice["total_cents"]},
+            headers=key(),
+        ),
+        201,
+    )
+    token = booking.manage_token
+    for status in ("canceled", "no_show"):
+        await db.execute(update(Booking).where(Booking.id == booking.id).values(status=status))
+        await db.flush()
+        staff = await as_owner.get(f"/v1/bookings/{booking.id}/receipt")
+        assert (staff.status_code, staff.json()["error"]) == (409, "visit_not_held")
+        public = await as_owner.get(f"/manage/{token}/receipt")
+        assert (public.status_code, public.json()["error"]) == (409, "visit_not_held")
+        assert ok(await as_owner.get(f"/manage/{token}")).json()["has_receipt"] is False
+
+
 async def test_a_wrong_manage_token_finds_no_receipt(unauth: httpx.AsyncClient) -> None:
     res = await unauth.get("/manage/not-a-real-token/receipt")
     assert res.status_code == 404

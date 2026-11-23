@@ -40,9 +40,11 @@ import {
 import { businessEvidence, newBusiness, patchBusiness, type NewBusiness } from "./support/business";
 import {
     bookFreeVisit,
+    bookingApi,
     cancelOwnedBooking,
     chooseFreeBookingTime,
     createBookingFixture,
+    openBooking,
 } from "./support/bookings";
 import { select } from "./support/db";
 import { textedLinks } from "./support/messaging";
@@ -646,7 +648,10 @@ test.describe(() => {
         const preview = page.getByRole("dialog").filter({
             has: page.getByRole("heading", { name: strings.previews.title, exact: true }),
         });
-        // the printed draft beside it always shows the full total, so only the text is checked
+        // the printed draft beside it takes the paid deposit off too, so both ask for the same
+        await expect(
+            preview.getByText(strings.billing.depositHeld, { exact: true }).locator(".."),
+        ).toContainText(formatCredit(deposit, "CAD"));
         const text = preview
             .getByText(strings.ui.review.textTo(formatPhone(client.phone)), { exact: true })
             .locator("..");
@@ -1587,4 +1592,93 @@ test("BILL-DOC-27 an invoice, an estimate and a receipt printed to PDF carry the
         await navigate(page, "/payments");
         await expect(page.locator(".print-sheet")).toHaveCount(0);
     }
+});
+
+test("BILL-DOC-28 a visit's paid deposit shows on its draft as what sending takes off and comes off once sent, and a visit billed and paid in full stops asking for its deposit", async ({
+    page,
+}) => {
+    const b = strings.billing;
+    await signIn(page);
+    const fixture = await createBookingFixture(page, {
+        duration_min: 60,
+        price_cents: 7500,
+        tax_class: "exempt",
+        deposit_type: "fixed",
+        deposit_value: 2500,
+    });
+    const client = { id: fixture.clientId, name: fixture.clientName, phone: fixture.clientPhone };
+    const ahead = Array.from({ length: 14 }, (_, i) => i + 15);
+    const priya = demoId("st_priya");
+
+    const paid = (await bookFreeVisit(page, fixture, priya, ahead)).id;
+    expect(await cardPaid("deposit", paid)).toEqual({ booking: paid, deposit_status: "collected" });
+    await openBooking(page, fixture, paid);
+    await expect(
+        page.getByText(strings.bookings.depositPaid(formatMoney(2500, "CAD")), { exact: true }),
+    ).toBeVisible();
+    const created = page.waitForResponse(
+        (r) =>
+            new URL(r.url()).pathname === `/v1/invoices/from-booking/${paid}` &&
+            r.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: strings.bookings.invoiceVisit, exact: true }).click();
+    const draft = (await (await created).json()) as { id: string; total_cents: number };
+    expect(draft.total_cents).toBe(7500);
+    const preview = page.getByRole("region", { name: b.preview, exact: true }).last();
+    const held = preview.getByText(b.depositHeld, { exact: true });
+    await expect(held).toBeVisible({ timeout: 60_000 });
+    await expect(held.locator("..")).toContainText(formatCredit(2500, "CAD"));
+    await expect(preview.getByText(b.balanceDue, { exact: true }).locator("..")).toContainText(
+        formatMoney(5000, "CAD"),
+    );
+    await sendDocument(page, draft.id);
+    await openDocument(page, client, "invoice", draft.id);
+    await expect(preview.getByText(b.depositApplied, { exact: true }).locator("..")).toContainText(
+        formatCredit(2500, "CAD"),
+    );
+    await expect(preview.getByText(b.depositHeld, { exact: true })).toHaveCount(0);
+    expect((await documentEvidence("invoice", draft.id)).document).toMatchObject({
+        status: "sent",
+    });
+
+    // billed and paid in full before the deposit came in, the visit owes no deposit any more
+    const owing = (await bookFreeVisit(page, fixture, priya, ahead)).id;
+    const api = bookingApi();
+    const headers = { Origin: new URL(page.url()).origin };
+    const bill = await page.request.post(`${api}/v1/invoices/from-booking/${owing}`, {
+        headers: { ...headers, "Idempotency-Key": randomUUID() },
+    });
+    expect(bill.status(), await bill.text()).toBe(201);
+    const billed = (await bill.json()) as { id: string };
+    const sent = await page.request.post(`${api}/v1/invoices/${billed.id}/send`, {
+        headers: { ...headers, "Idempotency-Key": randomUUID() },
+    });
+    expect(sent.status(), await sent.text()).toBe(200);
+    await openBooking(page, fixture, owing);
+    await expect(
+        page.getByRole("button", { name: strings.bookings.collectNow, exact: true }),
+    ).toBeVisible();
+    await openInvoice(page, { id: billed.id, name: client.name, phone: client.phone });
+    await recordCash(page, formatMoney(7500, "CAD"));
+    await expect
+        .poll(
+            async () =>
+                (
+                    await select<{ deposit_status: string }>`
+                        SELECT deposit_status FROM bookings WHERE id = ${owing}`
+                )[0]?.deposit_status,
+        )
+        .toBe("none");
+    await openBooking(page, fixture, owing);
+    await expect(
+        page.getByRole("button", { name: strings.bookings.collectNow, exact: true }),
+    ).toHaveCount(0, { timeout: 60_000 });
+    await expect(
+        page.getByText(strings.bookings.depositDue(formatMoney(2500, "CAD")), { exact: true }),
+    ).toHaveCount(0);
+    const [token] = await select<{ manage_token: string }>`
+        SELECT manage_token FROM bookings WHERE id = ${owing}`;
+    const manage = await page.request.get(`${api}/manage/${token?.manage_token ?? ""}`);
+    expect(manage.status(), await manage.text()).toBe(200);
+    expect(await manage.json()).toMatchObject({ deposit_due: false, deposit_status: "none" });
 });

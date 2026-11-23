@@ -59,6 +59,7 @@ import { createClient } from "../support/clients";
 import { select } from "../support/db";
 import { acceptInvite, joinHoursStaff } from "../support/hours";
 import { messageEvidence } from "../support/messaging";
+import { cardPaid, openInvoice } from "../support/billing";
 
 // how the text acknowledging a booking request begins (booking_requested.body_link)
 const ACKNOWLEDGMENT = "Request sent for ";
@@ -2041,4 +2042,171 @@ test("SCH-E2E-22 the owner shares a photo of a past visit, the client opens it a
         .click({ timeout: 60_000 });
     // the thread list's preview comes first, then the message in the open thread
     await expect(page.getByText(body, { exact: true }).last()).toBeVisible({ timeout: 60_000 });
+});
+
+test("SCH-E2E-24 a paid deposit on a visit that doesn't go ahead ends kept: a no-show, a staff cancel and voiding a client-canceled visit's bill each keep it as revenue, and the visit offers no receipt", async ({
+    browser,
+    page,
+}) => {
+    test.setTimeout(240_000);
+    const s = strings.bookings;
+    const deposit = formatMoney(2500, "CAD");
+    await signIn(page);
+    const fixture = await createBookingFixture(page, {
+        duration_min: 60,
+        price_cents: 7500,
+        tax_class: "exempt",
+        deposit_type: "fixed",
+        deposit_value: 2500,
+    });
+    const api = bookingApi();
+    const headers = () => ({ Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() });
+    const policy = async (autoComplete: boolean) => {
+        const res = await page.request.patch(`${api}/v1/online-booking`, {
+            headers: headers(),
+            data: { policy: { auto_complete: autoComplete } },
+        });
+        expect(res.status(), await res.text()).toBe(200);
+    };
+    const book = async (days: number[]): Promise<string> => {
+        for (const offset of days) {
+            const day = addDays(new Date(), offset, fixture.zone);
+            for (const time of ["10:00", "11:00", "13:00", "14:00", "15:00"]) {
+                const res = await page.request.post(`${api}/v1/bookings`, {
+                    headers: headers(),
+                    data: {
+                        client_id: fixture.clientId,
+                        item_id: fixture.itemId,
+                        staff_id: fixture.staffId,
+                        starts_at: combineDayAndTime(day, time, fixture.zone).toISOString(),
+                        notify: false,
+                    },
+                });
+                if (res.status() === 201) {
+                    const id = ((await res.json()) as BookingRecord).id;
+                    expect(await cardPaid("deposit", id)).toEqual({
+                        booking: id,
+                        deposit_status: "collected",
+                    });
+                    return id;
+                }
+                expect(res.status(), await res.text()).toBe(409);
+            }
+        }
+        throw new Error("No free time for the case's visit");
+    };
+    const kept = async (id: string) => {
+        await expect
+            .poll(
+                async () =>
+                    (
+                        await select<{ deposit_status: string; revenue: string }>`
+                        SELECT b.deposit_status, (
+                            SELECT COALESCE(SUM(e.amount_cents), 0) FROM entries e
+                            JOIN accounts a ON a.id = e.account_id
+                            WHERE a.category = 'revenue' AND e.subject_id = b.id
+                        ) AS revenue
+                        FROM bookings b WHERE b.id = ${id}`
+                    ).map((r) => [r.deposit_status, Number(r.revenue)]),
+                { timeout: 60_000 },
+            )
+            .toEqual([["forfeited", -2500]]);
+    };
+    const panelAction = (name: string) => page.getByRole("button", { name, exact: true }).last();
+
+    // the auto-close job would complete a past visit before the case marks it a no-show
+    await policy(false);
+    try {
+        const missed = await book([-1, -2, -3, -4, -5, -6, -7]);
+        await openBooking(page, fixture, missed);
+        await panelAction(s.markNoShow).click();
+        await expect(page.getByText(s.noShowKeep(deposit), { exact: true })).toBeVisible();
+        await panelAction(s.confirmNoShow).click();
+        await kept(missed);
+        await expect(page.getByText(s.depositKept(deposit), { exact: true })).toBeVisible();
+        await expect(page.getByText(s.historyDeposit(deposit), { exact: true })).toBeVisible();
+
+        const ahead = Array.from({ length: 14 }, (_, i) => i + 15);
+        const canceled = await book(ahead);
+        await openBooking(page, fixture, canceled);
+        await panelAction(s.cancel).click();
+        await expect(page.getByText(s.cancelKept(deposit), { exact: true })).toBeVisible();
+        await panelAction(s.confirmCancel).click();
+        await kept(canceled);
+        // the client's manage link says the business kept it, not that nothing was paid
+        const [stopped] = await select<{ manage_token: string }>`
+            SELECT manage_token FROM bookings WHERE id = ${canceled}`;
+        const stoppedToken = stopped?.manage_token ?? "";
+        const stoppedView = await page.request.get(`${api}/manage/${stoppedToken}`);
+        expect(stoppedView.status(), await stoppedView.text()).toBe(200);
+        const { business_name } = (await stoppedView.json()) as { business_name: string };
+        const customer = await customerContext(browser);
+        try {
+            const client = await customer.newPage();
+            await client.goto(manageUrl(stoppedToken));
+            await expect(
+                client.getByText(strings.publicManage.depositForfeited(deposit, business_name), {
+                    exact: true,
+                }),
+            ).toBeVisible();
+            await expect(
+                client.getByText(strings.publicManage.cancelNoDeposit, { exact: true }),
+            ).toHaveCount(0);
+        } finally {
+            await customer.close();
+        }
+
+        const billed = await book(ahead);
+        const draft = await apiCall<{ id: string }>(
+            page,
+            "POST",
+            `/v1/invoices/from-booking/${billed}`,
+            {},
+            201,
+        );
+        await apiCall(page, "POST", `/v1/invoices/${draft.id}/send`, {}, 200);
+        const [row] = await select<{ manage_token: string; deposit_status: string }>`
+            SELECT manage_token, deposit_status FROM bookings WHERE id = ${billed}`;
+        expect(row?.deposit_status).toBe("applied");
+        const token = row?.manage_token ?? "";
+        const view = async () => {
+            const res = await page.request.get(`${api}/manage/${token}`);
+            expect(res.status(), await res.text()).toBe(200);
+            return (await res.json()) as { has_receipt: boolean; status: string };
+        };
+        expect(await view()).toMatchObject({ has_receipt: true, status: "confirmed" });
+        const cancel = await page.request.post(`${api}/manage/${token}/cancel`, {
+            headers: { "Idempotency-Key": randomUUID() },
+        });
+        expect(cancel.status(), await cancel.text()).toBe(200);
+        expect(await cancel.json()).toMatchObject({ deposit: "kept", refund_cents: 0 });
+        expect(await view()).toMatchObject({ has_receipt: false, status: "canceled" });
+        const receipt = await page.request.get(`${api}/manage/${token}/receipt`);
+        expect(receipt.status()).toBe(409);
+        expect(await receipt.json()).toMatchObject({ error: "visit_not_held" });
+        await openInvoice(page, {
+            id: draft.id,
+            name: fixture.clientName,
+            phone: fixture.clientPhone,
+        });
+        await page
+            .getByRole("dialog")
+            .getByRole("button", { name: strings.billing.void, exact: true })
+            .click();
+        const voiding = page.waitForResponse(
+            (r) =>
+                new URL(r.url()).pathname === `/v1/invoices/${draft.id}/void` &&
+                r.request().method() === "POST",
+        );
+        await page
+            .getByRole("alertdialog")
+            .or(page.getByRole("dialog").last())
+            .getByRole("button", { name: strings.billing.void, exact: true })
+            .last()
+            .click();
+        expect((await voiding).status()).toBe(200);
+        await kept(billed);
+    } finally {
+        await policy(true);
+    }
 });

@@ -147,7 +147,7 @@ export function PublicManage() {
                         </div>
                     </article>
                     {v.status === "canceled" ? (
-                        <Notice tone="info">{mg.refundMessage ?? s.canceledAlready}</Notice>
+                        <Notice tone="info">{s.canceledAlready}</Notice>
                     ) : null}
                     {mg.waitlistLine !== null ? (
                         <div className="space-y-3 rounded-2xl border border-line bg-surface p-5 shadow-card">

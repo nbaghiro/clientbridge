@@ -33,7 +33,13 @@ from clientbridge.schemas.billing import (
 )
 from clientbridge.schemas.orders import BookingReceipt
 from clientbridge.services import ledger
-from clientbridge.services.bookings import apply_deposit, hold_estimate, is_program, unapply_deposit
+from clientbridge.services.bookings import (
+    apply_deposit,
+    hold_estimate,
+    is_program,
+    keep_deposit,
+    unapply_deposit,
+)
 from clientbridge.services.business import business_tz, businesses_at_hour
 from clientbridge.services.clients import assert_client_active
 from clientbridge.services.deliveries import delivery_key
@@ -228,6 +234,13 @@ class BillingService:
             for booking in visits:
                 if booking.invoice_id == invoice.id:
                     booking.invoice_id = None
+                # a visit that won't happen isn't billed again, so its deposit ends kept
+                if booking.status in ("canceled", "no_show") and await keep_deposit(
+                    self.db, booking, f"void:{invoice.id}"
+                ):
+                    cmd.record(
+                        "booking.deposit_forfeited", entity_type="booking", entity_id=booking.id
+                    )
             await self.db.flush()
             return await invoice_out(self.db, invoice, await self._lines("invoice", invoice.id))
 

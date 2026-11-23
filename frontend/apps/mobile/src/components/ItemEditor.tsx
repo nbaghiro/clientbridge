@@ -248,9 +248,13 @@ function ServiceFields({ ed }: { ed: ServiceEditor }) {
                             }}
                         />
                     ) : null}
-                    <Text style={[styles.summary, v.depositType !== "none" && styles.summaryOn]}>
-                        {ed.deposit}
-                    </Text>
+                    {ed.deposit !== null ? (
+                        <Text
+                            style={[styles.summary, v.depositType !== "none" && styles.summaryOn]}
+                        >
+                            {ed.deposit}
+                        </Text>
+                    ) : null}
                 </View>
             </DetailSection>
             <DetailSection title={s.sectionTax}>

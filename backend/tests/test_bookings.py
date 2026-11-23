@@ -908,7 +908,7 @@ async def test_canceling_keeps_a_collected_deposit(
 ) -> None:
     bid, _ = await _collected_deposit(as_owner, db, starts="2027-07-04T10:00:00Z")
     res = await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "canceled"})
-    assert res.json()["deposit_status"] == "collected"  # held until refunded or kept
+    assert res.json()["deposit_status"] == "forfeited"  # kept as revenue unless refunded
 
 
 async def test_partial_deposit_refund_stays_collected_until_the_rest(

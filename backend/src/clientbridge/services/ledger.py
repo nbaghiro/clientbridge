@@ -1644,8 +1644,9 @@ async def _subject_currency(
     return row.scalar_one_or_none() or BUSINESS_CURRENCY
 
 
-async def post_forfeit(db: AsyncSession, booking: Booking) -> None:
-    await _move_forfeit(db, booking, await deposit_held(db, booking), f"forfeit:{booking.id}")
+async def post_forfeit(db: AsyncSession, booking: Booking, key: str | None = None) -> None:
+    ref = f"forfeit:{booking.id}" + (f":{key}" if key else "")
+    await _move_forfeit(db, booking, await deposit_held(db, booking), ref)
 
 
 async def post_application(

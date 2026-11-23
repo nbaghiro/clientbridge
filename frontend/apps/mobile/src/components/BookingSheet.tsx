@@ -161,9 +161,16 @@ function CheckInCard({
     );
 }
 
-function DepositDue({ event }: { event: ScheduleEvent }) {
+function DepositDue({
+    event,
+    collecting,
+    setCollecting,
+}: {
+    event: ScheduleEvent;
+    collecting: boolean;
+    setCollecting: (collecting: boolean) => void;
+}) {
     const viewer = useViewer();
-    const [collecting, setCollecting] = useState(false);
     const cards = useSavedCards(event.clientId ?? "");
     const deposit = useCollectDeposit(
         api,
@@ -499,11 +506,15 @@ export function BookingBody({
     checkedIn,
     onUndoneCheckIn,
     onOpen,
+    collecting,
+    setCollecting,
 }: {
     detail: BookingDetail;
     checkedIn: string | null;
     onUndoneCheckIn: () => void;
     onOpen: (page: BookingPage) => void;
+    collecting: boolean;
+    setCollecting: (collecting: boolean) => void;
 }) {
     const photos = usePeoplePhotos();
     const zone = useBusinessZone();
@@ -553,7 +564,7 @@ export function BookingBody({
                 }}
                 onUndone={onUndoneCheckIn}
             />
-            <DepositDue event={e} />
+            <DepositDue event={e} collecting={collecting} setCollecting={setCollecting} />
             {client ? (
                 <DetailSection
                     title={s.detailClient}

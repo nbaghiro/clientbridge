@@ -1,0 +1,74 @@
+appId: ${APP_ID}
+name: NATIVE-BILL-06 On a phone, staff collect a visit's deposit with a new card through Stripe while the visit's actions stay out of the card form's way, and Stripe and the books hold the deposit
+onFlowComplete:
+    - runScript: ../helpers/restore-week.js
+---
+# a number outside 555-01xx, which is set aside for fiction and never texted
+- evalScript: ${output.phone = "250" + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000))}
+- evalScript: ${output.run = String(1000 + Math.floor(Math.random() * 8999))}
+- evalScript: ${output.name = "Tamsin Rowe " + output.run}
+- evalScript: ${output.expiry = "12" + String((new Date().getFullYear() + 3) % 100)}
+- runScript:
+      file: ../helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/clients
+          BODY: "${JSON.stringify({ name: output.name, phone: output.phone })}"
+- evalScript: ${output.client = output.response.id}
+# the lane files the client before the deposit gives it a Stripe customer, so cleanup owns its charge
+- runScript:
+      file: ../helpers/control.js
+      env:
+          ACTION: purchaser
+          PAYLOAD: ${output.client}
+- runScript:
+      file: ../helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/items
+          BODY: "${JSON.stringify({ kind: 'service', name: 'Deposit trim ' + output.run, duration_min: 10, price_cents: 7500, tax_class: 'exempt', deposit_type: 'fixed', deposit_value: 2500, online_bookable: false })}"
+- evalScript: ${output.itemId = output.response.id}
+- runScript:
+      file: ../helpers/book-today.js
+      env:
+          BODY: "${JSON.stringify({ client_id: output.client, item_id: output.itemId, staff_id: 'st_owner_' + E2E_NAMESPACE })}"
+- runFlow: ../helpers/owner.yaml
+- runFlow:
+      file: ../helpers/open-visit.yaml
+      env:
+          NAME: ${output.name}
+          DAY: ${output.dayLabel}
+- extendedWaitUntil:
+      visible: "\\$25\\.00 deposit not paid yet"
+      timeout: 60000
+- scrollUntilVisible:
+      element: "Collect now"
+      direction: DOWN
+      timeout: 20000
+- tapOn: "Collect now"
+- tapOn: "Enter card"
+- tapOn: "Collect \\$25\\.00"
+- extendedWaitUntil:
+      visible: "Card number"
+      timeout: 30000
+# the visit's actions step aside, or the keyboard lifts them over the card form's Charge
+- assertNotVisible: "Cancel visit"
+# Stripe's card field moves on to the expiry, the code and the postal code as each fills
+- tapOn: "Card number"
+- inputText: "4242424242424242"
+- inputText: ${output.expiry}
+- inputText: "123"
+- inputText: "V8W1A1"
+- assertVisible: "Charge \\$25\\.00"
+- takeScreenshot: deposit-card
+- tapOn: "Charge \\$25\\.00"
+- extendedWaitUntil:
+      visible: "\\$25\\.00 paid"
+      timeout: 90000
+- assertVisible: "Cancel visit"
+- runScript:
+      file: ../helpers/stripe-money.js
+      env:
+          CLIENT: ${output.client}
+          PAYMENTS: "deposit:succeeded:2500"
+- takeScreenshot: deposit-collected

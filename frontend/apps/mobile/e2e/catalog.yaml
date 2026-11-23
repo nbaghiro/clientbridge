@@ -108,8 +108,9 @@ name: NATIVE-CFG-04 A service set up on the phone with a room, clean-up, deposit
       centerElement: true
 - tapOn: "Percent"
 - runFlow: { file: helpers/type-field.yaml, env: { FIELD: "Deposit percent", VALUE: "25" } }
+# the rest is what the client pays at the visit, GST and PST included
 - scrollUntilVisible:
-      element: "Clients pay \\$20\\.00 when they book\\. The other \\$60\\.00 is due at the visit\\."
+      element: "Clients pay \\$20\\.00 when they book\\. The other \\$69\\.60 is due at the visit\\."
       direction: DOWN
 - takeScreenshot: native-service-editor
 - tapOn: "Add to catalog"
