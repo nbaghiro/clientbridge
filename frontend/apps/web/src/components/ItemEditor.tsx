@@ -261,13 +261,17 @@ function ServiceFields({ ed }: { ed: ServiceEditor }) {
                             </div>
                         ) : null}
                     </div>
-                    <p
-                        className={`rounded-md px-3 py-2 text-sm ${
-                            v.depositType === "none" ? "bg-bg text-muted" : "bg-ok-bg text-ok-fg"
-                        }`}
-                    >
-                        {ed.deposit}
-                    </p>
+                    {ed.deposit !== null ? (
+                        <p
+                            className={`rounded-md px-3 py-2 text-sm ${
+                                v.depositType === "none"
+                                    ? "bg-bg text-muted"
+                                    : "bg-ok-bg text-ok-fg"
+                            }`}
+                        >
+                            {ed.deposit}
+                        </p>
+                    ) : null}
                 </div>
             </DetailSection>
             <DetailSection title={s.sectionTax}>

@@ -1565,7 +1565,9 @@ class PublicManageService:
             timezone=business.timezone,
             can_move=move is None,
             can_cancel=cancel is None,
-            has_receipt=document is not None and await receipted(self.db, document),
+            has_receipt=_held(booking)
+            and document is not None
+            and await receipted(self.db, document),
             blocked=blocked,
             blocked_hours=blocked_hours,
             waitlist_position=await waitlist_position(self.db, booking),
@@ -1610,6 +1612,10 @@ async def stripe_taken(
         for (_, cents), status in zip(live, statuses, strict=True)
         if status is not None and status in _PAID_INTENT
     ]
+
+
+def _held(booking: Booking) -> bool:
+    return booking.status not in ("canceled", "no_show")
 
 
 def _deposit_due(booking: Booking) -> bool:
@@ -2373,6 +2379,9 @@ async def receipted(db: AsyncSession, document: Invoice | Order) -> bool:
 
 async def visit_receipt(db: AsyncSession, booking: Booking, business: Business) -> VisitReceipt:
     """A visit's receipt, numbered as its invoice or sale, with who saw the client."""
+    if not _held(booking):
+        # an insurer reads it as care given, which a canceled or missed visit never was
+        raise Conflict("this visit didn't go ahead, so it has no receipt", code="visit_not_held")
     document = await visit_document(db, booking)
     if document is None:
         raise Conflict(

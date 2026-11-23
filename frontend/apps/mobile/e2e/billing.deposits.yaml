@@ -1,0 +1,159 @@
+appId: ${APP_ID}
+name: NATIVE-BILL-05 A visit's paid deposit comes off its invoice from the draft on, a no-show keeps it with the history still showing it paid, and a staff cancel says it is kept
+tags:
+    - lane
+onFlowComplete:
+    - runScript: helpers/restore-week.js
+---
+- evalScript: ${output.run = String(1000 + Math.floor(Math.random() * 8999))}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/items
+          BODY: "${JSON.stringify({ kind: 'service', name: 'Deposit groom ' + output.run, duration_min: 10, price_cents: 7500, tax_class: 'exempt', deposit_type: 'fixed', deposit_value: 2500, online_bookable: false })}"
+- evalScript: ${output.itemId = output.response.id}
+- evalScript: ${output.owner = 'st_owner_' + E2E_NAMESPACE}
+# one client per visit, so each opens by name
+- evalScript: ${output.billed = "Wren Ashby " + output.run}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/clients
+          BODY: "${JSON.stringify({ name: output.billed })}"
+- runScript:
+      file: helpers/book-today.js
+      env:
+          STARTED: "1"
+          BODY: "${JSON.stringify({ client_id: output.response.id, item_id: output.itemId, staff_id: output.owner })}"
+- evalScript: ${output.billedVisit = output.booking.id}
+# later calls read the hours this one opened, so the seeded week is kept from here
+- evalScript: ${output.seeded = output.week}
+- evalScript: ${output.missed = "Odile Marsh " + output.run}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/clients
+          BODY: "${JSON.stringify({ name: output.missed })}"
+- runScript:
+      file: helpers/book-today.js
+      env:
+          STARTED: "1"
+          BODY: "${JSON.stringify({ client_id: output.response.id, item_id: output.itemId, staff_id: output.owner })}"
+- evalScript: ${output.missedVisit = output.booking.id}
+- evalScript: ${output.dropped = "Piers Vale " + output.run}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/clients
+          BODY: "${JSON.stringify({ name: output.dropped })}"
+- runScript:
+      file: helpers/book-today.js
+      env:
+          BODY: "${JSON.stringify({ client_id: output.response.id, item_id: output.itemId, staff_id: output.owner })}"
+- evalScript: ${output.droppedVisit = output.booking.id}
+- evalScript: ${output.week = output.seeded}
+# each deposit is paid by card, as the lane's absent Stripe would confirm it
+- runScript:
+      file: helpers/control.js
+      env:
+          ACTION: deposit
+          PAYLOAD: ${output.billedVisit}
+- runScript:
+      file: helpers/control.js
+      env:
+          ACTION: deposit
+          PAYLOAD: ${output.missedVisit}
+- runScript:
+      file: helpers/control.js
+      env:
+          ACTION: deposit
+          PAYLOAD: ${output.droppedVisit}
+- runFlow: helpers/owner.yaml
+
+# the draft already takes the paid deposit off, and sending applies it
+- runFlow:
+      file: helpers/open-visit.yaml
+      env:
+          NAME: ${output.billed}
+          DAY: ${output.dayLabel}
+- extendedWaitUntil:
+      visible: "\\$25\\.00 paid"
+      timeout: 60000
+- scrollUntilVisible:
+      element: "Create invoice"
+      direction: DOWN
+      timeout: 30000
+- tapOn: "Create invoice"
+- extendedWaitUntil:
+      visible: "Draft invoice"
+      timeout: 30000
+- scrollUntilVisible:
+      element: "Deposit paid when booking"
+      direction: DOWN
+      timeout: 20000
+- takeScreenshot: deposit-draft
+- tapOn: "Send invoice"
+- extendedWaitUntil:
+      visible: "Check it before it goes out"
+      timeout: 30000
+- tapOn:
+      text: "Send invoice"
+      below: "Show the document"
+- extendedWaitUntil:
+      visible: "Invoice #\\d+ sent to .*"
+      timeout: 30000
+- scrollUntilVisible:
+      element: "Deposit applied"
+      direction: DOWN
+      timeout: 20000
+- assertVisible: "−\\$25\\.00"
+- assertVisible: "\\$50\\.00"
+- assertNotVisible: "Deposit paid when booking"
+- takeScreenshot: deposit-applied
+- runFlow: helpers/close-sheet.yaml
+- runFlow: helpers/close-sheet.yaml
+
+# a no-show keeps the deposit, and the visit's history still shows it was paid
+- runFlow:
+      file: helpers/open-visit.yaml
+      env:
+          NAME: ${output.missed}
+          DAY: ${output.dayLabel}
+- extendedWaitUntil:
+      visible: "\\$25\\.00 paid"
+      timeout: 60000
+- tapOn: "No-show"
+- assertVisible: "The \\$25\\.00 deposit is kept, as your policy says\\."
+- tapOn: "Mark no-show"
+- extendedWaitUntil:
+      visible: "\\$25\\.00 kept"
+      timeout: 30000
+- scrollUntilVisible:
+      element: "Deposit of \\$25\\.00 paid"
+      direction: DOWN
+      timeout: 20000
+- takeScreenshot: deposit-kept
+- runFlow: helpers/close-sheet.yaml
+
+# a staff cancel keeps it too, and says how to give it back
+- runFlow:
+      file: helpers/open-visit.yaml
+      env:
+          NAME: ${output.dropped}
+          DAY: ${output.dayLabel}
+- extendedWaitUntil:
+      visible: "\\$25\\.00 paid"
+      timeout: 60000
+- tapOn: "Cancel visit"
+- assertVisible: "The \\$25\\.00 deposit is kept\\. Refund it from Payments if you want to give it back\\."
+- tapOn:
+      text: "Cancel visit"
+      below: "The \\$25\\.00 deposit is kept.*"
+- extendedWaitUntil:
+      visible: "Visit canceled"
+      timeout: 30000
+- takeScreenshot: deposit-canceled

@@ -691,27 +691,41 @@ def _assert_started(starts_at: datetime) -> None:
 
 async def settle_deposit(db: AsyncSession, gateway: PaymentGateway, booking_id: str) -> str | None:
     """Collect a settled deposit and apply it to the open invoice, or forfeit it after a no-show."""
-    booking = await db.get(Booking, booking_id)
+    # locked first, so a bill paid meanwhile either sees this deposit settled or drops it before
+    booking = await db.get(Booking, booking_id, with_for_update=True, populate_existing=True)
     if booking is None:
         return None
-    # a visit canceled, or finished without the deposit, no longer wants a deposit paid late
-    if booking.status == "canceled" or (
-        booking.status == "completed" and booking.deposit_status == "none"
-    ):
+    # a visit canceled, finished without the deposit or paid in full no longer wants one paid late
+    if booking.status == "canceled" or booking.deposit_status == "none":
         booking.deposit_status = "collected"
         await refund_deposit(db, gateway, booking)
         return None
-    if booking.status == "no_show":
-        await ledger.post_forfeit(db, booking)
-        booking.deposit_status = "forfeited"
-        await db.flush()
-        return None
     booking.deposit_status = "collected"
+    if booking.status == "no_show":
+        await keep_deposit(db, booking, "no_show")
+        return None
     invoice = await _open_invoice(db, booking)
     if invoice is not None and await apply_deposit(db, booking, invoice):
         return invoice.id
+    if await _billed_in_full(db, booking):
+        await refund_deposit(db, gateway, booking)
+        return None
     await db.flush()
     return None
+
+
+async def keep_deposit(db: AsyncSession, booking: Booking, key: str) -> bool:
+    """Keep what a deposit still holds as revenue; a refund from Payments can still give it back."""
+    if booking.deposit_status not in ("collected", "forfeited"):
+        return False
+    if await ledger.deposit_held(db, booking) <= 0:
+        return False
+    # a second keep, of a part an invoice gave back, needs a ref of its own
+    kept = await ledger.journal_for(db, booking.business_id, f"forfeit:{booking.id}")
+    await ledger.post_forfeit(db, booking, key if kept is not None else None)
+    booking.deposit_status = "forfeited"
+    await db.flush()
+    return True
 
 
 async def apply_deposit(db: AsyncSession, booking: Booking, invoice: Invoice) -> bool:
@@ -785,6 +799,17 @@ async def _open_invoice(db: AsyncSession, booking: Booking) -> Invoice | None:
         .limit(1)
     )
     return rows.scalars().first()
+
+
+async def _billed_in_full(db: AsyncSession, booking: Booking) -> bool:
+    paid = await db.scalar(
+        scoped(Invoice, booking.business_id)
+        .with_only_columns(Invoice.id)
+        .join(Line, Line.invoice_id == Invoice.id)
+        .where(Line.booking_id == booking.id, ledger.invoice_status_expr() == "paid")
+        .limit(1)
+    )
+    return paid is not None
 
 
 async def hold_estimate(
@@ -982,6 +1007,11 @@ class BookingService:
                     booking.canceled_at = clock.now()
                     await release_slot(self.db, slot)  # a class keeps its slot for the rest
                     await carry_crew(self.db, self.biz, booking, slot)
+                    # a declined request refunds its deposit below; a canceled visit keeps it
+                    if status_then != "pending" and await keep_deposit(self.db, booking, "cancel"):
+                        cmd.record(
+                            "booking.deposit_forfeited", entity_type="booking", entity_id=booking.id
+                        )
                 elif data.status == "completed":
                     booking.completed_at = clock.now()
                     await complete_when_done(self.db, slot)
@@ -1397,8 +1427,8 @@ class BookingService:
     ) -> DepositOut:
         booking = await self._booking(booking_id)
         self._assert_can_act_as(booking.staff_id)
-        if booking.deposit_amount_cents <= 0:
-            raise Conflict("no deposit due")
+        if booking.deposit_amount_cents <= 0 or booking.deposit_status == "none":
+            raise Conflict("no deposit due", code="deposit_not_due")
         business = await self._business()
         if not business.stripe_charges_enabled or business.stripe_account_id is None:
             raise Conflict(
@@ -1449,10 +1479,7 @@ class BookingService:
         """Keep a collected deposit, or charge the default card for one; never charges twice."""
         if booking.deposit_status in ("none", "applied", "forfeited", "refunded"):
             return
-        if booking.deposit_status == "collected":
-            await ledger.post_forfeit(self.db, booking)
-            booking.deposit_status = "forfeited"
-            await self.db.flush()
+        if await keep_deposit(self.db, booking, "no_show"):
             cmd.record("booking.deposit_forfeited", entity_type="booking", entity_id=booking.id)
             return
         if booking.deposit_amount_cents <= 0 or await self._has_open_deposit(booking.id):
