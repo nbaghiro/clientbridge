@@ -6,6 +6,9 @@ onFlowComplete:
     - runScript: helpers/restore-week.js
 ---
 - evalScript: ${output.run = String(1000 + Math.floor(Math.random() * 8999))}
+# a number outside 555-01xx, which is set aside for fiction and never texted
+- evalScript: ${output.phone = "250" + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000))}
+- evalScript: ${output.shown = "\\(250\\) " + output.phone.slice(3, 6) + "-" + output.phone.slice(6)}
 - runScript:
       file: helpers/client-api.js
       env:
@@ -21,7 +24,7 @@ onFlowComplete:
       env:
           METHOD: POST
           PATH: /v1/clients
-          BODY: "${JSON.stringify({ name: output.billed })}"
+          BODY: "${JSON.stringify({ name: output.billed, phone: output.phone })}"
 - runScript:
       file: helpers/book-today.js
       env:
@@ -99,6 +102,10 @@ onFlowComplete:
 - tapOn: "Send invoice"
 - extendedWaitUntil:
       visible: "Check it before it goes out"
+      timeout: 30000
+# waits for the text, as the preview's buttons move once it loads
+- extendedWaitUntil:
+      visible: ${"Text to " + output.shown}
       timeout: 30000
 - tapOn:
       text: "Send invoice"
