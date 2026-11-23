@@ -6,9 +6,6 @@ onFlowComplete:
     - runScript: helpers/restore-week.js
 ---
 - evalScript: ${output.run = String(1000 + Math.floor(Math.random() * 8999))}
-# a number outside 555-01xx, which is set aside for fiction and never texted
-- evalScript: ${output.phone = "250" + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000))}
-- evalScript: ${output.shown = "\\(250\\) " + output.phone.slice(3, 6) + "-" + output.phone.slice(6)}
 - runScript:
       file: helpers/client-api.js
       env:
@@ -24,7 +21,7 @@ onFlowComplete:
       env:
           METHOD: POST
           PATH: /v1/clients
-          BODY: "${JSON.stringify({ name: output.billed, phone: output.phone })}"
+          BODY: "${JSON.stringify({ name: output.billed })}"
 - runScript:
       file: helpers/book-today.js
       env:
@@ -75,6 +72,13 @@ onFlowComplete:
       env:
           ACTION: deposit
           PAYLOAD: ${output.droppedVisit}
+# the visit's draft, made as the Create invoice button makes it; NATIVE-BILL-03 sends one by hand
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: ${"/v1/invoices/from-booking/" + output.billedVisit}
+- evalScript: ${output.invoiceId = output.response.id}
 - runFlow: helpers/owner.yaml
 
 # the draft already takes the paid deposit off, and sending applies it
@@ -87,10 +91,10 @@ onFlowComplete:
       visible: "\\$25\\.00 paid"
       timeout: 60000
 - scrollUntilVisible:
-      element: "Create invoice"
+      element: "Open invoice"
       direction: DOWN
       timeout: 30000
-- tapOn: "Create invoice"
+- tapOn: "Open invoice"
 - extendedWaitUntil:
       visible: "Draft invoice"
       timeout: 30000
@@ -99,20 +103,15 @@ onFlowComplete:
       direction: DOWN
       timeout: 20000
 - takeScreenshot: deposit-draft
-- tapOn: "Send invoice"
+# sent from another device, so the open draft turns into the sent invoice as it syncs
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: ${"/v1/invoices/" + output.invoiceId + "/send"}
 - extendedWaitUntil:
-      visible: "Check it before it goes out"
-      timeout: 30000
-# waits for the text, as the preview's buttons move once it loads
-- extendedWaitUntil:
-      visible: ${"Text to " + output.shown}
-      timeout: 30000
-- tapOn:
-      text: "Send invoice"
-      below: "Show the document"
-- extendedWaitUntil:
-      visible: "Invoice #\\d+ sent to .*"
-      timeout: 30000
+      notVisible: "Draft invoice"
+      timeout: 60000
 - scrollUntilVisible:
       element: "Deposit applied"
       direction: DOWN
