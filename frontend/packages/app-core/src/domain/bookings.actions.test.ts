@@ -7,6 +7,24 @@ import { type BookingActions, type ScheduleEvent, useBookingActions } from "./bo
 
 afterEach(cleanup);
 
+const replica = vi.hoisted((): { heldCents: number | null } => ({ heldCents: null }));
+
+vi.mock("../hooks", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("../hooks")>()),
+    useBusinessQuery: (sql: string) => ({
+        data:
+            sql.includes("a.category = 'deposit'") && replica.heldCents !== null
+                ? [{ cents: replica.heldCents }]
+                : [],
+        isLoading: false,
+        error: null,
+    }),
+}));
+
+afterEach(() => {
+    replica.heldCents = null;
+});
+
 const s = strings.bookings;
 const NOW = new Date("2026-10-13T17:00:00Z");
 
@@ -64,4 +82,13 @@ it("says a declined request is done once it leaves this device's schedule", asyn
     rerender({ event: null });
 
     expect(result.current.outcome).toBe(s.declinedDone);
+});
+
+it("says a staff cancel keeps only what the visit's bill left of the deposit", () => {
+    const patch = vi.fn().mockResolvedValue({});
+    const whole = renderHook(() => useBookingActions(api(patch), visit("confirmed"), NOW));
+    expect(whole.result.current.cancelNote).toBe(s.cancelKept("$27.50"));
+    replica.heldCents = 1250;
+    const rest = renderHook(() => useBookingActions(api(patch), visit("confirmed"), NOW));
+    expect(rest.result.current.cancelNote).toBe(s.cancelKept("$12.50"));
 });

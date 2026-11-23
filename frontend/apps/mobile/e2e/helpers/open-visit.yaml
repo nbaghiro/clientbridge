@@ -1,0 +1,25 @@
+appId: ${APP_ID}
+---
+# opens NAME's visit on DAY from Schedule; a short swipe lifts a block off the bottom edge first
+- tapOn: "Schedule"
+- tapOn: ${DAY}
+- scrollUntilVisible:
+      element: ${".*" + NAME + ".*"}
+      direction: DOWN
+      timeout: 60000
+- swipe:
+      start: 50%, 70%
+      end: 50%, 40%
+      duration: 600
+- scrollUntilVisible:
+      element: ${".*" + NAME + ".*"}
+      direction: UP
+      timeout: 20000
+      centerElement: true
+- retry:
+      maxRetries: 3
+      commands:
+          - tapOn: ${".*" + NAME + ".*"}
+          - extendedWaitUntil:
+                visible: "Close"
+                timeout: 10000

@@ -56,7 +56,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 6. Invoice and get paid                 | Estimates to invoices                                       | [CB-33](https://linear.app/clientbridgeca/issue/CB-33) | Automated        |
 | 6. Invoice and get paid                 | Invoices and payment links                                  | [CB-34](https://linear.app/clientbridgeca/issue/CB-34) | Automated        |
 | 6. Invoice and get paid                 | Printed and shared documents                                | [CB-36](https://linear.app/clientbridgeca/issue/CB-36) | Automated        |
-| 6. Invoice and get paid                 | Deposits applied to the bill                                | [CB-37](https://linear.app/clientbridgeca/issue/CB-37) | Partly automated |
+| 6. Invoice and get paid                 | Deposits applied to the bill                                | [CB-37](https://linear.app/clientbridgeca/issue/CB-37) | Automated        |
 | 7. Gift cards, packages and memberships | Package, membership and gift card items                     | [CB-15](https://linear.app/clientbridgeca/issue/CB-15) | Automated        |
 | 7. Gift cards, packages and memberships | Gift cards: sell and redeem                                 | [CB-38](https://linear.app/clientbridgeca/issue/CB-38) | Automated        |
 | 7. Gift cards, packages and memberships | Packages: sell, use and expire                              | [CB-39](https://linear.app/clientbridgeca/issue/CB-39) | Automated        |
@@ -1666,34 +1666,43 @@ Estimates become invoices, invoices are paid by link, saved card or by hand, and
 
 ### Deposits applied to the bill (CB-37)
 
-**Covers:** Deposit on booking, invoice from booking, no-show and cancel paths
-**Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234
+**Covers:** Deposit on booking on web and mobile, invoice from booking, no-show and cancel paths, the manage link
+**Before you start:** Staging with Stripe in test mode; Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a service with a $25 fixed deposit (Setup > Services & products)
 
 **Where to test**
 
-- **Local:** `make up migrate seed`, then `make dev-api dev-web`. Open web at [http://localhost:8700](http://localhost:8700). Run `make stripe-setup` once and keep `make stripe-listen` running for card steps.
-- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first.
+- **Local:** `make up migrate seed`, then `make dev-api dev-web dev-mobile`. Open web at [http://localhost:8700](http://localhost:8700) and mobile in the iOS simulator. Run `make stripe-setup` once and keep `make stripe-listen` and `make worker` running for card steps.
+- **Staging:** [https://app.staging.clientbridge.ca](https://app.staging.clientbridge.ca), with the same logins. Mobile: the staging app, from TestFlight on iOS or its Expo build page on Android. Card steps use the Stripe sandbox; the demos are linked, so finish their sandbox onboarding under Getting paid first.
 
 **QA steps**
 
-1. Book with a $25 deposit and invoice the visit.
-   **Expect:** the invoice's balance is reduced by $25.
-2. Cancel an allowed booking with a paid deposit.
+1. Book with a $25 deposit, collect it by card and invoice the visit.
+   **Expect:** the draft already shows the $25 coming off and the balance left; once sent, the invoice's balance is reduced by $25 and the text asks for what is left.
+2. Cancel an allowed booking with a paid deposit from its manage link.
    **Expect:** refunded in full.
 3. Mark a deposit visit a no-show.
-   **Expect:** the deposit is kept as revenue.
+   **Expect:** the deposit is kept as revenue, and the visit's history still shows it paid.
 4. Refund a deposit already applied to an issued invoice.
-   **Expect:** the invoice reopens for that amount.
+   **Expect:** the invoice reopens for that amount; its totals, print and pay page no longer show the deposit, and its history says it was refunded.
+5. Cancel a visit with a paid deposit as staff.
+   **Expect:** the dialog says the deposit is kept; it is booked as revenue and can still be refunded from Payments.
+6. Send the invoice for a visit whose deposit is still unpaid, then pay the invoice in full.
+   **Expect:** the visit and its manage link stop asking for the deposit.
 
 **Done when:** Every deposit ends applied, refunded or kept, and the books agree.
 
 **Automated by**
 
 - `BILL-DOC-03 (web)`
+- `BILL-DOC-28 (web)`
+- `SCH-E2E-24 (journeys)`
 - `FIN-DEPOSIT-04 (stripe)`
 - `FIN-DEPOSIT-10 (stripe)`
-- `STR-E04 (stripe)`
 - `FIN-DEPOSIT-14 (stripe)`
+- `FIN-DEPOSIT-16 (stripe)`
+- `STR-E04 (stripe)`
+- `NATIVE-BILL-05 (native-ios, native-android)`
+- `NATIVE-BILL-06 (stripe-native)`
 
 **Depends on:** Nothing
 

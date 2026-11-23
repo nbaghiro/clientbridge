@@ -1,6 +1,6 @@
 import { strings, useBookingRecord } from "@clientbridge/app-core";
 import { DetailView, Empty, Modal, Skeleton } from "@clientbridge/ui";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { api } from "../lib/api";
 import {
@@ -23,8 +23,13 @@ export function BookingRecord({ id, onClose }: { id: string; onClose: () => void
     const rec = useBookingRecord(api, id);
     const [wanted, setPage] = useState<Page>("record");
     const [checkedIn, setCheckedIn] = useState<string | null>(null);
+    const [collecting, setCollecting] = useState(false);
     const detail = rec.detail;
     const bookingId = detail?.event.bookingId ?? null;
+    const depositStatus = detail?.event.depositStatus;
+    useEffect(() => {
+        setCollecting(false);
+    }, [id, depositStatus]);
     const client = detail?.client ?? null;
     const available: Record<Page, boolean> = {
         record: true,
@@ -58,7 +63,8 @@ export function BookingRecord({ id, onClose }: { id: string; onClose: () => void
                 subtitle={detail?.event.serviceName}
                 onClose={onClose}
                 actions={
-                    detail === null ? undefined : (
+                    // the keyboard would lift the visit's actions over the deposit's card form
+                    detail === null || collecting ? undefined : (
                         <BookingActionBar
                             actions={rec.actions}
                             onReschedule={() => {
@@ -76,6 +82,8 @@ export function BookingRecord({ id, onClose }: { id: string; onClose: () => void
                             setCheckedIn(null);
                         }}
                         onOpen={setPage}
+                        collecting={collecting}
+                        setCollecting={setCollecting}
                     />
                 ) : rec.state === "missing" ? (
                     rec.actions.outcome !== null ? (

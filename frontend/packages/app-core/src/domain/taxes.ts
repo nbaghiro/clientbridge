@@ -495,7 +495,7 @@ export function taxableItemPriceLabel(item: TaxableItem): string {
 export const TAX_SETUP_SQL =
     "SELECT province, tax_registered, tax_registered_on FROM businesses LIMIT 1";
 
-interface TaxSetup {
+export interface TaxSetup {
     province: string | null;
     rates: DocRate[];
     registered: boolean;

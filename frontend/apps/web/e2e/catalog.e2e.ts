@@ -361,7 +361,8 @@ test("CFG-E2E-13 the length, clean-up, deposit and members set on a service are 
         .click();
     await editor.getByRole("textbox", { name: s.depositPercentLabel, exact: true }).fill("25");
     await expect(
-        editor.getByText(s.depositSummary(formatMoney(2000, "CAD"), formatMoney(6000, "CAD"))),
+        // the rest is what the client still pays at the visit, GST and PST included
+        editor.getByText(s.depositSummary(formatMoney(2000, "CAD"), formatMoney(6960, "CAD"))),
     ).toBeVisible();
     const item = await saveItem<SavedItem>(page, editor, "POST");
     expect(item).toMatchObject({

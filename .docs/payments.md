@@ -221,6 +221,10 @@ An intent that nobody will finish is cancelled rather than left confirmable, so 
   ones.
 - Completing a visit cancels its unpaid deposit intent. A deposit that still settles after the visit
   finished without it is refunded, as after a cancellation.
+- Paying a visit's invoice in full drops its unpaid deposit, so neither the visit panel nor the manage
+  link asks for it again, and a deposit that still settles after that is refunded. Both sides lock the
+  visit: a bill paid while a deposit is settling skips that visit, and the settle refunds once it sees
+  the bill paid.
 - Connect's card form counts a payment as done only once Stripe reports it succeeded or processing.
   A voided or refunded invoice's pay link shows that nothing is due instead of a Pay button.
 - The pay link sends the balance its page shows, and `POST /pay/{token}/card` refuses a different live
@@ -393,9 +397,18 @@ charge, so reconciliation counts the `fee_return:` journals of a charge's refund
 their own online order doesn't. The fee return is booked only when Stripe reports the refund succeeded in
 its first answer; a refund that succeeds later through `refund.updated` doesn't book it yet.
 
+Every paid deposit ends applied, refunded or kept. A no-show keeps it, and so does staff cancelling a
+single visit or voiding the invoice of a visit that was canceled or missed: the forfeit books it as
+revenue, the client's manage link says the business kept it, and a refund from Payments can still give
+it back. Cancels the business makes for its own reasons refund instead: declining a request, cancelling
+a series, removing a team member with visits ahead, or cancelling a program enrolment. A client who
+cancels in time is refunded; one whose deposit is already on a sent invoice is told to contact the
+business. A canceled or missed visit offers no receipt.
+
 Money leaving a booking deposit, by refund or lost dispute, first takes back the deposit's forfeit and any
-application to an invoice, then marks the deposit refunded. The forfeit reversal is keyed by the refund or
-dispute. A refund that fails after it succeeded reverses the refund journal, forfeits the deposit again
+application to an invoice, then marks the deposit refunded; the invoice's totals and pay page drop it and
+its history says it was refunded. The forfeit reversal is keyed by the refund or dispute. A refund that
+fails after it succeeded reverses the refund journal, forfeits the deposit again
 (`restore_forfeit`) and restores a gift card or package the refund had voided. A held deposit goes back
 on the booking's open invoice under an application keyed by the failed refund, so the invoice it reopened
 is paid down again; if that invoice was paid or voided in the meantime, the deposit stays held. Any
