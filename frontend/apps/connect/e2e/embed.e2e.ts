@@ -23,6 +23,7 @@ interface Spoof {
     height?: unknown;
     widget?: string;
     brand?: Record<string, unknown>;
+    open?: unknown;
 }
 
 const SOURCE = "clientbridge-connect";
@@ -246,6 +247,8 @@ test("EMBED-E2E-01 an inline widget below the fold sizes to its content before i
 test("OPS-E2E-06 the embed loader trusts only its widget's own window and origin, and renders brand as text", async ({
     page,
 }) => {
+    // shorter than the widget, so an overlay that fits the frame to the window would show
+    await page.setViewportSize({ width: 1280, height: 300 });
     await page.goto(`/c/${links.slug}`);
     await page.evaluate((slug) => {
         (window as { successes?: string[] }).successes = [];
@@ -278,6 +281,7 @@ test("OPS-E2E-06 the embed loader trusts only its widget's own window and origin
             { source, type: "resize", height: 4321 },
             { source, type: "success", widget: "shop" },
             { source, type: "brand", brand: { name: "Host page" } },
+            { source, type: "overlay", open: true },
         ])
             window.postMessage(data, "*");
     }, SOURCE);
@@ -290,6 +294,7 @@ test("OPS-E2E-06 the embed loader trusts only its widget's own window and origin
         { source: SOURCE, type: "resize", height: 4321 },
         { source: SOURCE, type: "success", widget: "shop" },
         { source: SOURCE, type: "brand", brand: { name: "Another host" } },
+        { source: SOURCE, type: "overlay", open: true },
     ])
         await post(widget, message);
     await page.waitForTimeout(500);
@@ -303,6 +308,13 @@ test("OPS-E2E-06 the embed loader trusts only its widget's own window and origin
     ).toBeVisible();
     await post(widget, { source: SOURCE, type: "resize", height: "9999" });
     await post(widget, { source: SOURCE, type: "resize", height: 50_000 });
+    await expect.poll(height).toBe("20000px");
+    await post(widget, { source: SOURCE, type: "overlay", open: "true" });
+    await page.waitForTimeout(500);
+    expect(await height()).toBe("20000px");
+    await post(widget, { source: SOURCE, type: "overlay", open: true });
+    await expect.poll(height).toBe("300px");
+    await post(widget, { source: SOURCE, type: "overlay", open: false });
     await expect.poll(height).toBe("20000px");
     await post(widget, {
         source: SOURCE,
