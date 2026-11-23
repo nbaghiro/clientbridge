@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import { BusinessZoneContext } from "../datetime";
 import { strings } from "../strings";
 import { INVOICE_SQL, printedInvoice, useInvoiceRecord } from "./billing";
-import { INVOICE_PAYMENTS_SQL } from "./payments";
+import { INVOICE_PAYMENTS_SQL, payLinkUrl } from "./payments";
 import { type Letterhead, shortDate } from "./printing";
 
 const replica = vi.hoisted(() => ({ status: "paid" }));
@@ -115,6 +115,12 @@ describe("an invoice's refunds", () => {
             ["balance", s.balanceDue, 0],
             ["ref_a", s.refundedOn("CN-7-1", shortDate("2026-10-03T12:00:00Z", ZONE)), 3000],
         ]);
+    });
+
+    it("keep the client's page to share once paid, with no link to pay it", () => {
+        replica.status = "paid";
+        const rec = record();
+        expect([rec.payUrl, rec.pageUrl]).toEqual([null, payLinkUrl("https://pay.test", "tok")]);
     });
 
     it("stamp the printed invoice Refunded once refunded in full, and Paid before", () => {

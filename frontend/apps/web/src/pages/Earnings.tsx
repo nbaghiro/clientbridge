@@ -35,6 +35,7 @@ import {
     Stat,
     StatusPill,
     TextField,
+    usePrintSheet,
 } from "@clientbridge/ui";
 
 import { type ReactNode, useState } from "react";
@@ -44,7 +45,6 @@ import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
 import { saveFile } from "../lib/files";
 import { useOpenLink } from "../lib/links";
-import { usePrintSheet } from "../lib/print";
 
 const s = strings.earnings;
 const GRID = "grid grid-cols-[minmax(0,1.6fr)_minmax(0,1.6fr)_8rem_8rem_8rem] items-center gap-4";

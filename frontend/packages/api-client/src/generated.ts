@@ -5029,6 +5029,95 @@ export interface components {
             auto_complete?: boolean | null;
         };
         /**
+         * BookingReceipt
+         * @description A visit's receipt as staff print it, with the link that opens it for the client.
+         */
+        BookingReceipt: {
+            /** Number */
+            number: number | null;
+            /** Business Name */
+            business_name: string;
+            brand: components["schemas"]["PublicBrand"];
+            address?: components["schemas"]["PublicAddress"];
+            /**
+             * Phone
+             * @description The business's legal phone number
+             */
+            phone?: string | null;
+            /** Gst Hst Number */
+            gst_hst_number?: string | null;
+            /** Qst Number */
+            qst_number?: string | null;
+            /** Client Name */
+            client_name?: string | null;
+            /** Served By */
+            served_by?: string[];
+            /** Status */
+            status: string;
+            /** Currency */
+            currency: string;
+            /**
+             * Timezone
+             * @description The business's IANA time zone, which its times are shown in
+             */
+            timezone: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Lines */
+            lines: components["schemas"]["PublicDocLine"][];
+            /**
+             * Discount Cents
+             * @default 0
+             */
+            discount_cents: number;
+            /** Discount Reason */
+            discount_reason?: string | null;
+            /** Subtotal Cents */
+            subtotal_cents: number;
+            /** Taxes */
+            taxes: components["schemas"]["PublicDocTax"][];
+            /** Tax Total Cents */
+            tax_total_cents: number;
+            /** Total Cents */
+            total_cents: number;
+            /**
+             * Tip Cents
+             * @default 0
+             */
+            tip_cents: number;
+            /** Payments */
+            payments: components["schemas"]["PublicReceiptPayment"][];
+            /**
+             * Source
+             * @description Which document it prints; the number is that invoice's or sale's
+             * @enum {string}
+             */
+            source: "invoice" | "sale";
+            /** Service */
+            service: string;
+            /**
+             * Visit At
+             * Format: date-time
+             * @description When the visit started
+             */
+            visit_at: string;
+            /** Practitioner */
+            practitioner?: string | null;
+            /**
+             * Practitioner Title
+             * @description The practitioner's title, with any credential and registration
+             */
+            practitioner_title?: string | null;
+            /**
+             * Link
+             * @description The client's visit page, else the invoice or sale it was paid on
+             */
+            link?: string | null;
+        };
+        /**
          * BrandUpdate
          * @description The brand as written; only writes cap the tagline, as a stored one may be longer.
          */
@@ -8468,6 +8557,12 @@ export interface components {
             /** Business Name */
             business_name: string;
             brand: components["schemas"]["PublicBrand"];
+            address?: components["schemas"]["PublicAddress"];
+            /**
+             * Phone
+             * @description The business's legal phone number
+             */
+            phone?: string | null;
             /** Contact Email */
             contact_email: string | null;
             /** Gst Hst Number */
@@ -13418,7 +13513,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["VisitReceipt"];
+                    "application/json": components["schemas"]["BookingReceipt"];
                 };
             };
             /** @description Validation Error */

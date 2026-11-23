@@ -1358,9 +1358,6 @@
     "billing.doc.kinds.receipt": {
         "message": "[Ŕéçéîþţ one]"
     },
-    "billing.doc.fileName": {
-        "message": "[{business}-{kind}-{n}.þðƒ one]"
-    },
     "billing.doc.print": {
         "message": "[Þŕîñţ one]"
     },
@@ -1445,6 +1442,9 @@
     "printing.practitioner": {
         "message": "[Þŕåçţîţîöñéŕ one two]"
     },
+    "printing.servedBy": {
+        "message": "[Šéŕṽéð ƀý one]"
+    },
     "printing.assistedBy": {
         "message": "[Åššîšţéð ƀý one two]"
     },
@@ -1499,8 +1499,11 @@
     "printing.thanks": {
         "message": "[Ţĥåñķ ýöû ƒöŕ ýöûŕ ƀûšîñéšš. one two three]"
     },
-    "printing.page": {
-        "message": "[Þåĝé {page, number} öƒ {pages, number} one]"
+    "printing.fileTitle": {
+        "message": "{business}-{kind}-{n}"
+    },
+    "printing.fileTitleUnnamed": {
+        "message": "{kind}-{n}"
     },
     "printing.streetLine": {
         "message": "{number} {street}"
@@ -1543,9 +1546,6 @@
     },
     "printing.heading": {
         "message": "{title} {reference}"
-    },
-    "printing.deadline": {
-        "message": "{label} {date}"
     },
     "printing.headingFor": {
         "message": "[{title} ƒöŕ {name} one]"
@@ -3723,7 +3723,7 @@
         "message": "[Çĥööšé åñ åðð-öñ one two]"
     },
     "bookings.addonAdds": {
-        "message": "[Åððš {n, number} ɱîñ one]"
+        "message": "[Åððš {length} one]"
     },
     "bookings.addonAddError": {
         "message": "[Çöûļðñ'ţ åðð ţĥîš îţéɱ. Þļéåšé ţŕý åĝåîñ. one two three]"
@@ -10523,6 +10523,9 @@
     "reports.library.staffPay": {
         "message": "[Šţåƒƒ þåý one]"
     },
+    "reports.itemCount": {
+        "message": "[{n,plural,one{# îţéɱ} other{# îţéɱš}} one two]"
+    },
     "reports.libraryHint.income": {
         "message": "[Šåļéš åñð ĥöŵ çļîéñţš þåîð one two three]"
     },
@@ -10708,9 +10711,6 @@
     },
     "reports.qty": {
         "message": "{n, number, ::.00/w}"
-    },
-    "reports.sold": {
-        "message": "[{n, number, ::.00/w} šöļð one]"
     },
     "reports.taxableSales": {
         "message": "[Ţåẋåƀļé šåļéš (ļîñé 101) one two]"

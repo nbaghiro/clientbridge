@@ -1,0 +1,156 @@
+appId: ${APP_ID}
+name: NATIVE-BILL-04 An invoice, an estimate and a visit's paid receipt each open as their printed page in a sheet of their own, and Share hands over the link the client opens
+tags:
+    - lane
+onFlowComplete:
+    - runScript: helpers/restore-week.js
+---
+- evalScript: ${output.phone = "250" + String(700 + Math.floor(Math.random() * 200)) + String(1000 + Math.floor(Math.random() * 8000))}
+- evalScript: ${output.name = "Wren Halvorsen " + output.phone.slice(-4)}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/clients
+          BODY: "${JSON.stringify({ name: output.name, phone: output.phone })}"
+- evalScript: ${output.clientId = output.response.id}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/items
+          BODY: "${JSON.stringify({ kind: 'service', name: 'Coat care ' + output.phone.slice(-4), duration_min: 10, price_cents: 6000, tax_class: 'standard', deposit_type: 'none', online_bookable: false })}"
+- evalScript: ${output.itemId = output.response.id}
+- runScript:
+      file: helpers/book-today.js
+      env:
+          BODY: "${JSON.stringify({ client_id: output.clientId, item_id: output.itemId, staff_id: 'st_owner_' + E2E_NAMESPACE })}"
+# the visit is invoiced and paid, so its receipt prints; the estimate waits on the client
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: ${"/v1/invoices/from-booking/" + output.booking.id}
+          KEY: ${"documents-" + output.booking.id}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: ${"/v1/invoices/" + output.response.id + "/send"}
+- evalScript: ${output.invoice = output.response}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: ${"/v1/invoices/" + output.invoice.id + "/payments"}
+          KEY: ${"documents-paid-" + output.invoice.id}
+          BODY: "${JSON.stringify({ method: 'cash', amount_cents: output.invoice.total_cents, send_receipt: false })}"
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: POST
+          PATH: /v1/estimates
+          BODY: "${JSON.stringify({ client_id: output.clientId, send: true, lines: [{ description: 'De-shedding treatment', quantity: 1, unit_amount_cents: 4500, tax_class: 'standard' }] })}"
+- evalScript: ${output.estimate = output.response}
+- runScript:
+      file: helpers/client-api.js
+      env:
+          METHOD: GET
+          PATH: ${"/v1/bookings/" + output.booking.id + "/receipt"}
+- evalScript: ${output.receiptLink = output.response.link}
+# each link the phone shares opens the client's own page
+- runScript:
+      file: helpers/client-page.js
+      env:
+          LINK: ${"/i/" + output.invoice.pay_token}
+- runScript:
+      file: helpers/client-page.js
+      env:
+          LINK: ${"/e/" + output.estimate.view_token}
+- runScript:
+      file: helpers/client-page.js
+      env:
+          LINK: ${output.receiptLink}
+- assertTrue: ${output.page.client_name == output.name}
+- runFlow: helpers/owner.yaml
+- scrollUntilVisible:
+      element: "View payments"
+      direction: DOWN
+- tapOn: "View payments"
+- tapOn: "Search client or number"
+- inputText: ${output.name}
+# the row by its number, since the search field holds the client's name too
+- extendedWaitUntil:
+      visible: ${".*#" + output.invoice.number + " · .*"}
+      timeout: 60000
+- tapOn: ${".*#" + output.invoice.number + " · .*"}
+- runFlow:
+      file: helpers/share-document.yaml
+      env:
+          TITLE: Invoice
+          HOST: pay.localhost
+- tapOn: "Estimates"
+- extendedWaitUntil:
+      visible: "New estimate"
+      timeout: 15000
+- tapOn: "Search client or number"
+- eraseText
+- inputText: ${output.name}
+- extendedWaitUntil:
+      visible: ${".*#" + output.estimate.number + " · .*"}
+      timeout: 60000
+- tapOn: ${".*#" + output.estimate.number + " · .*"}
+- runFlow:
+      file: helpers/share-document.yaml
+      env:
+          TITLE: Estimate
+          HOST: pay.localhost
+- runFlow:
+      when:
+          platform: iOS
+      commands:
+          - tapOn: "Back"
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - back
+# today's visit, opened from Schedule as billing.invoices.yaml does
+- tapOn: "Schedule"
+- tapOn: ${output.dayLabel}
+- scrollUntilVisible:
+      element: ${".*" + output.name + ".*"}
+      direction: DOWN
+      timeout: 60000
+- swipe:
+      start: 50%, 70%
+      end: 50%, 40%
+      duration: 600
+- scrollUntilVisible:
+      element: ${".*" + output.name + ".*"}
+      direction: UP
+      timeout: 20000
+      centerElement: true
+- retry:
+      maxRetries: 3
+      commands:
+          - tapOn: ${".*" + output.name + ".*"}
+          - extendedWaitUntil:
+                visible: "Close"
+                timeout: 10000
+- scrollUntilVisible:
+      element: "Receipt"
+      direction: DOWN
+      timeout: 30000
+- tapOn: "Receipt"
+# the receipt is a sheet of its own over the visit, so its Share is on screen
+- extendedWaitUntil:
+      visible: "Share"
+      timeout: 30000
+- assertVisible: ${".*" + output.name + ".*"}
+- takeScreenshot: receipt-sheet
+- tapOn: "Share"
+- runFlow:
+      file: helpers/share-sheet.yaml
+      env:
+          HOST: ${output.receiptLink.split("/")[2].split(":")[0]}

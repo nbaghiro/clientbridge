@@ -927,6 +927,8 @@ interface SaleLineView {
     originalCents: number | null;
     // Products take a quantity; a booked visit or a service is one.
     quantity: number | null;
+    // a visit's add-on stays with the visit: comp it with a 100% discount instead
+    removable: boolean;
     grossCents: number;
     imageFileId: string | null;
     color: string | null;
@@ -1049,10 +1051,15 @@ function saleLineView(l: SalePricedLine, staff: string | null): SaleLineView {
         cents: after,
         originalCents: l.lineDiscountCents > 0 ? l.grossCents : null,
         quantity: l.kind === "product" && l.bookingId === null ? l.quantity : null,
+        removable: !bookedAddon(l),
         grossCents: l.grossCents,
         imageFileId: l.imageFileId,
         color: l.color,
     };
+}
+
+function bookedAddon(line: Pick<SaleLine, "kind" | "bookingId">): boolean {
+    return line.kind === "product" && line.bookingId !== null;
 }
 
 interface SaleGiftCard {
@@ -1405,8 +1412,9 @@ export function useSale(
         },
         removeLine: (key) => {
             const gone = lines.find((l) => l.key === key);
+            if (gone === undefined || bookedAddon(gone)) return;
             // the visit's own line takes its add-ons and deposit off the ticket with it
-            const visit = gone?.kind === "product" ? null : (gone?.bookingId ?? null);
+            const visit = gone.kind === "product" ? null : gone.bookingId;
             edit((ls) =>
                 ls.filter((l) => l.key !== key && (visit === null || l.bookingId !== visit)),
             );

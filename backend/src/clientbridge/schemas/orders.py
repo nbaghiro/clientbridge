@@ -156,6 +156,15 @@ class VisitReceipt(PublicReceipt):
     )
 
 
+class BookingReceipt(VisitReceipt):
+    """A visit's receipt as staff print it, with the link that opens it for the client."""
+
+    link: str | None = Field(
+        default=None,
+        description="The client's visit page, else the invoice or sale it was paid on",
+    )
+
+
 class OrderCheckoutIn(TipIn):
     pass
 

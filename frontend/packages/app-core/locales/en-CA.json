@@ -1479,10 +1479,6 @@
     "billing.doc.kinds.receipt": {
         "message": "Receipt"
     },
-    "billing.doc.fileName": {
-        "message": "{business}-{kind}-{n}.pdf",
-        "args": ["business", "kind", "n"]
-    },
     "billing.doc.print": {
         "message": "Print"
     },
@@ -1575,6 +1571,10 @@
         "message": "Practitioner",
         "description": "On a visit receipt: who treated the client, with their credentials and registration number"
     },
+    "printing.servedBy": {
+        "message": "Served by",
+        "description": "On a desk sale's receipt: the staff who served the client"
+    },
     "printing.assistedBy": {
         "message": "Assisted by",
         "description": "On a visit receipt: the other members of the crew who worked on the visit with the practitioner"
@@ -1635,9 +1635,15 @@
     "printing.thanks": {
         "message": "Thank you for your business."
     },
-    "printing.page": {
-        "message": "Page {page, number} of {pages, number}",
-        "args": ["page", "pages"]
+    "printing.fileTitle": {
+        "message": "{business}-{kind}-{n}",
+        "args": ["business", "kind", "n"],
+        "description": "The name Save as PDF offers for a printed document, like Birchbark-Pet-Studio-Invoice-1002; the browser adds .pdf"
+    },
+    "printing.fileTitleUnnamed": {
+        "message": "{kind}-{n}",
+        "args": ["kind", "n"],
+        "description": "The name Save as PDF offers when the business name has no letters or digits to use, like Invoice-1002"
     },
     "printing.streetLine": {
         "message": "{number} {street}",
@@ -1694,11 +1700,6 @@
         "message": "{title} {reference}",
         "args": ["title", "reference"],
         "description": "A document's kind and number, such as Invoice #1002."
-    },
-    "printing.deadline": {
-        "message": "{label} {date}",
-        "args": ["label", "date"],
-        "description": "A date and what it is, such as Due October 20, 2026."
     },
     "printing.headingFor": {
         "message": "{title} for {name}",
@@ -4064,8 +4065,9 @@
         "message": "Choose an add-on"
     },
     "bookings.addonAdds": {
-        "message": "Adds {n, number} min",
-        "args": ["n"]
+        "message": "Adds {length}",
+        "description": "Beside an add-on that lengthens the visit, e.g. Adds 1 h 15 min",
+        "args": ["length"]
     },
     "bookings.addonAddError": {
         "message": "Couldn't add this item. Please try again."
@@ -11394,6 +11396,11 @@
     "reports.library.staffPay": {
         "message": "Staff pay"
     },
+    "reports.itemCount": {
+        "message": "{n, plural, one {# item} other {# items}}",
+        "description": "How many different items sold in the period, beside Sales by item.",
+        "args": ["n"]
+    },
     "reports.libraryHint.income": {
         "message": "Sales and how clients paid"
     },
@@ -11588,10 +11595,6 @@
     },
     "reports.qty": {
         "message": "{n, number, ::.00/w}",
-        "args": ["n"]
-    },
-    "reports.sold": {
-        "message": "{n, number, ::.00/w} sold",
         "args": ["n"]
     },
     "reports.taxableSales": {

@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 
 import { type Load, useAsyncAction, useLoad, useRemote } from "../hooks";
 import { strings } from "../strings";
-import type { ApiLike } from "../api";
+import type { ApiLike, BinaryApi } from "../api";
 import {
     CALENDAR,
     dateKey,
@@ -174,7 +174,6 @@ export interface ReportsView {
     receivedCents: number;
     methods: MethodShare[];
     items: ItemSales[];
-    unitsSold: number;
     gst: { taxableCents: number; collectedCents: number; number: string | null; label: string };
     provincial: {
         label: string;
@@ -246,7 +245,6 @@ function buildView(r: ReportSummary, span: ReportSpan, now: Date, zone: string):
             refundedCents: i.refunded_cents,
             netCents: i.sales_cents - i.refunded_cents,
         })),
-        unitsSold: r.sales_by_item.reduce((n, i) => n + i.quantity, 0),
         gst: {
             taxableCents: r.gst_hst.taxable_sales_cents,
             collectedCents: r.gst_hst.tax_collected_cents,
@@ -353,21 +351,31 @@ interface ReportFile {
     download: (kind: ExportKind) => void;
 }
 
+interface FileRun {
+    kind: ExportKind;
+    start: string;
+    end: string;
+}
+
 /** One report as a CSV; the platform `save` seam is a Blob download on web and Share on mobile. */
 export function useReportFile(
     api: ApiLike,
     span: ReportSpan,
+    shown: ExportKind | null,
     save: (csv: string, filename: string) => void | Promise<void>,
 ): ReportFile {
     const { busy, error, run } = useAsyncAction();
-    const [busyKind, setBusyKind] = useState<ExportKind | null>(null);
+    const [last, setLast] = useState<FileRun | null>(null);
     const [done, setDone] = useState<string | null>(null);
+    const current =
+        last !== null && last.kind === shown && last.start === span.start && last.end === span.end;
     return {
-        busyKind: busy ? busyKind : null,
-        done,
-        error,
+        busyKind: busy ? (last?.kind ?? null) : null,
+        done: current ? done : null,
+        error: current ? error : null,
         download: (kind) => {
-            setBusyKind(kind);
+            if (busy) return;
+            setLast({ kind, start: span.start, end: span.end });
             setDone(null);
             const name = fileName(kind, span);
             run(
@@ -385,12 +393,6 @@ export function useReportFile(
     };
 }
 
-export interface PackRequest {
-    kinds: string[];
-    start: string;
-    end: string;
-}
-
 interface BookkeeperPack {
     chosen: readonly ExportKind[];
     toggle: (kind: ExportKind) => void;
@@ -400,38 +402,47 @@ interface BookkeeperPack {
     download: () => void;
 }
 
-/** The platform callback saves or shares the generated ZIP. */
+/** The chosen reports as one ZIP; the platform `save` seam downloads or shares its bytes. */
 export function useBookkeeperPack(
+    api: BinaryApi,
     span: ReportSpan,
-    downloadZip: (request: PackRequest, filename: string) => Promise<void>,
+    save: (zip: Uint8Array<ArrayBuffer>, filename: string) => void | Promise<void>,
 ): BookkeeperPack {
     const [chosen, setChosen] = useState<ExportKind[]>(["income", "salesByItem", "gstHst", "pst"]);
-    const [done, setDone] = useState(false);
+    const period = `${span.start}/${span.end}`;
+    const [ranFor, setRanFor] = useState<string | null>(null);
+    const [doneFor, setDoneFor] = useState<string | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
     return {
         chosen,
         toggle: (kind) => {
-            setDone(false);
+            setDoneFor(null);
             setChosen((c) => (c.includes(kind) ? c.filter((k) => k !== kind) : [...c, kind]));
         },
         busy,
-        error,
-        done,
+        error: ranFor === period ? error : null,
+        done: doneFor === period,
         download: () => {
+            setRanFor(period);
+            setDoneFor(null);
             if (chosen.length === 0) {
                 setError(strings.reports.pickReport);
                 return;
             }
             const kinds = EXPORT_KINDS.filter((k) => chosen.includes(k)).map((k) => SERVER_KIND[k]);
             run(
-                () =>
-                    downloadZip(
-                        { kinds, start: span.start, end: span.end },
-                        `bookkeeper-${span.start}-to-${span.end}.zip`,
-                    ),
+                async () => {
+                    const zip = await api.postBytes("/v1/reports/export", {
+                        kinds,
+                        start: span.start,
+                        end: span.end,
+                    });
+                    if (zip.byteLength === 0) throw new Error("bookkeeper pack came back empty");
+                    await save(zip, `bookkeeper-${span.start}-to-${span.end}.zip`);
+                },
                 {
                     onSuccess: () => {
-                        setDone(true);
+                        setDoneFor(period);
                     },
                     errorMessage: strings.reports.packFailed,
                 },

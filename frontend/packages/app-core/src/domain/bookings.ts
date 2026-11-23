@@ -66,8 +66,8 @@ import {
     usePeoplePhotos,
 } from "./files";
 import { canManagePayments } from "./payments";
-import { isPlace, mapsUrl, visitAddress } from "./publicBooking";
-import { type VisitReceipt, type VisitReceiptView, useVisitReceipt } from "./publicReceipt";
+import { durationLabel, isPlace, mapsUrl, visitAddress } from "./publicBooking";
+import { type BookingReceipt, type VisitReceiptView, useVisitReceipt } from "./publicReceipt";
 import { type ResourceRow, activePool, resourceName, useResources } from "./resources";
 import { type StaffRow, staffName, staffNameSql, useStaff } from "./staff";
 import {
@@ -2998,7 +2998,9 @@ export function useBookingAddons(
                 label: x.name,
                 detail: formatParts([
                     formatMoney(x.price_cents, BUSINESS_CURRENCY),
-                    (x.duration_min ?? 0) > 0 ? s.addonAdds(x.duration_min ?? 0) : null,
+                    (x.duration_min ?? 0) > 0
+                        ? s.addonAdds(durationLabel(x.duration_min ?? 0))
+                        : null,
                 ]),
             })),
         // a key serves retries of a failed attempt; once one lands the next one is a new command
@@ -3052,7 +3054,7 @@ export function useBookingAddons(
     };
 }
 
-interface BookingReceipt extends VisitReceiptView {
+interface BookingReceiptView extends VisitReceiptView {
     available: boolean;
 }
 
@@ -3062,14 +3064,14 @@ export function useBookingReceipt(
     event: CalendarEvent,
     viewer: Viewer | null,
     fallbackColor: string,
-): BookingReceipt {
+): BookingReceiptView {
     const bookingId = event.bookingId ?? "";
     const billed = useQuery<{ invoice_id: string | null; order_id: string | null }>(
         BOOKING_INVOICE_SQL,
         [bookingId],
     ).data.at(0);
     const receipt = useVisitReceipt(
-        () => api.get<VisitReceipt>(`/v1/bookings/${bookingId}/receipt`),
+        () => api.get<BookingReceipt>(`/v1/bookings/${bookingId}/receipt`),
         fallbackColor,
     );
     return {

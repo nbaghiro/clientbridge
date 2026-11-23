@@ -12,6 +12,7 @@
         "./prettier": "./prettier.config.json",
         "./e2e/accessibility": "./e2e/accessibility.ts",
         "./e2e/pseudo": "./e2e/pseudo.ts",
+        "./e2e/printed": "./e2e/printed.ts",
         "./e2e/recording": "./e2e/recording.ts",
         "./vitest/config": "./vitest/config.ts",
         "./e2e/demo": "./e2e/demo.ts",
@@ -23,6 +24,7 @@
         "@eslint/js": "^10.0.1",
         "@formatjs/icu-messageformat-parser": "3.5.20",
         "eslint": "^10.12.0",
+        "pdfjs-dist": "^6.5.438",
         "typescript-eslint": "^8.71.0"
     },
     "peerDependencies": {

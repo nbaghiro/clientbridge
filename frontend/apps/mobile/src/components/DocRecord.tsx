@@ -234,7 +234,7 @@ export function InvoicePanel({ id, onClose }: { id: string; onClose: () => void 
             {overlay === "record" ? <RecordPayment rec={rec} onClose={closeOverlay} /> : null}
             {overlay === "pdf" ? (
                 <DocumentPreview
-                    shareUrl={rec.payUrl}
+                    shareUrl={rec.pageUrl}
                     doc={printedInvoice(rec, letterhead, c.accent)}
                     onClose={closeOverlay}
                 />

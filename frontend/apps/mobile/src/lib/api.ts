@@ -4,6 +4,7 @@ import * as WebBrowser from "expo-web-browser";
 
 import { forgetSession, getSession, sessionEpoch } from "./auth";
 import { apiUrl, authUrl } from "./config";
+import { xhrFetch } from "./xhr";
 
 export const apiBaseUrl = apiUrl;
 
@@ -15,6 +16,7 @@ export function onSignedOut(handler: () => void): void {
 
 const session = createSession({
     baseUrl: apiBaseUrl,
+    binaryFetch: xhrFetch,
     mode: "token",
     epoch: sessionEpoch,
     store: {

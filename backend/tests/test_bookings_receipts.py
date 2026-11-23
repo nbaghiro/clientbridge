@@ -5,7 +5,9 @@ import httpx
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core.config import get_settings
 from clientbridge.core.ids import new_id
+from clientbridge.models.billing import Order
 from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import Item
 from clientbridge.models.scheduling import Booking, Slot
@@ -86,6 +88,7 @@ async def test_an_invoice_paid_visit_prints_the_invoice_with_its_practitioner(
     slot = await db.get(Slot, booking.slot_id)
     assert slot is not None and receipt["visit_at"].startswith(slot.starts_at.date().isoformat())
     token = booking.manage_token
+    assert receipt.pop("link") == f"{get_settings().book_base_url}/m/{token}"
     assert ok(await as_owner.get(f"/manage/{token}")).json()["has_receipt"] is True
     public = ok(await as_owner.get(f"/manage/{token}/receipt")).json()
     assert public == receipt
@@ -113,7 +116,55 @@ async def test_a_visit_paid_at_the_desk_prints_the_sale(
     assert (receipt["source"], receipt["number"]) == ("sale", sale["number"])
     assert receipt["practitioner_title"] == TITLE
     assert receipt["address"]["postal_code"] == "V8W 1A1"
+    assert receipt.pop("link") == f"{get_settings().book_base_url}/m/{booking.manage_token}"
     assert ok(await as_owner.get(f"/manage/{booking.manage_token}/receipt")).json() == receipt
+
+
+async def test_a_visit_without_its_own_page_shares_the_invoice_it_was_paid_on(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    booking = await _visit(db)
+    booking.manage_token = None
+    await db.flush()
+    invoice = await _invoiced(as_owner, booking)
+    ok(
+        await as_owner.post(
+            f"/v1/invoices/{invoice['id']}/payments",
+            json={"method": "cash", "amount_cents": invoice["total_cents"]},
+            headers=key(),
+        ),
+        201,
+    )
+    receipt = ok(await as_owner.get(f"/v1/bookings/{booking.id}/receipt")).json()
+    assert receipt["link"] == f"{get_settings().pay_base_url}/i/{invoice['pay_token']}"
+
+
+async def test_a_visit_without_its_own_page_shares_the_sale_it_was_paid_on(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    booking = await _visit(db)
+    booking.manage_token = None
+    await db.flush()
+    line = {"description": "Visit", "unit_amount_cents": 8000, "booking_id": booking.id}
+    sale = ok(
+        await as_owner.post("/v1/orders", json={"client_id": booking.client_id, "lines": [line]}),
+        201,
+    ).json()
+    ok(
+        await as_owner.post(
+            f"/v1/orders/{sale['id']}/cash",
+            json={"tendered_cents": sale["due_cents"]},
+            headers=key(),
+        )
+    )
+    order = await db.get(Order, sale["id"], populate_existing=True)
+    assert order is not None and order.receipt_token is not None
+    token = order.receipt_token
+    link = f"{get_settings().pay_base_url}/r/{token}"
+    assert ok(await as_owner.get(f"/v1/bookings/{booking.id}/receipt")).json()["link"] == link
+    ok(await as_owner.post(f"/v1/orders/{sale['id']}/receipt", json={"to": "+16045550123"}))
+    await db.refresh(order)
+    assert order.receipt_token == token
 
 
 async def test_a_visit_without_an_invoice_or_sale_has_no_receipt(

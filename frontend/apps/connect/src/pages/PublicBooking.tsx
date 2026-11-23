@@ -223,11 +223,7 @@ export function PublicBooking() {
                 bar={
                     showNav ? (
                         <SummaryBar
-                            label={
-                                flow.service
-                                    ? (flow.whenTitle ?? flow.service.name)
-                                    : s.chooseService
-                            }
+                            label={flow.barLabel ?? s.chooseService}
                             amount={
                                 flow.service ? (
                                     <span className="shrink-0 font-semibold text-ink">

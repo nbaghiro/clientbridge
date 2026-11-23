@@ -15,6 +15,11 @@ export interface ApiLike {
     delete<T>(path: string, opts?: PostOptions): Promise<T>;
 }
 
+/** A session that can read a binary body, such as the bookkeeper ZIP. */
+export interface BinaryApi {
+    postBytes(path: string, body: unknown): Promise<Uint8Array<ArrayBuffer>>;
+}
+
 const field = (e: unknown, name: "status" | "code" | "detail" | "loc"): unknown =>
     e !== null && typeof e === "object" && name in e ? (e as Record<string, unknown>)[name] : null;
 

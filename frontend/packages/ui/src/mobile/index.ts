@@ -13,7 +13,7 @@ export { Empty } from "./Empty";
 export { LoadFailed } from "./LoadFailed";
 export { ListPage } from "./ListPage";
 export { Money } from "./Money";
-export { Modal } from "./Modal";
+export { Modal, OverFlow } from "./Modal";
 export { Tabs } from "./Tabs";
 export * from "./styles";
 export { Button } from "./Button";
