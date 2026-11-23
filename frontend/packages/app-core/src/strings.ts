@@ -4494,6 +4494,8 @@ interface Strings {
         readonly cancelBody: string;
         readonly keep: string;
         readonly title: string;
+        readonly notFoundTitle: string;
+        readonly notFoundBody: string;
         readonly placed: string;
         readonly preparing: string;
         readonly emptyPreparing: string;

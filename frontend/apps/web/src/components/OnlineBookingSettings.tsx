@@ -35,18 +35,36 @@ const s = strings.onlineBooking;
 const p = s.policy;
 const a = s.addons;
 
-// Saves the QR code as an SVG file.
+// Saves the QR code as an SVG file that keeps its colours, margin and a print size outside the app.
 function downloadQr(container: HTMLElement | null, name: string): void {
     const svg = container?.querySelector("svg:not([aria-hidden])");
-    if (!svg) return;
+    if (!(svg instanceof SVGSVGElement)) return;
+    const file = svg.cloneNode(true);
+    if (!(file instanceof SVGSVGElement)) return;
+    const { backgroundColor, color } = getComputedStyle(svg);
+    const box = svg.viewBox.baseVal;
+    const background = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    background.setAttribute("x", String(box.x));
+    background.setAttribute("y", String(box.y));
+    background.setAttribute("width", String(box.width));
+    background.setAttribute("height", String(box.height));
+    background.setAttribute("fill", backgroundColor);
+    file.prepend(background);
+    file.querySelector("path")?.setAttribute("fill", color);
+    file.removeAttribute("class");
+    file.setAttribute("width", "1024");
+    file.setAttribute("height", "1024");
     const url = URL.createObjectURL(
-        new Blob([new XMLSerializer().serializeToString(svg)], { type: "image/svg+xml" }),
+        new Blob([new XMLSerializer().serializeToString(file)], { type: "image/svg+xml" }),
     );
     const link = document.createElement("a");
     link.href = url;
     link.download = `${name}-booking-qr.svg`;
     link.click();
-    URL.revokeObjectURL(url);
+    // Safari drops a download whose URL is revoked in the same task as the click
+    setTimeout(() => {
+        URL.revokeObjectURL(url);
+    }, 0);
 }
 
 /** The booking page settings: share, what and who is bookable, the rules, embed, with a live preview. */
@@ -106,7 +124,7 @@ export function BookingPageSettings() {
                             ref={qr}
                             className="flex items-center gap-4 rounded-md border border-line bg-bg p-3"
                         >
-                            <PayCode value={st.link} size={72} label={s.qrLabel} />
+                            <PayCode value={st.link} size={128} label={s.qrLabel} />
                             <div className="min-w-0 flex-1">
                                 <p className="text-sm font-semibold text-ink">{s.frontDesk}</p>
                                 <p className="text-xs text-muted">{s.frontDeskHint}</p>

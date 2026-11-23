@@ -37,6 +37,50 @@ test("the business cover photo keeps its hovered actions readable", async ({ pag
     await page.unrouteAll({ behavior: "ignoreErrors" });
 });
 
+test("the business page on a phone shows its cover, logo and services and links to booking and the shop on their own hosts", async ({
+    page,
+}) => {
+    const image = `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="600"><rect width="1600" height="600" fill="#f4efe4"/></svg>`;
+    await page.route("**/e2e-brand-*.svg", (route) =>
+        route.fulfill({ contentType: "image/svg+xml", body: image }),
+    );
+    await page.route(`${api}/book/${slug}/profile`, (route) =>
+        rewrite(route, (profile) => ({
+            ...profile,
+            brand: {
+                ...(profile.brand as Json),
+                cover_url: on(slug, "/e2e-brand-cover.svg"),
+                logo_url: on(slug, "/e2e-brand-logo.svg"),
+            },
+        })),
+    );
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(home);
+    const cover = page.locator('img[src$="/e2e-brand-cover.svg"]');
+    await expect(cover).toBeVisible();
+    const header = page.locator("header", { has: cover });
+    await expect(header.locator('[style*="e2e-brand-logo.svg"]')).toBeVisible();
+    await expect(header.getByRole("heading", { level: 1 })).toHaveText("Birchbark Pet Studio");
+    const services = page.locator("#services");
+    await expect(
+        services.getByRole("heading", { name: strings.publicLanding.servicesTitle }),
+    ).toBeVisible();
+    await expect(
+        services.getByRole("heading", { level: 4, name: "Bath & Tidy", exact: true }),
+    ).toBeVisible();
+    expect(
+        await page.evaluate(
+            () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        ),
+    ).toBeLessThanOrEqual(0);
+
+    await header.getByRole("button", { name: strings.publicLanding.book, exact: true }).click();
+    await expect(page).toHaveURL(on("book", `/${slug}`));
+    await page.goto(home);
+    await header.getByRole("button", { name: strings.publicBooking.shopLink, exact: true }).click();
+    await expect(page).toHaveURL(on("shop", `/${slug}`));
+});
+
 test("a phone is offered plan your visit only when there is something to jump to", async ({
     page,
 }) => {

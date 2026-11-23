@@ -4,11 +4,13 @@ import { demoPerson } from "@clientbridge/config/e2e/demo";
 import {
     expect,
     type APIRequestContext,
+    type FrameLocator,
     type Locator,
     type Page,
     type Response,
 } from "@playwright/test";
 import { freshPhone } from "./auth";
+import { clickInView } from "./onlineBooking";
 import { bookingApi } from "./bookings";
 import { newBusiness } from "./business";
 import { select } from "./db";
@@ -309,12 +311,12 @@ export async function openConnectDay(
 }
 
 export async function fillConnectDetails(
-    page: Page,
+    page: Page | FrameLocator,
     booker: { name: string; phone: string; subject: string },
     kind: "pet" | "site" | "vehicle",
     address?: string,
 ): Promise<void> {
-    await page.getByRole("button", { name: b.continue, exact: true }).first().click();
+    await clickInView(page.getByRole("button", { name: b.continue, exact: true }).first());
     const name = page.getByRole("textbox", { name: b.name, exact: true });
     await expect(name).toBeVisible();
     await name.fill(booker.name);
@@ -518,35 +520,37 @@ export async function ownBookingPage(
 }
 
 // a service with add-ons offers them in its own step before the time
-export async function pastExtras(page: Page): Promise<void> {
+export async function pastExtras(page: Page | FrameLocator): Promise<void> {
     const b = strings.publicBooking;
     const days = page.getByRole("radiogroup", { name: b.date, exact: true });
     const extras = page.getByText(b.oftenAdded, { exact: true });
     await expect(days.or(extras)).toBeVisible();
     if (await days.isVisible()) return;
-    await page.getByRole("button", { name: b.continue, exact: true }).first().click();
+    await clickInView(page.getByRole("button", { name: b.continue, exact: true }).first());
     await expect(days).toBeVisible();
 }
 
+/** Picks the fixture's service and member, then the week; `scope` is an embedded widget already open. */
 export async function raceTimePicker(
     page: Page,
     fixture: RaceFixture,
     weeksAhead = 3,
+    scope: Page | FrameLocator = page,
 ): Promise<number> {
     const b = strings.publicBooking;
-    await page.goto(fixture.url);
-    await page
+    if (scope === page) await page.goto(fixture.url);
+    await scope
         .getByRole("button")
-        .filter({ has: page.getByText(fixture.itemName, { exact: true }) })
+        .filter({ has: scope.getByText(fixture.itemName, { exact: true }) })
         .click();
-    await pastExtras(page);
+    await pastExtras(scope);
     const staffDays = page.waitForResponse(
         (response) =>
             response.url().includes(`/book/${fixture.slug}/days?`) &&
             new URL(response.url()).searchParams.get("staff_id") === fixture.staffId &&
             response.ok(),
     );
-    await page
+    await scope
         .getByRole("group", { name: b.with, exact: true })
         .locator(`button[data-value="${fixture.staffId}"]`)
         .click();
@@ -562,7 +566,7 @@ export async function raceTimePicker(
                 new URL(response.url()).searchParams.get("staff_id") === fixture.staffId &&
                 response.ok(),
         );
-        await page.getByRole("button", { name: b.nextWeek, exact: true }).first().click();
+        await scope.getByRole("button", { name: b.nextWeek, exact: true }).first().click();
         days = ((await (await loaded).json()) as { days: typeof days }).days;
     }
     // in this week, two days out keeps the visit past a 24-hour cut-off

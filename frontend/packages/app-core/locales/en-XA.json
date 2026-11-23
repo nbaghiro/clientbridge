@@ -12317,6 +12317,12 @@
     "publicOrder.title": {
         "message": "[Ýöûŕ öŕðéŕ one two]"
     },
+    "publicOrder.notFoundTitle": {
+        "message": "[Öŕðéŕ ñöţ ƒöûñð one two]"
+    },
+    "publicOrder.notFoundBody": {
+        "message": "[Ţĥîš öŕðéŕ ļîñķ îš îñṽåļîð öŕ ĥåš éẋþîŕéð. Çĥéçķ ýöûŕ ļåţéšţ ɱéššåĝé ƒŕöɱ ţĥé ƀûšîñéšš. one two three four five six]"
+    },
     "publicOrder.placed": {
         "message": "[Öŕðéŕ þļåçéð one two]"
     },
