@@ -1495,6 +1495,9 @@ test("BILL-DOC-27 an invoice, an estimate and a receipt printed to PDF carry the
         });
     };
     const printFrom = async (path: string, button: string): Promise<Printed> => {
+        // leaving the page closes the record printed before, so the dialog is this record's
+        await navigate(page, "/payments");
+        await expect(page.getByRole("dialog")).toHaveCount(0);
         await navigate(page, path);
         return printToPdf(page, () =>
             page.getByRole("dialog").getByRole("button", { name: button, exact: true }).click({
