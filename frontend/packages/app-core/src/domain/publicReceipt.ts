@@ -101,7 +101,6 @@ function printedReceipt(
             currency: receipt.currency,
             number,
             partyName: receipt.client_name ?? "",
-            partyLines: [],
             meta,
             lines: publicDocLines(receipt.lines),
             taxes: publicDocTaxes(receipt.taxes),

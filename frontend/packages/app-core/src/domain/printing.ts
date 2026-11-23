@@ -84,6 +84,9 @@ const PRINT_LABELS: PrintedDocLabels = {
     get amount() {
         return s.amount;
     },
+    get optional() {
+        return s.optionalLine;
+    },
     get taxSummary() {
         return s.taxSummary;
     },
@@ -147,7 +150,6 @@ interface PrintSource {
     // what an unnumbered document goes by instead of a number, such as a membership charge's plan
     reference?: string | null;
     partyName: string;
-    partyLines: readonly string[];
     meta: readonly { label: string; value: string }[];
     lines: readonly PrintedDocLine[];
     taxes: readonly PrintedDocTax[];
@@ -202,7 +204,6 @@ export function printedDoc(
         },
         partyLabel: PARTY_LABEL[src.kind],
         partyName: src.partyName,
-        partyLines: src.partyLines,
         meta: src.meta,
         lines: src.lines,
         taxes: src.taxes,

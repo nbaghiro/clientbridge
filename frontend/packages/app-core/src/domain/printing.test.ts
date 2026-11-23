@@ -27,7 +27,6 @@ const doc = (letterhead: Letterhead) =>
             currency: "CAD",
             number: "1001",
             partyName: "Ann Tremblay",
-            partyLines: [],
             meta: [],
             lines: [],
             taxes: [],

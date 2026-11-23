@@ -150,7 +150,6 @@ export function usePublicEstimatePage(
               : null;
     const quoting = choice.length > 0 && quote === null;
     const shown = quote ?? data;
-    const lines = shown?.lines.filter((l) => !l.optional || l.selected || picked.has(l.id)) ?? [];
     const taxes = publicDocTaxes(shown?.taxes ?? []).filter((t) => t.cents !== 0);
     const discount = shown?.discount_cents ?? 0;
     const totalCents = shown?.total_cents ?? 0;
@@ -248,13 +247,15 @@ export function usePublicEstimatePage(
             const pr = strings.printing;
             const number = data.number === null ? null : String(data.number);
             const open = data.status === "sent";
+            // an open estimate still offers its unpicked add-ons; once answered only the picked ones count
+            const offered = (shown?.lines ?? []).filter((l) => open || !l.optional || l.selected);
+            const printedLines = publicDocLines(offered);
             return printedDoc(
                 {
                     kind: "estimate",
                     currency: data.currency,
                     number,
                     partyName: data.client_name ?? "",
-                    partyLines: [],
                     meta: [
                         { label: pr.estimateNumber, value: docReference(number) },
                         { label: pr.issued, value: longDate(data.issued_at, data.timezone) },
@@ -263,7 +264,13 @@ export function usePublicEstimatePage(
                             value: longDate(data.valid_until, data.timezone),
                         },
                     ],
-                    lines: publicDocLines(lines),
+                    lines: printedLines.map((l, i) => {
+                        const src = offered[i];
+                        return {
+                            ...l,
+                            optional: src !== undefined && src.optional && !src.selected,
+                        };
+                    }),
                     taxes,
                     totals,
                     headline: { label: pr.estimateTotal, cents: totalCents },

@@ -530,6 +530,7 @@ interface Strings {
         readonly serviceDate: string;
         readonly service: string;
         readonly item: string;
+        readonly optionalLine: string;
         readonly qty: string;
         readonly price: string;
         readonly tax: string;
