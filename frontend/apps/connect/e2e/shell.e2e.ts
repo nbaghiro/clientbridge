@@ -44,6 +44,7 @@ const MISSING_PAGES = [
     [on("missing-business", "/"), strings.publicLanding.notFoundTitle],
     ["/missing-business", strings.publicBooking.notFoundTitle],
     [on("shop", "/missing-business"), strings.publicShop.notFoundTitle],
+    [on("shop", "/order/missing-token"), strings.publicOrder.notFoundTitle],
     ["/m/missing-token", strings.publicManage.notFoundTitle],
     [on("pay", "/i/missing-token"), strings.publicPay.notFoundTitle],
     [on("pay", "/e/missing-token"), strings.publicEstimate.notFoundTitle],

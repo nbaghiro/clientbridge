@@ -3,7 +3,7 @@ import { type PublicBrand, strings } from "@clientbridge/app-core/public";
 
 /** Messages the embedded widget posts up to the host page's loader (public/embed.js). */
 interface EmbedMessage {
-    type: "resize" | "success" | "brand" | "dismiss";
+    type: "resize" | "success" | "brand" | "dismiss" | "overlay";
     brand?: {
         name: string;
         primary: string | null;
@@ -13,6 +13,7 @@ interface EmbedMessage {
     };
     height?: number;
     widget?: string;
+    open?: boolean;
 }
 
 const SOURCE = "clientbridge-connect";
@@ -34,12 +35,33 @@ function postToParent(message: EmbedMessage): void {
     window.parent.postMessage({ source: SOURCE, ...message }, "*");
 }
 
-/** Reports the body's height so the host sizes the iframe; documentElement.scrollHeight never shrinks. */
+// A modal layer centres in the frame's own viewport, which an inline frame stretches to its content.
+function overlayOpen(): boolean {
+    if (document.querySelector('[aria-modal="true"]')) return true;
+    // Stripe puts its 3D Secure challenge in a fixed layer under the body; a hidden layer is closed
+    return Array.from(document.body.children).some((layer) => {
+        const style = getComputedStyle(layer);
+        if (style.position !== "fixed" || style.visibility === "hidden" || style.opacity === "0")
+            return false;
+        const box = layer.getBoundingClientRect();
+        return box.width >= window.innerWidth * 0.9 && box.height >= window.innerHeight * 0.9;
+    });
+}
+
+/** Reports the body's height so the host sizes the iframe, and when a modal layer opens or closes. */
 export function useEmbedResize(): void {
     useEffect(() => {
         if (!isEmbedded()) return undefined;
         let reported = -1;
+        // null so each page load says once whether a layer is open, in case one was when it reloaded
+        let overlaid: boolean | null = null;
         const post = (): void => {
+            const open = overlayOpen();
+            if (open !== overlaid) {
+                overlaid = open;
+                postToParent({ type: "overlay", open });
+            }
+            // documentElement.scrollHeight never shrinks, so the body's box is the height
             const height = Math.ceil(document.body.getBoundingClientRect().height);
             if (height === reported) return;
             reported = height;

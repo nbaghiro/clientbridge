@@ -416,7 +416,7 @@ class PaymentService:
             self.db.add(payment)
             await self.db.flush()
             await ledger.post_payment(self.db, payment)
-            await _sync_parent(self.db, payment)
+            await _sync_parent(self.db, payment, self.gateway)
             cmd.record("payment.record", entity_type="payment", entity_id=payment.id)
             if data.send_receipt:
                 await queued_notifier(
@@ -1013,6 +1013,16 @@ def _blank_to_none(value: str | None) -> str | None:
 
 async def invoice_credits(db: AsyncSession, invoice: Invoice) -> list[PublicCredit]:
     """What has paid the invoice down: each payment and applied deposit, oldest first."""
+    reversals = await db.execute(
+        scoped(Entry, invoice.business_id)
+        .with_only_columns(Entry.ref)
+        .where(
+            Entry.subject_type == "invoice",
+            Entry.subject_id == invoice.id,
+            Entry.ref.endswith(":reversal", autoescape=True),
+        )
+    )
+    reversed_refs = set(reversals.scalars().all())
     rows = await db.execute(
         scoped(Entry, invoice.business_id)
         .add_columns(Payment.method, Payment.tip_cents)
@@ -1036,6 +1046,8 @@ async def invoice_credits(db: AsyncSession, invoice: Invoice) -> list[PublicCred
             at=entry.occurred_at,
         )
         for entry, method, tip in rows.tuples().all()
+        # a deposit refunded or disputed after it was applied no longer pays the invoice
+        if f"{entry.ref}:reversal" not in reversed_refs
     ]
 
 
@@ -2851,7 +2863,7 @@ async def _settle_payment(
         )
         return None
 
-    await _sync_parent(db, payment)
+    await _sync_parent(db, payment, gateway)
     if payment.booking_id is not None and payment.kind == "deposit":
         await _settle_booking_deposit(db, gateway, payment.booking_id)
     gift_card_id = await _settle_entitlement(db, payment)
@@ -2984,9 +2996,11 @@ async def _unapply_refund(db: AsyncSession, refund: Payment, payment: Payment) -
     await _claw_back_package(db, payment)
 
 
-async def _sync_parent(db: AsyncSession, payment: Payment) -> None:
+async def _sync_parent(
+    db: AsyncSession, payment: Payment, gateway: PaymentGateway | None = None
+) -> None:
     if payment.invoice_id is not None:
-        await sync_invoice(db, payment.invoice_id)
+        await sync_invoice(db, payment.invoice_id, gateway)
     if payment.order_id is not None:
         await sync_order(db, payment.order_id)
 
@@ -3009,7 +3023,7 @@ async def _settle_booking_deposit(
 
     invoice_id = await bookings.settle_deposit(db, gateway, booking_id)
     if invoice_id is not None:
-        await sync_invoice(db, invoice_id)
+        await sync_invoice(db, invoice_id, gateway)
 
 
 async def _reverse_booking_deposit(db: AsyncSession, booking_id: str, key: str) -> list[str]:
@@ -3354,7 +3368,9 @@ async def _fail_payment(
     return None
 
 
-async def sync_invoice(db: AsyncSession, invoice_id: str) -> None:
+async def sync_invoice(
+    db: AsyncSession, invoice_id: str, gateway: PaymentGateway | None = None
+) -> None:
     """Move stock and earnings for an invoice by its current ledger status."""
     invoice = await db.get(Invoice, invoice_id)
     if invoice is None or invoice.status in ("draft", "void"):
@@ -3363,9 +3379,32 @@ async def sync_invoice(db: AsyncSession, invoice_id: str) -> None:
     await sync_parent_stock(db, invoice.business_id, "invoice", invoice.id, status)
     if status == "paid":
         await ensure_earnings(db, invoice)
+        await _drop_deposits_due(db, invoice, gateway)
     else:
         await reverse_earnings(db, invoice)
     await claw_back(db, invoice)
+
+
+async def _drop_deposits_due(
+    db: AsyncSession, invoice: Invoice, gateway: PaymentGateway | None
+) -> None:
+    """A visit whose bill is paid in full no longer asks for its deposit, nor takes an open one."""
+    # a visit a deposit is settling on is skipped; that settle sees the bill paid and refunds
+    rows = await db.execute(
+        scoped(Booking, invoice.business_id)
+        .where(
+            Booking.id.in_(select(Line.booking_id).where(Line.invoice_id == invoice.id)),
+            Booking.deposit_status == "pending",
+        )
+        .order_by(Booking.id)
+        .with_for_update(skip_locked=True)
+        .execution_options(populate_existing=True)
+    )
+    for booking in rows.scalars().all():
+        if gateway is not None:
+            await cancel_open_deposits(db, gateway, booking, skip_locked=True)
+        booking.deposit_status = "none"
+    await db.flush()
 
 
 async def _record_payout(

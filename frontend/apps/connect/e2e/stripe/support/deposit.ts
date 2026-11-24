@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { expect, type Page } from "@playwright/test";
+import { expect, type FrameLocator, type Page } from "@playwright/test";
 import { formatMoney, formatPhone, strings } from "@clientbridge/app-core/public";
 import {
     bookingApi,
@@ -18,6 +18,7 @@ import {
     raceTimePicker,
     teamMember,
 } from "../../../../web/e2e/support/visit";
+import { clickInView } from "../../../../web/e2e/support/onlineBooking";
 import { cardFrame, enterStripeCard, stripeReady } from "./provider";
 import {
     bindEnrolment,
@@ -172,28 +173,34 @@ export async function requestWithDeposit(
     page: Page,
     setup: OnlineDeposit,
     weeksAhead: number,
+    scope: Page | FrameLocator = page,
 ): Promise<DepositFixture> {
     const b = strings.publicBooking;
     const slug = demoSlug("birchbark");
     const { visit } = setup;
-    const day = await raceTimePicker(page, { ...visit, slug, url: connectUrl(slug) }, weeksAhead);
-    await page
+    const day = await raceTimePicker(
+        page,
+        { ...visit, slug, url: connectUrl(slug) },
+        weeksAhead,
+        scope,
+    );
+    await scope
         .getByRole("radiogroup", { name: b.date, exact: true })
         .getByRole("radio")
         .nth(day)
         .click();
-    await page
+    await scope
         .getByRole("radiogroup", { name: b.openTimes, exact: true })
         .getByRole("radio")
         .first()
         .click();
-    await fillConnectDetails(page, setup.booker, "pet");
+    await fillConnectDetails(scope, setup.booker, "pet");
     const posted = page.waitForResponse(
         (r) => new URL(r.url()).pathname === `/book/${slug}` && r.request().method() === "POST",
     );
-    await page
-        .getByRole("button", { name: b.confirmAndPay(formatMoney(2000, "CAD")), exact: true })
-        .click();
+    await clickInView(
+        scope.getByRole("button", { name: b.confirmAndPay(formatMoney(2000, "CAD")), exact: true }),
+    );
     const response = await posted;
     expect(response.status(), await response.text()).toBe(200);
     const booked = (await response.json()) as {
@@ -204,7 +211,7 @@ export async function requestWithDeposit(
     };
     expect(booked).toMatchObject({ status: "pending", deposit_cents: 2000 });
     expect(booked.deposit_client_secret).not.toBeNull();
-    await expect(page.getByRole("heading", { name: b.payTitle, exact: true })).toBeVisible();
+    await expect(scope.getByRole("heading", { name: b.payTitle, exact: true })).toBeVisible();
     return bindEnrolment(visit.clientId, booked.booking_id);
 }
 

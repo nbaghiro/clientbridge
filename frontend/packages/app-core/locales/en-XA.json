@@ -395,6 +395,9 @@
     "api.visitNotBilled": {
         "message": "[Ţĥîš ṽîšîţ ĥåš ñö îñṽöîçé öŕ šåļé ýéţ, šö ţĥéŕé îš ñö ŕéçéîþţ ţö þŕîñţ. one two three four five]"
     },
+    "api.visitNotHeld": {
+        "message": "[Ţĥîš ṽîšîţ ŵåš çåñçéļéð öŕ ɱîššéð, šö îţ ĥåš ñö ŕéçéîþţ. one two three four]"
+    },
     "api.visitUnpaid": {
         "message": "[Ţĥîš ṽîšîţ ĥåšñ'ţ ƀééñ þåîð ýéţ. Îţš ŕéçéîþţ îš ŕéåðý öñçé å þåýɱéñţ îš ŕéçöŕðéð. one two three four five]"
     },
@@ -698,6 +701,9 @@
     "billing.depositApplied": {
         "message": "[Đéþöšîţ åþþļîéð one two]"
     },
+    "billing.depositHeld": {
+        "message": "[Đéþöšîţ þåîð ŵĥéñ ƀööķîñĝ one two three]"
+    },
     "billing.paymentOn": {
         "message": "{method}, {when}"
     },
@@ -907,6 +913,9 @@
     },
     "billing.event.depositApplied": {
         "message": "[Đéþöšîţ öƒ {amount} åþþļîéð one two]"
+    },
+    "billing.event.depositReturned": {
+        "message": "[Đéþöšîţ öƒ {amount} ŕéţûŕñéð ţö ţĥé çļîéñţ one two three]"
     },
     "billing.event.refund": {
         "message": "[Ŕéƒûñðéð {amount} one]"
@@ -3501,7 +3510,7 @@
         "message": "[Çåñçéļ ţĥîš ṽîšîţ? one two]"
     },
     "bookings.cancelKept": {
-        "message": "[Ţĥé {amount} ðéþöšîţ šţåýš þåîð. Ŕéƒûñð îţ ƒŕöɱ Þåýɱéñţš îƒ ýöû ŵåñţ ţö ĝîṽé îţ ƀåçķ. one two three four five]"
+        "message": "[Ţĥé {amount} ðéþöšîţ îš ķéþţ. Ŕéƒûñð îţ ƒŕöɱ Þåýɱéñţš îƒ ýöû ŵåñţ ţö ĝîṽé îţ ƀåçķ. one two three four five]"
     },
     "bookings.cancelNotify": {
         "message": "[Ţĥé çļîéñţ ĝéţš å çåñçéļļåţîöñ ɱéššåĝé. one two three]"
@@ -9336,7 +9345,7 @@
         "message": "[Ĝîƒţ çåŕð åñð þåçķåĝé þûŕçĥåšéš åŕé ŕéƒûñðéð îñ ƒûļļ öñļý. one two three four]"
     },
     "refunds.wholeOnly.deposit": {
-        "message": "[Ţĥîš ðéþöšîţ îš åļŕéåðý öñ å ƀîļļ öŕ ŵåš ķéþţ ƒöŕ å ñö-šĥöŵ, šö îţ'š ŕéƒûñðéð îñ ƒûļļ öñļý. one two three four five six]"
+        "message": "[Ţĥîš ðéþöšîţ îš åļŕéåðý öñ å ƀîļļ öŕ ŵåš ķéþţ, šö îţ'š ŕéƒûñðéð îñ ƒûļļ öñļý. one two three four five]"
     },
     "refunds.blocked.not_succeeded": {
         "message": "[Öñļý å þåýɱéñţ ţĥåţ ŵéñţ ţĥŕöûĝĥ çåñ ƀé ŕéƒûñðéð. one two three four]"
@@ -12311,6 +12320,12 @@
     "publicOrder.title": {
         "message": "[Ýöûŕ öŕðéŕ one two]"
     },
+    "publicOrder.notFoundTitle": {
+        "message": "[Öŕðéŕ ñöţ ƒöûñð one two]"
+    },
+    "publicOrder.notFoundBody": {
+        "message": "[Ţĥîš öŕðéŕ ļîñķ îš îñṽåļîð öŕ ĥåš éẋþîŕéð. Çĥéçķ ýöûŕ ļåţéšţ ɱéššåĝé ƒŕöɱ ţĥé ƀûšîñéšš. one two three four five six]"
+    },
     "publicOrder.placed": {
         "message": "[Öŕðéŕ þļåçéð one two]"
     },
@@ -12985,6 +13000,9 @@
     },
     "publicManage.depositKept": {
         "message": "[Ýöûŕ {amount} ðéþöšîţ ŵåšñ'ţ ŕéƒûñðéð öñļîñé. Çöñţåçţ {business} åƀöûţ îţ. one two three four]"
+    },
+    "publicManage.depositForfeited": {
+        "message": "[{business} ķéþţ ýöûŕ {amount} ðéþöšîţ, åš îţš ƀööķîñĝ þöļîçý åļļöŵš. Çöñţåçţ ţĥéɱ ŵîţĥ åñý ǫûéšţîöñš. one two three four five six]"
     },
     "publicManage.movedBodyPlain": {
         "message": "[{when} îš ýöûŕ ñéŵ ţîɱé. one two]"

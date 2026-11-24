@@ -1759,17 +1759,19 @@ function useBookingDetail(event: ScheduleEvent | null, now: Date): BookingDetail
     if (event === null) return null;
     const stamp = (d: Date): string => formatShortDayTime(d, zone);
     const amount = formatMoney(event.depositAmountCents, BUSINESS_CURRENCY);
-    const depositLine = !event.depositRequired
-        ? null
-        : event.depositStatus === "collected"
-          ? s.depositPaid(amount)
-          : event.depositStatus === "applied"
-            ? s.depositApplied(amount)
-            : event.depositStatus === "forfeited"
-              ? s.depositKept(amount)
-              : event.depositStatus === "refunded"
-                ? s.depositRefunded(amount)
-                : s.depositDue(amount);
+    // a deposit dropped once the visit was paid or done without it is owed no more
+    const depositLine =
+        !event.depositRequired || event.depositStatus === "none"
+            ? null
+            : event.depositStatus === "collected"
+              ? s.depositPaid(amount)
+              : event.depositStatus === "applied"
+                ? s.depositApplied(amount)
+                : event.depositStatus === "forfeited"
+                  ? s.depositKept(amount)
+                  : event.depositStatus === "refunded"
+                    ? s.depositRefunded(amount)
+                    : s.depositDue(amount);
     const history: TimelineEntry[] = [];
     if (event.bookedAt !== null) {
         history.push({
@@ -1793,7 +1795,7 @@ function useBookingDetail(event: ScheduleEvent | null, now: Date): BookingDetail
             at: event.rescheduledAt !== null ? stamp(event.rescheduledAt) : "",
             intent: "neutral",
         });
-    if (event.depositStatus === "collected" || event.depositStatus === "applied")
+    if (["collected", "applied", "forfeited", "refunded"].includes(event.depositStatus))
         history.push({
             key: "deposit",
             label: s.historyDeposit(amount),
@@ -2012,6 +2014,11 @@ export function noShowNote(event: ScheduleEvent): string {
     return s.noShowNoDeposit;
 }
 
+const DEPOSIT_HELD_SQL = `
+SELECT COALESCE(-SUM(e.amount_cents), 0) AS cents
+FROM entries e JOIN accounts a ON a.id = e.account_id
+WHERE a.category = 'deposit' AND e.subject_type = 'booking' AND e.subject_id = ?`;
+
 export function useBookingActions(
     api: ApiLike,
     event: ScheduleEvent | null,
@@ -2025,6 +2032,12 @@ export function useBookingActions(
     );
     const amount = formatMoney(event?.depositAmountCents ?? 0, BUSINESS_CURRENCY);
     const paid = event !== null && event.depositRequired && event.depositStatus === "collected";
+    // a cancel keeps only what the visit's bill hasn't already taken of the deposit
+    const held = useQuery<{ cents: number }>(DEPOSIT_HELD_SQL, [event?.bookingId ?? ""]).data[0];
+    const kept = formatMoney(
+        held !== undefined && held.cents > 0 ? held.cents : (event?.depositAmountCents ?? 0),
+        BUSINESS_CURRENCY,
+    );
     const settling =
         done !== null &&
         event !== null &&
@@ -2038,7 +2051,7 @@ export function useBookingActions(
         busy,
         error,
         noShowNote: event === null ? s.noShowNoDeposit : noShowNote(event),
-        cancelNote: paid ? s.cancelKept(amount) : s.cancelNotify,
+        cancelNote: paid ? s.cancelKept(kept) : s.cancelNotify,
         declineNote: paid ? s.declineRefund(amount) : s.declineNotify,
         settling: settling ? s.settling : null,
         outcome:
@@ -3080,6 +3093,8 @@ export function useBookingReceipt(
             bookingId !== "" &&
             viewer !== null &&
             canManagePayments(viewer.role) &&
+            event.status !== "canceled" &&
+            event.status !== "no_show" &&
             (billed?.invoice_id != null || billed?.order_id != null),
     };
 }

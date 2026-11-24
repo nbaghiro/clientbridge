@@ -714,8 +714,15 @@ test("DOC-E2E-13 a signed copy prints as its own titled page with the text, time
         .filter({ visible: true })
         .first();
     const paper = reference.locator("xpath=ancestor::section[1]");
-    const [ref, sheet] = await Promise.all([reference.boundingBox(), paper.boundingBox()]);
-    expect(ref && sheet && ref.x + ref.width <= sheet.x + sheet.width + 0.5).toBe(true);
+    // measured until the opening dialog has stopped moving
+    await expect
+        .poll(async () => {
+            const [ref, sheet] = await Promise.all([reference.boundingBox(), paper.boundingBox()]);
+            return (
+                ref !== null && sheet !== null && ref.x + ref.width <= sheet.x + sheet.width + 0.5
+            );
+        })
+        .toBe(true);
 
     await copy.getByRole("button", { name: c.print, exact: true }).click();
     const printed = await page.waitForFunction(() => "printed" in window && window.printed);

@@ -1026,6 +1026,21 @@ describe("changing a visit from the manage link", () => {
         expect(reloaded.result.current.depositLine).toBe(kept);
     });
 
+    it("tells a client the business kept the deposit of a visit it canceled or marked missed", async () => {
+        for (const status of ["canceled", "no_show"]) {
+            const { result } = await loaded({
+                status,
+                deposit_cents: 2000,
+                deposit_status: "forfeited",
+                can_move: false,
+                can_cancel: false,
+            });
+            const kept = m.depositForfeited(result.current.deposit, "Demo");
+            expect(result.current.depositLine).toBe(kept);
+            expect(result.current.depositLine).not.toBe(m.cancelNoDeposit);
+        }
+    });
+
     it("doesn't promise to refund a deposit already applied to the bill", async () => {
         const { result } = await loaded({ deposit_cents: 2000, deposit_status: "applied" });
         const applied = m.cancelApplied(result.current.deposit, "Demo");

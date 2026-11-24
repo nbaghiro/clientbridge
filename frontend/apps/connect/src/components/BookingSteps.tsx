@@ -270,7 +270,7 @@ export function SuggestedExtras({ flow }: { flow: PublicBookingFlow }) {
                 <h2 className="text-sm font-semibold text-ink">{s.oftenAdded}</h2>
                 <p className="text-xs text-muted">{s.addonsPaidLater}</p>
             </div>
-            <ul className="grid gap-3 sm:grid-cols-2">
+            <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {flow.offered.map((a) => {
                     const on = (flow.addons[a.id] ?? 0) > 0;
                     return (

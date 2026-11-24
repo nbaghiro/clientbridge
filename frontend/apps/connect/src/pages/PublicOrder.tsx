@@ -25,7 +25,8 @@ export function PublicOrder() {
     const flow = usePublicOrder(client, token);
     const order = flow.order;
     if (flow.status === "loading" && order === null) return <PublicStatus kind="loading" />;
-    if (flow.status === "not-found") return <PublicStatus kind="notFound" />;
+    if (flow.status === "not-found")
+        return <PublicStatus kind="notFound" title={s.notFoundTitle} body={s.notFoundBody} />;
     if (order === null) return <PublicStatus kind="error" />;
     return (
         <PublicPage

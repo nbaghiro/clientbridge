@@ -147,6 +147,7 @@ interface Strings {
         readonly crewBlock: string;
         readonly visitStarted: string;
         readonly visitNotBilled: string;
+        readonly visitNotHeld: string;
         readonly visitUnpaid: string;
         readonly programFull: string;
         readonly alreadyEnrolled: string;
@@ -251,6 +252,7 @@ interface Strings {
         readonly tip: string;
         readonly balanceDue: string;
         readonly depositApplied: string;
+        readonly depositHeld: string;
         readonly paymentOn: (method: string, when: string) => string;
         readonly lines: string;
         readonly qtyTimes: (qty: number, price: string) => string;
@@ -326,6 +328,7 @@ interface Strings {
             readonly issued: string;
             readonly payment: (amount: string, method: string) => string;
             readonly depositApplied: (amount: string) => string;
+            readonly depositReturned: (amount: string) => string;
             readonly refund: (amount: string) => string;
             readonly voided: string;
             readonly accepted: string;
@@ -4492,6 +4495,8 @@ interface Strings {
         readonly cancelBody: string;
         readonly keep: string;
         readonly title: string;
+        readonly notFoundTitle: string;
+        readonly notFoundBody: string;
         readonly placed: string;
         readonly preparing: string;
         readonly emptyPreparing: string;
@@ -4735,6 +4740,7 @@ interface Strings {
         readonly canceledPaying: (amount: string) => string;
         readonly cancelApplied: (amount: string, business: string) => string;
         readonly depositKept: (amount: string, business: string) => string;
+        readonly depositForfeited: (amount: string, business: string) => string;
         readonly movedBodyPlain: (when: string) => string;
         readonly requestLabel: string;
         readonly requestLine: (business: string) => string;

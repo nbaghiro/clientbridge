@@ -427,6 +427,9 @@
     "api.visitNotBilled": {
         "message": "This visit has no invoice or sale yet, so there is no receipt to print."
     },
+    "api.visitNotHeld": {
+        "message": "This visit was canceled or missed, so it has no receipt."
+    },
     "api.visitUnpaid": {
         "message": "This visit hasn't been paid yet. Its receipt is ready once a payment is recorded."
     },
@@ -765,6 +768,10 @@
     "billing.depositApplied": {
         "message": "Deposit applied"
     },
+    "billing.depositHeld": {
+        "message": "Deposit paid when booking",
+        "description": "On a draft invoice: the visit deposit already paid, which comes off once the invoice is sent"
+    },
     "billing.paymentOn": {
         "message": "{method}, {when}",
         "args": ["method", "when"]
@@ -993,6 +1000,11 @@
     },
     "billing.event.depositApplied": {
         "message": "Deposit of {amount} applied",
+        "args": ["amount"]
+    },
+    "billing.event.depositReturned": {
+        "message": "Deposit of {amount} returned to the client",
+        "description": "A deposit that had paid part of this invoice was refunded or lost to a chargeback, so the invoice owes it again",
         "args": ["amount"]
     },
     "billing.event.refund": {
@@ -3826,7 +3838,7 @@
         "message": "Cancel this visit?"
     },
     "bookings.cancelKept": {
-        "message": "The {amount} deposit stays paid. Refund it from Payments if you want to give it back.",
+        "message": "The {amount} deposit is kept. Refund it from Payments if you want to give it back.",
         "args": ["amount"]
     },
     "bookings.cancelNotify": {
@@ -10143,7 +10155,7 @@
         "message": "Gift card and package purchases are refunded in full only."
     },
     "refunds.wholeOnly.deposit": {
-        "message": "This deposit is already on a bill or was kept for a no-show, so it's refunded in full only."
+        "message": "This deposit is already on a bill or was kept, so it's refunded in full only."
     },
     "refunds.blocked.not_succeeded": {
         "message": "Only a payment that went through can be refunded."
@@ -13316,6 +13328,12 @@
     "publicOrder.title": {
         "message": "Your order"
     },
+    "publicOrder.notFoundTitle": {
+        "message": "Order not found"
+    },
+    "publicOrder.notFoundBody": {
+        "message": "This order link is invalid or has expired. Check your latest message from the business."
+    },
     "publicOrder.placed": {
         "message": "Order placed"
     },
@@ -14031,6 +14049,11 @@
     },
     "publicManage.depositKept": {
         "message": "Your {amount} deposit wasn't refunded online. Contact {business} about it.",
+        "args": ["amount", "business"]
+    },
+    "publicManage.depositForfeited": {
+        "message": "{business} kept your {amount} deposit, as its booking policy allows. Contact them with any questions.",
+        "description": "On the manage page of a visit the business canceled or marked missed: the deposit was kept as revenue",
         "args": ["amount", "business"]
     },
     "publicManage.movedBodyPlain": {

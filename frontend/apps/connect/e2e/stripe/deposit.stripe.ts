@@ -42,7 +42,15 @@ import {
     stripeDispute,
 } from "./support/disputes";
 import { enrolWithCardDeposit, PROGRAM, prepareProgram, webBaseUrl } from "./support/program";
-import { runPort } from "@clientbridge/config/e2e/run";
+import { cardFrame, enterStripeCard, stripeChallenge } from "./support/provider";
+import {
+    bookingCode,
+    expectSizedToContent,
+    inWindow,
+    openSite,
+    successes,
+} from "../../../web/e2e/support/onlineBooking";
+import { demoSlug, runPort } from "@clientbridge/config/e2e/run";
 
 /** Waits until Stripe's payment event has settled the deposit with its fees, then reads it. */
 async function collectedDeposit(f: DepositFixture): Promise<DepositEvidence> {
@@ -224,6 +232,27 @@ test("FIN-DEPOSIT-04 real deposit refund reopens invoice debt while ordinary cas
         expect(depositBack.entries.filter((entry) => entry.event === "fee")).toEqual(fees);
         checkpoints.deposit_refunded = depositBack;
         await outstanding(owner, invoice, 2000);
+        // the refunded deposit leaves the bill's totals, staff and client side, and its history says so
+        await openInvoice(owner, invoice);
+        const record = owner.getByRole("dialog");
+        await expect(
+            record.getByText(strings.billing.event.depositReturned(formatMoney(2000, "CAD")), {
+                exact: true,
+            }),
+        ).toBeVisible();
+        await expect(
+            record
+                .getByRole("region", { name: strings.billing.preview, exact: true })
+                .getByText(strings.billing.depositApplied, { exact: true }),
+        ).toHaveCount(0);
+        const [paying] = await select<{ pay_token: string }>`
+            SELECT pay_token FROM invoices WHERE id = ${invoice.id}`;
+        const pay = await owner.request.get(`${bookingApi()}/pay/${paying?.pay_token ?? ""}`);
+        expect(pay.status(), await pay.text()).toBe(200);
+        expect(await pay.json()).toMatchObject({
+            balance_cents: 2000,
+            credits: [expect.objectContaining({ kind: "payment", amount_cents: 9200 })],
+        });
         await observer.reload();
         await outstanding(observer, invoice, 2000);
         await refundUi(owner, { ...refundFixture, paymentId: cashPaymentId }, 5600, {
@@ -450,6 +479,60 @@ test("STR-E17 a new client pays an online booking's deposit by card, the owner a
         await ownerContext.close();
     }
 });
+
+test(
+    "EMBED-E2E-04 a deposit paid with a 3D Secure card inside the inline widget on another site at phone width completes in the frame, books the visit and posts the payment to the ledger once",
+    { tag: "@browsers" },
+    async ({ browser }) => {
+        test.setTimeout(300_000);
+        const b = strings.publicBooking;
+        const ownerContext = await browser.newContext({ baseURL: webBaseUrl() });
+        const customer = await customerContext(browser);
+        try {
+            const owner = await ownerContext.newPage();
+            await signIn(owner);
+            const setup = await prepareOnlineDeposit(owner, "Maple");
+            const page = await customer.newPage();
+            await page.setViewportSize({ width: 390, height: 844 });
+            const site = await openSite(page, bookingCode(demoSlug("birchbark")));
+            const frame = page.locator("connect-booking iframe");
+            const widget = frame.contentFrame();
+            const f = await requestWithDeposit(page, setup, 3, widget);
+            await enterStripeCard(await cardFrame(page), "4000002760003184");
+            await widget.getByRole("heading", { name: b.payTitle, exact: true }).click();
+            await widget
+                .getByRole("button", { name: b.pay(formatMoney(2000, "CAD")), exact: true })
+                .click();
+            const complete = (await stripeChallenge(page)).getByRole("button", {
+                name: "Complete",
+                exact: true,
+            });
+            await expect.poll(() => inWindow(page, complete)).toBe(true);
+            await complete.click();
+            await expect(
+                widget.getByRole("heading", { name: b.pendingTitle, exact: true }),
+            ).toBeVisible({ timeout: 60_000 });
+            await expectSizedToContent(frame);
+            expect(page.url()).toBe(`${site}/`);
+            await expect.poll(() => successes(page)).toEqual(["booking"]);
+            const collected = await collectedDeposit(f);
+            const fees = collected.provider.fees;
+            const depositPaymentId = collected.payments[0]?.id;
+            if (fees === null || depositPaymentId === undefined)
+                throw new Error("the settled deposit is missing");
+            expectDepositStage(collected, f, "collected", { depositPaymentId, fees });
+            expect(
+                await select<{
+                    id: string;
+                }>`SELECT id FROM bookings WHERE client_id = ${setup.visit.clientId}`,
+            ).toEqual([{ id: f.bookingId }]);
+            expect(await successes(page)).toEqual(["booking"]);
+        } finally {
+            await customer.close();
+            await ownerContext.close();
+        }
+    },
+);
 
 test("STR-E31 a client cancels from the manage link a visit whose paid deposit is already on its bill, and the deposit stays with the business with no refund at Stripe", async ({
     browser,
@@ -1048,6 +1131,71 @@ test("FIN-DEPOSIT-15 staff cancelling a camp enrolment paid on Connect cancels i
         expect(await clientMoney(fixture.clientId)).toEqual(money);
         await info.attach("fin-deposit-15", {
             body: JSON.stringify({ outcome, after, provider }, null, 2),
+            contentType: "application/json",
+        });
+    } finally {
+        await context.close();
+    }
+});
+
+test("FIN-DEPOSIT-16 a client who cancels a visit in time from its manage link gets the whole card deposit back, and the books return to zero", async ({
+    browser,
+}, info) => {
+    test.setTimeout(300_000);
+    const m = strings.publicManage;
+    const deposit = formatMoney(2000, "CAD");
+    const context = await browser.newContext({ baseURL: webBaseUrl() });
+    try {
+        const owner = await context.newPage();
+        await signIn(owner);
+        const visit = await prepareDepositBooking(owner);
+        await collectDepositUi(owner, visit);
+        const collected = await collectedDeposit(visit.fixture);
+        const intentId = collected.provider.intents[0]?.id;
+        if (intentId === undefined) throw new Error("no card deposit");
+        const [row] = await select<{ manage_token: string }>`
+            SELECT manage_token FROM bookings WHERE id = ${visit.visit.id}`;
+        const customer = await customerContext(browser);
+        try {
+            const client = await customer.newPage();
+            await client.goto(manageUrl(row?.manage_token ?? ""));
+            await client.getByRole("button", { name: m.cancel, exact: true }).click();
+            await expect(client.getByText(m.cancelRefund(deposit), { exact: true })).toBeVisible();
+            const canceling = client.waitForResponse(
+                (r) => r.url().endsWith("/cancel") && r.request().method() === "POST",
+            );
+            await client.getByRole("button", { name: m.cancelConfirm, exact: true }).click();
+            const canceled = await canceling;
+            expect(canceled.status(), await canceled.text()).toBe(200);
+            expect(await canceled.json()).toEqual({ deposit: "refunded", refund_cents: 2000 });
+            await expect(client.getByText(m.canceledBody(deposit), { exact: true })).toBeVisible();
+        } finally {
+            await customer.close();
+        }
+        await expect
+            .poll(
+                async () => {
+                    const e = await depositEvidence(visit.fixture);
+                    return {
+                        booking: e.booking.deposit_status,
+                        refunds: e.provider.refunds.map((r) => [r.status, r.amount]),
+                    };
+                },
+                { timeout: 90_000 },
+            )
+            .toEqual({ booking: "refunded", refunds: [["succeeded", 2000]] });
+        const [after] = await select<{ status: string }>`
+            SELECT status FROM bookings WHERE id = ${visit.visit.id}`;
+        expect(after?.status).toBe("canceled");
+        const provider = await stripeDispute("show", intentId);
+        expect(provider.charge).toMatchObject({ amount: 2000, amount_refunded: 2000 });
+        const money = await clientMoney(visit.booking.clientId);
+        expectLedgerMatchesStripe(money.entries, provider);
+        const totals = categoryTotals(money.entries);
+        expect(totals.deposit ?? 0).toBe(0);
+        expect(totals.revenue ?? 0).toBe(0);
+        await info.attach("fin-deposit-16", {
+            body: JSON.stringify({ provider, money }, null, 2),
             contentType: "application/json",
         });
     } finally {

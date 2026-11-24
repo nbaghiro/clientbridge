@@ -32,7 +32,7 @@ import { utcSql } from "../datetime";
 import { itemMedia, useFileUpload } from "./files";
 import { invoiceStatusSql, orderStatusSql } from "./ledger";
 import { useReplicaLoad } from "./sync";
-import { asTaxClass, type DocRate, isFederal, lineTax, useTaxSetup } from "./taxes";
+import { asTaxClass, type DocRate, isFederal, lineTax, type TaxSetup, useTaxSetup } from "./taxes";
 import { taxName, taxList, taxRateLabel } from "./printing";
 import { bareUrl, shopPageUrl } from "../runtime";
 import { useResources } from "./resources";
@@ -873,15 +873,13 @@ export function taxOptions(rates: readonly DocRate[]): { key: string; label: str
 
 function taxFacts(v: ItemFormValues, rates: readonly DocRate[], registered: boolean): string {
     if (!registered) return s.taxNotRegistered;
-    const price = parseCents(v.price, BUSINESS_CURRENCY) ?? 0;
-    const byCode = lineTax(price, asTaxClass(v.taxClass), rates);
+    const { price, byCode, total } = taxedLine(v, rates);
     const applied = rates.filter((r) => r.code in byCode);
     if (applied.length === 0)
         return s.taxPreview(s.taxExempt, formatMoney(price, BUSINESS_CURRENCY));
-    const tax = Object.values(byCode).reduce((sum, c) => sum + c, 0);
     return s.taxPreview(
         taxList(applied.map((r) => taxRateLabel(r.code, r.ppm / 100))),
-        formatMoney(price + tax, BUSINESS_CURRENCY),
+        formatMoney(total, BUSINESS_CURRENCY),
     );
 }
 
@@ -922,7 +920,23 @@ export function depositCents(price: number, type: string, value: number | null):
     return Math.max(0, Math.min(raw, price));
 }
 
-function depositSummary(v: ItemFormValues): string {
+function taxedLine(
+    v: ItemFormValues,
+    rates: readonly DocRate[],
+): { price: number; byCode: Record<string, number>; total: number } {
+    const price = parseCents(v.price, BUSINESS_CURRENCY) ?? 0;
+    const byCode = lineTax(price, asTaxClass(v.taxClass), rates);
+    return { price, byCode, total: price + Object.values(byCode).reduce((sum, c) => sum + c, 0) };
+}
+
+/** What a client pays for the item, its sales tax included once the business charges it. */
+function taxedPrice(v: ItemFormValues, setup: TaxSetup): number {
+    return setup.registered
+        ? taxedLine(v, setup.rates).total
+        : (parseCents(v.price, BUSINESS_CURRENCY) ?? 0);
+}
+
+function depositSummary(v: ItemFormValues, total: number): string {
     const price = parseCents(v.price, BUSINESS_CURRENCY) ?? 0;
     if (v.depositType === "none") return s.depositNoneSummary;
     const deposit = depositCents(
@@ -934,7 +948,7 @@ function depositSummary(v: ItemFormValues): string {
     );
     return s.depositSummary(
         formatMoney(deposit, BUSINESS_CURRENCY),
-        formatMoney(price - deposit, BUSINESS_CURRENCY),
+        formatMoney(Math.max(0, total - deposit), BUSINESS_CURRENCY),
     );
 }
 
@@ -967,7 +981,10 @@ interface Taxed {
 }
 
 function useTaxed(form: ItemForm): Taxed {
-    const setup = useTaxSetup();
+    return taxed(form, useTaxSetup());
+}
+
+function taxed(form: ItemForm, setup: TaxSetup): Taxed {
     return {
         form,
         tax: setup.ready ? taxFacts(form.values, setup.rates, setup.registered) : null,
@@ -983,7 +1000,8 @@ interface OfferedBy {
 
 export interface ServiceEditor extends Taxed {
     timing: ItemTiming;
-    deposit: string;
+    // null while the tax setup loads, since the rest due at the visit includes tax
+    deposit: string | null;
     isClass: boolean;
     // who performs it, picked from the team; null while there is only one member to pick
     offeredBy: OfferedBy | null;
@@ -999,14 +1017,15 @@ export function useServiceEditor(
     onDone: () => void,
 ): ServiceEditor {
     const form = useItemForm(api, item, kind, onDone);
+    const setup = useTaxSetup();
     const team = useStaff();
     const rooms = useResources();
     const listed = form.values.staffIds;
     const needed = form.values.resourceIds;
     return {
-        ...useTaxed(form),
+        ...taxed(form, setup),
         timing: itemTiming(form.values),
-        deposit: depositSummary(form.values),
+        deposit: setup.ready ? depositSummary(form.values, taxedPrice(form.values, setup)) : null,
         isClass: form.values.kind === "class",
         offeredBy:
             team.length < 2 && listed.length === 0

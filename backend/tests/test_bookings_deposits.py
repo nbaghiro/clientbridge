@@ -1,5 +1,5 @@
 import httpx
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
@@ -8,6 +8,7 @@ from clientbridge.models.billing import Invoice
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
+from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking
 from clientbridge.services import ledger
@@ -267,6 +268,10 @@ async def test_refunding_an_applied_deposit_reopens_the_invoice(
 ) -> None:
     bid, pay_id = await _collected(as_owner, db, "2027-07-04T10:00:00Z")
     inv_id = await _api_invoice(as_owner, bid)
+    invoice = (await db.execute(select(Invoice).where(Invoice.id == inv_id))).scalar_one()
+    token = invoice.pay_token
+    applied = ok(await as_owner.get(f"/pay/{token}")).json()["credits"]
+    assert [(c["kind"], c["amount_cents"]) for c in applied] == [("deposit", 2000)]
     partial = await as_owner.post(
         f"/v1/payments/{pay_id}/refund", json={"amount_cents": 500}, headers=retry_key()
     )
@@ -275,10 +280,11 @@ async def test_refunding_an_applied_deposit_reopens_the_invoice(
     assert (
         await as_owner.post(f"/v1/payments/{pay_id}/refund", json={}, headers=retry_key())
     ).status_code == 200
-    invoice = (await db.execute(select(Invoice).where(Invoice.id == inv_id))).scalar_one()
     status, held, balance = await _state(db, bid, inv_id)
     assert (status, held, balance) == ("refunded", 0, invoice.total_cents)
     assert (await ledger.invoice_state(db, invoice))[0] == "sent"
+    reopened = ok(await as_owner.get(f"/pay/{token}")).json()
+    assert (reopened["credits"], reopened["balance_cents"]) == ([], invoice.total_cents)
 
 
 async def _refund_deposit(
@@ -452,3 +458,167 @@ async def test_a_deposit_that_settles_after_the_visit_is_done_is_refunded(
     booking = await db.get(Booking, bid, populate_existing=True)
     assert booking is not None
     assert (booking.status, booking.deposit_status) == ("completed", "refunded")
+
+
+async def _revenue(db: AsyncSession, bid: str) -> int:
+    rows = await db.execute(
+        select(func.coalesce(func.sum(Entry.amount_cents), 0))
+        .join(Account, Account.id == Entry.account_id)
+        .where(Account.category == "revenue", Entry.subject_id == bid)
+    )
+    return int(rows.scalar_one())
+
+
+async def test_staff_canceling_a_visit_keeps_its_paid_deposit_until_refunded(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    bid, pay_id = await _collected(as_owner, db, "2027-07-08T10:00:00Z")
+    ok(await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "canceled"}))
+    booking = await _booking_row(db, bid)
+    assert booking.deposit_status == "forfeited"
+    assert (await ledger.deposit_held(db, booking), await _revenue(db, bid)) == (0, -2000)
+    ok(await as_owner.post(f"/v1/payments/{pay_id}/refund", json={}, headers=retry_key()))
+    booking = await _booking_row(db, bid)
+    assert booking.deposit_status == "refunded"
+    assert (await ledger.deposit_held(db, booking), await _revenue(db, bid)) == (0, 0)
+    assert gateway.refunds[-1][:2] == (await provider_ref(db, pay_id), 2000)
+
+
+async def test_voiding_the_invoice_of_a_visit_that_did_not_happen_keeps_its_deposit(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    for day, ending in (("2027-07-09", "canceled"), ("2027-07-10", "no_show")):
+        bid, _ = await _collected(as_owner, db, f"{day}T10:00:00Z")
+        inv_id = await _api_invoice(as_owner, bid)
+        if ending == "no_show":
+            await begin(db, bid)
+        ok(await as_owner.patch(f"/v1/bookings/{bid}", json={"status": ending}))
+        assert (await _state(db, bid, inv_id))[:2] == ("applied", 0)
+        ok(await as_owner.post(f"/v1/invoices/{inv_id}/void"))
+        assert await _state(db, bid, inv_id) == ("forfeited", 0, 0)
+        assert await _revenue(db, bid) == -2000
+
+
+async def _pay_in_full(api: httpx.AsyncClient, db: AsyncSession, inv_id: str) -> None:
+    invoice = await db.get(Invoice, inv_id)
+    assert invoice is not None
+    paid = {"method": "cash", "amount_cents": await ledger.invoice_balance(db, invoice)}
+    ok(await api.post(f"/v1/invoices/{inv_id}/payments", json=paid, headers=retry_key()), 201)
+
+
+async def test_a_visit_paid_in_full_no_longer_asks_for_its_deposit(
+    api: httpx.AsyncClient,
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+) -> None:
+    await enable_payments(db)
+    bid = await deposit_booking(as_owner, db, starts="2027-07-11T10:00:00Z")
+    inv_id = await _api_invoice(as_owner, bid)
+    booking = await _booking_row(db, bid)
+    assert booking.deposit_status == "pending" and booking.manage_token is not None
+    assert ok(await api.get(f"/manage/{booking.manage_token}")).json()["deposit_due"] is True
+    opened = ok(await api.post(f"/manage/{booking.manage_token}/deposit")).json()
+    assert opened["client_secret"]
+    pid = await deposit_payment(db, bid)
+    await _pay_in_full(as_owner, db, inv_id)
+    booking = await _booking_row(db, bid)
+    assert booking.deposit_status == "none"
+    assert (await payment(db, pid)).status == "canceled"
+    assert await provider_ref(db, pid) in gateway.canceled_intents
+    assert ok(await api.get(f"/manage/{booking.manage_token}")).json()["deposit_due"] is False
+    refused = await api.post(f"/manage/{booking.manage_token}/deposit")
+    assert (refused.status_code, refused.json()["error"]) == (409, "deposit_not_due")
+    staff = await as_owner.post(f"/v1/bookings/{bid}/deposit?payment_method_id=default")
+    assert (staff.status_code, staff.json()["error"]) == (409, "deposit_not_due")
+
+
+async def test_a_deposit_that_lands_after_the_visit_is_paid_in_full_is_refunded(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    bid = await deposit_booking(as_owner, db, starts="2027-07-12T10:00:00Z")
+    pay = ok(await as_owner.post(f"/v1/bookings/{bid}/deposit?payment_method_id=default")).json()
+    pi = await provider_ref(db, pay["payment_id"])
+    # the card went through before the bill was paid, so the intent can't be canceled any more
+    gateway.confirmed.add(pi)
+    inv_id = await _api_invoice(as_owner, bid)
+    await _pay_in_full(as_owner, db, inv_id)
+    ok(await as_owner.post("/webhooks/stripe", content=pi_succeeded("evt_paid", pi), headers=GOOD))
+    assert await _state(db, bid, inv_id) == ("refunded", 0, 0)
+    assert gateway.refunds[-1][:2] == (pi, 2000)
+
+
+async def test_staff_canceling_a_visit_keeps_what_its_bill_left_of_the_deposit(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    bid, _ = await _collected(as_owner, db, "2027-07-13T10:00:00Z")
+    trim = {"description": "Nail trim", "unit_amount_cents": 1500, "booking_id": bid}
+    draft = ok(
+        await as_owner.post("/v1/invoices", json={"client_id": CL_AMELIE, "lines": [trim]}), 201
+    ).json()
+    ok(await as_owner.post(f"/v1/invoices/{draft['id']}/send"))
+    applied = draft["total_cents"]
+    assert await _state(db, bid, draft["id"]) == ("collected", 2000 - applied, 0)
+    ok(await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "canceled"}))
+    assert await _state(db, bid, draft["id"]) == ("forfeited", 0, 0)
+    assert await _revenue(db, bid) == applied - 2000
+    refused = await as_owner.post(f"/v1/invoices/{draft['id']}/void")
+    assert refused.status_code == 409
+
+
+async def test_voiding_a_missed_visit_bill_keeps_an_already_kept_deposit_once(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    bid, _ = await _collected(as_owner, db, "2027-07-14T10:00:00Z")
+    await begin(db, bid)
+    ok(await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "no_show"}))
+    inv_id = await _api_invoice(as_owner, bid)
+    assert await _state(db, bid, inv_id) == ("forfeited", 0, 13440)
+    ok(await as_owner.post(f"/v1/invoices/{inv_id}/void"))
+    assert (await _state(db, bid, inv_id))[:2] == ("forfeited", 0)
+    assert await _revenue(db, bid) == -2000
+
+
+async def test_a_deposit_settling_while_its_bill_is_paid_is_refunded(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    bid = await deposit_booking(as_owner, db, starts="2027-07-15T10:00:00Z")
+    pay = ok(await as_owner.post(f"/v1/bookings/{bid}/deposit?payment_method_id=default")).json()
+    pi = await provider_ref(db, pay["payment_id"])
+    gateway.confirmed.add(pi)
+    inv_id = await _api_invoice(as_owner, bid)
+    await _pay_in_full(as_owner, db, inv_id)
+    # the bill's payment skips a visit whose deposit is settling, so that visit still owes one
+    await db.execute(update(Booking).where(Booking.id == bid).values(deposit_status="pending"))
+    await db.flush()
+    ok(await as_owner.post("/webhooks/stripe", content=pi_succeeded("evt_race", pi), headers=GOOD))
+    assert await _state(db, bid, inv_id) == ("refunded", 0, 0)
+    assert gateway.refunds[-1][:2] == (pi, 2000)
+
+
+async def test_a_deposit_that_pays_a_shared_bill_in_full_drops_the_other_visits_deposit(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    paying = await deposit_booking(as_owner, db, starts="2027-07-16T10:00:00Z")
+    owing = await deposit_booking(as_owner, db, starts="2027-07-16T13:00:00Z")
+    intents: list[str] = []
+    for bid in (paying, owing):
+        opened = await as_owner.post(f"/v1/bookings/{bid}/deposit?payment_method_id=default")
+        intents.append(await provider_ref(db, ok(opened).json()["payment_id"]))
+    lines = [
+        {"description": "Nail trim", "unit_amount_cents": 800, "booking_id": bid}
+        for bid in (paying, owing)
+    ]
+    bill = ok(
+        await as_owner.post("/v1/invoices", json={"client_id": CL_AMELIE, "lines": lines}), 201
+    ).json()
+    ok(await as_owner.post(f"/v1/invoices/{bill['id']}/send"))
+    hook = pi_succeeded("evt_shared", intents[0])
+    ok(await as_owner.post("/webhooks/stripe", content=hook, headers=GOOD))
+    assert (await _state(db, paying, bill["id"]))[2] == 0
+    other = await _booking_row(db, owing)
+    assert other.deposit_status == "none"
+    assert intents[1] in gateway.canceled_intents

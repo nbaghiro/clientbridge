@@ -433,6 +433,75 @@ export async function submitStripeCard(page: Page, info: TestInfo, cents = 2000)
     }
 }
 
+/** Waits for a card payment's committed settlement and checks it against Stripe and the ledger. */
+export async function expectSettled(
+    request: APIRequestContext,
+    invoice: Awaited<ReturnType<typeof registerStripeInvoice>>,
+    events: string[] = ["payment_intent.succeeded"],
+    charge: { amountCents: number; tipCents: number } = { amountCents: 2000, tipCents: 0 },
+): Promise<StripeBrowserEvidence> {
+    // the success screen is optimistic, so wait for the committed settlement
+    await expect(async () => {
+        const response = await request.get(`${documentApi}/pay/${invoice.pay_token}`);
+        expect(response.status()).toBe(200);
+        expect(await response.json()).toMatchObject({ status: "paid", balance_cents: 0 });
+        const evidence = await stripeEvidence(invoice.id);
+        expect(evidence.payments).toHaveLength(1);
+        expect(evidence.payments[0]).toMatchObject({ status: "succeeded" });
+        expect(evidence.webhooks.map((row) => row.event).sort()).toEqual([...events].sort());
+        for (const webhook of evidence.webhooks) {
+            expect(webhook).toMatchObject({ status: "processed", processed: true });
+        }
+    }).toPass({ timeout: 90_000, intervals: [1000, 3000, 5000] });
+
+    const saved = await stripeEvidence(invoice.id);
+    const paid = saved.payments[0];
+    const intent = saved.stripe[0];
+    if (!paid || !intent) throw new Error("missing independent settlement evidence");
+    expect(saved.stripe).toHaveLength(1);
+    expect(saved.provider_intent_ids).toEqual([intent.id]);
+    expect(paid).toMatchObject({
+        status: "succeeded",
+        amount_cents: charge.amountCents,
+        currency: "CAD",
+        tip_cents: charge.tipCents,
+        provider: "stripe",
+        kind: "payment",
+        provider_ref: intent.id,
+    });
+    expect(intent).toMatchObject({
+        account: invoice.account,
+        livemode: false,
+        status: "succeeded",
+        amount: charge.amountCents,
+        currency: "cad",
+        amount_refunded: 0,
+    });
+    const settlement = saved.entries.filter((entry) => entry.ref === `payment:${paid.id}`);
+    expect(settlement.length).toBeGreaterThanOrEqual(2);
+    expect(new Set(settlement.map((entry) => entry.journal_id)).size).toBe(1);
+    expect(settlement.reduce((sum, entry) => sum + entry.amount_cents, 0)).toBe(0);
+    const journalTotals = new Map<string, number>();
+    for (const entry of saved.entries) {
+        journalTotals.set(
+            entry.journal_id,
+            (journalTotals.get(entry.journal_id) ?? 0) + entry.amount_cents,
+        );
+    }
+    for (const total of journalTotals.values()) expect(total).toBe(0);
+    const businessEntries = saved.entries.filter(
+        (entry) => entry.owner_type === "business" && entry.owner_id === demoId("bz_birchbark"),
+    );
+    const total = (category: string): number =>
+        businessEntries
+            .filter((entry) => entry.category === category)
+            .reduce((sum, entry) => sum + entry.amount_cents, 0);
+    expect(total("stripe")).toBe(intent.net);
+    expect(total("platform_fee")).toBe(intent.application_fee_amount ?? 0);
+    expect(total("processing_fee") + total("platform_fee")).toBe(intent.fee);
+    return saved;
+}
+
 export async function settledStripeInvoice(
     page: Page,
     request: APIRequestContext,
@@ -446,65 +515,7 @@ export async function settledStripeInvoice(
             page.getByRole("heading", { name: strings.publicPay.paidTitle }),
         ).toBeVisible();
 
-        // The immediate success screen is optimistic; require committed settlement before reload.
-        await expect(async () => {
-            const response = await request.get(`${documentApi}/pay/${invoice.pay_token}`);
-            expect(response.status()).toBe(200);
-            expect(await response.json()).toMatchObject({ status: "paid", balance_cents: 0 });
-            const evidence = await stripeEvidence(invoice.id);
-            expect(evidence.payments).toHaveLength(1);
-            expect(evidence.payments[0]).toMatchObject({ status: "succeeded" });
-            expect(evidence.webhooks.map((row) => row.event).sort()).toEqual([...events].sort());
-            for (const webhook of evidence.webhooks) {
-                expect(webhook).toMatchObject({ status: "processed", processed: true });
-            }
-        }).toPass({ timeout: 90_000, intervals: [1000, 3000, 5000] });
-
-        const saved = await stripeEvidence(invoice.id);
-        const paid = saved.payments[0];
-        const intent = saved.stripe[0];
-        if (!paid || !intent) throw new Error("missing independent settlement evidence");
-        expect(saved.stripe).toHaveLength(1);
-        expect(saved.provider_intent_ids).toEqual([intent.id]);
-        expect(paid).toMatchObject({
-            status: "succeeded",
-            amount_cents: charge.amountCents,
-            currency: "CAD",
-            tip_cents: charge.tipCents,
-            provider: "stripe",
-            kind: "payment",
-            provider_ref: intent.id,
-        });
-        expect(intent).toMatchObject({
-            account: invoice.account,
-            livemode: false,
-            status: "succeeded",
-            amount: charge.amountCents,
-            currency: "cad",
-            amount_refunded: 0,
-        });
-        const settlement = saved.entries.filter((entry) => entry.ref === `payment:${paid.id}`);
-        expect(settlement.length).toBeGreaterThanOrEqual(2);
-        expect(new Set(settlement.map((entry) => entry.journal_id)).size).toBe(1);
-        expect(settlement.reduce((sum, entry) => sum + entry.amount_cents, 0)).toBe(0);
-        const journalTotals = new Map<string, number>();
-        for (const entry of saved.entries) {
-            journalTotals.set(
-                entry.journal_id,
-                (journalTotals.get(entry.journal_id) ?? 0) + entry.amount_cents,
-            );
-        }
-        for (const total of journalTotals.values()) expect(total).toBe(0);
-        const businessEntries = saved.entries.filter(
-            (entry) => entry.owner_type === "business" && entry.owner_id === demoId("bz_birchbark"),
-        );
-        const total = (category: string): number =>
-            businessEntries
-                .filter((entry) => entry.category === category)
-                .reduce((sum, entry) => sum + entry.amount_cents, 0);
-        expect(total("stripe")).toBe(intent.net);
-        expect(total("platform_fee")).toBe(intent.application_fee_amount ?? 0);
-        expect(total("processing_fee") + total("platform_fee")).toBe(intent.fee);
+        const saved = await expectSettled(request, invoice, events, charge);
         await checkoutDiagnostics(page, info);
         await page.reload();
         await expect(

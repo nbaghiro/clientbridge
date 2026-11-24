@@ -1607,14 +1607,18 @@ export function useManageBooking(
         data !== null && data.deposit_status === "applied" && data.deposit_cents > 0;
     const depositRefunded =
         data !== null && data.deposit_status === "refunded" && data.deposit_cents > 0;
+    const depositForfeited =
+        data !== null && data.deposit_status === "forfeited" && data.deposit_cents > 0;
     const refundOpen = data?.refund_status === "pending" || data?.refund_status === "failed";
-    // a cancel left the deposit with the business: on the bill, or held by a dispute
+    // a cancel left the deposit with the business: kept, on the bill, or held by a dispute
     const keptLine =
-        canceled && hasDeposit && !refundOpen && !lateDeposit
-            ? depositApplied
-                ? m.cancelApplied(deposit, data.business_name)
-                : m.depositKept(deposit, data.business_name)
-            : null;
+        depositForfeited && !refundOpen
+            ? m.depositForfeited(deposit, data.business_name)
+            : canceled && hasDeposit && !refundOpen && !lateDeposit
+              ? depositApplied
+                  ? m.cancelApplied(deposit, data.business_name)
+                  : m.depositKept(deposit, data.business_name)
+              : null;
     const depositDue = live && data.deposit_due;
     const policy = data?.policy;
     const movesLeft = data ? Math.max(0, data.policy.max_reschedules - data.reschedules_used) : 0;

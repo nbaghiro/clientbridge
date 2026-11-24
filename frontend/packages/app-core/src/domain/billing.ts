@@ -282,12 +282,14 @@ SELECT e.id, e.event,
            `te.source_type = 'payment' AND (te.source_id = p.id OR te.source_id IN
               (SELECT rp.id FROM payments rp WHERE rp.parent_payment_id = p.id))`,
        )} ELSE 0 END AS cents,
-       e.occurred_at, p.method
+       e.occurred_at, p.method,
+       EXISTS (SELECT 1 FROM entries r WHERE r.ref = e.ref || ':reversal') AS reversed
 FROM entries e
 JOIN accounts a ON a.id = e.account_id
 LEFT JOIN payments p ON e.source_type = 'payment' AND p.id = e.source_id
 WHERE a.category = 'receivable' AND e.subject_type = 'invoice' AND e.subject_id = ?
-  AND e.amount_cents < 0 AND e.event IN ('payment', 'application')
+  AND ((e.amount_cents < 0 AND e.event IN ('payment', 'application'))
+    OR (e.amount_cents > 0 AND e.event = 'reversal' AND e.ref LIKE 'application:%'))
 ORDER BY e.occurred_at, e.id`;
 
 export const LETTERHEAD_SQL = `
@@ -301,6 +303,7 @@ interface CreditRow {
     cents: number;
     occurred_at: string | null;
     method: string | null;
+    reversed: number;
 }
 
 interface LetterheadRow extends PostalParts {
@@ -787,7 +790,7 @@ export function useInvoiceRecord(id: string | null, payBase: string): InvoiceRec
     const journal = useQuery<{ code: string; cents: number }>(TAX_BY_CODE_SQL, [
         id === null ? "" : `invoice:${id}`,
     ]).data;
-    const credits = useQuery<CreditRow>(INVOICE_CREDITS_SQL, [id ?? ""]).data;
+    const entries = useQuery<CreditRow>(INVOICE_CREDITS_SQL, [id ?? ""]).data;
     const payments = useInvoicePayments(id ?? "");
     const tax = useTaxSetup();
     const zone = useBusinessZone();
@@ -813,6 +816,8 @@ export function useInvoiceRecord(id: string | null, payBase: string): InvoiceRec
     const draft = row.status === "draft";
     const taxes = draft ? pricing.taxes : issuedTaxes(pricing, journal);
     const balanceCents = row.balance_cents ?? 0;
+    // a deposit refunded after it was applied no longer pays the invoice down
+    const credits = entries.filter((c) => c.event !== "reversal" && c.reversed === 0);
     const totals: DocTotalLine[] = [
         ...discountTotals(row.subtotal_cents ?? 0, storedDiscounts(lines, row.discount_reason)),
         { key: "subtotal", label: s.subtotal, cents: row.subtotal_cents ?? 0, kind: "subtotal" },
@@ -842,6 +847,18 @@ export function useInvoiceRecord(id: string | null, payBase: string): InvoiceRec
         })),
     ];
     const refunds = payments.filter((pm) => pm.kind === "refund" && pm.status === "succeeded");
+    const dueOnceSent = row.due_once_sent_cents ?? row.total_cents ?? 0;
+    // a draft shows the visit deposit that sending it applies, so its balance matches the text
+    if (draft && dueOnceSent < (row.total_cents ?? 0))
+        totals.push(
+            {
+                key: "held",
+                label: s.depositHeld,
+                cents: (row.total_cents ?? 0) - dueOnceSent,
+                kind: "credit",
+            },
+            { key: "balance", label: s.balanceDue, cents: dueOnceSent, kind: "balance" },
+        );
     if (!draft)
         totals.push({ key: "balance", label: s.balanceDue, cents: balanceCents, kind: "balance" });
     for (const r of refunds)
@@ -900,15 +917,23 @@ export function useInvoiceRecord(id: string | null, payBase: string): InvoiceRec
             at: stampLabel(parseTimestamp(row.issued_at), zone, now),
             intent: "accent",
         });
-    for (const c of credits)
+    const voidedAt = row.voided_at === null ? null : parseTimestamp(row.voided_at).getTime();
+    // voiding takes every deposit back off, which the void entry already says
+    const voidedOff = (c: CreditRow): boolean =>
+        c.event === "reversal" &&
+        voidedAt !== null &&
+        (c.occurred_at === null || parseTimestamp(c.occurred_at).getTime() >= voidedAt);
+    for (const c of entries.filter((x) => !voidedOff(x)))
         timeline.push({
             key: `c-${c.id}`,
             label:
-                c.event === "application"
-                    ? s.event.depositApplied(formatMoney(c.cents, currency))
-                    : s.event.payment(formatMoney(c.cents, currency), methodLabel(c.method)),
+                c.event === "reversal"
+                    ? s.event.depositReturned(formatMoney(-c.cents, currency))
+                    : c.event === "application"
+                      ? s.event.depositApplied(formatMoney(c.cents, currency))
+                      : s.event.payment(formatMoney(c.cents, currency), methodLabel(c.method)),
             at: c.occurred_at === null ? "" : stampLabel(parseTimestamp(c.occurred_at), zone, now),
-            intent: "success",
+            intent: c.event === "reversal" ? "danger" : "success",
         });
     for (const pm of payments.filter((x) => x.kind === "refund" && x.status === "succeeded"))
         timeline.push({
@@ -943,10 +968,7 @@ export function useInvoiceRecord(id: string | null, payBase: string): InvoiceRec
         facts: [
             {
                 label: s.balanceDue,
-                value: formatMoney(
-                    draft ? (row.due_once_sent_cents ?? row.total_cents ?? 0) : balanceCents,
-                    currency,
-                ),
+                value: formatMoney(draft ? dueOnceSent : balanceCents, currency),
             },
             {
                 label: s.colIssued,
