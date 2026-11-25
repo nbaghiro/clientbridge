@@ -61,11 +61,6 @@ function Parties({ doc }: { doc: Doc }) {
                     {doc.partyLabel}
                 </p>
                 <p className="mt-1 font-semibold text-ink">{doc.partyName}</p>
-                {doc.partyLines.map((l) => (
-                    <p key={l} className="text-ink-soft">
-                        {l}
-                    </p>
-                ))}
             </div>
         </div>
     );
@@ -113,6 +108,9 @@ function LinesTable({ doc }: { doc: Doc }) {
                             {line.subject !== null ? (
                                 <p className="text-muted">{l.forSubject(line.subject)}</p>
                             ) : null}
+                            {line.offered === true ? (
+                                <p className="text-muted">{l.offered}</p>
+                            ) : null}
                         </td>
                         <td className="py-2 text-right tabular-nums text-ink-soft">
                             {formatNumber(line.quantity)}
@@ -123,7 +121,12 @@ function LinesTable({ doc }: { doc: Doc }) {
                         <td className="py-2 pl-3 text-ink-soft">
                             {taxList(line.taxCodes.map(taxName))}
                         </td>
-                        <td className="whitespace-nowrap py-2 pl-3 text-right font-medium tabular-nums text-ink">
+                        <td
+                            className={cx(
+                                "whitespace-nowrap py-2 pl-3 text-right font-medium tabular-nums",
+                                line.offered === true ? "text-muted" : "text-ink",
+                            )}
+                        >
                             {formatMoney(line.amountCents, doc.currency)}
                         </td>
                     </tr>
@@ -227,9 +230,9 @@ function Footer({ doc }: { doc: Doc }) {
 function Classic({ doc }: { doc: Doc }) {
     return (
         <>
-            <header className="flex items-start justify-between gap-6">
+            <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
                 <BrandBlock doc={doc} />
-                <div className="text-right">
+                <div className="ml-auto text-right">
                     <p
                         style={{ color: doc.business.brandColor }}
                         className="font-display text-2xl font-bold uppercase tracking-[0.18em]"
@@ -275,9 +278,10 @@ function Classic({ doc }: { doc: Doc }) {
 export function PrintedDocument({ doc, className }: WebProps<PrintedDocumentProps>) {
     return (
         <div className={cx("@container mx-auto w-full max-w-[680px]", className)}>
+            {/* printed as a plain block: Safari's page is shorter than the Letter shape, and it splits flex items */}
             <article
                 aria-label={doc.heading}
-                className="relative flex min-h-[129.4cqw] w-full flex-col overflow-hidden rounded-sm bg-surface p-6 text-ink @xl:p-12 shadow-page"
+                className="relative flex min-h-[129.4cqw] w-full flex-col overflow-hidden rounded-sm bg-surface p-6 text-ink @xl:p-12 shadow-page print:block print:min-h-0"
             >
                 <Classic doc={doc} />
                 <div className="mt-8 flex flex-1 break-before-avoid flex-col">

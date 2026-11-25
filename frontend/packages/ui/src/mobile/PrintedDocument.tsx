@@ -47,21 +47,18 @@ function Parties({ doc }: { doc: Doc }) {
             <View style={styles.flex}>
                 <Text style={styles.cap}>{doc.partyLabel}</Text>
                 <Text style={styles.strong}>{doc.partyName}</Text>
-                {doc.partyLines.map((l) => (
-                    <Text key={l} style={styles.body} numberOfLines={1}>
-                        {l}
-                    </Text>
-                ))}
             </View>
         </View>
     );
 }
 
 function Meta({ doc }: { doc: Doc }) {
+    // four facts in a row leave a phone too little width per label, so they pair up instead
+    const paired = doc.meta.length > 3;
     return (
         <View style={styles.meta}>
             {doc.meta.map((m) => (
-                <View key={m.label} style={styles.flex}>
+                <View key={m.label} style={[styles.flex, paired && styles.metaPair]}>
                     <Text style={styles.cap}>{m.label}</Text>
                     <Text style={styles.strong}>{m.value}</Text>
                 </View>
@@ -90,13 +87,20 @@ function Lines({ doc }: { doc: Doc }) {
                                     line.quantity,
                                     formatMoney(line.unitCents, doc.currency),
                                 ),
+                                line.offered === true ? l.offered : null,
                             ])}
                         </Text>
                     </View>
                     <Text style={[styles.body, styles.taxCol]}>
                         {taxList(line.taxCodes.map(taxName))}
                     </Text>
-                    <Text style={[styles.strong, styles.amountCol]}>
+                    <Text
+                        style={[
+                            styles.strong,
+                            styles.amountCol,
+                            line.offered === true && styles.muted,
+                        ]}
+                    >
                         {formatMoney(line.amountCents, doc.currency)}
                     </Text>
                 </View>
@@ -230,6 +234,7 @@ const styles = StyleSheet.create({
     parties: { flexDirection: "row", gap: 12 },
     meta: {
         flexDirection: "row",
+        flexWrap: "wrap",
         gap: 8,
         marginTop: 12,
         paddingVertical: 8,
@@ -248,6 +253,8 @@ const styles = StyleSheet.create({
     },
     strong: { color: c.ink, fontFamily: theme.fonts.ui, fontSize: 10.5, fontWeight: "600" },
     body: { color: c.inkSoft, fontFamily: theme.fonts.ui, fontSize: 10, lineHeight: 14 },
+    metaPair: { flexBasis: "45%" },
+    muted: { color: c.muted },
     small: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 9.5, lineHeight: 13 },
     tiny: { color: c.muted, fontFamily: theme.fonts.ui, fontSize: 8.5, marginTop: 2 },
     message: {

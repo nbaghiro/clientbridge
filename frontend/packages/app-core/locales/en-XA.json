@@ -1466,6 +1466,9 @@
     "printing.item": {
         "message": "[Îţéɱ one]"
     },
+    "printing.optionalLine": {
+        "message": "[Öþţîöñåļ åðð-öñ, ñöţ îñ ţĥé ţöţåļ one two three]"
+    },
     "printing.qty": {
         "message": "[Ǫţý one]"
     },

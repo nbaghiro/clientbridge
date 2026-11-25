@@ -44,6 +44,17 @@ export function PublicEstimate() {
             brand={est.brand}
             businessName={biz}
             contact={est.contact_email}
+            overlay={
+                printing && doc !== null ? (
+                    <PrintModal
+                        doc={doc}
+                        printLabel={pe.downloadPdf}
+                        onClose={() => {
+                            setPrinting(false);
+                        }}
+                    />
+                ) : null
+            }
             width="narrow"
             hero={
                 <>
@@ -296,15 +307,6 @@ export function PublicEstimate() {
                     )}
                 </article>
             </main>
-            {printing && doc !== null ? (
-                <PrintModal
-                    doc={doc}
-                    printLabel={pe.downloadPdf}
-                    onClose={() => {
-                        setPrinting(false);
-                    }}
-                />
-            ) : null}
         </PublicDocument>
     );
 }

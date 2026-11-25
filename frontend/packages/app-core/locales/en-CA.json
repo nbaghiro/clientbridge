@@ -1600,6 +1600,10 @@
     "printing.item": {
         "message": "Item"
     },
+    "printing.optionalLine": {
+        "message": "Optional add-on, not in the total",
+        "description": "Under an add-on line on a printed estimate that the client hasn't picked, priced but not counted in the total"
+    },
     "printing.qty": {
         "message": "Qty"
     },

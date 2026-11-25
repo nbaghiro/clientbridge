@@ -177,7 +177,6 @@ export function printedPublicInvoice(
             currency: invoice.currency,
             number,
             partyName: invoice.client_name ?? "",
-            partyLines: [],
             meta: [
                 { label: pr.invoiceNumber, value: docReference(number) },
                 { label: pr.issued, value: longDate(invoice.issued_at, invoice.timezone) },
