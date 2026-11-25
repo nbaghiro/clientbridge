@@ -1047,7 +1047,7 @@ export interface PrintedDocLine {
     amountCents: number;
     taxCodes: readonly string[];
     // an add-on the client may still pick, priced on its line but left out of the total
-    optional?: boolean;
+    offered?: boolean;
 }
 
 export interface PrintedDocTax {
@@ -1071,7 +1071,7 @@ export interface PrintedDocLabels {
     paymentMethod: string;
     forSubject: (name: string) => string;
     qtyTimes: (qty: number, price: string) => string;
-    optional: string;
+    offered: string;
 }
 
 // One model for the PDF, the in-app preview and the Connect pages, so what staff see is what clients get.

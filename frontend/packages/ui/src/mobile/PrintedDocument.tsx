@@ -87,7 +87,7 @@ function Lines({ doc }: { doc: Doc }) {
                                     line.quantity,
                                     formatMoney(line.unitCents, doc.currency),
                                 ),
-                                line.optional === true ? l.optional : null,
+                                line.offered === true ? l.offered : null,
                             ])}
                         </Text>
                     </View>
@@ -98,7 +98,7 @@ function Lines({ doc }: { doc: Doc }) {
                         style={[
                             styles.strong,
                             styles.amountCol,
-                            line.optional === true && styles.muted,
+                            line.offered === true && styles.muted,
                         ]}
                     >
                         {formatMoney(line.amountCents, doc.currency)}

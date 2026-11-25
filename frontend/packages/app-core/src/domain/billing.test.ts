@@ -18,6 +18,8 @@ import {
     estimateCanBook,
     estimateCanConvert,
     estimateTotals,
+    type EstimateRecord,
+    printedEstimate,
 } from "./billing";
 import { type SavedCardRow, canBeDefault, checkoutMethods } from "./payments";
 import { ratesOn } from "./taxes";
@@ -466,5 +468,67 @@ describe("estimateCanBook", () => {
     it("hides the action for an estimate that is not accepted", () => {
         for (const status of ["draft", "sent", "declined", "expired"])
             expect(estimateCanBook(status, open)).toBe(false);
+    });
+});
+
+describe("printedEstimate", () => {
+    const line = (id: string, optional: boolean, selected: boolean) => ({
+        id,
+        description: id,
+        subject: null,
+        quantity: 1,
+        unitCents: 4500,
+        amountCents: 4500,
+        taxCodes: [],
+        optional,
+        selected,
+        note: null,
+    });
+    const rec = (status: string, addOnPicked: boolean) =>
+        ({
+            row: {
+                number: 12,
+                client_name: "Ann",
+                valid_until: null,
+                created_at: "2026-10-13T17:00:00Z",
+                notes: null,
+                total_cents: 4500,
+            },
+            status,
+            lines: [line("base", false, false), line("addon", true, addOnPicked)],
+            taxes: [],
+            totals: [],
+            acceptUrl: null,
+            zone: ZONE,
+        }) as unknown as EstimateRecord;
+    const printed = (status: string, addOnPicked: boolean) =>
+        printedEstimate(
+            rec(status, addOnPicked),
+            {
+                name: "Birch Studio",
+                tagline: null,
+                brandColor: null,
+                email: null,
+                gstHstNumber: null,
+                qstNumber: null,
+            },
+            "#000",
+        ).lines.map((l) => [l.description, l.offered === true]);
+
+    it("prints an open estimate's unpicked add-on as offered, outside the total", () => {
+        for (const status of ["draft", "sent"])
+            expect(printed(status, false)).toEqual([
+                ["base", false],
+                ["addon", true],
+            ]);
+    });
+
+    it("prints only the picked add-ons, as ordinary lines, once the estimate is answered", () => {
+        expect(printed("accepted", false)).toEqual([["base", false]]);
+        expect(printed("expired", false)).toEqual([["base", false]]);
+        expect(printed("accepted", true)).toEqual([
+            ["base", false],
+            ["addon", false],
+        ]);
     });
 });

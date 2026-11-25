@@ -248,8 +248,7 @@ export function usePublicEstimatePage(
             const number = data.number === null ? null : String(data.number);
             const open = data.status === "sent";
             // an open estimate still offers its unpicked add-ons; once answered only the picked ones count
-            const offered = (shown?.lines ?? []).filter((l) => open || !l.optional || l.selected);
-            const printedLines = publicDocLines(offered);
+            const kept = (shown?.lines ?? []).filter((l) => open || !l.optional || l.selected);
             return printedDoc(
                 {
                     kind: "estimate",
@@ -264,13 +263,10 @@ export function usePublicEstimatePage(
                             value: longDate(data.valid_until, data.timezone),
                         },
                     ],
-                    lines: printedLines.map((l, i) => {
-                        const src = offered[i];
-                        return {
-                            ...l,
-                            optional: src !== undefined && src.optional && !src.selected,
-                        };
-                    }),
+                    lines: publicDocLines(kept).map((l, i) => ({
+                        ...l,
+                        offered: kept[i]?.optional === true && !kept[i].selected,
+                    })),
                     taxes,
                     totals,
                     headline: { label: pr.estimateTotal, cents: totalCents },

@@ -108,8 +108,8 @@ function LinesTable({ doc }: { doc: Doc }) {
                             {line.subject !== null ? (
                                 <p className="text-muted">{l.forSubject(line.subject)}</p>
                             ) : null}
-                            {line.optional === true ? (
-                                <p className="text-muted">{l.optional}</p>
+                            {line.offered === true ? (
+                                <p className="text-muted">{l.offered}</p>
                             ) : null}
                         </td>
                         <td className="py-2 text-right tabular-nums text-ink-soft">
@@ -124,7 +124,7 @@ function LinesTable({ doc }: { doc: Doc }) {
                         <td
                             className={cx(
                                 "whitespace-nowrap py-2 pl-3 text-right font-medium tabular-nums",
-                                line.optional === true ? "text-muted" : "text-ink",
+                                line.offered === true ? "text-muted" : "text-ink",
                             )}
                         >
                             {formatMoney(line.amountCents, doc.currency)}

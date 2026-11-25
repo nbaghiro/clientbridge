@@ -1600,7 +1600,7 @@ export function printedEstimate(
             // an open estimate still offers its unpicked add-ons; once answered only the picked ones count
             lines: rec.lines.flatMap((l) => {
                 const offered = l.optional && !l.selected;
-                return offered && !open ? [] : [{ ...l, optional: offered }];
+                return offered && !open ? [] : [{ ...l, offered }];
             }),
             taxes: rec.taxes,
             totals: rec.totals,
@@ -1760,7 +1760,7 @@ interface DocComposer {
     send: () => void;
     startOver: () => void;
     preview: (
-        client: { name: string | null; phone: string | null } | null,
+        client: { name: string | null } | null,
         letterhead: Letterhead,
         fallbackColor: string,
     ) => PrintedDoc;
@@ -2103,7 +2103,7 @@ export function useDocComposer(
                         unitCents: unitOf(l),
                         amountCents: l.grossCents,
                         taxCodes: l.taxCodes,
-                        optional: optional(l),
+                        offered: optional(l),
                     })),
                     taxes: pricing.taxes,
                     totals,

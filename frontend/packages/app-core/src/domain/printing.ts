@@ -84,7 +84,7 @@ const PRINT_LABELS: PrintedDocLabels = {
     get amount() {
         return s.amount;
     },
-    get optional() {
+    get offered() {
         return s.optionalLine;
     },
     get taxSummary() {

@@ -155,7 +155,7 @@ it("prints an unpicked add-on as offered while the estimate is open, and only th
         });
         const lines = result.current
             .printed("https://pay.test/e/tok", "#000")
-            ?.lines.map((l) => [l.description, l.optional]);
+            ?.lines.map((l) => [l.description, l.offered]);
         unmount();
         return lines;
     };
