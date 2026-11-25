@@ -1316,6 +1316,10 @@ async def test_lines_added_to_a_visits_invoice_earn_the_visits_member(
     assert await _accruals(db, subjects) == sorted(
         [(booked, 4000, "percent"), (invoice_id, 300, "retail"), (invoice_id, 800, "percent")]
     )
+    invoice = await db.get(Invoice, invoice_id)
+    assert invoice is not None
+    await ensure_earnings(db, invoice)
+    assert len(await _accruals(db, subjects)) == 3
     await _refund(as_owner, payment_id, total // 2)
     assert await _accruals(db, subjects) == sorted(
         [
