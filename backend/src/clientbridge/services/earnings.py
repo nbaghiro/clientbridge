@@ -745,7 +745,7 @@ async def _other_lines(
 
 
 def _line_split(
-    staff: Staff, line: Line, item: Item | None, sale: bool
+    staff: Staff, line: Line, item: Item | None, sale: bool, visit_lead: bool
 ) -> tuple[str, int, int] | None:
     """The (basis, cents, rate) a member earns on a line that isn't visit work; hourly needs one."""
     kind = item.kind if item is not None else "service"
@@ -759,21 +759,41 @@ def _line_split(
         return "retail", line.amount_cents * bps // 10000, bps
     if staff.rate_type == "percent" and staff.rate_bps is not None:
         return "percent", round(line.amount_cents * staff.rate_bps / 10000), staff.rate_bps
-    # a fixed rate is per visit, so only a catalog service or class sold without a booking earns it
-    if staff.rate_type == "fixed" and staff.rate_cents is not None and item is not None:
+    # a fixed rate is per visit, so only a catalog service or class sold apart from one earns it
+    if (
+        staff.rate_type == "fixed"
+        and staff.rate_cents is not None
+        and item is not None
+        and not visit_lead
+    ):
         return "fixed", staff.rate_cents, staff.rate_cents
     return None
 
 
-async def _line_earner(db: AsyncSession, document: Invoice | Order, line: Line) -> str | None:
-    """The line's member, else its visit's lead, else the sale's seller."""
+def _line_earner(
+    document: Invoice | Order, line: Line, booking: Booking | None, visit: Booking | None
+) -> str | None:
+    """The line's member, else its visit's lead, else the seller, else the invoice's one visit's."""
     if line.staff_id is not None:
         return line.staff_id
-    if line.booking_id is not None:
-        booking = await db.get(Booking, line.booking_id)
-        if booking is not None and booking.staff_id is not None:
-            return booking.staff_id
-    return document.staff_id if isinstance(document, Order) else None
+    if booking is not None and booking.staff_id is not None:
+        return booking.staff_id
+    if isinstance(document, Order):
+        return document.staff_id
+    return None if visit is None else visit.staff_id
+
+
+async def _sole_visit(db: AsyncSession, invoice: Invoice) -> Booking | None:
+    """The one visit an invoice bills; an invoice of several visits has none."""
+    rows = await db.execute(
+        scoped(Line, invoice.business_id)
+        .with_only_columns(Line.booking_id)
+        .where(Line.invoice_id == invoice.id, Line.booking_id.is_not(None))
+        .distinct()
+        .limit(2)
+    )
+    bookings = [booking for booking in rows.scalars().all() if booking is not None]
+    return await db.get(Booking, bookings[0]) if len(bookings) == 1 else None
 
 
 async def _ensure_line_earnings(
@@ -782,14 +802,23 @@ async def _ensure_line_earnings(
     biz = document.business_id
     sale = isinstance(document, Order)
     subject = _document_subject(document)
-    for line, item in await _other_lines(db, document):
-        staff_id = await _line_earner(db, document, line)
+    others = await _other_lines(db, document)
+    # a line added to a visit's invoice, such as a product sold at it, belongs to that visit
+    visit = (
+        await _sole_visit(db, document)
+        if isinstance(document, Invoice) and any(line.booking_id is None for line, _ in others)
+        else None
+    )
+    for line, item in others:
+        booking = await db.get(Booking, line.booking_id) if line.booking_id is not None else None
+        staff_id = _line_earner(document, line, booking, visit)
         if staff_id is None or line.amount_cents <= 0:
             continue
         staff = await db.get(Staff, staff_id)
         if staff is None or not staff.payee:
             continue
-        split = _line_split(staff, line, item, sale)
+        visit_lead = booking is None and visit is not None and staff_id == visit.staff_id
+        split = _line_split(staff, line, item, sale, visit_lead)
         if split is None or split[1] <= 0:
             continue
         await _lock_subject(db, biz, subject)
@@ -804,15 +833,25 @@ async def _ensure_line_earnings(
             ref=f"earning:line:{line.id}:{len(journals)}",
             source=("line", line.id),
             subject=subject,
-            meta={
-                "basis": basis,
-                "rate": rate,
-                "base": line.amount_cents,
-                "label": line.description,
-                "client_id": document.client_id,
-            },
+            meta=_line_meta(basis, rate, line, document, booking or visit),
             occurred_at=occurred_at,
         )
+
+
+def _line_meta(
+    basis: str, rate: int, line: Line, document: Invoice | Order, booking: Booking | None
+) -> dict[str, object]:
+    """A line earning's context; one sold at a visit is dated by it, so it's paid with its work."""
+    meta: dict[str, object] = {
+        "basis": basis,
+        "rate": rate,
+        "base": line.amount_cents,
+        "label": line.description,
+        "client_id": document.client_id,
+    }
+    if booking is not None:
+        meta["worked_at"] = booking.starts_at.isoformat()
+    return meta
 
 
 async def _line_earnings(db: AsyncSession, document: Invoice | Order, line_id: str) -> list[str]:

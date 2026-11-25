@@ -29,7 +29,7 @@ from clientbridge.services.ledger import Leg
 from clientbridge.services.lines import crew_note
 from clientbridge.services.payments import sync_invoice, sync_order
 from tests.conftest import Factory, book_invoice
-from tests.helpers import card_pay, counting, settle
+from tests.helpers import card_pay, client_id, counting, ok, settle
 from tests.helpers import key as retry_key
 
 BIZ = "bz_birchbark"
@@ -1222,6 +1222,169 @@ async def test_a_booked_add_on_product_earns_retail_not_the_service_rate(
             amounts.append(earning.amount_cents)
     assert amounts == [6000]  # 60% of the $100 service only
     assert await _line_journals(db, inv_id) == [("st_diego", 200, "retail")]
+
+
+async def _accruals(db: AsyncSession, subjects: list[str]) -> list[tuple[str, int, str]]:
+    """(subject, amount, basis) of Diego's accruals and clawbacks on these subjects, sorted."""
+    rows = await db.execute(
+        select(Entry.subject_id, Entry.amount_cents, Entry.meta).where(
+            Entry.event == "earning",
+            Entry.subject_id.in_(subjects),
+            Entry.owner_type == "staff",
+            Entry.owner_id == "st_diego",
+        )
+    )
+    return sorted(
+        (str(subject), -int(cents), str((meta or {}).get("basis")))
+        for subject, cents, meta in rows.tuples().all()
+    )
+
+
+async def _visit_invoice(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    pay: dict[str, object],
+    extra: list[dict[str, object]],
+) -> tuple[str, str, str, int]:
+    """Diego's $100 groom invoiced with extras and paid: (booking, invoice, payment, total)."""
+    ok(await as_owner.patch("/v1/staff/st_diego/pay", json={"payee": True, **pay}))
+    booked = ok(
+        await as_owner.post(
+            "/v1/bookings",
+            json={
+                "client_id": await client_id(db),
+                "item_id": "it_groom_sm",
+                "staff_id": "st_diego",
+                "starts_at": "2026-12-01T16:00:00Z",
+                "notify": False,
+            },
+        ),
+        201,
+    ).json()["id"]
+    draft = ok(
+        await as_owner.post(f"/v1/invoices/from-booking/{booked}", headers=retry_key()), 201
+    ).json()
+    [groom] = draft["lines"]
+    lines = [
+        {
+            "description": groom["description"],
+            "item_id": groom["item_id"],
+            "booking_id": booked,
+            "unit_amount_cents": 10000,
+        },
+        *extra,
+    ]
+    ok(await as_owner.patch(f"/v1/invoices/{draft['id']}", json={"lines": lines}))
+    sent = ok(await as_owner.post(f"/v1/invoices/{draft['id']}/send", headers=retry_key())).json()
+    paid = ok(
+        await as_owner.post(
+            f"/v1/invoices/{draft['id']}/payments",
+            json={"method": "cash", "amount_cents": sent["total_cents"]},
+            headers=retry_key(),
+        ),
+        201,
+    ).json()
+    return booked, draft["id"], paid["payment_id"], sent["total_cents"]
+
+
+LEASH: dict[str, object] = {
+    "description": "Waxed Cotton Leash",
+    "item_id": "it_leash",
+    "unit_amount_cents": 3000,
+}
+
+
+async def test_lines_added_to_a_visits_invoice_earn_the_visits_member(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    booked, invoice_id, payment_id, total = await _visit_invoice(
+        as_owner,
+        db,
+        {"rate_type": "percent", "rate_bps": 4000, "retail_rate_bps": 1000},
+        [LEASH, {"description": "Matting fee", "unit_amount_cents": 2000, "tax_class": "exempt"}],
+    )
+    subjects = [booked, invoice_id]
+    visit = await db.get(Booking, booked)
+    assert visit is not None
+    dated = await db.execute(
+        select(Entry.meta["worked_at"].astext)
+        .where(Entry.subject_id == invoice_id, Entry.owner_type == "staff")
+        .distinct()
+    )
+    # sold at the visit, so they're paid with its work by a pay through its day
+    assert dated.scalars().all() == [visit.starts_at.isoformat()]
+    assert await _accruals(db, subjects) == sorted(
+        [(booked, 4000, "percent"), (invoice_id, 300, "retail"), (invoice_id, 800, "percent")]
+    )
+    await _refund(as_owner, payment_id, total // 2)
+    assert await _accruals(db, subjects) == sorted(
+        [
+            (booked, 4000, "percent"),
+            (booked, -2000, "clawback"),
+            (invoice_id, 300, "retail"),
+            (invoice_id, -150, "clawback"),
+            (invoice_id, 800, "percent"),
+            (invoice_id, -400, "clawback"),
+        ]
+    )
+
+
+async def test_a_service_added_to_a_visits_invoice_pays_its_lead_no_second_fixed_rate(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    trim = await _kind_item(db, "service")
+    booked, invoice_id, _, _ = await _visit_invoice(
+        as_owner,
+        db,
+        {"rate_type": "fixed", "rate_cents": 1200, "retail_rate_bps": 1000},
+        [LEASH, {"description": "Nail trim", "item_id": trim, "unit_amount_cents": 2000}],
+    )
+    assert await _accruals(db, [booked, invoice_id]) == sorted(
+        [(booked, 1200, "fixed"), (invoice_id, 300, "retail")]
+    )
+
+
+async def test_an_unassigned_line_on_an_invoice_of_two_visits_earns_nobody(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    booking_id, inv_id, _ = await _paid_booking(as_owner, db)
+    other = (
+        (
+            await db.execute(
+                select(Booking.id).where(
+                    Booking.business_id == BIZ,
+                    Booking.staff_id == "st_priya",
+                    Booking.status == "completed",
+                )
+            )
+        )
+        .scalars()
+        .first()
+    )
+    assert other is not None and other != booking_id
+    invoice = await db.get(Invoice, inv_id)
+    assert invoice is not None
+    for position, (booking, item) in enumerate(
+        [(other, None), (None, await _kind_item(db, "product"))], start=1
+    ):
+        db.add(
+            Line(
+                id=new_id("line"),
+                business_id=BIZ,
+                invoice_id=inv_id,
+                description="Second visit" if booking else "Shampoo",
+                booking_id=booking,
+                item_id=item,
+                quantity=1,
+                unit_amount_cents=2000,
+                amount_cents=2000,
+                position=position,
+            )
+        )
+    await db.execute(update(Staff).where(Staff.id == "st_diego").values(retail_rate_bps=1000))
+    await db.flush()
+    await ensure_earnings(db, invoice)
+    assert await _line_journals(db, inv_id) == []
 
 
 async def test_an_accrual_carries_what_a_member_needs_to_read_it(

@@ -2654,11 +2654,15 @@
         "args": ["amount"]
     },
     "earnings.retailRate": {
-        "message": "{rate} of products",
+        "message": "{rate} on products",
         "args": ["rate"]
     },
     "earnings.noRate": {
         "message": "No pay rate set"
+    },
+    "earnings.tipsOnly": {
+        "message": "Not on a pay rate: tips and adjustments only",
+        "description": "Staff pay subtitle for a member left out of pay rates, who still gets tips and adjustments"
     },
     "earnings.lineOf": {
         "message": "{rate} of {base}",
@@ -2906,7 +2910,7 @@
         "args": ["date"]
     },
     "earnings.noneThrough": {
-        "message": "Nothing was earned on or before this day."
+        "message": "Nothing left to pay for work on or before this day."
     },
     "earnings.undoRun": {
         "message": "Undo this pay"

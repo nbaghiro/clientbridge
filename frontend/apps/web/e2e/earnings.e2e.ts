@@ -1,7 +1,19 @@
 import { randomUUID } from "node:crypto";
-import { dateKey, formatMoney, strings } from "@clientbridge/app-core/public";
+import {
+    dateKey,
+    formatMoney,
+    formatRate,
+    parseTimestamp,
+    strings,
+    yearOf,
+} from "@clientbridge/app-core/public";
 import { type APIRequestContext, type Browser, expect, type Page, test } from "@playwright/test";
-import { cancelOwnedBooking, bookingApi, createBookingFixture } from "./support/bookings";
+import {
+    bookFreeVisit,
+    bookingApi,
+    cancelOwnedBooking,
+    createBookingFixture,
+} from "./support/bookings";
 import { select } from "./support/db";
 import { choosePaymentMethod, paymentPanel, payCash, saleTicket } from "./support/pos";
 import { joinHoursStaff } from "./support/hours";
@@ -9,15 +21,21 @@ import { navigate, signIn } from "./support/session";
 import {
     createStaffPaySale,
     expectStaffJournals,
+    invoiceVisit,
     legSum,
     makePayee,
     openStaffPay,
+    pickWorkThrough,
     refundSale,
+    setPayOnTeam,
     showPaid,
     staffLedger,
     staffPayEvidence,
     statementBusiness,
+    t4aRows,
+    takeBackAdjustment,
 } from "./support/earnings";
+import { reports } from "./support/reports";
 import { runUrl } from "@clientbridge/config/e2e/run";
 
 const s = strings.earnings;
@@ -485,5 +503,243 @@ test("PAY-E2E-04 a crew visit's desk tip splits by the crew, lands under each me
         if (bookingId !== null) await cancelOwnedBooking(page, bookingId);
         await lead.cleanup();
         await helper.cleanup();
+    }
+});
+
+test("PAY-E2E-05 rates set on Team earn percent, retail, fixed and hourly pay, and a work-through day holds later work", async ({
+    page,
+    browser,
+    request,
+}) => {
+    test.setTimeout(300_000);
+    await signIn(page);
+    const staff = await joinPayee(page, browser, request);
+    let ahead: string | null = null;
+    try {
+        const visit = await createBookingFixture(page, {
+            price_cents: 10000,
+            tax_class: "federal_only",
+            duration_min: 30,
+        });
+        const created = await page.request.post(`${bookingApi()}/v1/items`, {
+            headers: { Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() },
+            data: { kind: "product", name: `Leash for ${visit.clientName}`, price_cents: 3000 },
+        });
+        expect(created.status(), await created.text()).toBe(201);
+        const leash = (await created.json()) as { id: string; name: string };
+        const payOf = (id: string) =>
+            select<{
+                payee: boolean;
+                rate_type: string | null;
+                rate_bps: number | null;
+                rate_cents: number | null;
+                retail_rate_bps: number | null;
+            }>`SELECT payee, rate_type, rate_bps, rate_cents, retail_rate_bps FROM staff WHERE id = ${id}`;
+        const ownerBefore = await payOf(visit.staffId);
+
+        const summary = await setPayOnTeam(page, staff.name, {
+            type: "percent",
+            rate: "40",
+            retail: "10",
+        });
+        expect(summary).toBe(strings.staff.payWithRetail(strings.staff.payPercent(40), 10));
+        expect(await payOf(staff.id)).toEqual([
+            {
+                payee: true,
+                rate_type: "percent",
+                rate_bps: 4000,
+                rate_cents: null,
+                retail_rate_bps: 1000,
+            },
+        ]);
+        expect(await payOf(visit.staffId)).toEqual(ownerBefore);
+
+        // the visit's own invoice carries a product sold at it, with no member named on its line
+        const past = Array.from({ length: 7 }, (_, i) => -1 - i);
+        const earlier = await bookFreeVisit(page, visit, staff.id, past, ["10:00", "10:30"]);
+        const day = dateKey(parseTimestamp(earlier.starts_at), visit.zone);
+        await invoiceVisit(page, earlier.id, [
+            { description: leash.name, item_id: leash.id, unit_amount_cents: 3000 },
+        ]);
+        await setPayOnTeam(page, staff.name, { type: "fixed", rate: "12" });
+        const sameDay = [earlier.offset];
+        const fixed = await bookFreeVisit(page, visit, staff.id, sameDay, [
+            "12:00",
+            "12:30",
+            "13:00",
+        ]);
+        await invoiceVisit(page, fixed.id);
+        await setPayOnTeam(page, staff.name, { type: "hourly", rate: "30" });
+        const hourly = await bookFreeVisit(page, visit, staff.id, sameDay, [
+            "14:00",
+            "14:30",
+            "15:00",
+        ]);
+        await invoiceVisit(page, hourly.id);
+        const coming = Array.from({ length: 7 }, (_, i) => i);
+        const later = await bookFreeVisit(page, visit, staff.id, coming, ["16:00", "16:30"]);
+        ahead = later.id;
+        await invoiceVisit(page, later.id);
+
+        const panel = await openStaffPay(page, staff.name);
+        const row = (text: string) => panel.getByRole("listitem").filter({ hasText: text });
+        const money = (cents: number) => formatMoney(cents, "CAD");
+        await expect(row(s.lineOf(formatRate(4000), money(10000)))).toContainText(money(4000), {
+            timeout: 60_000,
+        });
+        await expect(row(leash.name)).toContainText(s.lineOf(formatRate(1000), money(3000)));
+        await expect(row(leash.name)).toContainText(money(300));
+        await expect(row(s.fixed)).toContainText(money(1200));
+        await expect(row(s.hourly)).toHaveCount(2);
+        for (const line of await row(s.hourly).all()) await expect(line).toContainText(money(1500));
+
+        await pickWorkThrough(page, panel, day, visit.zone);
+        await expect(row(s.hourly)).toHaveCount(1);
+        await panel.getByRole("button", { name: s.payApproved(money(7000)), exact: true }).click();
+        await page
+            .getByRole("dialog", { name: s.review.payTitle(money(7000), staff.name), exact: true })
+            .getByRole("button", { name: s.review.markPaid, exact: true })
+            .click();
+        await expect(panel.getByText(s.noneThrough, { exact: true })).toBeVisible();
+        const ledger = await staffLedger(staff.id);
+        const paid = ledger.filter((entry) => entry.event === "staff_payment");
+        expect(legSum(paid, (entry) => entry.category === "bank")).toBe(-7000);
+        expect(new Set(paid.map((entry) => entry.run)).size).toBe(1);
+        const through = await select<{ through: string }>`
+            SELECT DISTINCT e.meta->>'through' AS through FROM entries e
+            WHERE e.event = 'staff_payment' AND e.owner_type = 'staff' AND e.owner_id = ${staff.id}`;
+        expect(through).toEqual([{ through: day }]);
+        const waiting = await staffPayEvidence(later.id);
+        expect(waiting.map((e) => [e.event, e.category, e.amount_cents])).toEqual([
+            ["earning", "staff_cost", 1500],
+            ["earning", "payable", -1500],
+        ]);
+        expect(waiting.find((e) => e.category === "payable")?.code).toBe("pending");
+        await showPaid(panel);
+        await panel.getByRole("button", { name: s.view.todo, exact: true }).click();
+        await expect(row(s.hourly)).toContainText(s.stage.pending);
+    } finally {
+        try {
+            // paid visits that have started stay as history; one still ahead would keep the member
+            if (ahead !== null) await cancelOwnedBooking(page, ahead);
+        } finally {
+            await staff.cleanup();
+        }
+    }
+});
+
+test("PAY-E2E-06 the T4A counts a payment undone and paid again once, and leaves the owner out", async ({
+    page,
+    browser,
+    request,
+}) => {
+    test.setTimeout(240_000);
+    await signIn(page);
+    const staff = await joinPayee(page, browser, request);
+    const bookings: string[] = [];
+    let drawn: { ownerId: string; id: string } | null = null;
+    try {
+        const sale = await createStaffPaySale(
+            page,
+            staff.id,
+            (id) => bookings.push(id),
+            "T4A trim",
+        );
+        const api = bookingApi();
+        const headers = () => ({
+            Origin: new URL(page.url()).origin,
+            "Idempotency-Key": randomUUID(),
+        });
+        const [owner] = await select<{ id: string; name: string; timezone: string }>`
+            SELECT s.id, u.name, b.timezone FROM staff s
+            JOIN users u ON u.id = s.user_id JOIN businesses b ON b.id = s.business_id
+            WHERE s.role = 'owner' AND s.business_id = (
+                SELECT business_id FROM staff WHERE id = ${staff.id})`;
+        if (owner === undefined) throw new Error("the business has no owner");
+        const draw = await page.request.post(`${api}/v1/earnings/adjustments`, {
+            headers: headers(),
+            data: { staff_id: owner.id, amount_cents: 2500, reason: "Owner's draw" },
+        });
+        expect(draw.status(), await draw.text()).toBe(201);
+        const drawId = ((await draw.json()) as { id: string }).id;
+        const paidDraw = await page.request.post(`${api}/v1/earnings/pay`, {
+            headers: headers(),
+            data: { ids: [drawId] },
+        });
+        expect(paidDraw.status(), await paidDraw.text()).toBe(200);
+        drawn = { ownerId: owner.id, id: drawId };
+        const year = yearOf(new Date(), owner.timezone);
+        const t4a = async () => {
+            const rows = await t4aRows(page, year);
+            expect(rows.map((r) => r.staff_id)).not.toContain(owner.id);
+            return rows.find((r) => r.staff_id === staff.id) ?? null;
+        };
+        const payRow = async () => {
+            const panel = await openStaffPay(page, staff.name);
+            // the panel keeps the view it was left on
+            await panel.getByRole("button", { name: s.view.todo, exact: true }).click();
+            const line = panel.getByRole("listitem").filter({ hasText: sale.title });
+            await line.getByRole("checkbox").check({ timeout: 60_000 });
+            await panel
+                .getByRole("button", { name: s.payApproved(formatMoney(6000, "CAD")), exact: true })
+                .click();
+            await page
+                .getByRole("dialog", {
+                    name: s.review.payTitle(formatMoney(6000, "CAD"), staff.name),
+                    exact: true,
+                })
+                .getByRole("button", { name: s.review.markPaid, exact: true })
+                .click();
+            await expect(line).toBeHidden();
+            return panel;
+        };
+        const closePanel = async () => {
+            await page.keyboard.press("Escape");
+            await expect(page.getByRole("complementary", { name: staff.name })).toBeHidden();
+        };
+
+        const panel = await payRow();
+        expect(await t4a()).toEqual({
+            staff_id: staff.id,
+            name: staff.name,
+            fees_cents: 6000,
+            tips_cents: 0,
+            total_cents: 6000,
+        });
+        await showPaid(panel);
+        await panel
+            .getByRole("listitem")
+            .filter({ hasText: sale.title })
+            .getByRole("button")
+            .filter({ hasText: s.undoPayment })
+            .click();
+        await page
+            .getByRole("dialog", { name: s.review.undoPaymentTitle, exact: true })
+            .getByRole("button", { name: s.review.undo, exact: true })
+            .click();
+        await expect(panel.getByRole("listitem").filter({ hasText: sale.title })).toBeHidden();
+        expect(await t4a()).toBeNull();
+        await closePanel();
+
+        await payRow();
+        expect((await t4a())?.total_cents).toBe(6000);
+        const payments = (await staffPayEvidence(sale.bookingId)).filter(
+            (e) => e.event === "staff_payment" && e.category === "bank",
+        );
+        expect(payments.map((e) => e.amount_cents)).toEqual([-6000, 6000, -6000]);
+
+        await reports(page);
+        await page.getByRole("tab", { name: strings.reports.library.t4a, exact: true }).click();
+        await expect(page.getByRole("row", { name: staff.name })).toContainText(
+            formatMoney(6000, "CAD"),
+        );
+        await expect(page.getByRole("row", { name: owner.name })).toHaveCount(0);
+    } finally {
+        try {
+            if (drawn !== null) await takeBackAdjustment(page, drawn.ownerId, drawn.id, 2500);
+            for (const id of bookings) await cancelOwnedBooking(page, id);
+        } finally {
+            await staff.cleanup();
+        }
     }
 });

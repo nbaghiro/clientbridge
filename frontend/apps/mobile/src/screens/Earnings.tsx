@@ -263,6 +263,7 @@ function TeamPay({ staffId, owner }: { staffId: string | null; owner: boolean })
                     title={sel.name}
                     subtitle={sel.rates === "" ? s.noRate : sel.rates}
                     onClose={() => {
+                        setAdjusting(false);
                         setOpen(false);
                     }}
                     actions={
@@ -390,16 +391,16 @@ function TeamPay({ staffId, owner }: { staffId: string | null; owner: boolean })
                         </Button>
                     ) : null}
                     <Text style={ui.note}>{s.paidVia}</Text>
+                    {adjusting ? (
+                        <AdjustmentSheet
+                            staffId={sel.staffId}
+                            name={sel.name}
+                            onClose={() => {
+                                setAdjusting(false);
+                            }}
+                        />
+                    ) : null}
                 </DetailView>
-            ) : null}
-            {adjusting && sel !== null ? (
-                <AdjustmentSheet
-                    staffId={sel.staffId}
-                    name={sel.name}
-                    onClose={() => {
-                        setAdjusting(false);
-                    }}
-                />
             ) : null}
         </View>
     );

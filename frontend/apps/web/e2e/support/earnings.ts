@@ -1,8 +1,15 @@
 import { randomUUID } from "node:crypto";
-import { addDays, combineDayAndTime, strings } from "@clientbridge/app-core/public";
+import {
+    addDays,
+    combineDayAndTime,
+    formatFullDate,
+    formatMoney,
+    strings,
+} from "@clientbridge/app-core/public";
 import { expect, type Locator, type Page } from "@playwright/test";
 import { bookingApi, createBookingFixture } from "./bookings";
 import { select } from "./db";
+import { csvRows } from "./reports";
 import { navigate } from "./session";
 
 export interface StaffPayEntry {
@@ -203,4 +210,182 @@ export function expectStaffJournals(
             expect.arrayContaining(expected.map((leg) => expect.objectContaining(leg))),
         );
     }
+}
+
+interface ExtraLine {
+    description: string;
+    unit_amount_cents: number;
+    item_id?: string;
+    tax_class?: string;
+}
+
+/** Invoices a visit with any extra lines, sends it and records its full payment in cash. */
+export async function invoiceVisit(
+    page: Page,
+    bookingId: string,
+    extra: ExtraLine[] = [],
+): Promise<{ invoiceId: string; paymentId: string; totalCents: number }> {
+    const api = bookingApi();
+    const headers = () => ({
+        Origin: new URL(page.url()).origin,
+        "Idempotency-Key": randomUUID(),
+    });
+    const drafted = await page.request.post(`${api}/v1/invoices/from-booking/${bookingId}`, {
+        headers: headers(),
+    });
+    expect(drafted.status(), await drafted.text()).toBe(201);
+    const draft = (await drafted.json()) as {
+        id: string;
+        lines: {
+            description: string;
+            unit_amount_cents: number;
+            item_id: string | null;
+            booking_id: string | null;
+            staff_id: string | null;
+        }[];
+    };
+    if (extra.length > 0) {
+        const lines = [
+            ...draft.lines.map((line) => ({
+                description: line.description,
+                unit_amount_cents: line.unit_amount_cents,
+                item_id: line.item_id,
+                booking_id: line.booking_id,
+                staff_id: line.staff_id,
+            })),
+            ...extra,
+        ];
+        const edited = await page.request.patch(`${api}/v1/invoices/${draft.id}`, {
+            headers: headers(),
+            data: { lines },
+        });
+        expect(edited.status(), await edited.text()).toBe(200);
+    }
+    const sent = await page.request.post(`${api}/v1/invoices/${draft.id}/send`, {
+        headers: headers(),
+    });
+    expect(sent.status(), await sent.text()).toBe(200);
+    const { total_cents: totalCents } = (await sent.json()) as { total_cents: number };
+    const paid = await page.request.post(`${api}/v1/invoices/${draft.id}/payments`, {
+        headers: headers(),
+        data: { method: "cash", amount_cents: totalCents },
+    });
+    expect(paid.status(), await paid.text()).toBe(201);
+    const { payment_id: paymentId } = (await paid.json()) as { payment_id: string };
+    return { invoiceId: draft.id, paymentId, totalCents };
+}
+
+/** Sets a member's pay from their Team panel, as the owner would. */
+export async function setPayOnTeam(
+    page: Page,
+    name: string,
+    pay: { type: "percent" | "fixed" | "hourly"; rate: string; retail?: string },
+): Promise<string> {
+    const s = strings.staff;
+    await navigate(page, "/setup/team");
+    await page
+        .getByRole("main")
+        .getByText(name, { exact: true })
+        .first()
+        .click({ timeout: 60_000 });
+    const panel = page.getByRole("complementary", { name, exact: true });
+    const payee = panel.getByRole("switch", { name: s.isPayee, exact: true });
+    if (!(await payee.isChecked())) await payee.click();
+    const type = panel.getByRole("combobox", { name: s.rateType, exact: true });
+    await type.click();
+    const label = { percent: s.ratePercent, fixed: s.rateFixed, hourly: s.rateHourly }[pay.type];
+    await page.getByRole("option", { name: label, exact: true }).click();
+    await panel.getByLabel(s.rateLabel(pay.type), { exact: true }).fill(pay.rate);
+    if (pay.retail !== undefined)
+        await panel.getByLabel(s.retailRate, { exact: true }).fill(pay.retail);
+    const saving = page.waitForResponse(
+        (response) =>
+            new URL(response.url()).pathname.endsWith("/pay") &&
+            response.request().method() === "PATCH",
+    );
+    await panel.getByRole("button", { name: s.team.savePay, exact: true }).click();
+    const saved = await saving;
+    expect(saved.status(), await saved.text()).toBe(200);
+    const money = formatMoney(Number(pay.rate) * 100, "CAD");
+    const service = {
+        percent: s.payPercent(Number(pay.rate)),
+        fixed: s.payFixed(money),
+        hourly: s.payHourly(money),
+    }[pay.type];
+    const summary = await panel.getByText(service).first().innerText();
+    await page.keyboard.press("Escape");
+    await expect(panel).toBeHidden();
+    return summary;
+}
+
+/** Picks the last day of work a pay covers in the Staff pay panel's calendar. */
+export async function pickWorkThrough(
+    page: Page,
+    panel: Locator,
+    day: string,
+    zone: string,
+): Promise<void> {
+    await panel.getByLabel(strings.earnings.through, { exact: true }).click();
+    const noon = combineDayAndTime(day, "12:00", zone);
+    const cell = page.getByRole("gridcell", { name: formatFullDate(noon, zone), exact: true });
+    if ((await cell.count()) === 0)
+        await page.getByRole("button", { name: strings.ui.previousMonth, exact: true }).click();
+    await cell.click();
+}
+
+export interface T4ARow {
+    staff_id: string;
+    name: string;
+    fees_cents: number;
+    tips_cents: number;
+    total_cents: number;
+}
+
+/** The T4A CSV for the year, as the owner downloads it. */
+export async function t4aRows(page: Page, year: number): Promise<T4ARow[]> {
+    const res = await page.request.get(`${bookingApi()}/v1/reports/t4a.csv?year=${String(year)}`, {
+        headers: { Origin: new URL(page.url()).origin },
+    });
+    expect(res.status(), await res.text()).toBe(200);
+    const [, ...rows] = csvRows(await res.text());
+    return rows.map((row) => {
+        const [staffId = "", name = "", fees = "0", tips = "0", total = "0"] = row;
+        return {
+            staff_id: staffId,
+            name,
+            fees_cents: Number(fees),
+            tips_cents: Number(tips),
+            total_cents: Number(total),
+        };
+    });
+}
+
+/** Takes back an adjustment paid during a run, so the member's pay nets to nothing again. */
+export async function takeBackAdjustment(
+    page: Page,
+    staffId: string,
+    earningId: string,
+    cents: number,
+): Promise<void> {
+    const api = bookingApi();
+    const headers = () => ({
+        Origin: new URL(page.url()).origin,
+        "Idempotency-Key": randomUUID(),
+    });
+    const undone = await page.request.post(`${api}/v1/earnings/unpay`, {
+        headers: headers(),
+        data: { ids: [earningId] },
+    });
+    expect(undone.status(), await undone.text()).toBe(200);
+    const offset = await page.request.post(`${api}/v1/earnings/adjustments`, {
+        headers: headers(),
+        data: { staff_id: staffId, amount_cents: -cents, reason: "Takes back an e2e adjustment" },
+    });
+    expect(offset.status(), await offset.text()).toBe(201);
+    const { id } = (await offset.json()) as { id: string };
+    const settled = await page.request.post(`${api}/v1/earnings/pay`, {
+        headers: headers(),
+        data: { ids: [earningId, id] },
+    });
+    expect(settled.status(), await settled.text()).toBe(200);
 }

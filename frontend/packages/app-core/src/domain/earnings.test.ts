@@ -3,6 +3,7 @@ import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ApiLike } from "../api";
+import { formatParts } from "../format";
 import { strings } from "../strings";
 import {
     ALL_EARNINGS_SQL,
@@ -47,13 +48,14 @@ const earning = (id: string, staff: string, cents: number, f: Fixture = {}) => (
     of_id: f.of ?? null,
 });
 
-const payee = (id: string, name: string, status = "active") => ({
+const payee = (id: string, name: string, status = "active", paid = 1) => ({
     id,
     name,
     title: null,
     role: "staff",
     color: null,
     status,
+    payee: paid,
     rate_type: "percent",
     rate_bps: 4000,
     rate_cents: null,
@@ -249,6 +251,39 @@ describe("useEarningApprovals", () => {
         expect(result.current.canPay).toBe(false);
         const back = result.current.lines.find((l) => l.id === "e_ed_back");
         expect(back?.title).toBe(strings.earnings.refundOf("Wash"));
+    });
+
+    it("pays nothing while only a clawback waits, since it settles with the next pay", () => {
+        rows.earnings = baseline().filter((r) => r.id !== "e_ed");
+        const { result } = renderHook(() => useEarningApprovals(api, owner));
+        act(() => {
+            result.current.select("st_ed");
+        });
+        expect(result.current.payLabel).toBe(strings.earnings.payApproved("$0.00"));
+        expect(result.current.canPay).toBe(false);
+    });
+
+    it("names each row's client, so two of the same work, day and amount read apart", () => {
+        rows.earnings = [
+            earning("e_amy_ann", "st_amy", 800),
+            { ...earning("e_amy_bea", "st_amy", 800), client_name: "Bea" },
+        ];
+        const { result } = renderHook(() => useEarningApprovals(api, owner));
+        act(() => {
+            result.current.select("st_amy");
+        });
+        const labels = result.current.lines.map((l) => l.label);
+        expect(labels[0]).toContain("Ann");
+        expect(labels[1]).toContain("Bea");
+        expect(new Set(labels).size).toBe(2);
+    });
+
+    it("shows a member left out of pay rates as earning only tips and adjustments", () => {
+        rows.staff = [payee("st_amy", "Amy"), payee("st_ed", "Ed", "active", 0)];
+        const { result } = renderHook(() => useEarningApprovals(api, owner));
+        const rates = Object.fromEntries(result.current.payees.map((p) => [p.staffId, p.rates]));
+        expect(rates.st_ed).toBe(strings.earnings.tipsOnly);
+        expect(rates.st_amy).toBe(strings.earnings.serviceRate("40%"));
     });
 
     it("settles refunded work that nets to nothing, after asking", async () => {
@@ -508,6 +543,26 @@ describe("statementText", () => {
             strings.earnings.statementFor("Amy", run.day),
         ]);
         expect(text).toContain("$5.00");
+    });
+
+    it("shows a paid bonus as its own row and among the adjustments", () => {
+        rows.earnings = [
+            earning("e_amy_bonus", "st_amy", 5000, {
+                status: "paid",
+                paidAt: "2026-10-10T18:00:00Z",
+                run: "prun_bonus",
+                basis: "adjustment",
+                label: "Holiday bonus",
+            }),
+        ];
+        const { result } = renderHook(() => useMyEarnings("st_amy"));
+        const [run] = result.current.paidGroups;
+        if (run === undefined) throw new Error("no run");
+        const header = { business: "Maple and Main", address: [] };
+        const lines = statementText(header, "Amy", run).split("\n");
+        expect(lines.some((l) => l.startsWith("Holiday bonus") && l.endsWith("$50.00"))).toBe(true);
+        expect(lines).toContain(formatParts([strings.earnings.part.adjustments, "$50.00"]));
+        expect(lines.at(-1)).toBe(formatParts([strings.earnings.total, "$50.00"]));
     });
 });
 
