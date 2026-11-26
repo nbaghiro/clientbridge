@@ -2430,10 +2430,13 @@
         "message": "[{amount} åñ ĥöûŕ one]"
     },
     "earnings.retailRate": {
-        "message": "[{rate} öƒ þŕöðûçţš one two]"
+        "message": "[{rate} öñ þŕöðûçţš one two]"
     },
     "earnings.noRate": {
         "message": "[Ñö þåý ŕåţé šéţ one two]"
+    },
+    "earnings.tipsOnly": {
+        "message": "[Ñöţ öñ å þåý ŕåţé: ţîþš åñð åðĵûšţɱéñţš öñļý one two three]"
     },
     "earnings.lineOf": {
         "message": "[{rate} öƒ {base} one]"
@@ -2661,7 +2664,7 @@
         "message": "[Ŵöŕķ ţĥŕöûĝĥ {date} one two]"
     },
     "earnings.noneThrough": {
-        "message": "[Ñöţĥîñĝ ŵåš éåŕñéð öñ öŕ ƀéƒöŕé ţĥîš ðåý. one two three]"
+        "message": "[Ñöţĥîñĝ ļéƒţ ţö þåý ƒöŕ ŵöŕķ öñ öŕ ƀéƒöŕé ţĥîš ðåý. one two three four]"
     },
     "earnings.undoRun": {
         "message": "[Ûñðö ţĥîš þåý one two]"

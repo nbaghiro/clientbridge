@@ -863,6 +863,7 @@ interface Strings {
         readonly hourlyRate: (amount: string) => string;
         readonly retailRate: (rate: string) => string;
         readonly noRate: string;
+        readonly tipsOnly: string;
         readonly lineOf: (rate: string, base: string) => string;
         readonly fixed: string;
         readonly hourly: string;

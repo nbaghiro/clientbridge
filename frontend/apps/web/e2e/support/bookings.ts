@@ -243,10 +243,11 @@ export async function bookFreeVisit(
     fixture: BookingFixture,
     staffId: string,
     days: readonly number[],
-): Promise<BookingRecord> {
+    times: readonly string[] = ["10:00", "11:00", "13:00", "14:00", "15:00"],
+): Promise<BookingRecord & { offset: number }> {
     for (const offset of days) {
         const day = addDays(new Date(), offset, fixture.zone);
-        for (const time of ["10:00", "11:00", "13:00", "14:00", "15:00"]) {
+        for (const time of times) {
             const response = await page.request.post(`${bookingApi()}/v1/bookings`, {
                 headers: { Origin: new URL(page.url()).origin, "Idempotency-Key": randomUUID() },
                 data: {
@@ -257,7 +258,8 @@ export async function bookFreeVisit(
                     notify: false,
                 },
             });
-            if (response.status() === 201) return (await response.json()) as BookingRecord;
+            if (response.status() === 201)
+                return { ...((await response.json()) as BookingRecord), offset };
             expect(response.status(), await response.text()).toBe(409);
         }
     }

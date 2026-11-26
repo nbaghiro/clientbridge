@@ -726,14 +726,18 @@ is found by its subject and the member's payable leg, so one posted under an old
 package covers accrues the same way when it's covered, on the session's share of the package price.
 
 Every other line, a line without a booking or a booked product such as an add-on, earns for its `staff_id` (else
-the visit's member, else a sale's seller) under `earning:line:<line>:<n>`, with the document as subject: service and
-custom lines at the service rate (percent of the line; a fixed rate only on a catalog service or class, once per
-line; hourly needs a visit), product lines on an invoice at the retail rate, and entitlements nothing. A sale's
+the visit's member, else a sale's seller, else on an invoice that bills one visit that visit's member) under
+`earning:line:<line>:<n>`, with the document as subject: service and custom lines at the service rate (percent of the
+line; a fixed rate only on a catalog service or class, once per line; hourly needs a visit), product lines on an
+invoice at the retail rate, and entitlements nothing. So a product added to a visit's invoice earns that visit's
+member the retail rate, a service added to it never earns the visit's member a second fixed rate, and an invoice of
+several visits leaves a line without a member unearned. A sale's
 products earn its seller's retail commission instead, under `earning:order:<order>:<n>` with the order as both
 source and subject.
 
 Each accrual's `meta` carries what a member's own replica needs to show it, since it holds no documents: the
-basis, the rate, the base it was earned on, a label, the client and, for a visit, when the work was done.
+basis, the rate, the base it was earned on, a label, the client and, for a visit or a line sold at one, when the
+work was done, so a pay through a day covers a visit's products with its work.
 
 An earning's status counts its stage journals, each found by `source = ("journal", <earning>)`: approvals and
 payments net of their `:undo` reversals, and `earning:<earning>:reversal` for a reversed one. A refund reverses a

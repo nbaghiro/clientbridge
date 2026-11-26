@@ -1,18 +1,223 @@
 appId: ${APP_ID}
-name: Staff pay totals retain their labels
+name: NATIVE-PAY-05 The owner sets a member's rates, adds and pays a bonus from the phone and shares its statement, and the member reads it in My pay without controls
+onFlowComplete:
+    - runScript:
+          file: helpers/team.js
+          env:
+              ACTION: forget
+    - runFlow: helpers/restore-owner.yaml
 ---
 - runFlow: helpers/owner.yaml
+- runScript:
+      file: helpers/team.js
+      env:
+          ACTION: join
+          SURNAME: Payroll
+- tapOn: "Setup"
+- tapOn: "Team & hours"
+- extendedWaitUntil:
+      visible: "Rowan Payroll, Staff"
+      timeout: 60000
 - scrollUntilVisible:
-      element: "View all"
+      element: "Rowan Payroll, Staff"
       direction: DOWN
-- tapOn: "View all"
+- tapOn: "Rowan Payroll, Staff"
+- scrollUntilVisible:
+      element: "Pay this member through Staff pay"
+      direction: DOWN
+      centerElement: true
+# the switch shares its label's name and sits to its right
+- tapOn:
+      text: "Pay this member through Staff pay"
+      rightOf: "Pay this member through Staff pay"
+- runFlow:
+      file: helpers/type-field.yaml
+      env:
+          FIELD: "Rate \\(%\\)"
+          VALUE: "40"
+- runFlow:
+      file: helpers/type-field.yaml
+      env:
+          FIELD: "Commission on products sold \\(%\\)"
+          VALUE: "10"
+- tapOn:
+      text: "Save changes"
+      below: "Commission on products sold \\(%\\)"
+# the pay summary heads the section, above the fields on a short screen
+- scrollUntilVisible:
+      element: "40% of services · 10% on products"
+      direction: UP
+      timeout: 30000
+- takeScreenshot: earnings-rates
+- runFlow: helpers/close-sheet.yaml
+- runFlow:
+      when:
+          platform: iOS
+      commands:
+          - tapOn: "Back"
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - back
+- tapOn: "Payments"
 - swipe:
       from:
           text: "Refunds"
       direction: LEFT
 - tapOn: "Staff pay"
 - assertVisible: "Staff earn a share of what they do, and tips. Approve them, then pay them."
-- takeScreenshot: staff-pay-labels
 - assertVisible: "To approve"
 - assertVisible: "Approved, to pay"
 - assertVisible: "Paid this year"
+- extendedWaitUntil:
+      visible: ".*Rowan Payroll.*"
+      timeout: 60000
+- scrollUntilVisible:
+      element: ".*Rowan Payroll.*"
+      direction: DOWN
+- tapOn: ".*Rowan Payroll.*"
+- assertVisible: "40% of services · 10% on products"
+# the adjustment sheet opens over the member's own sheet, which iOS shows one at a time
+- scrollUntilVisible:
+      element: "Add adjustment"
+      direction: DOWN
+- tapOn: "Add adjustment"
+- extendedWaitUntil:
+      visible: "Add an adjustment"
+      timeout: 15000
+- runFlow:
+      file: helpers/type-field.yaml
+      env:
+          FIELD: "Amount"
+          VALUE: "50"
+- runFlow:
+      file: helpers/type-field.yaml
+      env:
+          FIELD: "Reason"
+          VALUE: "Holiday bonus"
+- tapOn:
+      text: "Add adjustment"
+      below: "Reason"
+- extendedWaitUntil:
+      notVisible: "Add an adjustment"
+      timeout: 30000
+- extendedWaitUntil:
+      visible: "Holiday bonus · .* · \\$50\\.00"
+      timeout: 60000
+- tapOn: "Holiday bonus · .* · \\$50\\.00"
+- tapOn: "Pay \\$50\\.00"
+- extendedWaitUntil:
+      visible: "Mark \\$50\\.00 as paid to Rowan Payroll\\?"
+      timeout: 15000
+- tapOn: "Mark paid"
+- extendedWaitUntil:
+      notVisible: "Holiday bonus · .* · \\$50\\.00"
+      timeout: 30000
+- tapOn: "Paid"
+- extendedWaitUntil:
+      visible: "Paid .*"
+      timeout: 30000
+- assertVisible: "Holiday bonus"
+- assertVisible: "Undo this pay"
+- takeScreenshot: earnings-paid-run
+- tapOn: "Share statement"
+- runFlow:
+      when:
+          platform: iOS
+      commands:
+          - extendedWaitUntil:
+                visible: "Copy|dismiss popup"
+                timeout: 15000
+          - takeScreenshot: earnings-statement-share
+          - runFlow:
+                when:
+                    visible: "Copy"
+                commands:
+                    - assertVisible: "pay-statement-.*"
+                    - tapOn:
+                          point: "50%, 12%"
+                    - extendedWaitUntil:
+                          notVisible: "Save to Files"
+                          timeout: 10000
+          # an iPad shows the sheet as a popover whose contents aren't in the app's tree, and the
+          # app's own tree stays empty after it closes until the app is opened again
+          - runFlow:
+                when:
+                    visible: "dismiss popup"
+                commands:
+                    - tapOn: "dismiss popup"
+                    - launchApp
+                    - extendedWaitUntil:
+                          visible: "Today"
+                          timeout: 60000
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - extendedWaitUntil:
+                visible: ".*pay-statement-.*"
+                timeout: 15000
+          - takeScreenshot: earnings-statement-share
+          - back
+# dismissing the share sheet on iOS can close the member's sheet behind it too
+- runFlow:
+      when:
+          visible: "Undo this pay"
+      commands:
+          - runFlow: helpers/close-sheet.yaml
+- runFlow:
+      when:
+          platform: iOS
+      commands:
+          - repeat:
+                while:
+                    visible: "Back"
+                times: 3
+                commands:
+                    - tapOn: "Back"
+- runFlow:
+      when:
+          platform: Android
+      commands:
+          - back
+- runFlow:
+      when:
+          visible: "Today"
+      commands:
+          - tapOn: "Setup"
+- scrollUntilVisible:
+      element: "Sign out"
+      direction: DOWN
+- tapOn: "Sign out"
+- extendedWaitUntil:
+      visible: "Sign in"
+      timeout: 30000
+- tapOn: "you@business.ca"
+- inputText: ${output.member.email}
+- tapOn: "••••••••"
+- eraseText
+- inputText: ${output.member.password}
+- runFlow: helpers/sign-in.yaml
+- runFlow: helpers/decline-save-password.yaml
+- extendedWaitUntil:
+      visible: "Today"
+      timeout: 60000
+- extendedWaitUntil:
+      visible: "View payments"
+      timeout: 60000
+- tapOn: "View payments"
+- tapOn: "My pay"
+- extendedWaitUntil:
+      visible: "What you've earned from visits, sales and tips, with any bonuses or deductions. Your manager approves it, then pays it."
+      timeout: 60000
+- extendedWaitUntil:
+      visible: "\\$50\\.00"
+      timeout: 60000
+- tapOn: "Paid"
+- assertVisible: "Holiday bonus"
+- assertVisible: "Share statement"
+- assertNotVisible: "Undo this pay"
+- assertNotVisible: "Download CSV"
+- assertNotVisible: "Add adjustment"
+- takeScreenshot: earnings-my-pay
