@@ -576,7 +576,8 @@ test("PAY-E2E-05 rates set on Team earn percent, retail, fixed and hourly pay, a
             "15:00",
         ]);
         await invoiceVisit(page, hourly.id);
-        const coming = Array.from({ length: 7 }, (_, i) => i);
+        // from tomorrow, so the visit is still ahead at any hour and paying it doesn't complete it
+        const coming = Array.from({ length: 7 }, (_, i) => i + 1);
         const later = await bookFreeVisit(page, visit, staff.id, coming, ["16:00", "16:30"]);
         ahead = later.id;
         await invoiceVisit(page, later.id);

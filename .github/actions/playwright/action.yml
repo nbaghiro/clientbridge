@@ -1,7 +1,8 @@
 name: playwright
 description: >
-  Installs a Playwright browser and its system packages from a cache keyed by the Playwright version,
-  so a hit installs the saved packages offline instead of waiting on the Ubuntu mirror.
+  Installs a Playwright browser and its system packages from a cache keyed by the runner image and
+  the Playwright version, so a hit installs the saved packages offline instead of waiting on the
+  Ubuntu mirror.
 inputs:
   app:
     description: The pnpm package whose Playwright installs the browser.
@@ -17,7 +18,7 @@ runs:
         APP: ${{ inputs.app }}
       run: |
         echo "version=$(pnpm --filter "$APP" exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
-        echo "image=$ImageOS" >> "$GITHUB_OUTPUT"
+        echo "image=$ImageOS-$ImageVersion" >> "$GITHUB_OUTPUT"
       shell: bash
       working-directory: frontend
     - uses: actions/cache/restore@v6
@@ -35,9 +36,10 @@ runs:
       run: |
         shopt -s nullglob
         debs=(~/.cache/playwright-debs/*.deb)
-        # dpkg installs exactly the saved set without consulting the mirror's lists; a runner image
-        # that has moved and lacks a dependency the set doesn't hold falls back to the mirror
+        # a set dpkg can't configure leaves packages half-installed, so apt repairs them first
         if [ ${#debs[@]} -gt 0 ] && ! sudo dpkg --install "${debs[@]}"; then
+          sudo apt-get update
+          sudo apt-get --fix-broken install --yes
           pnpm --filter "$APP" exec playwright install-deps "$BROWSER"
         fi
       shell: bash
