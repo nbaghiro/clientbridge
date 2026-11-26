@@ -141,6 +141,41 @@ it("shows a converted estimate as an invoice to come and offers nothing more to 
     expect(printed?.labels.howToPay).toBe(strings.printing.howToAccept);
 });
 
+it("prints an unpicked add-on as offered while the estimate is open, and only the picked ones once it is answered", async () => {
+    const printedLines = async (estimate: PublicEstimate) => {
+        const client = {
+            getEstimate: vi.fn().mockResolvedValue(estimate),
+            quote: vi.fn(),
+            accept: vi.fn(),
+            decline: vi.fn(),
+        };
+        const { result, unmount } = renderHook(() => usePublicEstimatePage(client, "tok"));
+        await waitFor(() => {
+            expect(result.current.estimate).not.toBeNull();
+        });
+        const lines = result.current
+            .printed("https://pay.test/e/tok", "#000")
+            ?.lines.map((l) => [l.description, l.offered]);
+        unmount();
+        return lines;
+    };
+    expect(await printedLines(sent)).toEqual([
+        ["base", false],
+        ["addon", true],
+    ]);
+    expect(await printedLines({ ...sent, status: "accepted" })).toEqual([["base", false]]);
+    expect(
+        await printedLines({
+            ...sent,
+            status: "accepted",
+            lines: [line("base", false, false, 450), line("addon", true, true, 500)],
+        }),
+    ).toEqual([
+        ["base", false],
+        ["addon", false],
+    ]);
+});
+
 it("prints where to accept online and the date to accept by, with the business's address and phone, while the estimate is open", async () => {
     const client = {
         getEstimate: vi.fn().mockResolvedValue({

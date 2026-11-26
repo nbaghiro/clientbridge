@@ -20,7 +20,6 @@ import {
     formatMoney,
     formatNumber,
     formatParts,
-    formatPhone,
     parseCents,
     parseNumber,
     BUSINESS_CURRENCY,
@@ -105,7 +104,6 @@ interface EstimateRow {
     id: string;
     client_id: string;
     client_name: string | null;
-    client_phone: string | null;
     number: number | null;
     status: string;
     subtotal_cents: number | null;
@@ -247,7 +245,7 @@ ORDER BY COALESCE(i.issued_at, i.created_at) DESC, i.number DESC`;
 export const INVOICE_SQL = `${INVOICE_SELECT} WHERE i.id = ?`;
 
 export const ESTIMATES_SQL = `
-SELECT e.id, e.client_id, c.name AS client_name, c.phone AS client_phone,
+SELECT e.id, e.client_id, c.name AS client_name,
        e.number,
        CASE WHEN e.status = 'sent' AND e.valid_until < ? THEN 'expired'
             ELSE e.status END AS status,
@@ -1076,10 +1074,6 @@ export function useInvoiceActions(api: ApiLike, status: string | null): InvoiceA
     };
 }
 
-function partyLines(r: { client_phone: string | null }): string[] {
-    return r.client_phone === null ? [] : [formatPhone(r.client_phone)].filter((x) => x !== "");
-}
-
 export function printedInvoice(
     rec: InvoiceRecord,
     letterhead: Letterhead,
@@ -1094,7 +1088,6 @@ export function printedInvoice(
             number: r.number === null ? null : String(r.number),
             reference: r.charge_name,
             partyName: r.client_name ?? "",
-            partyLines: partyLines(r),
             meta: [
                 {
                     label: r.number === null && r.charge_name !== null ? p.plan : p.invoiceNumber,
@@ -1593,7 +1586,6 @@ export function printedEstimate(
             currency: BUSINESS_CURRENCY,
             number: r.number === null ? null : String(r.number),
             partyName: r.client_name ?? "",
-            partyLines: partyLines(r),
             meta: [
                 {
                     label: p.estimateNumber,
@@ -1605,7 +1597,11 @@ export function printedEstimate(
                     value: r.valid_until === null ? s.dash : longDate(r.valid_until, rec.zone),
                 },
             ],
-            lines: rec.lines.filter((l) => !l.optional || l.selected),
+            // an open estimate still offers its unpicked add-ons; once answered only the picked ones count
+            lines: rec.lines.flatMap((l) => {
+                const offered = l.optional && !l.selected;
+                return offered && !open ? [] : [{ ...l, offered }];
+            }),
             taxes: rec.taxes,
             totals: rec.totals,
             headline: { label: p.estimateTotal, cents: r.total_cents ?? 0 },
@@ -1764,7 +1760,7 @@ interface DocComposer {
     send: () => void;
     startOver: () => void;
     preview: (
-        client: { name: string | null; phone: string | null } | null,
+        client: { name: string | null } | null,
         letterhead: Letterhead,
         fallbackColor: string,
     ) => PrintedDoc;
@@ -2083,9 +2079,7 @@ export function useDocComposer(
         preview: (client, letterhead, fallbackColor) => {
             const estimate = kind === "estimate";
             const until = addDays(new Date(), TERM_DAYS[terms], zone).toISOString();
-            const shown = composerLines.filter(
-                (l) => !isBlank(l) && l.grossCents > 0 && !optional(l),
-            );
+            const shown = composerLines.filter((l) => !isBlank(l) && l.grossCents > 0);
             const number = draft?.number != null ? String(draft.number) : null;
             return printedDoc(
                 {
@@ -2093,7 +2087,6 @@ export function useDocComposer(
                     currency: BUSINESS_CURRENCY,
                     number,
                     partyName: client?.name ?? s.chooseClient,
-                    partyLines: client === null ? [] : partyLines({ client_phone: client.phone }),
                     meta: [
                         {
                             label: estimate ? p.estimateNumber : p.invoiceNumber,
@@ -2110,6 +2103,7 @@ export function useDocComposer(
                         unitCents: unitOf(l),
                         amountCents: l.grossCents,
                         taxCodes: l.taxCodes,
+                        offered: optional(l),
                     })),
                     taxes: pricing.taxes,
                     totals,

@@ -93,6 +93,17 @@ export function PublicPay() {
             brand={invoice.brand}
             businessName={invoice.business_name}
             contact={null}
+            overlay={
+                printing ? (
+                    <PrintModal
+                        doc={doc}
+                        printLabel={pp.downloadInvoice}
+                        onClose={() => {
+                            setPrinting(false);
+                        }}
+                    />
+                ) : null
+            }
             actions={
                 <Button
                     tone="inverse"
@@ -315,15 +326,6 @@ export function PublicPay() {
                     )}
                 </aside>
             </main>
-            {printing ? (
-                <PrintModal
-                    doc={doc}
-                    printLabel={pp.downloadInvoice}
-                    onClose={() => {
-                        setPrinting(false);
-                    }}
-                />
-            ) : null}
         </PublicDocument>
     );
 }
