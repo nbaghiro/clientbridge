@@ -2152,7 +2152,7 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **Before production**
 
-- A real handset reply through Twilio and carrier delivery.
+- A real handset reply through Twilio and carrier delivery, including a returning client's sign-in code.
 
 **Automated by**
 
