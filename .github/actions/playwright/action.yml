@@ -36,8 +36,8 @@ runs:
       run: |
         shopt -s nullglob
         debs=(~/.cache/playwright-debs/*.deb)
-        # a set dpkg can't configure leaves packages half-installed, so apt repairs them first
-        if [ ${#debs[@]} -gt 0 ] && ! sudo dpkg --install "${debs[@]}"; then
+        # apt orders the saved set itself, which dpkg's file-name order can't, so a newer pair installs offline
+        if [ ${#debs[@]} -gt 0 ] && ! sudo apt-get install --yes --no-download "${debs[@]}"; then
           sudo apt-get update
           sudo apt-get --fix-broken install --yes
           pnpm --filter "$APP" exec playwright install-deps "$BROWSER"

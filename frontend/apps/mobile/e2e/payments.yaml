@@ -53,7 +53,7 @@ name: Owner payment surfaces
           text: "Tax returns"
       direction: LEFT
 - tapOn: "Payouts"
-- assertVisible: "Card payments are paid out to your bank automatically on your payout schedule."
+- assertVisible: "Card payments go to your bank on your payout schedule, or whenever you choose to pay out."
 - takeScreenshot: payouts
 - tapOn: "Reports"
 - assertVisible: "Income, sales, tax and staff pay for any period. Download them for your bookkeeper."

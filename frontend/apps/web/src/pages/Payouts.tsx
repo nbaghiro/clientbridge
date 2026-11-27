@@ -21,6 +21,7 @@ import {
     LoadFailed,
     Money,
     Notice,
+    Pager,
     Skeleton,
     Stat,
     StatusPill,
@@ -198,18 +199,12 @@ export function Payouts() {
                     empty={{ message: s.noPayouts, body: s.noPayoutsBody, icon: "bank" }}
                     footer={
                         p.previous !== null || p.next !== null ? (
-                            <div className="flex justify-end gap-2">
-                                {p.previous !== null ? (
-                                    <Button size="sm" variant="outline" onPress={p.previous}>
-                                        {s.historyPrevious}
-                                    </Button>
-                                ) : null}
-                                {p.next !== null ? (
-                                    <Button size="sm" variant="outline" onPress={p.next}>
-                                        {s.historyNext}
-                                    </Button>
-                                ) : null}
-                            </div>
+                            <Pager
+                                onPrevious={p.previous}
+                                onNext={p.next}
+                                previousLabel={s.historyPrevious}
+                                nextLabel={s.historyNext}
+                            />
                         ) : undefined
                     }
                     renderRow={(row) => (
@@ -336,28 +331,13 @@ export function Payouts() {
                                     ))}
                                 </div>
                             )}
-                            {p.contents.previous !== null || p.contents.next !== null ? (
-                                <div className="mt-3 flex justify-end gap-2">
-                                    {p.contents.previous !== null ? (
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onPress={p.contents.previous}
-                                        >
-                                            {s.contentsPrevious}
-                                        </Button>
-                                    ) : null}
-                                    {p.contents.next !== null ? (
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onPress={p.contents.next}
-                                        >
-                                            {s.contentsNext}
-                                        </Button>
-                                    ) : null}
-                                </div>
-                            ) : null}
+                            <Pager
+                                className="mt-3"
+                                onPrevious={p.contents.previous}
+                                onNext={p.contents.next}
+                                previousLabel={s.contentsPrevious}
+                                nextLabel={s.contentsNext}
+                            />
                         </DetailSection>
                     </div>
                 </DeskPanel>

@@ -4,7 +4,7 @@ The launch QA plan: a pass across every product surface, as 11 areas and 60 tick
 
 Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridgeca/initiative/launch-qa-2ad161486768) in the `clientbridgeca` workspace, team Engineering (key `CB`). Each area is a project, each ticket an issue whose description is the ticket's text below, and each dependency a `blocks` relation. The [Launch board](https://linear.app/clientbridgeca/view/e48dd1630428) is the one place to work from. Its columns are the dev flow: Backlog, Selected for dev, In progress, Ready for review, In staging and Done. Its rows are the areas in the order below, so work from the top row down. The first ten areas are the product, each a group of functionality that can be walked end to end; the last, Platform and launch, covers the admin console, the marketing site and a full business day. Every ticket is a product flow tested locally and on staging. Staging and its app redeploy on every push to main, so a ticket's staging steps run against the latest main.
 
-**Bookmarks:** [Launch board](https://linear.app/clientbridgeca/view/e48dd1630428) for daily work, [Launch QA initiative](https://linear.app/clientbridgeca/initiative/launch-qa-2ad161486768) for progress by area, [My issues](https://linear.app/clientbridgeca/my-issues) and [All issues](https://linear.app/clientbridgeca/team/CB/all) (including Duplicate and Not doing). Each area below links its Linear project.
+**Bookmarks:** [Launch board](https://linear.app/clientbridgeca/view/e48dd1630428) for daily work, [Before production](https://linear.app/clientbridgeca/view/ea9e27ac2b18) for the checks left for production, [Launch QA initiative](https://linear.app/clientbridgeca/initiative/launch-qa-2ad161486768) for progress by area, [My issues](https://linear.app/clientbridgeca/my-issues) and [All issues](https://linear.app/clientbridgeca/team/CB/all) (including Duplicate and Not doing). Each area below links its Linear project.
 
 ## How tickets work
 
@@ -16,7 +16,8 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 - **This file comes first.** Change a ticket's text here, then copy it to the Linear description so the two match word for word. Status lives only in Linear: Backlog, Selected for dev, In progress, Ready for review, In staging and Done (and Not doing for anything dropped).
 - **Dependencies are rare.** QA runs on the demo businesses, which already have clients, a catalog, staff, hours, Stripe and tax set up, so a ticket depends on another only when its setup needs something that ticket's flow creates and demo data can't supply: a brand-new account or business. Dependencies only suggest an order; everything else can be tested in any order.
 - **Done stays done through automation.** A ticket's Automated by cases run in CI on every pull request, so a change that breaks a Done ticket fails CI before it merges. Retest a Done ticket by hand only when a change touches its By hand only steps; closing its To automate list is what removes that need.
-- **Every ticket uses one layout:** Covers, Before you start, Where to test (one line each for local and staging), QA steps (each with its expected result), Done when, By hand only (when needed), Automated by, To automate and Depends on. Each carries an Automation label, in the table below and in Linear, that follows from those lists: Automated when its cases cover every step and it has no By hand only or To automate lines, Partly automated when it has a case and still has one of those lines, and Manual when it has no case yet. Closing a ticket's last By hand only and To automate lines is what moves it to Automated.
+- **Every ticket uses one layout:** Covers, Before you start, Where to test (one line each for local and staging), QA steps (each with its expected result), Done when, By hand only (when needed), Before production (when needed), Automated by, To automate and Depends on. Each carries an Automation label, in the table below and in Linear, that follows from those lists: Automated when its cases cover every step and it has no By hand only or To automate lines, Partly automated when it has a case and still has one of those lines or a Before production line, and Manual when it has no case yet. Closing a ticket's last By hand only, Before production and To automate lines is what moves it to Automated.
+- **Some checks wait for production.** A check that needs something staging doesn't have, such as a Twilio number, live Stripe, a store build, production push credentials or Google's API approval, goes under Before production rather than By hand only, and the ticket carries the Before production label in Linear. The ticket moves to Done once its staging steps pass; the label stays until its Before production lines pass on production, so the [Before production view](https://linear.app/clientbridgeca/view/ea9e27ac2b18) lists what is left to check before launch.
 - **Linear changes go through its API:** `linear --workspace clientbridgeca api '<query>' --variables-json '<json>'`. A dependency is `issueRelationCreate` with type `blocks`, from the prerequisite (`issueId`) to the ticket that waits on it (`relatedIssueId`). Priority isn't used.
 
 | Area                                    | Ticket                                                      | Linear                                                 | Automation       |
@@ -389,7 +390,7 @@ A new owner signs up, sets up the business, brings in the team, connects Stripe,
 
 **Done when:** Every business is trialing, paying through Stripe or read-only, and the owner can see which and why.
 
-**By hand only**
+**Before production**
 
 - Stripe Tax registrations and Smart Retries settings in the live Dashboard.
 
@@ -1012,7 +1013,7 @@ Staff open Today, set hours, book, run each visit from arrival to checkout, and 
 
 **Done when:** No visit is forgotten by the client, and the reminder says exactly what the preview showed.
 
-**By hand only**
+**Before production**
 
 - Delivery to a real handset.
 
@@ -1358,8 +1359,11 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 
 **By hand only**
 
-- A real tap on NFC hardware with the store-signed app, on iPhone and Android; the case uses Stripe's simulated reader on the iOS simulator.
 - Interac debit on Tap to Pay is not built.
+
+**Before production**
+
+- A real tap on NFC hardware with the store-signed app, on iPhone and Android; the case uses Stripe's simulated reader on the iOS simulator.
 
 **Automated by**
 
@@ -1394,7 +1398,7 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 
 **Done when:** Every discounted total and tax matches a hand calculation, and every tip reaches the right person untaxed.
 
-**By hand only**
+**Before production**
 
 - Tip on Tap to Pay (hardware).
 
@@ -1437,7 +1441,7 @@ Every sale, at the desk or from the online shop, takes the right payment, tip an
 
 **Done when:** Saved methods can be managed from any device and only chargeable ones can be default.
 
-**By hand only**
+**Before production**
 
 - A real Canadian PAD debit clearing, which takes business days.
 - A real text reaching a phone through Twilio in step 5; staging has no Twilio number yet.
@@ -2033,18 +2037,31 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 
 **By hand only**
 
+- Changing the schedule inside Stripe's payouts component, which Stripe draws in its own frame; the cases prove the owner opens it with a session that allows schedule edits, staff can't, and STR-E08 sets and restores the schedule on the account.
+
+**Before production**
+
 - A real bank deposit arriving.
 
 **Automated by**
 
 - `STR-E01 (stripe)`
-- `STR-E12 (stripe)`
-- `FLOW-10-A (journeys)`
-- `web: payouts.e2e.ts › payout contents paginate and clear when switching to a manual payout`
-- `web: payouts.e2e.ts › payout history reaches older pages and returns to the newest page`
-- `STR-E25 (stripe)`
-- `STR-E08 (stripe)`
 - `NATIVE-PAY-04 (stripe-native)`
+- `web: payouts.e2e.ts › payment account entrypoints preserve navigation when payment tools are offline`
+- `web: shell.e2e.ts › staff: payments, inbox and setup show only what staff can use`
+- `STR-E08 (stripe)`
+- `PAYOUT-E2E-01 (web)`
+- `web: payouts.e2e.ts › payout history reaches older pages and returns to the newest page`
+- `web: payouts.e2e.ts › payout contents paginate and clear when switching to a manual payout`
+- `NATIVE-PAY-06 (native-stripe)`
+- `STR-E25 (stripe)`
+- `STR-E12 (stripe)`
+- `OPS-E2E-10 (web)`
+- `FLOW-10-A (journeys)`
+- `SCH-E2E-17 (stripe)`
+- `backend: test_payments_stale_intents.py › test_a_reaped_pay_link_and_desk_sale_can_each_be_paid_again`
+- `backend: test_payments_connect.py › test_embedded_adapter_grants_only_requested_features`
+- `backend: test_payments_connect.py › test_embedded_sessions_authorize_each_request`
 
 **Depends on:** Nothing
 
@@ -2127,7 +2144,7 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **Done when:** No reply can reach the wrong business, and nothing is sent twice.
 
-**By hand only**
+**Before production**
 
 - A real handset reply through Twilio and carrier delivery.
 
@@ -2249,6 +2266,10 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **Done when:** The business has every new client's answers before the visit.
 
+**Before production**
+
+- A real intake text from the business's Twilio number arriving on a phone, with the form opening from its link.
+
 **Automated by**
 
 - `DOC-E2E-01 (connect)`
@@ -2331,7 +2352,7 @@ The business texts clients from one inbox, respects consent, and sends forms, co
 
 **Done when:** Clients get neutral invitations straight to Google, and the owner can reply once Google approves access.
 
-**By hand only**
+**Before production**
 
 - Real Google OAuth and replies, blocked on Business Profile API approval.
 
@@ -2472,7 +2493,7 @@ Staff run their day on any phone, tablet or browser tab, online or not, and ever
 
 **Done when:** Staff hear about new bookings and messages on their phones.
 
-**By hand only**
+**Before production**
 
 - Real APNs and FCM delivery with production credentials.
 
@@ -2652,7 +2673,7 @@ The surfaces around the product: the platform admin console, the marketing site 
 
 **Done when:** Both stores have approved the app, and a reviewer can sign in, try it and delete the account without help.
 
-**By hand only**
+**Before production**
 
 - Store review, the store accounts and listings, and Sign in with Apple, which needs a real Apple ID.
 
