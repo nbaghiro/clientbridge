@@ -97,10 +97,10 @@ export function payoutStatusIntent(status: string): Intent {
 }
 
 export function payoutWhen(row: PayoutRow, zone: string): string {
-    // Stripe's arrival_date is a calendar day sent as its midnight UTC
     const created = formatShortDay(parseTimestamp(row.occurred_at), zone);
     // a canceled payout never arrives, and Stripe keeps no date for the cancel itself
     if (row.status === "canceled") return strings.payouts.canceled(created);
+    // Stripe's arrival_date is a calendar day sent as its midnight UTC
     const when =
         row.arrival_at === null
             ? created
