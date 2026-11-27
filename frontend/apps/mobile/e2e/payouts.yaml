@@ -24,9 +24,13 @@ tags:
 - assertVisible: "Card money not paid out yet"
 - assertVisible: "Last 30 days"
 - assertVisible: "Processing and Clientbridge fees, last 30 days"
-# a row reads as one element, its amount, day and status together
-- assertVisible: ".*Canceled payout from [A-Z][a-z]+ [0-9]+.*"
-- assertVisible: ".*Returned [A-Z][a-z]+ [0-9]+.*"
+# a row reads as one element; a short screen shows only the first rows, so each is scrolled to
+- scrollUntilVisible:
+      element: ".*Canceled payout from [A-Z][a-z]+ [0-9]+.*"
+      direction: DOWN
+- scrollUntilVisible:
+      element: ".*Returned [A-Z][a-z]+ [0-9]+.*"
+      direction: DOWN
 - takeScreenshot: payouts-newest
 - scrollUntilVisible:
       element: "Older payouts"
@@ -102,6 +106,9 @@ tags:
 - tapOn:
       text: "Close"
       index: 1
+- scrollUntilVisible:
+      element: ".*\\$103\\.00.*"
+      direction: DOWN
 - tapOn: ".*\\$103\\.00.*"
 - extendedWaitUntil:
       visible: "Stripe provides a transaction breakdown for automatic payouts only."
@@ -109,6 +116,9 @@ tags:
 - tapOn:
       text: "Close"
       index: 1
+- scrollUntilVisible:
+      element: ".*\\$102\\.00.*"
+      direction: DOWN
 - tapOn: ".*\\$102\\.00.*"
 - extendedWaitUntil:
       visible: "Your bank returned this payout. Check your payout bank details before the next payout."
