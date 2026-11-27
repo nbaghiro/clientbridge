@@ -3,15 +3,18 @@ import hmac
 import secrets
 from datetime import timedelta
 
+import httpx
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.core.errors import (
+    AppError,
     NotFound,
     TooManyRequests,
     Unauthorized,
+    Undelivered,
     Unprocessable,
 )
 from clientbridge.core.ids import new_id
@@ -20,7 +23,7 @@ from clientbridge.core.phones import e164, same_phone
 from clientbridge.core.scoping import scoped
 from clientbridge.core.security import hash_token
 from clientbridge.integrations.s3 import FileStorage
-from clientbridge.integrations.twilio import Sms, SmsSender, sender_number
+from clientbridge.integrations.twilio import Sms, SmsSender, refused_recipient, sender_number
 from clientbridge.models.business import Business
 from clientbridge.models.clients import Client, Subject
 from clientbridge.models.returning import ReturningChallenge
@@ -38,10 +41,17 @@ from clientbridge.services.files import latest_photo
 from clientbridge.services.notifications import returning_code
 
 _CODE_MINUTES = 10
+_CODE_ATTEMPTS = 5
+_CODES_PER_WINDOW = 3
+_CODE_WINDOW_MINUTES = 15
 
 
 def _digest(value: str) -> str:
     return hmac.new(get_settings().jwt_secret.encode(), value.encode(), hashlib.sha256).hexdigest()
+
+
+def _locked() -> TooManyRequests:
+    return TooManyRequests("too many wrong codes; request a new one", code="code_locked")
 
 
 class ReturningService:
@@ -62,7 +72,9 @@ class ReturningService:
         business = await self._business(slug)
         number = e164(data.phone)
         if number is None:
-            raise Unprocessable("enter a valid phone number with country code")
+            raise Unprocessable(
+                "enter a valid phone number with country code", code="invalid_phone"
+            )
         sender_number(business.sms_number)
         destination = _digest(number)
         now = clock.now()
@@ -75,15 +87,20 @@ class ReturningService:
                 await self.db.execute(
                     scoped(ReturningChallenge, business.id).where(
                         ReturningChallenge.destination_hash == destination,
-                        ReturningChallenge.created_at > now - timedelta(minutes=15),
+                        ReturningChallenge.created_at
+                        > now - timedelta(minutes=_CODE_WINDOW_MINUTES),
                     )
                 )
             )
             .scalars()
             .all()
         )
-        if len(recent) >= 3:
-            raise TooManyRequests("please wait before requesting another code")
+        if len(recent) >= _CODES_PER_WINDOW:
+            raise TooManyRequests(
+                "please wait before requesting another code",
+                code="codes_limited",
+                detail={"minutes": _CODE_WINDOW_MINUTES},
+            )
         client_id = await self.db.scalar(
             scoped(Client, business.id, soft_delete=True)
             .with_only_columns(Client.id)
@@ -92,20 +109,34 @@ class ReturningService:
         )
         challenge_id = new_id("returning_challenge")
         code = f"{secrets.randbelow(1_000_000):06d}"
-        self.db.add(
-            ReturningChallenge(
-                id=challenge_id,
-                business_id=business.id,
-                client_id=client_id,
-                destination_hash=destination,
-                code_hash=_digest(f"{challenge_id}:{code}"),
-                expires_at=now + timedelta(minutes=_CODE_MINUTES),
-                created_at=now,
-            )
+        challenge = ReturningChallenge(
+            id=challenge_id,
+            business_id=business.id,
+            client_id=client_id,
+            destination_hash=destination,
+            code_hash=_digest(f"{challenge_id}:{code}"),
+            expires_at=now + timedelta(minutes=_CODE_MINUTES),
+            created_at=now,
         )
+        self.db.add(challenge)
         await self.db.commit()
         notice = returning_code(locale_for(business=business), code, _CODE_MINUTES)
-        await sms.send(Sms(to=number, body=notice, from_number=business.sms_number))
+        try:
+            await sms.send(Sms(to=number, body=notice, from_number=business.sms_number))
+        except (httpx.HTTPError, Undelivered) as exc:
+            if isinstance(exc, httpx.HTTPStatusError) and refused_recipient(exc):
+                # a refused number keeps counting against its three, so retrying it stays bounded
+                challenge.expires_at = now
+                await self.db.commit()
+                raise Unprocessable(
+                    "the provider refused to text this number", code="sms_refused"
+                ) from exc
+            # a code the provider never took doesn't count against the number's three
+            await self.db.delete(challenge)
+            await self.db.commit()
+            raise AppError(
+                "the code text could not be sent", code="sms_failed", status_code=502
+            ) from exc
         return ReturningChallengeOut(challenge_id=challenge_id)
 
     async def verify(
@@ -122,16 +153,15 @@ class ReturningService:
             )
         ).scalar_one_or_none()
         now = clock.now()
-        if (
-            challenge is None
-            or challenge.verified_at is not None
-            or challenge.expires_at <= now
-            or challenge.attempts >= 5
-        ):
+        if challenge is None or challenge.verified_at is not None or challenge.expires_at <= now:
             raise Unauthorized("that code is invalid or expired")
+        if challenge.attempts >= _CODE_ATTEMPTS:
+            raise _locked()
         challenge.attempts += 1
         if not hmac.compare_digest(challenge.code_hash, _digest(f"{challenge.id}:{data.code}")):
             await self.db.commit()
+            if challenge.attempts >= _CODE_ATTEMPTS:
+                raise _locked()
             raise Unauthorized("that code is invalid or expired")
         challenge.verified_at = now
         client = await self._client(challenge)
@@ -173,7 +203,7 @@ class ReturningService:
         ).scalar_one_or_none()
         client = await self._client(challenge) if challenge is not None else None
         if client is None:
-            raise Unauthorized("please verify your contact details again")
+            raise Unauthorized("please verify your contact details again", code="returning_expired")
         return client
 
     async def subject(self, client: Client, subject_id: str) -> str:

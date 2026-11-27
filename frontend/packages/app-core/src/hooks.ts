@@ -21,10 +21,13 @@ interface AsyncAction {
     busy: boolean;
     error: string | null;
     setError: (message: string | null) => void;
-    // Fire-and-forget: failures are captured into `error`, so callers never await or handle it.
+    // Fire-and-forget: failures land in `error`; a null message shows none, for a stale failure.
     run: (
         fn: () => Promise<unknown>,
-        opts?: { onSuccess?: () => void; errorMessage?: string | ((error: unknown) => string) },
+        opts?: {
+            onSuccess?: () => void;
+            errorMessage?: string | ((error: unknown) => string | null);
+        },
     ) => void;
 }
 
@@ -35,7 +38,10 @@ export function useAsyncAction(): AsyncAction {
 
     const run = (
         fn: () => Promise<unknown>,
-        opts?: { onSuccess?: () => void; errorMessage?: string | ((error: unknown) => string) },
+        opts?: {
+            onSuccess?: () => void;
+            errorMessage?: string | ((error: unknown) => string | null);
+        },
     ): void => {
         if (running.current) return;
         running.current = true;

@@ -9,8 +9,8 @@ import {
     combineDayAndTime,
     dateKey,
 } from "@clientbridge/app-core/public";
-import { expect, test, type Page } from "@playwright/test";
-import { freshPhone } from "../support/auth";
+import { expect, test, type Locator, type Page } from "@playwright/test";
+import { freshPhone, textedCode, textsTo } from "../support/auth";
 import { billingAction } from "../support/billing";
 import {
     bookFreeVisit,
@@ -23,6 +23,7 @@ import {
     editClient,
     returningEvidence,
     returningFixture,
+    openReturning,
     verifyReturning,
     createClient,
     contactEvidence,
@@ -31,6 +32,7 @@ import {
     expectClientSegment,
     openClient,
     type ClientFixture,
+    type ReturningFixture,
 } from "../support/clients";
 import { navigate, signIn, customerContext } from "../support/session";
 import { demoSlug, runEmail } from "@clientbridge/config/e2e/run";
@@ -188,10 +190,11 @@ test("CRM-E2E-06 archiving a verified customer revokes their proof before public
             .click();
         const rejected = await submitted;
         expect(rejected.status(), await rejected.text()).toBe(401);
-        expect(await rejected.json()).toMatchObject({ error: "unauthorized" });
+        expect(await rejected.json()).toMatchObject({ error: "returning_expired" });
         await expect(
-            customer.getByText(strings.publicBooking.bookError, { exact: true }).first(),
+            customer.getByText(strings.api.returningExpired, { exact: true }).first(),
         ).toBeVisible();
+        await expectUnverified(customer, fixture);
         expect(await returningEvidence(fixture)).toEqual(before);
         await page.reload();
         expect(await returningEvidence(fixture)).toEqual(before);
@@ -220,6 +223,7 @@ test("CRM-E2E-07 editing a verified phone clears proof, so the visit is booked f
         await customer
             .getByRole("textbox", { name: `${strings.publicBooking.phone} *`, exact: true })
             .fill(phone);
+        await expectUnverified(customer, fixture);
         const submitting = customer.waitForResponse(
             (r) =>
                 new URL(r.url()).pathname === `/book/${fixture.slug}` &&
@@ -255,6 +259,114 @@ test("CRM-E2E-07 editing a verified phone clears proof, so the visit is booked f
         }
     }
 });
+
+test("CRM-E2E-14 wrong codes past the limit lock a verification, and two verifications of one number each stand alone", async ({
+    page,
+    browser,
+    request,
+}) => {
+    test.setTimeout(240_000);
+    const t = strings.publicReturning;
+    const fixture = await returningFixture(page, request);
+    const contexts = await Promise.all([1, 2, 3].map(() => customerContext(browser)));
+    try {
+        const [first, second, third] = await Promise.all(contexts.map((c) => c.newPage()));
+        if (!first || !second || !third) throw new Error("three customer pages");
+        const verifyResponse = (customer: Page) =>
+            customer.waitForResponse(
+                (r) => new URL(r.url()).pathname === `/book/${fixture.slug}/returning/verify`,
+            );
+        const sendCode = async (customer: Page, panel: Locator, previous?: string) => {
+            await panel.getByRole("textbox", { name: t.contact }).fill(fixture.clientPhone);
+            await panel.getByRole("button", { name: t.sendCode, exact: true }).click();
+            await expect(
+                customer.getByRole("textbox", { name: t.code, exact: true }),
+            ).toBeVisible();
+            return textedCode(request, fixture.clientPhone, previous);
+        };
+        const tryCode = async (customer: Page, code: string) => {
+            await customer.getByRole("textbox", { name: t.code, exact: true }).fill(code);
+            const response = verifyResponse(customer);
+            await customer.getByRole("button", { name: t.verify, exact: true }).click();
+            return response;
+        };
+
+        const panel = await openReturning(first, fixture, 1);
+        const code = await sendCode(first, panel);
+        const wrong = code === "000000" ? "111111" : "000000";
+        for (let attempt = 1; attempt < 5; attempt++) {
+            expect((await tryCode(first, wrong)).status()).toBe(401);
+            await expect(first.getByText(t.verifyError, { exact: true })).toBeVisible();
+        }
+        const locked = await tryCode(first, wrong);
+        expect(locked.status()).toBe(429);
+        expect(await locked.json()).toMatchObject({ error: "code_locked" });
+        await expect(first.getByText(strings.api.codeLocked, { exact: true })).toBeVisible();
+        await expect(first.getByRole("textbox", { name: t.code, exact: true })).toBeHidden();
+        await expect(panel.getByRole("textbox", { name: t.contact })).toHaveValue(
+            fixture.clientPhone,
+        );
+        expect((await returningEvidence(fixture)).challenges).toEqual([
+            expect.objectContaining({ client_id: fixture.clientId, attempts: 5, verified: false }),
+        ]);
+
+        const secondCode = await sendCode(second, await openReturning(second, fixture, 1), code);
+        const thirdCode = await sendCode(third, await openReturning(third, fixture, 1), secondCode);
+        const [secondVerified, thirdVerified] = await Promise.all([
+            tryCode(second, secondCode),
+            tryCode(third, thirdCode),
+        ]);
+        expect([secondVerified.status(), thirdVerified.status()]).toEqual([200, 200]);
+        const [secondToken, thirdToken] = await Promise.all(
+            [secondVerified, thirdVerified].map(
+                async (r) => ((await r.json()) as { token: string }).token,
+            ),
+        );
+        expect(secondToken).not.toBe(thirdToken);
+        for (const customer of [second, third])
+            await expect(
+                customer.getByRole("heading", {
+                    name: t.welcome(fixture.clientName),
+                    exact: true,
+                }),
+            ).toBeVisible();
+        const challenges = (await returningEvidence(fixture)).challenges;
+        expect(challenges.map((c) => [c.attempts, c.verified]).sort()).toEqual([
+            [1, true],
+            [1, true],
+            [5, false],
+        ]);
+
+        const limited = first.waitForResponse(
+            (r) => new URL(r.url()).pathname === `/book/${fixture.slug}/returning/request`,
+        );
+        await panel.getByRole("button", { name: t.sendCode, exact: true }).click();
+        const refusal = await limited;
+        expect(refusal.status()).toBe(429);
+        const { minutes } = ((await refusal.json()) as { detail: { minutes: number } }).detail;
+        await expect(
+            first.getByText(strings.api.codesLimited(minutes), { exact: true }),
+        ).toBeVisible();
+        const codes = (await textsTo(request, fixture.clientPhone)).filter((text) =>
+            /\b\d{6}\b/.test(text.Snippet),
+        );
+        expect(codes).toHaveLength(3);
+        expect((await returningEvidence(fixture)).challenges).toHaveLength(3);
+    } finally {
+        await Promise.all(contexts.map((c) => c.close()));
+    }
+});
+
+/** The returning panel is back to asking for a code for the same number: no welcome, no saved pets. */
+async function expectUnverified(customer: Page, f: ReturningFixture): Promise<void> {
+    const t = strings.publicReturning;
+    await expect(customer.getByRole("heading", { name: t.title, exact: true })).toBeVisible();
+    await expect(customer.getByRole("textbox", { name: t.contact })).toHaveValue(f.clientPhone);
+    await expect(
+        customer.getByRole("heading", { name: t.welcome(f.clientName), exact: true }),
+    ).toBeHidden();
+    await expect(customer.getByRole("group", { name: t.choose("pet"), exact: true })).toBeHidden();
+}
 
 const h = strings.clients.history;
 const t = strings.clients.tidy;

@@ -7,6 +7,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
+import httpx
+
 from clientbridge.core.config import get_settings
 from clientbridge.core.errors import AppError
 from clientbridge.core.phones import reserved_phone
@@ -14,6 +16,8 @@ from clientbridge.integrations.http import http_session
 from clientbridge.integrations.resend import Email, EmailSender, SmtpEmailSender
 
 _TWILIO_API = "https://api.twilio.com/2010-04-01"
+# refusals of the destination itself: not a number, unreachable, replied STOP, not a mobile
+_REFUSED_RECIPIENT = frozenset({21211, 21610, 21612, 21614})
 
 
 @dataclass(frozen=True)
@@ -34,6 +38,17 @@ def sender_number(number: str | None) -> str:
             "business has no assigned SMS number", code="sms_unassigned", status_code=503
         )
     return number
+
+
+def refused_recipient(exc: httpx.HTTPStatusError) -> bool:
+    """Whether Twilio refused the number itself, rather than the request or the account."""
+    if exc.response.status_code != 400:
+        return False
+    try:
+        body = exc.response.json()
+    except ValueError:
+        return False
+    return isinstance(body, dict) and body.get("code") in _REFUSED_RECIPIENT
 
 
 class ConsoleSmsSender:

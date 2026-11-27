@@ -384,11 +384,7 @@ function GuidedBooking({
     const g = strings.publicBooking.guided;
     const welcome = entry !== "booking";
     const step = flow.steps.findIndex((value) => value.state === "current");
-    const title = welcome
-        ? returning.profile
-            ? strings.publicReturning.welcome(returning.profile.name)
-            : g.welcome(page.business_name)
-        : (flow.steps[step]?.label ?? s.title);
+    const title = welcome ? g.welcome(page.business_name) : (flow.steps[step]?.label ?? s.title);
     const back = (): void => {
         if (welcome) setEntry("welcome");
         else if (flow.step === "service") setEntry("welcome");
@@ -470,6 +466,9 @@ function GuidedBooking({
                             {flow.step === "extras" ? <SuggestedExtras flow={flow} /> : null}
                             {flow.step === "details" ? (
                                 <>
+                                    {returning.proofEnded ? (
+                                        <ReturningPanel returning={returning} flow={flow} />
+                                    ) : null}
                                     <DetailsForm flow={flow} />
                                     <div className="border-t border-line pt-4">
                                         <DocTotals
@@ -540,6 +539,8 @@ function ReturningPanel({
 }) {
     const t = strings.publicReturning;
     const profile = r.profile;
+    // the client owns the panel once it shows; it opens by itself only for a number already typed
+    const [opened, setOpened] = useState(() => expanded || r.contact !== "");
     return (
         <section className="mb-5 rounded-xl border border-line bg-surface p-4">
             <div className="flex items-center gap-3">
@@ -580,9 +581,20 @@ function ReturningPanel({
                     </Button>
                 </div>
             ) : r.stage === "missing" ? (
-                <p className="mt-2 text-sm text-muted">{t.missing}</p>
+                <div className="mt-2 space-y-3">
+                    <p className="text-sm text-muted">{t.missing}</p>
+                    <Button variant="quiet" size="sm" onPress={r.reset}>
+                        {t.changeContact}
+                    </Button>
+                </div>
             ) : (
-                <details className="mt-2" open={expanded || undefined}>
+                <details
+                    className="mt-2"
+                    open={expanded || opened}
+                    onToggle={(event) => {
+                        setOpened(event.currentTarget.open);
+                    }}
+                >
                     <summary className="cursor-pointer text-sm text-accent">
                         {t.intro(flow.kind ?? "none")}
                     </summary>
@@ -610,7 +622,7 @@ function ReturningPanel({
                                     maxLength={6}
                                     autoComplete="one-time-code"
                                 />
-                                <div className="flex gap-2">
+                                <div className="flex flex-wrap gap-2">
                                     <Button busy={r.busy} onPress={r.verifyCode}>
                                         {t.verify}
                                     </Button>

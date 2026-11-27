@@ -90,6 +90,9 @@ interface Strings {
         readonly bookingClosed: string;
         readonly depositUnpaid: string;
         readonly tooManyRequests: string;
+        readonly codeLocked: string;
+        readonly codesLimited: (minutes: number) => string;
+        readonly returningExpired: string;
         readonly checkoutPaid: string;
         readonly depositInProgress: string;
         readonly cardPaymentsUnavailable: string;
@@ -4358,6 +4361,8 @@ interface Strings {
         readonly codeRequired: string;
         readonly requestError: string;
         readonly verifyError: string;
+        readonly textsUnavailable: string;
+        readonly numberRefused: string;
     };
     readonly publicBooking: {
         readonly guided: {

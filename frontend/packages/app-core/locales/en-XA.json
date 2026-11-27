@@ -224,6 +224,15 @@
     "api.tooManyRequests": {
         "message": "[Ţöö ɱåñý ţŕîéš îñ å šĥöŕţ ţîɱé. Ŵåîţ å ɱîñûţé åñð ţŕý åĝåîñ. one two three four]"
     },
+    "api.codeLocked": {
+        "message": "[Ţöö ɱåñý ŵŕöñĝ çöðéš. Šéñð å ñéŵ çöðé ţö ţŕý åĝåîñ. one two three four]"
+    },
+    "api.codesLimited": {
+        "message": "[Ŵé'ṽé šéñţ šéṽéŕåļ çöðéš ţö ţĥîš ñûɱƀéŕ. Ŵåîţ {minutes,plural,one{# ɱîñûţé} other{# ɱîñûţéš}}, ţĥéñ åšķ ƒöŕ å ñéŵ öñé. one two three four five six]"
+    },
+    "api.returningExpired": {
+        "message": "[Ýöûŕ ṽéŕîƒîçåţîöñ ĥåš éñðéð. Ṽéŕîƒý ýöûŕ þĥöñé ñûɱƀéŕ åĝåîñ ţö ûšé ýöûŕ šåṽéð ðéţåîļš. one two three four five six]"
+    },
     "api.checkoutPaid": {
         "message": "[Ţĥé çåŕð þåýɱéñţ åļŕéåðý ŵéñţ ţĥŕöûĝĥ, šö îţ çåñ'ţ ƀé çåñçéļéð. one two three four]"
     },
@@ -11926,6 +11935,12 @@
     },
     "publicReturning.verifyError": {
         "message": "[Ţĥåţ çöðé çöûļð ñöţ ƀé ṽéŕîƒîéð. Çĥéçķ îţ öŕ ŕéǫûéšţ å ñéŵ çöðé îƒ îţ ĥåš éẋþîŕéð. one two three four five]"
+    },
+    "publicReturning.textsUnavailable": {
+        "message": "[Ţĥîš ƀûšîñéšš çåñ'ţ šéñð çöðéš ŕîĝĥţ ñöŵ. Çöñţîñûé ŵîţĥ å ñéŵ ƀööķîñĝ. one two three four five]"
+    },
+    "publicReturning.numberRefused": {
+        "message": "[Ŵé çåñ'ţ ţéẋţ å çöðé ţö ţĥîš ñûɱƀéŕ. Çĥéçķ îţ, öŕ çöñţîñûé ŵîţĥ å ñéŵ ƀööķîñĝ. one two three four five]"
     },
     "publicBooking.guided.welcome": {
         "message": "[Ɓööķ åţ {business} one]"

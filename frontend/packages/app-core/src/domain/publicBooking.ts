@@ -1050,6 +1050,7 @@ export function usePublicBookingFlow(
             {
                 errorMessage: (e) => {
                     if (failedStatus(e) === 409) refreshTimes();
+                    if (failedCode(e) === "returning_expired") clearReturning();
                     return bookingFailure(e, s.bookError);
                 },
             },

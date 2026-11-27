@@ -250,6 +250,17 @@
     "api.tooManyRequests": {
         "message": "Too many tries in a short time. Wait a minute and try again."
     },
+    "api.codeLocked": {
+        "message": "Too many wrong codes. Send a new code to try again."
+    },
+    "api.codesLimited": {
+        "message": "We've sent several codes to this number. Wait {minutes, plural, one {# minute} other {# minutes}}, then ask for a new one.",
+        "description": "Refusing another texted sign-in code: minutes is how long the number must wait",
+        "args": ["minutes"]
+    },
+    "api.returningExpired": {
+        "message": "Your verification has ended. Verify your phone number again to use your saved details."
+    },
     "api.checkoutPaid": {
         "message": "The card payment already went through, so it can't be canceled."
     },
@@ -12893,6 +12904,12 @@
     },
     "publicReturning.verifyError": {
         "message": "That code could not be verified. Check it or request a new code if it has expired."
+    },
+    "publicReturning.textsUnavailable": {
+        "message": "This business can't send codes right now. Continue with a new booking."
+    },
+    "publicReturning.numberRefused": {
+        "message": "We can't text a code to this number. Check it, or continue with a new booking."
     },
     "publicBooking.guided.welcome": {
         "message": "Book at {business}",
