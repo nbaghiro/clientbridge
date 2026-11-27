@@ -16,10 +16,21 @@ appId: ${APP_ID}
       direction: UP
       timeout: 20000
       centerElement: true
+# a short block at the top edge can pass the tap to its neighbour, so a wrong sheet closes and the day moves down
 - retry:
       maxRetries: 3
       commands:
+          - runFlow:
+                when:
+                    visible: "Close"
+                commands:
+                    - runFlow: close-sheet.yaml
+                    - swipe:
+                          start: 50%, 40%
+                          end: 50%, 55%
+                          duration: 600
           - tapOn: ${".*" + NAME + ".*"}
           - extendedWaitUntil:
                 visible: "Close"
                 timeout: 10000
+          - assertVisible: ${NAME}

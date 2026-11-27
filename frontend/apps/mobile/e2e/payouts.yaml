@@ -62,12 +62,20 @@ tags:
       direction: DOWN
       timeout: 30000
 - tapOn: "Next transactions"
+# each page opens at its first row, the stand-in's 25th transaction or its 1st, with the pager below
 - extendedWaitUntil:
-      visible: "Previous transactions"
+      visible: ".*\\$5\\.24.*"
+      timeout: 30000
+- takeScreenshot: payouts-contents-older
+- scrollUntilVisible:
+      element: "Previous transactions"
+      direction: DOWN
       timeout: 30000
 - assertNotVisible: "Next transactions"
-- takeScreenshot: payouts-contents-older
 - tapOn: "Previous transactions"
+- extendedWaitUntil:
+      visible: ".*\\$19\\.12.*"
+      timeout: 30000
 - scrollUntilVisible:
       element: "Next transactions"
       direction: DOWN
@@ -75,7 +83,7 @@ tags:
 - assertNotVisible: "Previous transactions"
 - tapOn: "Next transactions"
 - extendedWaitUntil:
-      visible: "Previous transactions"
+      visible: ".*\\$5\\.24.*"
       timeout: 30000
 # the first Close is the backdrop behind the sheet; the second is its button
 - tapOn:
@@ -84,7 +92,7 @@ tags:
 # opened again, the payout starts at its first transactions
 - tapOn: ".*\\$100\\.00.*"
 - extendedWaitUntil:
-      visible: "Included transactions"
+      visible: ".*\\$19\\.12.*"
       timeout: 30000
 - scrollUntilVisible:
       element: "Next transactions"
