@@ -51,6 +51,13 @@ def refused_recipient(exc: httpx.HTTPStatusError) -> bool:
     return isinstance(body, dict) and body.get("code") in _REFUSED_RECIPIENT
 
 
+def never_sent(exc: httpx.HTTPError) -> bool:
+    """Whether Twilio answered without taking the text, or the request never reached it."""
+    return isinstance(
+        exc, (httpx.HTTPStatusError, httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout)
+    )
+
+
 class ConsoleSmsSender:
     """Default — no real delivery (used until Twilio creds are configured)."""
 

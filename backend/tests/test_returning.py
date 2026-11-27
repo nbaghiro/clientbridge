@@ -365,7 +365,6 @@ async def test_phone_validation_and_nonexistent_phone_do_not_disclose_clients(
 ) -> None:
     for payload in (
         {},
-        {},
         {"phone": "nonsense"},
         {"phone": "123456789012"},
     ):
@@ -383,8 +382,6 @@ async def test_phone_validation_and_nonexistent_phone_do_not_disclose_clients(
 async def test_unassigned_sms_does_not_create_a_challenge(
     api: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
-    from clientbridge.models.business import Business
-
     business = await db.get(Business, BIZ)
     assert business is not None
     business.sms_number = None
@@ -431,6 +428,30 @@ async def test_a_code_the_provider_never_took_is_withdrawn_and_not_counted(
     assert list(await db.scalars(select(ReturningChallenge))) == []
     challenge, code = await _request(api, sms)
     assert (await _verify(api, challenge, code)).status_code == 200
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [httpx.ReadTimeout("no reply"), httpx.RemoteProtocolError("dropped")],
+    ids=["read-timeout", "dropped"],
+)
+async def test_a_send_whose_reply_was_lost_still_counts(
+    api: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender, failure: Exception
+) -> None:
+    await _client(db)
+    app.dependency_overrides[get_sms_sender] = lambda: FailingSmsSender(failure)
+    try:
+        for _ in range(3):
+            refused = await api.post(f"/book/{SLUG}/returning/request", json={"phone": PHONE})
+            assert (refused.status_code, refused.json()["error"]) == (502, "sms_failed")
+    finally:
+        app.dependency_overrides[get_sms_sender] = lambda: sms
+    challenges = list(await db.scalars(select(ReturningChallenge)))
+    assert len(challenges) == 3
+    assert all(c.expires_at <= clock.now() for c in challenges)
+    limited = await api.post(f"/book/{SLUG}/returning/request", json={"phone": PHONE})
+    assert (limited.status_code, limited.json()["error"]) == (429, "codes_limited")
+    assert sms.sent == []
 
 
 @pytest.mark.parametrize("twilio_code", [21211, 21610, 21612, 21614])

@@ -626,7 +626,7 @@ function ReturningPanel({
                                     <Button busy={r.busy} onPress={r.verifyCode}>
                                         {t.verify}
                                     </Button>
-                                    <Button variant="quiet" onPress={r.reset}>
+                                    <Button variant="quiet" disabled={r.busy} onPress={r.reset}>
                                         {t.changeContact}
                                     </Button>
                                 </div>

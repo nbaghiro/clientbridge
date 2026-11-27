@@ -23,7 +23,13 @@ from clientbridge.core.phones import e164, same_phone
 from clientbridge.core.scoping import scoped
 from clientbridge.core.security import hash_token
 from clientbridge.integrations.s3 import FileStorage
-from clientbridge.integrations.twilio import Sms, SmsSender, refused_recipient, sender_number
+from clientbridge.integrations.twilio import (
+    Sms,
+    SmsSender,
+    never_sent,
+    refused_recipient,
+    sender_number,
+)
 from clientbridge.models.business import Business
 from clientbridge.models.clients import Client, Subject
 from clientbridge.models.returning import ReturningChallenge
@@ -131,8 +137,12 @@ class ReturningService:
                 raise Unprocessable(
                     "the provider refused to text this number", code="sms_refused"
                 ) from exc
-            # a code the provider never took doesn't count against the number's three
-            await self.db.delete(challenge)
+            if isinstance(exc, Undelivered) or never_sent(exc):
+                # a code the provider never took doesn't count against the number's three
+                await self.db.delete(challenge)
+            else:
+                # the text may have gone out before the reply was lost, so it keeps counting
+                challenge.expires_at = now
             await self.db.commit()
             raise AppError(
                 "the code text could not be sent", code="sms_failed", status_code=502
