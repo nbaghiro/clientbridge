@@ -424,6 +424,14 @@ export interface StepperProps {
     label: string;
 }
 
+export interface PagerProps {
+    // a side without a page to go to is left out
+    onPrevious: (() => void) | null;
+    onNext: (() => void) | null;
+    previousLabel: string;
+    nextLabel: string;
+}
+
 export interface SendReviewHostProps {
     // Draws the letterhead page a request names; only the app knows how to load it.
     document?: ((doc: ReviewDocument) => ReactNode) | undefined;

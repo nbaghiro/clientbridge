@@ -1,4 +1,4 @@
-"""A stand-in Stripe for the native lane, answering only what a bank authorization link needs."""
+"""A stand-in Stripe for the native lane: a bank authorization link and the payout history."""
 
 import hashlib
 import hmac
@@ -36,6 +36,68 @@ def account(identity: str) -> dict[str, object]:
         "object": "v2.core.account",
         "livemode": False,
         "configuration": {"merchant": {"capabilities": {"acss_debit_payments": capability}}},
+    }
+
+
+PAYOUT_COUNT = 30
+TRANSACTION_COUNT = 30
+DAY = 86_400
+# the newest payouts, in Stripe's order; every older one is a paid automatic payout
+PAYOUT_KINDS: tuple[tuple[str, bool], ...] = (
+    ("paid", True),
+    ("canceled", False),
+    ("failed", True),
+    ("pending", False),
+)
+
+
+def payout(index: int) -> dict[str, object]:
+    status, automatic = PAYOUT_KINDS[index] if index < len(PAYOUT_KINDS) else ("paid", True)
+    created = int(clock.wall().timestamp()) - index * DAY
+    return {
+        "id": f"po_lane{index:03d}",
+        "object": "payout",
+        "amount": 10_000 + index * 100,
+        "currency": "cad",
+        "created": created,
+        "arrival_date": (created // DAY + 2) * DAY,
+        "automatic": automatic,
+        "status": status,
+        "reconciliation_status": "completed" if automatic else "not_applicable",
+        "livemode": False,
+        "metadata": {},
+    }
+
+
+def payout_transaction(payout_id: str, index: int) -> dict[str, object]:
+    refund = index % 5 == 4
+    amount = -(500 + index) if refund else 2_000 + index * 10
+    fee = 0 if refund else 88 + index
+    return {
+        "id": f"txn_{payout_id.removeprefix('po_')}{index:03d}",
+        "object": "balance_transaction",
+        "amount": amount,
+        "fee": fee,
+        "net": amount - fee,
+        "currency": "cad",
+        "type": "refund" if refund else "charge",
+        "source": f"ch_{payout_id.removeprefix('po_')}{index:03d}",
+        "created": int(clock.wall().timestamp()) - index * 3_600,
+    }
+
+
+def page(rows: list[dict[str, object]], query: dict[str, list[str]]) -> dict[str, object] | None:
+    """One page of a Stripe list after `starting_after`, or None for a cursor it never gave."""
+    limit = int(query.get("limit", ["10"])[0])
+    ids = [row["id"] for row in rows]
+    after = query.get("starting_after")
+    if after is not None and after[0] not in ids:
+        return None
+    start = ids.index(after[0]) + 1 if after is not None else 0
+    return {
+        "object": "list",
+        "data": rows[start : start + limit],
+        "has_more": start + limit < len(rows),
     }
 
 
@@ -122,9 +184,10 @@ def signature(payload: bytes) -> str:
 
 @contextmanager
 def fake_stripe(log: Path) -> Iterator[StandIn]:
-    """Customers, the debit capability and bank SetupIntents; anything else is refused, logged."""
+    """Customers, debit capability, bank SetupIntents and payouts; the rest is refused, logged."""
     customers = count(1)
     stand_in = StandIn()
+    payouts = [payout(i) for i in range(PAYOUT_COUNT)]
 
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self) -> None:
@@ -149,13 +212,22 @@ def fake_stripe(log: Path) -> Iterator[StandIn]:
             self.record("POST", path, body)
 
         def do_GET(self) -> None:
-            path = self.path.split("?", 1)[0]
+            path, _, raw = self.path.partition("?")
+            query = urllib.parse.parse_qs(raw)
             body: dict[str, object] | None = None
-            found = re.fullmatch(r"/v1/(setup_intents|mandates)/(\w+)", path)
+            found = re.fullmatch(r"/v1/(setup_intents|mandates|payouts)/(\w+)", path)
             if found and found[1] == "setup_intents" and found[2] in stand_in.intents:
                 body = stand_in.intents[found[2]].shown()
             elif found and found[1] == "mandates":
                 body = stand_in.mandates.get(found[2])
+            elif found and found[1] == "payouts":
+                body = next((p for p in payouts if p["id"] == found[2]), None)
+            elif path == "/v1/payouts":
+                body = page(payouts, query)
+            elif path == "/v1/balance_transactions" and "payout" in query:
+                payout_id = query["payout"][0]
+                rows = [payout_transaction(payout_id, i) for i in range(TRANSACTION_COUNT)]
+                body = page(rows, query)
             self.record("GET", path, body)
 
         def record(self, method: str, path: str, body: dict[str, object] | None) -> None:

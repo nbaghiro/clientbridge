@@ -10992,7 +10992,7 @@
         "message": "[Çöûļðñ'ţ ŕéçöŕð ţĥé ŕéţûŕñ. Þļéåšé ţŕý åĝåîñ. one two three]"
     },
     "payouts.subtitle": {
-        "message": "[Çåŕð þåýɱéñţš åŕé þåîð öûţ ţö ýöûŕ ƀåñķ åûţöɱåţîçåļļý öñ ýöûŕ þåýöûţ šçĥéðûļé. one two three four five]"
+        "message": "[Çåŕð þåýɱéñţš ĝö ţö ýöûŕ ƀåñķ öñ ýöûŕ þåýöûţ šçĥéðûļé, öŕ ŵĥéñéṽéŕ ýöû çĥööšé ţö þåý öûţ. one two three four five six]"
     },
     "payouts.inStripe": {
         "message": "[Åŵåîţîñĝ þåýöûţ one two]"
@@ -11023,6 +11023,9 @@
     },
     "payouts.returned": {
         "message": "[Ŕéţûŕñéð {when} one]"
+    },
+    "payouts.canceled": {
+        "message": "[Çåñçéļéð þåýöûţ ƒŕöɱ {when} one two]"
     },
     "payouts.payoutRef": {
         "message": "[Þåýöûţ ŕéƒéŕéñçé one two]"
@@ -14748,7 +14751,7 @@
         "message": "[Ļéðĝéŕ ðŕîƒţ one two]"
     },
     "admin.driftHint": {
-        "message": "[Šöûŕçéš ŵĥéŕé ţĥé ļéðĝéŕ åñð Šţŕîþé ðîšåĝŕéé åƒţéŕ ţĥé ñîĝĥţļý ŕéçöñçîļîåţîöñ. Éåçĥ šĥöŵš îţš ļåţéšţ ƒîñðîñĝ. one two three four five six seven]"
+        "message": "[Šöûŕçéš ŵĥéŕé ţĥé ļéðĝéŕ åñð Šţŕîþé ðîšåĝŕéé åƒţéŕ ţĥé ĥöûŕļý ŕéçöñçîļîåţîöñ. Éåçĥ šĥöŵš îţš ļåţéšţ ƒîñðîñĝ. one two three four five six seven]"
     },
     "admin.driftSource": {
         "message": "[Šöûŕçé one]"
@@ -14764,6 +14767,9 @@
     },
     "admin.driftStripe": {
         "message": "[Šţŕîþé one]"
+    },
+    "admin.driftDifference": {
+        "message": "[Đîƒƒéŕéñçé one two]"
     },
     "admin.driftAcknowledged": {
         "message": "[Åçķñöŵļéðĝéð one two]"

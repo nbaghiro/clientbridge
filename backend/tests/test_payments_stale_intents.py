@@ -8,13 +8,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.ids import new_id
-from clientbridge.models.billing import Order
+from clientbridge.models.billing import Invoice, Order
 from clientbridge.models.catalog import GiftCard
 from clientbridge.models.payments import Payment
-from clientbridge.services import payments
+from clientbridge.services import ledger, payments
 from clientbridge.services.payments import run_cancel_stale_intents
 from tests.conftest import BIZ, FakePaymentGateway
-from tests.helpers import client_id, enable_payments, key, ok, sent_invoice
+from tests.helpers import (
+    card_pay,
+    client_id,
+    enable_payments,
+    key,
+    ok,
+    provider_ref,
+    sent_invoice,
+    settle,
+)
 
 LATTE = {"description": "Latte", "quantity": 2, "unit_amount_cents": 500}
 DAY = timedelta(hours=24)
@@ -165,6 +174,35 @@ async def test_an_abandoned_pay_link_intent_is_canceled_after_an_hour(
     # a form still open, a bank debit that takes days, and an online order's own expiry stay
     statuses = [await _status(db, p) for p in (open_form, debit, online)]
     assert statuses == ["pending", "pending", "pending"]
+
+
+async def test_a_reaped_pay_link_and_desk_sale_can_each_be_paid_again(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    invoice = await sent_invoice(db, client=await client_id(db))
+    link = await card_pay(as_owner, db, invoice)
+    desk = await _desk_checkout(as_owner)
+    order_id = await db.scalar(select(Payment.order_id).where(Payment.id == desk))
+    await _age(db, link, HOUR + timedelta(minutes=1))
+    await _age(db, desk, DAY + timedelta(minutes=1))
+
+    assert await run_cancel_stale_intents(db, gateway, clock.now()) >= 2
+    assert [await _status(db, link), await _status(db, desk)] == ["canceled", "canceled"]
+    assert {await provider_ref(db, link), await provider_ref(db, desk)} <= set(
+        gateway.canceled_intents
+    )
+
+    relinked = await card_pay(as_owner, db, invoice)
+    assert relinked != link
+    await settle(as_owner, db, relinked)
+    assert await _status(db, relinked) == "succeeded"
+    assert await ledger.invoice_balance(db, await db.get_one(Invoice, invoice)) == 0
+
+    again = ok(await as_owner.post(f"/v1/orders/{order_id}/checkout", headers=key())).json()
+    assert again["payment_id"] != desk
+    await settle(as_owner, db, again["payment_id"])
+    assert await _status(db, again["payment_id"]) == "succeeded"
 
 
 async def test_an_intent_that_went_through_stays_for_its_webhook(

@@ -1,0 +1,119 @@
+appId: ${APP_ID}
+name: NATIVE-PAY-06 On a phone, the owner pages through payout history and a payout's transactions, each page opening at its start, and sees which payouts came back or were canceled
+tags:
+    - stripe
+---
+- runFlow: helpers/owner.yaml
+- scrollUntilVisible:
+      element: "View payments"
+      direction: DOWN
+- tapOn: "View payments"
+- swipe:
+      from:
+          text: "Refunds"
+      direction: LEFT
+- swipe:
+      from:
+          text: "Tax returns"
+      direction: LEFT
+- tapOn: "Payouts"
+# the stand-in Stripe's newest payouts: paid, canceled, returned by the bank and a manual one
+- extendedWaitUntil:
+      visible: ".*\\$100\\.00.*"
+      timeout: 60000
+- assertVisible: "Card money not paid out yet"
+- assertVisible: "Last 30 days"
+- assertVisible: "Processing and Clientbridge fees, last 30 days"
+# a row reads as one element, its amount, day and status together
+- assertVisible: ".*Canceled payout from [A-Z][a-z]+ [0-9]+.*"
+- assertVisible: ".*Returned [A-Z][a-z]+ [0-9]+.*"
+- takeScreenshot: payouts-newest
+- scrollUntilVisible:
+      element: "Older payouts"
+      direction: DOWN
+      timeout: 60000
+- assertNotVisible: "Newer payouts"
+- tapOn: "Older payouts"
+# the older page opens at its first payout rather than where the newest page was scrolled to
+- extendedWaitUntil:
+      visible: ".*\\$124\\.00.*"
+      timeout: 30000
+- takeScreenshot: payouts-older
+- scrollUntilVisible:
+      element: "Newer payouts"
+      direction: DOWN
+- assertNotVisible: "Older payouts"
+- tapOn: "Newer payouts"
+- extendedWaitUntil:
+      visible: ".*\\$100\\.00.*"
+      timeout: 30000
+- tapOn: ".*\\$100\\.00.*"
+- extendedWaitUntil:
+      visible: "Included transactions"
+      timeout: 30000
+- assertVisible: "Deposited"
+# the sheet's pager sits at its end, so the flow scrolls all the way before using it
+- swipe:
+      start: "50%,80%"
+      end: "50%,20%"
+- swipe:
+      start: "50%,80%"
+      end: "50%,20%"
+- tapOn: "Next transactions"
+- extendedWaitUntil:
+      visible: "Previous transactions"
+      timeout: 30000
+- assertNotVisible: "Next transactions"
+- takeScreenshot: payouts-contents-older
+- tapOn: "Previous transactions"
+- swipe:
+      start: "50%,80%"
+      end: "50%,20%"
+- swipe:
+      start: "50%,80%"
+      end: "50%,20%"
+- extendedWaitUntil:
+      visible: "Next transactions"
+      timeout: 30000
+- assertNotVisible: "Previous transactions"
+- tapOn: "Next transactions"
+- extendedWaitUntil:
+      visible: "Previous transactions"
+      timeout: 30000
+# the first Close is the backdrop behind the sheet; the second is its button
+- tapOn:
+      text: "Close"
+      index: 1
+# opened again, the payout starts at its first transactions
+- tapOn: ".*\\$100\\.00.*"
+- extendedWaitUntil:
+      visible: "Included transactions"
+      timeout: 30000
+- swipe:
+      start: "50%,80%"
+      end: "50%,20%"
+- swipe:
+      start: "50%,80%"
+      end: "50%,20%"
+- extendedWaitUntil:
+      visible: "Next transactions"
+      timeout: 30000
+- assertNotVisible: "Previous transactions"
+- tapOn:
+      text: "Close"
+      index: 1
+- tapOn: ".*\\$103\\.00.*"
+- extendedWaitUntil:
+      visible: "Stripe provides a transaction breakdown for automatic payouts only."
+      timeout: 30000
+- tapOn:
+      text: "Close"
+      index: 1
+- tapOn: ".*\\$102\\.00.*"
+- extendedWaitUntil:
+      visible: "Your bank returned this payout. Check your payout bank details before the next payout."
+      timeout: 30000
+- takeScreenshot: payouts-returned
+- tapOn:
+      text: "Close"
+      index: 1

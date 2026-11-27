@@ -857,7 +857,9 @@ def test_every_walkthrough_lands_in_exactly_one_native_shard() -> None:
     ran = sorted(flow for shard in shards for flow in [*shard["flows"], *shard["faked"]])
     assert ran == present
     assert [shard["id"] for shard in shards] == ["1", "2", "3", "4", "5", "6", "7"]
-    assert [shard["faked"] for shard in shards if shard["faked"]] == [["clients.wallet.yaml"]]
+    assert [shard["faked"] for shard in shards if shard["faked"]] == [
+        ["clients.wallet.yaml", "payouts.yaml"]
+    ]
     # the workflow's matrix holds one Android job per shard the planner makes
     workflow = (functional.ROOT / ".github" / "workflows" / "ci.yml").read_text()
     assert "--count 7 " in workflow and "shard: [1, 2, 3, 4, 5, 6, 7]" in workflow

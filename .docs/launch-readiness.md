@@ -2040,17 +2040,27 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 **By hand only**
 
 - A real bank deposit arriving.
+- Changing the schedule inside Stripe's payouts component, which Stripe draws in its own frame; the cases prove the owner opens it with a session that allows schedule edits, staff can't, and STR-E08 sets and restores the schedule on the account.
 
 **Automated by**
 
 - `STR-E01 (stripe)`
-- `STR-E12 (stripe)`
-- `FLOW-10-A (journeys)`
-- `web: payouts.e2e.ts › payout contents paginate and clear when switching to a manual payout`
-- `web: payouts.e2e.ts › payout history reaches older pages and returns to the newest page`
-- `STR-E25 (stripe)`
-- `STR-E08 (stripe)`
 - `NATIVE-PAY-04 (stripe-native)`
+- `web: payouts.e2e.ts › payment account entrypoints preserve navigation when payment tools are offline`
+- `web: shell.e2e.ts › staff: payments, inbox and setup show only what staff can use`
+- `STR-E08 (stripe)`
+- `PAYOUT-E2E-01 (web)`
+- `web: payouts.e2e.ts › payout history reaches older pages and returns to the newest page`
+- `web: payouts.e2e.ts › payout contents paginate and clear when switching to a manual payout`
+- `NATIVE-PAY-06 (native-stripe)`
+- `STR-E25 (stripe)`
+- `STR-E12 (stripe)`
+- `OPS-E2E-10 (web)`
+- `FLOW-10-A (journeys)`
+- `SCH-E2E-17 (stripe)`
+- `backend: test_payments_stale_intents.py › test_a_reaped_pay_link_and_desk_sale_can_each_be_paid_again`
+- `backend: test_payments_connect.py › test_embedded_adapter_grants_only_requested_features`
+- `backend: test_payments_connect.py › test_embedded_sessions_authorize_each_request`
 
 **Depends on:** Nothing
 
