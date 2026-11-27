@@ -34,6 +34,7 @@ export { SendReview, SendReviewHost } from "./SendReview";
 export { PageHeader } from "./PageHeader";
 export { SheetHeader } from "./SheetHeader";
 export { Stars } from "./Stars";
+export { Pager } from "./Pager";
 export { Stepper } from "./Stepper";
 export { ActionMenu } from "./ActionMenu";
 export { ActivityTimeline } from "./ActivityTimeline";

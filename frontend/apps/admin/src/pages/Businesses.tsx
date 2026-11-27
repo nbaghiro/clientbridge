@@ -182,6 +182,16 @@ function DriftPanel({ business }: { business: AdminSchemas["AdminBusiness"] }) {
                                 render: (f) => cents(f.stripe_cents),
                             },
                             {
+                                label: strings.admin.driftDifference,
+                                render: (f) =>
+                                    cents(
+                                        f.residual_cents ??
+                                            (f.stripe_cents === null || f.ledger_cents === null
+                                                ? null
+                                                : f.stripe_cents - f.ledger_cents),
+                                    ),
+                            },
+                            {
                                 label: strings.admin.driftAcknowledged,
                                 render: (f) =>
                                     f.acknowledgement ? (

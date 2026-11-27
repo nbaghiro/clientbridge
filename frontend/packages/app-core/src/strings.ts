@@ -4028,6 +4028,7 @@ interface Strings {
         } & Labels;
         readonly arrived: (when: string) => string;
         readonly returned: (when: string) => string;
+        readonly canceled: (when: string) => string;
         readonly payoutRef: string;
         readonly returnedNotice: string;
         readonly foreignBank: string;
@@ -5364,6 +5365,7 @@ interface Strings {
         readonly driftFound: string;
         readonly driftLedger: string;
         readonly driftStripe: string;
+        readonly driftDifference: string;
         readonly driftAcknowledged: string;
         readonly acknowledge: string;
         readonly acknowledgeReason: string;

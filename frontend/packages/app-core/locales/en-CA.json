@@ -11910,7 +11910,8 @@
         "message": "Couldn't record the return. Please try again."
     },
     "payouts.subtitle": {
-        "message": "Card payments are paid out to your bank automatically on your payout schedule."
+        "message": "Card payments go to your bank on your payout schedule, or whenever you choose to pay out.",
+        "description": "Under the Payouts tab's buttons. The schedule lives in Stripe and may be automatic or manual, so this must hold for both."
     },
     "payouts.inStripe": {
         "message": "Awaiting payout"
@@ -11942,6 +11943,11 @@
     },
     "payouts.returned": {
         "message": "Returned {when}",
+        "args": ["when"]
+    },
+    "payouts.canceled": {
+        "message": "Canceled payout from {when}",
+        "description": "A payout canceled before it left for the bank, so the money stayed in Stripe. {when} is the day the payout was created; Stripe keeps no date for the cancel.",
         "args": ["when"]
     },
     "payouts.payoutRef": {
@@ -15901,7 +15907,7 @@
         "message": "Ledger drift"
     },
     "admin.driftHint": {
-        "message": "Sources where the ledger and Stripe disagree after the nightly reconciliation. Each shows its latest finding."
+        "message": "Sources where the ledger and Stripe disagree after the hourly reconciliation. Each shows its latest finding."
     },
     "admin.driftSource": {
         "message": "Source"
@@ -15918,6 +15924,10 @@
     },
     "admin.driftStripe": {
         "message": "Stripe"
+    },
+    "admin.driftDifference": {
+        "message": "Difference",
+        "description": "Column heading: how far Stripe's figure is from the ledger's for a finding."
     },
     "admin.driftAcknowledged": {
         "message": "Acknowledged"

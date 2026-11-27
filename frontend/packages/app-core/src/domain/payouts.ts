@@ -97,12 +97,15 @@ export function payoutStatusIntent(status: string): Intent {
 }
 
 export function payoutWhen(row: PayoutRow, zone: string): string {
+    const created = formatShortDay(parseTimestamp(row.occurred_at), zone);
+    // a canceled payout never arrives, and Stripe keeps no date for the cancel itself
+    if (row.status === "canceled") return strings.payouts.canceled(created);
     // Stripe's arrival_date is a calendar day sent as its midnight UTC
     const when =
         row.arrival_at === null
-            ? formatShortDay(parseTimestamp(row.occurred_at), zone)
+            ? created
             : formatShortDay(parseTimestamp(row.arrival_at), CALENDAR);
-    if (row.status === "failed" || row.status === "canceled") return strings.payouts.returned(when);
+    if (row.status === "failed") return strings.payouts.returned(when);
     return row.status === "paid" ? strings.payouts.arrived(when) : strings.payouts.expected(when);
 }
 
@@ -142,15 +145,17 @@ function usePayoutContents(
     api: ApiLike,
     businessId: string | null,
     payoutId: string | null,
+    opened: number,
 ): PayoutContents {
-    const scope = `${businessId ?? ""}:${payoutId ?? ""}`;
+    // each opening of a payout starts at its first transactions, reusing that page when it is shown
+    const scope = `${businessId ?? ""}:${payoutId ?? ""}:${String(opened)}`;
     const [paging, setPaging] = useState<{ scope: string; cursors: string[] }>({
         scope,
         cursors: [],
     });
     const cursors = paging.scope === scope ? paging.cursors : [];
     const cursor = cursors.at(-1);
-    const key = `${scope}:${cursor ?? ""}`;
+    const key = `${businessId ?? ""}:${payoutId ?? ""}:${cursor ?? ""}`;
     const remote = useRemote(
         async () => ({
             key,
@@ -268,6 +273,10 @@ export function usePayouts(api: ApiLike): Payouts {
     const fees = useQuery<{ cents: number }>(FEES_SINCE_SQL, [since]);
     const charges = useQuery<ChargeRow>(CARD_CHARGES_SQL, [since]);
     const [selectedId, setSelectedId] = useState<string | null>(null);
+    const [opened, setOpened] = useState(0);
+    const reopen = (): void => {
+        setOpened((n) => n + 1);
+    };
     const views = (page?.payouts ?? []).map((p) => ({
         id: p.id,
         ref: p.id,
@@ -277,7 +286,12 @@ export function usePayouts(api: ApiLike): Payouts {
         when: payoutWhen(p, zone),
     }));
     const selected = views.find((p) => p.id === selectedId) ?? views[0] ?? null;
-    const contents = usePayoutContents(api, businessId, selected?.id ?? null);
+    const contents = usePayoutContents(
+        api,
+        businessId,
+        selectedId === null ? null : (selected?.id ?? null),
+        opened,
+    );
     const chargeViews = charges.data.map((c) => ({
         id: c.id,
         client: c.client_name ?? strings.payouts.walkIn,
@@ -307,18 +321,23 @@ export function usePayouts(api: ApiLike): Payouts {
         payouts: views,
         selected,
         contents,
-        select: setSelectedId,
+        select: (id: string) => {
+            setSelectedId(id);
+            reopen();
+        },
         balanceCents: balance.data[0]?.cents ?? 0,
         depositedCents: deposits.data[0]?.cents ?? 0,
         next: nextCursor
             ? () => {
                   setPaging({ businessId, cursors: [...cursors, nextCursor] });
+                  reopen();
               }
             : null,
         previous:
             cursors.length > 0
                 ? () => {
                       setPaging({ businessId, cursors: cursors.slice(0, -1) });
+                      reopen();
                   }
                 : null,
         feesCents: fees.data[0]?.cents ?? 0,

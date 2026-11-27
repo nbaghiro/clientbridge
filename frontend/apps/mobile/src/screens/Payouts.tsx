@@ -21,13 +21,14 @@ import {
     ListRow,
     LoadFailed,
     Notice,
+    Pager,
     Panel,
     Skeleton,
     Stat,
     StatusPill,
     ui,
 } from "@clientbridge/ui";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Linking, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { api } from "../lib/api";
@@ -54,6 +55,13 @@ export function Payouts() {
         );
     };
     const [open, setOpen] = useState(false);
+    const scroll = useRef<ScrollView>(null);
+    const historyTop = useRef(0);
+    // a new page starts at the top of the list, not wherever the last one was scrolled to
+    const turn = (go: () => void) => () => {
+        go();
+        scroll.current?.scrollTo({ y: historyTop.current, animated: false });
+    };
     const sel = p.selected;
     if (account.props !== null) return <PaymentAccount {...account.props} />;
     if (p.load.state === "empty" && !connected) {
@@ -83,7 +91,7 @@ export function Payouts() {
 
     return (
         <View style={styles.screen}>
-            <ScrollView contentContainerStyle={styles.page}>
+            <ScrollView ref={scroll} contentContainerStyle={styles.page}>
                 <Button variant="outline" icon="external" busy={web.busy} onPress={manageOnWeb}>
                     {strings.paymentAccount.manageOnWeb}
                 </Button>
@@ -127,64 +135,76 @@ export function Payouts() {
                                     currency={BUSINESS_CURRENCY}
                                     label={s.inStripe}
                                     cents={p.balanceCents}
+                                    hint={s.inStripeHint}
                                 />
                                 <Stat
                                     currency={BUSINESS_CURRENCY}
                                     label={s.deposited}
                                     cents={p.depositedCents}
+                                    hint={s.depositedHint}
                                     tone="success"
                                 />
                                 <Stat
                                     currency={BUSINESS_CURRENCY}
                                     label={s.fees}
                                     cents={p.feesCents}
-                                    hint={s.depositedHint}
+                                    hint={s.feesHint}
                                 />
                             </View>
                         </Panel>
-                        <Panel flush>
-                            {p.historyLoad.state === "loading" ? (
-                                <Skeleton variant="row" count={3} label={s.loading} />
-                            ) : p.historyLoad.state === "error" ? (
-                                <LoadFailed
-                                    message={s.loadError}
-                                    onRetry={p.historyLoad.retry}
-                                    retrying={p.historyLoad.retrying}
-                                />
-                            ) : p.payouts.length === 0 ? (
-                                <Empty message={s.noPayouts} body={s.noPayoutsBody} />
-                            ) : (
-                                p.payouts.map((row) => (
-                                    <ListRow
-                                        key={row.id}
-                                        icon={row.status === "failed" ? "alert" : "bank"}
-                                        intent={row.status === "failed" ? "danger" : "neutral"}
-                                        title={formatMoney(row.amountCents, BUSINESS_CURRENCY)}
-                                        detail={row.when}
-                                        meta={
-                                            <StatusPill
-                                                status={s.status[row.status]}
-                                                intent={payoutStatusIntent(row.status)}
-                                            />
-                                        }
-                                        onPress={() => {
-                                            p.select(row.id);
-                                            setOpen(true);
-                                        }}
+                        <View
+                            onLayout={(e) => {
+                                historyTop.current = e.nativeEvent.layout.y;
+                            }}
+                        >
+                            <Panel
+                                flush
+                                footer={
+                                    p.previous !== null || p.next !== null ? (
+                                        <Pager
+                                            onPrevious={
+                                                p.previous === null ? null : turn(p.previous)
+                                            }
+                                            onNext={p.next === null ? null : turn(p.next)}
+                                            previousLabel={s.historyPrevious}
+                                            nextLabel={s.historyNext}
+                                        />
+                                    ) : undefined
+                                }
+                            >
+                                {p.historyLoad.state === "loading" ? (
+                                    <Skeleton variant="row" count={3} label={s.loading} />
+                                ) : p.historyLoad.state === "error" ? (
+                                    <LoadFailed
+                                        message={s.loadError}
+                                        onRetry={p.historyLoad.retry}
+                                        retrying={p.historyLoad.retrying}
                                     />
-                                ))
-                            )}
-                            {p.previous !== null ? (
-                                <Button variant="outline" onPress={p.previous}>
-                                    {s.historyPrevious}
-                                </Button>
-                            ) : null}
-                            {p.next !== null ? (
-                                <Button variant="outline" onPress={p.next}>
-                                    {s.historyNext}
-                                </Button>
-                            ) : null}
-                        </Panel>
+                                ) : p.payouts.length === 0 ? (
+                                    <Empty message={s.noPayouts} body={s.noPayoutsBody} />
+                                ) : (
+                                    p.payouts.map((row) => (
+                                        <ListRow
+                                            key={row.id}
+                                            icon={row.status === "failed" ? "alert" : "bank"}
+                                            intent={row.status === "failed" ? "danger" : "neutral"}
+                                            title={formatMoney(row.amountCents, BUSINESS_CURRENCY)}
+                                            detail={row.when}
+                                            meta={
+                                                <StatusPill
+                                                    status={s.status[row.status]}
+                                                    intent={payoutStatusIntent(row.status)}
+                                                />
+                                            }
+                                            onPress={() => {
+                                                p.select(row.id);
+                                                setOpen(true);
+                                            }}
+                                        />
+                                    ))
+                                )}
+                            </Panel>
+                        </View>
                         <Text style={styles.caption}>{s.chargesTitle}</Text>
                         <Panel flush>
                             {p.charges.length === 0 ? (
@@ -226,6 +246,10 @@ export function Payouts() {
                     open
                     title={formatMoney(sel.amountCents, BUSINESS_CURRENCY)}
                     subtitle={sel.when}
+                    status={{
+                        status: s.status[sel.status],
+                        intent: payoutStatusIntent(sel.status),
+                    }}
                     onClose={() => {
                         setOpen(false);
                     }}
@@ -239,7 +263,20 @@ export function Payouts() {
                         {sel.ref !== null ? (
                             <KeyValueList rows={[{ label: s.payoutRef, value: sel.ref }]} />
                         ) : null}
-                        <Panel flush title={s.contentsTitle}>
+                        <Panel
+                            flush
+                            title={s.contentsTitle}
+                            footer={
+                                p.contents.previous !== null || p.contents.next !== null ? (
+                                    <Pager
+                                        onPrevious={p.contents.previous}
+                                        onNext={p.contents.next}
+                                        previousLabel={s.contentsPrevious}
+                                        nextLabel={s.contentsNext}
+                                    />
+                                ) : undefined
+                            }
+                        >
                             {p.contents.load.state === "loading" ? (
                                 <Skeleton variant="row" count={3} label={s.loading} />
                             ) : p.contents.load.state === "error" ? (
@@ -266,16 +303,6 @@ export function Payouts() {
                                     />
                                 ))
                             )}
-                            {p.contents.previous !== null ? (
-                                <Button variant="outline" onPress={p.contents.previous}>
-                                    {s.contentsPrevious}
-                                </Button>
-                            ) : null}
-                            {p.contents.next !== null ? (
-                                <Button variant="outline" onPress={p.contents.next}>
-                                    {s.contentsNext}
-                                </Button>
-                            ) : null}
                         </Panel>
                     </DetailSection>
                 </DetailView>

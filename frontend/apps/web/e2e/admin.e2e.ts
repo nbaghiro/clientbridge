@@ -1,4 +1,4 @@
-import { strings } from "@clientbridge/app-core/public";
+import { type AdminSchemas, formatMoney, strings } from "@clientbridge/app-core/public";
 import { type Page, type Response, expect, test } from "@playwright/test";
 import { newAccount } from "./support/auth";
 import { bookingApi } from "./support/bookings";
@@ -249,6 +249,97 @@ test("OPS-E2E-03 an operator whose email stops being verified loses the console 
             timeout: 60_000,
         });
         expect(await businessRow()).toEqual(before);
+    } finally {
+        await ops.context().close();
+    }
+});
+
+test("OPS-E2E-10 the drift panel shows how far each finding is off, and an acknowledgement is sent once and stays with its finding", async ({
+    browser,
+}) => {
+    test.setTimeout(180_000);
+    const business = demoId("bz_birchbark");
+    const found = "2026-11-25T11:45:00Z";
+    type Finding = AdminSchemas["AdminDriftFinding"];
+    // typed by the API contract, so a change to the drift response fails here, not silently
+    const finding = (
+        id: string,
+        source: string,
+        cents: Partial<Pick<Finding, "ledger_cents" | "stripe_cents" | "residual_cents">>,
+    ): Finding => ({
+        id,
+        source,
+        created_at: found,
+        ledger_cents: null,
+        stripe_cents: null,
+        residual_cents: null,
+        transaction_ids: [],
+        acknowledgement: null,
+        ...cents,
+    });
+    let acknowledged: Finding["acknowledgement"] = null;
+    const posted: unknown[] = [];
+    const ops = await operatorConsole(browser, "console");
+    const cors = {
+        "access-control-allow-origin": ADMIN,
+        "access-control-allow-credentials": "true",
+        "access-control-allow-headers": "content-type",
+        "cache-control": "no-store",
+    };
+    await ops.route(
+        /\/admin\/v1\/businesses\/[^/]+\/drift(\/[^/]+\/acknowledge)?(\?.*)?$/,
+        async (route) => {
+            const request = route.request();
+            if (request.method() === "OPTIONS") {
+                await route.fulfill({ status: 204, headers: cors });
+                return;
+            }
+            if (request.method() === "POST") {
+                posted.push(request.postDataJSON());
+                acknowledged = {
+                    identity_id: null,
+                    reason: "Stripe test balance",
+                    acknowledged_at: "2026-11-25T12:00:00Z",
+                };
+                const result: AdminSchemas["AdminDriftResult"] = { finding_id: "aud_balance" };
+                await route.fulfill({ headers: cors, json: result });
+                return;
+            }
+            const page: AdminSchemas["AdminPage_AdminDriftFinding_"] = {
+                has_more: false,
+                items: [
+                    {
+                        ...finding("aud_balance", "balance", { residual_cents: 20134 }),
+                        acknowledgement: acknowledged,
+                    },
+                    finding("aud_charge", "ch_lane_drifted", {
+                        ledger_cents: 4000,
+                        stripe_cents: 3850,
+                    }),
+                ],
+            };
+            await route.fulfill({ headers: cors, json: page });
+        },
+    );
+    try {
+        await ops.goto(`${ADMIN}/businesses/${business}`);
+        await expect(ops.getByText(ad.driftHint, { exact: true })).toBeVisible({ timeout: 60_000 });
+        await expect(ops.getByRole("columnheader", { name: ad.driftDifference })).toBeVisible();
+        const balance = ops.getByRole("row").filter({ hasText: ad.driftBalance });
+        const charge = ops.getByRole("row").filter({ hasText: "ch_lane_drifted" });
+        await expect(balance).toContainText(formatMoney(20134, "CAD"));
+        await expect(charge).toContainText(formatMoney(4000, "CAD"));
+        await expect(charge).toContainText(formatMoney(3850, "CAD"));
+        await expect(charge).toContainText(formatMoney(-150, "CAD"));
+
+        await balance.getByRole("button", { name: ad.acknowledge, exact: true }).click();
+        await ops.getByLabel(ad.acknowledgeReason, { exact: true }).fill("Stripe test balance");
+        await ops.getByRole("button", { name: ad.saveAcknowledgement, exact: true }).click();
+        await expect(ops.getByText(ad.acknowledgementSaved, { exact: true })).toBeVisible();
+        await expect(balance).toContainText("Stripe test balance");
+        await expect(balance.getByRole("button", { name: ad.acknowledge })).toHaveCount(0);
+        await expect(charge.getByRole("button", { name: ad.acknowledge })).toBeVisible();
+        expect(posted).toEqual([{ reason: "Stripe test balance" }]);
     } finally {
         await ops.context().close();
     }
