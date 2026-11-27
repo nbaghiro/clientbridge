@@ -83,7 +83,11 @@ onFlowComplete:
 - extendedWaitUntil:
       visible: ${"1 × " + output.addon}
       timeout: 30000
-- assertVisible: "Paid with the visit · \\$12\\.00"
+# the visit's total sits below the field, under the sheet's buttons on a short screen
+- scrollUntilVisible:
+      element: "Paid with the visit · \\$12\\.00"
+      direction: DOWN
+      timeout: 20000
 - takeScreenshot: addon-added
 - tapOn: "Remove"
 - extendedWaitUntil:

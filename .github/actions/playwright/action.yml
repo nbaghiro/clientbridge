@@ -28,6 +28,12 @@ runs:
           ~/.cache/ms-playwright
           ~/.cache/playwright-debs
         key: playwright-${{ steps.version.outputs.image }}-${{ steps.version.outputs.version }}-${{ inputs.browser }}
+    # the runner image lists Microsoft's package repo, which can refuse requests and fail apt-get update; Playwright needs only Ubuntu's
+    - name: drop the Microsoft package source
+      run: |
+        listed=$(grep -rls packages.microsoft.com /etc/apt/sources.list.d || true)
+        [ -z "$listed" ] || sudo rm -f $listed
+      shell: bash
     - name: install the saved system packages
       if: steps.cached.outputs.cache-hit == 'true'
       env:
