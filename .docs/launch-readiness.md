@@ -2043,8 +2043,11 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 
 **By hand only**
 
-- A real bank deposit arriving.
 - Changing the schedule inside Stripe's payouts component, which Stripe draws in its own frame; the cases prove the owner opens it with a session that allows schedule edits, staff can't, and STR-E08 sets and restores the schedule on the account.
+
+**Before production**
+
+- A real bank deposit arriving.
 
 **Automated by**
 
