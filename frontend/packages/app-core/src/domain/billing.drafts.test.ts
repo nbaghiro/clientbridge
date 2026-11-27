@@ -109,3 +109,46 @@ it("counts a line ticked optional on an estimate once the document is switched t
     expect(total("estimate")).toBe(9000);
     expect(total("invoice")).toBe(18000);
 });
+
+it("previews an estimate's optional line as offered and outside the total, and an invoice's as an ordinary line", () => {
+    const api: ApiLike = {
+        get: <T>() => Promise.resolve({} as T),
+        getText: () => Promise.resolve(""),
+        post: <T>() => Promise.resolve({} as T),
+        patch: <T>() => Promise.resolve({} as T),
+        delete: <T>() => Promise.resolve({} as T),
+    };
+    const draft = docDraft(row, [
+        visitLine({ booking_id: null, item_id: null }),
+        visitLine({
+            id: "ln_extra",
+            description: "Teeth brushing",
+            booking_id: null,
+            item_id: null,
+            optional: 1,
+            position: 1,
+        }),
+    ]);
+    const wrapper = ({ children }: { children: ReactNode }) =>
+        createElement(BusinessZoneContext.Provider, { value: "America/Vancouver" }, children);
+    const letterhead = {
+        name: "Birch Studio",
+        tagline: null,
+        brandColor: null,
+        email: null,
+        gstHstNumber: null,
+        qstNumber: null,
+    };
+    const previewed = (kind: "invoice" | "estimate") =>
+        renderHook(() => useDocComposer(api, kind, draft), { wrapper })
+            .result.current.preview({ name: "Ann" }, letterhead, "#000")
+            .lines.map((l) => [l.description, l.offered === true]);
+    expect(previewed("estimate")).toEqual([
+        ["Full groom", false],
+        ["Teeth brushing", true],
+    ]);
+    expect(previewed("invoice")).toEqual([
+        ["Full groom", false],
+        ["Teeth brushing", false],
+    ]);
+});

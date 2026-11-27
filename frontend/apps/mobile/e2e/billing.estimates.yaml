@@ -117,7 +117,10 @@ name: NATIVE-BILL-02 An estimate written on the phone keeps its optional add-on,
 - extendedWaitUntil:
       visible: "New booking"
       timeout: 30000
-- assertVisible: "Bath & Tidy"
+# it opens at the next quarter hour, whose warning when taken or after hours scrolls the service away
+- scrollUntilVisible:
+      element: "Bath & Tidy"
+      direction: UP
 - scrollUntilVisible:
       element: "1 × Plush Fox Toy"
       direction: DOWN

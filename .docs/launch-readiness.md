@@ -2095,19 +2095,16 @@ Money goes back correctly, every figure agrees with Stripe and the bank, tax is 
 
 **By hand only**
 
-- iPad layout of Staff pay (doc CLI-44 to do).
+- Staff pay in the iPad's landscape tablet layout, with CB-60's iPad review. `NATIVE-PAY-05` runs on an iPad in portrait, which keeps the phone layout; in landscape the simulator's notification prompt covers the app before the flow starts.
 
 **Automated by**
 
 - `PAY-E2E-01 (web)`
 - `PAY-E2E-02 (web)`
 - `PAY-E2E-03 (web)`
-- `mobile: earnings.yaml (walk, unregistered)`
-
-**To automate**
-
-- `PAY-E2E-05` in `apps/web/e2e/earnings.e2e.ts`: Rate matrix (percent, fixed per visit, hourly, retail) and a pay-through-date cut-off.
-- `PAY-E2E-06` in `apps/web/e2e/earnings.e2e.ts`: T4A after pay, undo and repay, owner left out.
+- `PAY-E2E-05 (web)`
+- `PAY-E2E-06 (web)`
+- `NATIVE-PAY-05 (native-ios, native-android)`
 
 **Depends on:** Nothing
 
@@ -2539,7 +2536,7 @@ Staff run their day on any phone, tablet or browser tab, online or not, and ever
 
 - `NATIVE-CRM-01 (native-ios, native-android)`
 - `NATIVE-IOS-01 (native-ios, native-android)`
-- `mobile: today.yaml, setup.yaml, payments.yaml, messaging.yaml, clients.record.yaml, staff.yaml, billing.yaml, earnings.yaml (walks, unregistered)`
+- `mobile: today.yaml, setup.yaml, payments.yaml, messaging.yaml, clients.record.yaml, staff.yaml, billing.yaml (walks, unregistered)`
 
 **To automate**
 

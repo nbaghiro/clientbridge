@@ -130,6 +130,7 @@ interface PayeeRow {
     role: string;
     color: string | null;
     status: string;
+    payee: number;
     rate_type: string | null;
     rate_bps: number | null;
     rate_cents: number | null;
@@ -222,7 +223,7 @@ function earningLine(row: EarningRow, zone: string, editable: boolean): EarningL
         tip: row.kind === "tip",
         pickable: editable && isOpen(row),
         undo,
-        label: formatParts([title, formatShortDay(at, zone), amount]),
+        label: formatParts([title, row.client_name, formatShortDay(at, zone), amount]),
     };
 }
 
@@ -390,6 +391,7 @@ interface EarningApprovals {
 
 function rates(p: PayeeRow): string {
     const e = strings.earnings;
+    if (p.payee !== 1) return e.tipsOnly;
     const service =
         p.rate_type === "percent" && p.rate_bps !== null
             ? e.serviceRate(formatRate(p.rate_bps))
@@ -501,7 +503,7 @@ export function useEarningApprovals(api: ApiLike, viewer: Viewer): EarningApprov
             : through !== null
               ? due
               : due.filter((r) => r.status === "approved");
-    const payTotal = sum([...paying, ...travelling(mine, paying)]);
+    const payTotal = paying.length === 0 ? 0 : sum([...paying, ...travelling(mine, paying)]);
     const settles = paying.length > 0 && payTotal === 0;
     const groups = useMemo(
         () =>

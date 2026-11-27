@@ -537,24 +537,19 @@ jobs:
           name: mobile-apk
       - name: put the build where the lane installs it from
         run: mkdir -p .scratchpad/native && mv app-release.apk .scratchpad/native/clientbridge-e2e.apk
-      # prepare runs beside the build, so its seed snapshot is normally uploaded by now; without it the lane seeds its own
-      - name: wait for the prepared seed snapshot
-        id: prepared
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          for _ in $(seq 60); do
-            found=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?name=e2e-prepared" --jq .total_count)
-            if [ "$found" = 1 ]; then echo "found=true" >> "$GITHUB_OUTPUT"; exit 0; fi
-            sleep 5
-          done
-          echo "::warning::no prepared seed snapshot after five minutes; the lane seeds its own"
-      - if: steps.prepared.outputs.found == 'true'
+      # waits on prepare itself, since the artifact list shows its snapshot before it can be downloaded; without it the lane seeds its own
+      - id: prepared
+        uses: ./.github/actions/await-job
+        with:
+          job: prepare
+          minutes: "5"
+          required: "false"
+      - if: steps.prepared.outputs.passed == 'true'
         uses: actions/download-artifact@v8
         with:
           name: e2e-prepared
           path: ${{ runner.temp }}/prepared
-      - if: steps.prepared.outputs.found == 'true'
+      - if: steps.prepared.outputs.passed == 'true'
         run: mkdir -p ~/.cache/clientbridge-test && cp -R "$RUNNER_TEMP/prepared/snapshots" ~/.cache/clientbridge-test/
       - name: run the walkthroughs
         working-directory: backend

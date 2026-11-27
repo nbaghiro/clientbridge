@@ -18,6 +18,7 @@ export function PublicDocument({
     children,
     hero,
     actions,
+    overlay,
     width = "wide",
 }: {
     brand: PublicBrand;
@@ -26,6 +27,8 @@ export function PublicDocument({
     children: ReactNode;
     hero?: ReactNode;
     actions?: ReactNode;
+    // a dialog over the page, kept out of the raised content so the navigation can't cover it
+    overlay?: ReactNode;
     width?: "wide" | "narrow";
 }) {
     const style = brandStyle(brand);
@@ -52,6 +55,7 @@ export function PublicDocument({
                 {children}
             </div>
             <PoweredBy />
+            {overlay}
         </div>
     );
 }
