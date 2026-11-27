@@ -56,13 +56,11 @@ tags:
       visible: "Included transactions"
       timeout: 30000
 - assertVisible: "Deposited"
-# the sheet's pager sits at its end, so the flow scrolls all the way before using it
-- swipe:
-      start: "50%,80%"
-      end: "50%,20%"
-- swipe:
-      start: "50%,80%"
-      end: "50%,20%"
+# the sheet's pager sits below its rows, so the flow scrolls until it shows
+- scrollUntilVisible:
+      element: "Next transactions"
+      direction: DOWN
+      timeout: 30000
 - tapOn: "Next transactions"
 - extendedWaitUntil:
       visible: "Previous transactions"
@@ -70,14 +68,9 @@ tags:
 - assertNotVisible: "Next transactions"
 - takeScreenshot: payouts-contents-older
 - tapOn: "Previous transactions"
-- swipe:
-      start: "50%,80%"
-      end: "50%,20%"
-- swipe:
-      start: "50%,80%"
-      end: "50%,20%"
-- extendedWaitUntil:
-      visible: "Next transactions"
+- scrollUntilVisible:
+      element: "Next transactions"
+      direction: DOWN
       timeout: 30000
 - assertNotVisible: "Previous transactions"
 - tapOn: "Next transactions"
@@ -93,14 +86,9 @@ tags:
 - extendedWaitUntil:
       visible: "Included transactions"
       timeout: 30000
-- swipe:
-      start: "50%,80%"
-      end: "50%,20%"
-- swipe:
-      start: "50%,80%"
-      end: "50%,20%"
-- extendedWaitUntil:
-      visible: "Next transactions"
+- scrollUntilVisible:
+      element: "Next transactions"
+      direction: DOWN
       timeout: 30000
 - assertNotVisible: "Previous transactions"
 - tapOn:
