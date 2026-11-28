@@ -111,6 +111,12 @@ const FAILURES: Record<string, (detail: FailureDetail) => string> = {
     booking_closed: () => strings.api.bookingClosed,
     deposit_unpaid: () => strings.api.depositUnpaid,
     too_many_requests: () => strings.api.tooManyRequests,
+    code_locked: () => strings.api.codeLocked,
+    codes_limited: (d) =>
+        typeof d.minutes === "number"
+            ? strings.api.codesLimited(d.minutes)
+            : strings.api.tooManyRequests,
+    returning_expired: () => strings.api.returningExpired,
     deposit_in_progress: () => strings.api.depositInProgress,
     payment_in_progress: () => strings.api.paymentInProgress,
     payment_method_in_use: () => strings.api.paymentMethodInUse,

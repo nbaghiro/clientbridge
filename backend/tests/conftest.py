@@ -210,6 +210,17 @@ class DownSmsSender(FakeSmsSender):
         raise RuntimeError("sms provider down")
 
 
+class FailingSmsSender(FakeSmsSender):
+    """Fails every send with the given error, the way a provider or transport refuses a text."""
+
+    def __init__(self, failure: Exception) -> None:
+        super().__init__()
+        self.failure = failure
+
+    async def send(self, sms: Sms) -> str | None:
+        raise self.failure
+
+
 class FakePushSender:
     def __init__(self) -> None:
         self.sent: list[Push] = []

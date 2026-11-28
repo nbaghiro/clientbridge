@@ -536,7 +536,12 @@ a non-2xx reply makes it retry.
 - **Clients**: the API holds no passwords, sessions or reset tokens; the only token it signs is the
   short-lived PowerSync JWT. Clients **book without an account** (name and phone on the public page); a
   returning client proves the phone with a texted code (`returning_challenges`), and a future portal would
-  link a client to a login via `clients.user_id`.
+  link a client to a login via `clients.user_id`. A number gets three codes per 15 minutes (`codes_limited`)
+  and a code five tries (`code_locked`, even for the right code after that); a code the provider never took
+  doesn't count (`sms_failed`), while one it refused for the number itself does (`sms_refused`), and so
+  does one whose reply was lost after the request went out, since that text may have been sent. The proof
+  lasts 30 minutes, ends early when the client is archived (`returning_expired`), and the page drops it once
+  the contact is edited.
 
 ## Authorization & visibility
 

@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
+import { failedCode, failureMessage, refusal } from "../api";
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { PublicBookingFlow } from "./publicBooking";
@@ -37,7 +38,7 @@ export function createReturningClient(baseUrl: string): ReturningClient {
                 body: JSON.stringify(body),
             },
         );
-        if (!response.ok) throw new Error(strings.publicReturning.requestError);
+        if (!response.ok) throw await refusal(response);
         return (await response.json()) as T;
     };
     return {
@@ -56,22 +57,39 @@ export function useReturningClient(
     const [code, setCode] = useState("");
     const [challengeId, setChallengeId] = useState<string | null>(null);
     const [verified, setVerified] = useState<ReturningVerified | null>(null);
+    const [proofEnded, setProofEnded] = useState(false);
     const generation = useRef(0);
+    const appliedToken = useRef<string | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
     const s = strings.publicReturning;
 
-    useEffect(() => {
+    // appliedToken stays held, or the apply effect re-applies the stale proof in the same commit
+    const forget = useCallback((): void => {
         generation.current += 1;
         setChallengeId(null);
         setVerified(null);
         setCode("");
+    }, []);
+
+    useEffect(() => {
+        forget();
         setContact("");
+        setProofEnded(false);
         return () => {
             generation.current += 1;
         };
-    }, [slug]);
+    }, [slug, forget]);
 
-    const appliedToken = useRef<string | null>(null);
+    const flowToken = useRef<string | null>(null);
+    useEffect(() => {
+        const held = booking?.returningToken ?? null;
+        // editing the contact, or a refused booking, ends the proof; show it as unverified
+        if (flowToken.current !== null && held === null && appliedToken.current !== null) {
+            forget();
+            setProofEnded(true);
+        }
+        flowToken.current = held;
+    }, [booking?.returningToken, forget]);
     useEffect(() => {
         if (
             !booking ||
@@ -89,11 +107,8 @@ export function useReturningClient(
     }, [booking, verified]);
     const reset = (): void => {
         appliedToken.current = null;
+        forget();
         booking?.setReturning(null);
-        generation.current += 1;
-        setChallengeId(null);
-        setVerified(null);
-        setCode("");
         setError(null);
     };
     const requestCode = (): void => {
@@ -112,7 +127,10 @@ export function useReturningClient(
                 setVerified(null);
                 setCode("");
             },
-            { errorMessage: s.requestError },
+            {
+                errorMessage: (e) =>
+                    generation.current === requestGeneration ? requestFailure(e) : null,
+            },
         );
     };
     const verifyCode = (): void => {
@@ -127,7 +145,16 @@ export function useReturningClient(
                 const result = await client.verify(slug, challengeId, code.trim());
                 if (generation.current === requestGeneration) setVerified(result);
             },
-            { errorMessage: s.verifyError },
+            {
+                errorMessage: (e) => {
+                    if (generation.current !== requestGeneration) return null;
+                    if (failedCode(e) === "code_locked") {
+                        setChallengeId(null);
+                        setCode("");
+                    }
+                    return failureMessage(e, s.verifyError);
+                },
+            },
         );
     };
     const stage =
@@ -166,7 +193,18 @@ export function useReturningClient(
         },
         profile: verified?.profile ?? null,
         token: verified?.token ?? null,
+        proofEnded,
     };
+}
+
+function requestFailure(e: unknown): string {
+    const code = failedCode(e);
+    if (code === "sms_unassigned" || code === "sms_failed")
+        return strings.publicReturning.textsUnavailable;
+    if (code === "sms_refused") return strings.publicReturning.numberRefused;
+    // the number is the request's only field, so a malformed request is a malformed number
+    if (code === "invalid_request") return strings.api.invalidPhone;
+    return failureMessage(e, strings.publicReturning.requestError);
 }
 
 function applyReturning(

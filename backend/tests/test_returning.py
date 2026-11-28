@@ -2,17 +2,21 @@ import re
 from datetime import timedelta
 
 import httpx
+import pytest
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
+from clientbridge.core.errors import Undelivered
 from clientbridge.core.ids import new_id
+from clientbridge.integrations.twilio import get_sms_sender
+from clientbridge.main import app
 from clientbridge.models.business import Business
 from clientbridge.models.clients import Client, Subject
 from clientbridge.models.platform import File
 from clientbridge.models.returning import ReturningChallenge
 from clientbridge.models.scheduling import Booking, Slot
-from tests.conftest import BIZ, Factory, FakeEmailSender, FakeSmsSender
+from tests.conftest import BIZ, Factory, FailingSmsSender, FakeEmailSender, FakeSmsSender
 
 SLUG = "birchbark"
 PHONE = "+12505550197"
@@ -124,9 +128,16 @@ async def test_bad_codes_lock_after_five_and_expired_codes_fail(
     await _client(db)
     challenge, code = await _request(api, sms)
     wrong = "111111" if code != "111111" else "222222"
-    for _ in range(5):
-        assert (await _verify(api, challenge, wrong)).status_code == 401
-    assert (await _verify(api, challenge, code)).status_code == 401
+    for _ in range(4):
+        refused = await _verify(api, challenge, wrong)
+        assert (refused.status_code, refused.json()["error"]) == (401, "unauthorized")
+    for attempt in (wrong, code):
+        locked = await _verify(api, challenge, attempt)
+        assert (locked.status_code, locked.json()["error"]) == (429, "code_locked")
+    row = await db.get(ReturningChallenge, challenge)
+    assert row is not None and row.attempts == 5 and row.verified_at is None
+    challenge, code = await _request(api, sms)
+    assert (await _verify(api, challenge, code)).status_code == 200
     challenge, code = await _request(api, sms)
     row = await db.get(ReturningChallenge, challenge)
     assert row is not None
@@ -141,12 +152,11 @@ async def test_destination_limit_is_case_insensitive_and_input_is_validated(
 ) -> None:
     for _ in range(3):
         await _request(api, sms)
-    assert (
-        await api.post(f"/book/{SLUG}/returning/request", json={"phone": PHONE})
-    ).status_code == 429
-    assert (
-        await api.post(f"/book/{SLUG}/returning/request", json={"phone": "bad"})
-    ).status_code == 422
+    limited = await api.post(f"/book/{SLUG}/returning/request", json={"phone": PHONE})
+    assert (limited.status_code, limited.json()["error"]) == (429, "codes_limited")
+    assert limited.json()["detail"] == {"minutes": 15}
+    bad = await api.post(f"/book/{SLUG}/returning/request", json={"phone": "123456789012"})
+    assert (bad.status_code, bad.json()["error"]) == (422, "invalid_phone")
     assert (await _verify(api, "unknown", "12")).status_code == 422
     assert (
         await api.post("/book/missing/returning/request", json={"phone": PHONE})
@@ -268,7 +278,8 @@ async def test_existing_pet_requires_proof_and_belongs_to_verified_client(
     assert row is not None
     row.session_expires_at = clock.now() - timedelta(seconds=1)
     await db.flush()
-    assert (await _book(api, returning_token=verified.json()["token"])).status_code == 401
+    expired = await _book(api, returning_token=verified.json()["token"])
+    assert (expired.status_code, expired.json()["error"]) == (401, "returning_expired")
 
 
 async def test_changed_or_archived_identity_invalidates_proof(
@@ -282,7 +293,11 @@ async def test_changed_or_archived_identity_invalidates_proof(
     client.phone = PHONE
     challenge, code = await _request(api, sms)
     verified = await _verify(api, challenge, code)
-    client.deleted_at = clock.now()
+    client.status, client.archived_at = "inactive", clock.now()
+    await db.flush()
+    archived = await _book(api, returning_token=verified.json()["token"])
+    assert (archived.status_code, archived.json()["error"]) == (401, "returning_expired")
+    client.status, client.archived_at, client.deleted_at = "active", None, clock.now()
     await db.flush()
     assert (await _book(api, returning_token=verified.json()["token"])).status_code == 401
 
@@ -350,7 +365,6 @@ async def test_phone_validation_and_nonexistent_phone_do_not_disclose_clients(
 ) -> None:
     for payload in (
         {},
-        {},
         {"phone": "nonsense"},
         {"phone": "123456789012"},
     ):
@@ -368,13 +382,94 @@ async def test_phone_validation_and_nonexistent_phone_do_not_disclose_clients(
 async def test_unassigned_sms_does_not_create_a_challenge(
     api: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
-    from clientbridge.models.business import Business
-
     business = await db.get(Business, BIZ)
     assert business is not None
     business.sms_number = None
     await db.commit()
     response = await api.post(f"/book/{SLUG}/returning/request", json={"phone": "+16045550123"})
-    assert response.status_code == 503
+    assert (response.status_code, response.json()["error"]) == (503, "sms_unassigned")
     assert list(await db.scalars(select(ReturningChallenge))) == []
     assert sms.sent == []
+
+
+def _twilio_refusal(status: int, body: dict[str, object] | None) -> httpx.HTTPStatusError:
+    request = httpx.Request("POST", "https://api.twilio.test/Messages.json")
+    response = (
+        httpx.Response(status, request=request, json=body)
+        if body is not None
+        else httpx.Response(status, request=request, text="<html>unavailable</html>")
+    )
+    return httpx.HTTPStatusError("refused", request=request, response=response)
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        _twilio_refusal(401, {"code": 20003}),
+        _twilio_refusal(500, None),
+        _twilio_refusal(400, {"code": 21408}),
+        _twilio_refusal(400, None),
+        httpx.ConnectError("unreachable"),
+        Undelivered("smtp_451", retry=True),
+    ],
+    ids=["auth", "outage", "region", "not-json", "unreachable", "smtp"],
+)
+async def test_a_code_the_provider_never_took_is_withdrawn_and_not_counted(
+    api: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender, failure: Exception
+) -> None:
+    await _client(db)
+    app.dependency_overrides[get_sms_sender] = lambda: FailingSmsSender(failure)
+    try:
+        for _ in range(4):
+            refused = await api.post(f"/book/{SLUG}/returning/request", json={"phone": PHONE})
+            assert (refused.status_code, refused.json()["error"]) == (502, "sms_failed")
+    finally:
+        app.dependency_overrides[get_sms_sender] = lambda: sms
+    assert list(await db.scalars(select(ReturningChallenge))) == []
+    challenge, code = await _request(api, sms)
+    assert (await _verify(api, challenge, code)).status_code == 200
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [httpx.ReadTimeout("no reply"), httpx.RemoteProtocolError("dropped")],
+    ids=["read-timeout", "dropped"],
+)
+async def test_a_send_whose_reply_was_lost_still_counts(
+    api: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender, failure: Exception
+) -> None:
+    await _client(db)
+    app.dependency_overrides[get_sms_sender] = lambda: FailingSmsSender(failure)
+    try:
+        for _ in range(3):
+            refused = await api.post(f"/book/{SLUG}/returning/request", json={"phone": PHONE})
+            assert (refused.status_code, refused.json()["error"]) == (502, "sms_failed")
+    finally:
+        app.dependency_overrides[get_sms_sender] = lambda: sms
+    challenges = list(await db.scalars(select(ReturningChallenge)))
+    assert len(challenges) == 3
+    assert all(c.expires_at <= clock.now() for c in challenges)
+    limited = await api.post(f"/book/{SLUG}/returning/request", json={"phone": PHONE})
+    assert (limited.status_code, limited.json()["error"]) == (429, "codes_limited")
+    assert sms.sent == []
+
+
+@pytest.mark.parametrize("twilio_code", [21211, 21610, 21612, 21614])
+async def test_a_number_the_provider_refuses_says_so_and_still_counts(
+    api: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender, twilio_code: int
+) -> None:
+    await _client(db)
+    refusal = _twilio_refusal(400, {"code": twilio_code, "message": "refused"})
+    app.dependency_overrides[get_sms_sender] = lambda: FailingSmsSender(refusal)
+    try:
+        for _ in range(3):
+            refused = await api.post(f"/book/{SLUG}/returning/request", json={"phone": PHONE})
+            assert (refused.status_code, refused.json()["error"]) == (422, "sms_refused")
+        limited = await api.post(f"/book/{SLUG}/returning/request", json={"phone": PHONE})
+        assert (limited.status_code, limited.json()["error"]) == (429, "codes_limited")
+    finally:
+        app.dependency_overrides[get_sms_sender] = lambda: sms
+    rows = list(await db.scalars(select(ReturningChallenge)))
+    assert len(rows) == 3
+    assert all(row.expires_at <= clock.now() for row in rows)
+    assert (await _verify(api, rows[0].id, "123456")).status_code == 401

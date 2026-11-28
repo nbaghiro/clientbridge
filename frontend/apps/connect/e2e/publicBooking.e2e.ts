@@ -271,6 +271,114 @@ test(
     },
 );
 
+test(
+    "XB-E2E-24 in the embedded page on a phone, a returning client tries another number, sees every code button and one welcome, and an edit asks for a code again",
+    { tag: "@browsers" },
+    async ({ browser }, info) => {
+        const b = strings.publicBooking;
+        const g = b.guided;
+        const t = strings.publicReturning;
+        const base = info.project.use.baseURL;
+        const context = await browser.newContext({
+            viewport: { width: 390, height: 844 },
+            ...(base === undefined ? {} : { baseURL: base }),
+        });
+        await ownAddress(context, info);
+        const page = await context.newPage();
+        const errors = watchErrors(page);
+        const found = {
+            token: "proof",
+            profile: {
+                name: "Pat Lee",
+                phone: "+12505550199",
+                subjects: [{ id: "sj_rex", name: "Rex" }],
+                last_visit: null,
+                photo_url: null,
+            },
+        };
+        const requested: string[] = [];
+        let answer: typeof found | { token: null; profile: null } = { token: null, profile: null };
+        // the code endpoints are answered here, so no text is sent and no number's budget is spent
+        await page.route(`**/book/${slug}/returning/request`, (route) => {
+            requested.push((route.request().postDataJSON() as { phone: string }).phone);
+            return route.fulfill({ json: { challenge_id: "rtc_phone" } });
+        });
+        await page.route(`**/book/${slug}/returning/verify`, (route) =>
+            route.fulfill({ json: answer }),
+        );
+        await page.goto(`/${slug}?embed=1&presentation=guided`);
+        const business = (await page.getByRole("heading", { level: 1 }).textContent()) ?? "";
+        await page.getByRole("button", { name: new RegExp(`^${g.returning}`) }).click();
+        const contact = page.getByRole("textbox", { name: t.contact });
+        const verify = async (number: string): Promise<void> => {
+            await contact.fill(number);
+            await page.getByRole("button", { name: t.sendCode, exact: true }).click();
+            await page.getByRole("textbox", { name: t.code, exact: true }).fill("123456");
+            await page.getByRole("button", { name: t.verify, exact: true }).click();
+        };
+        await contact.fill("2505550198");
+        await page.getByRole("button", { name: t.sendCode, exact: true }).click();
+        for (const name of [t.verify, t.changeContact]) {
+            const box = await page.getByRole("button", { name, exact: true }).boundingBox();
+            expect(box, name).not.toBeNull();
+            expect((box?.x ?? 0) + (box?.width ?? 0), name).toBeLessThanOrEqual(390);
+        }
+        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+            390,
+        );
+        await page.getByRole("textbox", { name: t.code, exact: true }).fill("123456");
+        await page.getByRole("button", { name: t.verify, exact: true }).click();
+        await expect(page.getByText(t.missing, { exact: true })).toBeVisible();
+        await page.getByRole("button", { name: t.changeContact, exact: true }).click();
+        await expect(contact).toHaveValue("2505550198");
+        answer = found;
+        await verify("2505550199");
+        expect(requested).toEqual(["2505550198", "2505550199"]);
+        const welcome = page.getByRole("heading", { name: t.welcome("Pat Lee") });
+        await expect(welcome).toHaveCount(1);
+        await expect(page.getByRole("heading", { level: 1 })).toHaveText(business);
+        await expect(page.getByRole("button", { name: "Rex", exact: true })).toBeVisible();
+
+        await page.getByRole("button", { name: g.different, exact: true }).click();
+        const openings = page.waitForResponse(
+            (response) => response.url().includes(`/book/${slug}/days?`) && response.ok(),
+        );
+        await page.getByRole("button", { name: /^Bath & Tidy/ }).click();
+        const extras = page.getByRole("heading", { name: b.stepExtras });
+        await expect(extras.or(page.getByRole("radiogroup", { name: b.date }))).toBeVisible();
+        if (await extras.isVisible())
+            await page.getByRole("button", { name: b.continue, exact: true }).click();
+        const days = (
+            (await (await openings).json()) as { days: { count: number; closed: boolean }[] }
+        ).days;
+        const open = days.findIndex((day) => day.count > 0 && !day.closed);
+        expect(open).toBeGreaterThanOrEqual(0);
+        await page.getByRole("radiogroup", { name: b.date }).getByRole("radio").nth(open).click();
+        await page
+            .getByRole("radiogroup", { name: b.openTimes })
+            .getByRole("radio")
+            .first()
+            .click();
+        await page.getByRole("button", { name: b.continue, exact: true }).click();
+        await expect(page.getByRole("heading", { name: b.stepDetails })).toBeVisible();
+        const name = page.getByRole("textbox", { name: b.name });
+        await expect(name).toHaveValue("Pat Lee");
+        await expect(contact).toBeHidden();
+        await name.fill("Pat Leigh");
+        await expect(page.getByRole("heading", { name: t.title, exact: true })).toBeVisible();
+        await expect(contact).toHaveValue("2505550199");
+        await expect(welcome).toBeHidden();
+        // clearing the number to retype it keeps the panel open
+        await contact.fill("");
+        await expect(contact).toBeVisible();
+        await verify("2505550199");
+        await expect(welcome).toHaveCount(1);
+        await expect(name).toHaveValue("Pat Lee");
+        expect(errors).toEqual([]);
+        await context.close();
+    },
+);
+
 test("XB-E2E-22 a confirmed visit's calendar file keeps the business's clock on a phone in another zone", async ({
     browser,
 }) => {

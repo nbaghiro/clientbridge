@@ -287,12 +287,13 @@ export async function returningFixture(
         owner: { email: own.email, password: own.password },
     };
 }
-export async function verifyReturning(
+
+/** Walks a customer to the details step of the fixture's service and opens the "been here before" panel. */
+export async function openReturning(
     page: Page,
     f: ReturningFixture,
     week: number,
-    photoSha256: string | null = null,
-): Promise<void> {
+): Promise<Locator> {
     const b = strings.publicBooking;
     const t = strings.publicReturning;
     const availableDays = () =>
@@ -326,9 +327,20 @@ export async function verifyReturning(
     if (!(await intro.isVisible()))
         await page.getByRole("button", { name: b.continue, exact: true }).first().click();
     await intro.click();
-    const panel = page
+    return page
         .locator("section")
         .filter({ has: page.getByRole("heading", { name: t.title, exact: true }) });
+}
+
+export async function verifyReturning(
+    page: Page,
+    f: ReturningFixture,
+    week: number,
+    photoSha256: string | null = null,
+): Promise<void> {
+    const b = strings.publicBooking;
+    const t = strings.publicReturning;
+    const panel = await openReturning(page, f, week);
     await panel.getByRole("textbox", { name: t.contact }).fill(f.clientPhone);
     await panel.getByRole("button", { name: t.sendCode, exact: true }).click();
     await page

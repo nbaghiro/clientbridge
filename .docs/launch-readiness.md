@@ -44,7 +44,7 @@ Linear tracks status: the [Launch QA initiative](https://linear.app/clientbridge
 | 3. Run the day                          | Crew jobs, visit records and photos                         | [CB-21](https://linear.app/clientbridgeca/issue/CB-21) | Manual           |
 | 3. Run the day                          | Visit reminders                                             | [CB-22](https://linear.app/clientbridgeca/issue/CB-22) | Partly automated |
 | 4. Book online                          | Online booking with deposits                                | [CB-24](https://linear.app/clientbridgeca/issue/CB-24) | Automated        |
-| 4. Book online                          | Returning-client sign-in by text code                       | [CB-25](https://linear.app/clientbridgeca/issue/CB-25) | Partly automated |
+| 4. Book online                          | Returning-client sign-in by text code                       | [CB-25](https://linear.app/clientbridgeca/issue/CB-25) | Automated        |
 | 4. Book online                          | Booking add-ons billed once                                 | [CB-26](https://linear.app/clientbridgeca/issue/CB-26) | Automated        |
 | 4. Book online                          | Reschedule and cancel by link                               | [CB-27](https://linear.app/clientbridgeca/issue/CB-27) | Automated        |
 | 4. Book online                          | Business page and website embed                             | [CB-28](https://linear.app/clientbridgeca/issue/CB-28) | Automated        |
@@ -1088,7 +1088,7 @@ Clients find the business, book and pay a deposit, and change their plans withou
 ### Returning-client sign-in by text code (CB-25)
 
 **Covers:** Connect returning-client verification by SMS code
-**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a client with a pet and a real phone on staging
+**Before you start:** Birchbark Pet Studio (BC, pets): owner hannah@birchbark.example, admin admin@birchbark.example, staff priya@birchbark.example and diego@birchbark.example, password demo1234; a client with a pet
 
 **Where to test**
 
@@ -1097,30 +1097,24 @@ Clients find the business, book and pay a deposit, and change their plans withou
 
 **QA steps**
 
-1. Book as a returning client and verify the texted code.
-   **Expect:** the existing pet is offered and the stored contact is kept.
+1. Book as a returning client and verify the texted code, on a wide screen and in the embedded page on a phone.
+   **Expect:** the existing pet is offered and the stored contact is kept; on a phone the code buttons fit and the welcome shows once; a number with no record can try another.
 2. Edit the contact details after verifying.
-   **Expect:** the proof is cleared and nothing is written until confirmed.
+   **Expect:** the proof is cleared, the panel asks for a code again instead of offering the saved pets (also on the embedded page's details step), and nothing is written until confirmed.
 3. Archive the client, then try to book with the old proof.
-   **Expect:** refused.
+   **Expect:** refused with a plain message to verify again; the panel asks for a code again.
 4. Enter wrong codes past the limit.
-   **Expect:** verification locks with a plain message.
+   **Expect:** verification locks with a plain message and asks for a new code, refusing even the right one; two people verifying the same number at once each get their own proof.
 
 **Done when:** A returning client books their own pet without retyping it, and nobody else can.
-
-**Before production**
-
-- The code arriving on a real phone.
 
 **Automated by**
 
 - `CRM-E2E-05 (journeys)`
 - `CRM-E2E-06 (journeys)`
 - `CRM-E2E-07 (journeys)`
-
-**To automate**
-
-- `CRM-E2E-14` in `apps/web/e2e/journeys/client.journey.ts`: Verification threshold and two concurrent verifications.
+- `CRM-E2E-14 (journeys)`
+- `XB-E2E-24 (connect)`
 
 **Depends on:** Nothing
 
